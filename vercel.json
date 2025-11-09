@@ -1,0 +1,24 @@
+{
+  "version": 2,
+  "buildCommand": "yarn build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "installCommand": "yarn install",
+
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index.mjs"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+
+  "env": {
+    "VITE_APP_VERSION": "v1.0.0",
+    "VITE_APP_BASE_NAME": "/",
+    "VITE_APP_NAME": "Сметное приложение"
+  }
+}

@@ -1,0 +1,180 @@
+/**
+ * Стили для печати форм КС-2 и КС-3
+ * Обеспечивают корректное отображение официальных строительных документов
+ */
+
+@media print {
+  /* Общие настройки печати */
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 10pt;
+    color: #000;
+    background: white;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Скрыть элементы интерфейса */
+  header,
+  nav,
+  .MuiAppBar-root,
+  .MuiDrawer-root,
+  .MuiDialog-paper > .MuiDialogTitle-root,
+  .MuiDialog-paper > .MuiDialogActions-root,
+  .MuiDialogTitle-root,
+  .MuiDialogActions-root,
+  .MuiTabs-root,
+  button,
+  .no-print,
+  .MuiButton-root,
+  .MuiIconButton-root,
+  .MuiChip-root,
+  .MuiAlert-root,
+  .MuiFab-root {
+    display: none !important;
+  }
+
+  /* Показываем только содержимое форм */
+  .form-ks2,
+  .form-ks3 {
+    display: block !important;
+    page-break-inside: auto;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+  }
+
+  /* Убираем фон и границы */
+  .MuiPaper-root,
+  .MuiBox-root,
+  .MuiDialogContent-root {
+    background: transparent !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+  }
+
+  /* Убираем отступы у диалога */
+  .MuiDialog-paper {
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    box-shadow: none !important;
+  }
+
+  .MuiDialogContent-root {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Стили для таблиц */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    page-break-inside: auto;
+    margin: 0 !important;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  th, td {
+    border: 1px solid #000 !important;
+    padding: 2px 4px !important;
+    font-size: 9pt !important;
+    line-height: 1.1 !important;
+  }
+
+  th {
+    font-weight: bold !important;
+    background-color: #f5f5f5 !important;
+  }
+
+  /* Шрифты для печати */
+  .MuiTypography-h6 {
+    font-size: 12pt !important;
+    font-weight: bold !important;
+    margin: 4px 0 !important;
+  }
+
+  .MuiTypography-body2 {
+    font-size: 9pt !important;
+    margin: 0 !important;
+  }
+
+  .MuiTypography-caption {
+    font-size: 8pt !important;
+    margin: 0 !important;
+  }
+
+  /* Выделение отчетного периода в КС-3 */
+  td[sx*="bgcolor: '#e8f5e9'"],
+  th[sx*="bgcolor: '#e8f5e9'"] {
+    background-color: #e8f5e9 !important;
+  }
+
+  /* Итоговые строки */
+  tr[sx*="bgcolor: '#f5f5f5'"] td,
+  .MuiTableRow-root[sx*="bgcolor"] td {
+    background-color: #f5f5f5 !important;
+  }
+
+  /* Запрет разрыва страницы */
+  .form-ks2,
+  .form-ks3 {
+    page-break-after: avoid;
+  }
+
+  /* Подписи остаются на той же странице */
+  .form-ks2 > div:last-child,
+  .form-ks3 > div:last-child {
+    page-break-before: avoid;
+  }
+}
+
+/* Дополнительные утилиты для принудительного управления печатью */
+.page-break-before {
+  page-break-before: always;
+}
+
+.page-break-after {
+  page-break-after: always;
+}
+
+.avoid-page-break {
+  page-break-inside: avoid;
+}
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  .print-only {
+    display: block !important;
+  }
+}
