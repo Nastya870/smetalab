@@ -11,8 +11,28 @@ import Divider from '@mui/material/Divider';
 import Chip from '@mui/material/Chip';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
+import Stack from '@mui/material/Stack';
+import Paper from '@mui/material/Paper';
+import Tooltip from '@mui/material/Tooltip';
+import Badge from '@mui/material/Badge';
+import Alert from '@mui/material/Alert';
+import Collapse from '@mui/material/Collapse';
+import { alpha } from '@mui/material/styles';
 import { useState, useEffect, useRef } from 'react';
-import { IconEdit, IconDeviceFloppy, IconX, IconCamera } from '@tabler/icons-react';
+import { 
+  IconEdit, 
+  IconDeviceFloppy, 
+  IconX, 
+  IconCamera,
+  IconBuildingBank,
+  IconUserCheck,
+  IconMapPin,
+  IconPhone,
+  IconMail,
+  IconShield,
+  IconInfoCircle,
+  IconCheck
+} from '@tabler/icons-react';
 
 // project imports
 import MainCard from 'ui-component/cards/MainCard';
@@ -167,7 +187,7 @@ const SocialProfile = () => {
       // Сохраняем данные организации
       let updatedData = { ...formData };
       const response = await tenantsAPI.update(tenant.id, updatedData);
-      console.log('[SocialProfile] Tenant updated:', response);
+      console.log('[SocialProfile] Tenant updated, response:', response);
       
       // Если есть новый аватар пользователя, загружаем его
       if (avatarFile) {
@@ -184,10 +204,6 @@ const SocialProfile = () => {
             avatar_url: uploadResponse.avatar_url 
           };
           localStorage.setItem('user', JSON.stringify(updatedUser));
-          window.dispatchEvent(new StorageEvent('storage', {
-            key: 'user',
-            newValue: JSON.stringify(updatedUser)
-          }));
         } catch (avatarError) {
           console.error('[SocialProfile] Error uploading avatar:', avatarError);
           alert('Ошибка при загрузке фото: ' + (avatarError.response?.data?.message || avatarError.message));
@@ -195,21 +211,21 @@ const SocialProfile = () => {
         }
       }
       
-      // Обновляем tenant в localStorage
+      // Обновляем tenant в localStorage с данными из ответа сервера
       const updatedTenant = { 
-        ...tenant, 
+        ...tenant,
         ...response
       };
+      console.log('[SocialProfile] Updating localStorage with tenant:', updatedTenant);
       localStorage.setItem('tenant', JSON.stringify(updatedTenant));
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'tenant',
-        newValue: JSON.stringify(updatedTenant)
-      }));
       
       console.log('[SocialProfile] All data saved successfully');
+      alert('Данные успешно сохранены! Страница будет перезагружена.');
       
       // Перезагружаем страницу чтобы обновить данные в useAuth
-      window.location.reload();
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
       
       setEditMode(false);
     } catch (error) {
@@ -225,93 +241,212 @@ const SocialProfile = () => {
     });
   };
 
+  // Helper компонент для отображения поля
+  const InfoField = ({ label, value, icon: Icon, monospace = false }) => (
+    <Stack spacing={0.5}>
+      <Stack direction="row" spacing={1} alignItems="center">
+        {Icon && <Icon size={16} color={theme.palette.text.secondary} />}
+        <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600 }}>
+          {label}
+        </Typography>
+      </Stack>
+      <Typography 
+        variant="body1" 
+        sx={{ 
+          pl: Icon ? 3 : 0, 
+          fontWeight: 500,
+          fontFamily: monospace ? 'monospace' : 'inherit',
+          color: value ? 'text.primary' : 'text.disabled'
+        }}
+      >
+        {value || 'Не указано'}
+      </Typography>
+    </Stack>
+  );
+
   return (
-    <MainCard title="Профиль организации">
+    <MainCard 
+      title="Профиль организации"
+      secondary={
+        <Stack direction="row" spacing={1} alignItems="center">
+          {editMode && (
+            <Chip 
+              label="Режим редактирования" 
+              color="warning" 
+              size="small"
+              icon={<IconEdit size={16} />}
+            />
+          )}
+          {!editMode ? (
+            <Tooltip title="Редактировать профиль">
+              <Button
+                variant="outlined"
+                startIcon={<IconEdit size={18} />}
+                onClick={handleEdit}
+                size="medium"
+              >
+                Редактировать
+              </Button>
+            </Tooltip>
+          ) : (
+            <>
+              <Button
+                variant="contained"
+                startIcon={<IconCheck size={18} />}
+                onClick={handleSave}
+                size="medium"
+                color="success"
+              >
+                Сохранить
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<IconX size={18} />}
+                onClick={handleCancel}
+                size="medium"
+                color="error"
+              >
+                Отмена
+              </Button>
+            </>
+          )}
+        </Stack>
+      }
+    >
       <Grid container spacing={3}>
         {/* Карточка профиля пользователя */}
         <Grid item xs={12} md={4}>
-          <Card sx={{ textAlign: 'center' }}>
+          <Card 
+            sx={{ 
+              textAlign: 'center',
+              background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.primary.light, 0.1)} 100%)`,
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+              position: 'relative',
+              overflow: 'visible'
+            }}
+          >
             <CardContent>
-              <Box sx={{ position: 'relative', display: 'inline-block' }}>
-                <Avatar
-                  src={avatarUrl}
-                  alt="user-avatar"
-                  sx={{
-                    width: 120,
-                    height: 120,
-                    margin: '0 auto 16px',
-                    border: `4px solid ${theme.palette.primary.main}`
-                  }}
+              <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
+                <Badge
+                  overlap="circular"
+                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                  badgeContent={
+                    editMode && (
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <Tooltip title="Изменить фото">
+                          <IconButton
+                            onClick={handleAvatarClick}
+                            sx={{
+                              bgcolor: 'primary.main',
+                              color: 'white',
+                              width: 40,
+                              height: 40,
+                              boxShadow: 3,
+                              '&:hover': {
+                                bgcolor: 'primary.dark',
+                                transform: 'scale(1.1)'
+                              },
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            <IconCamera size={20} />
+                          </IconButton>
+                        </Tooltip>
+                        {(user?.avatar_url || avatarFile) && (
+                          <Tooltip title="Удалить фото">
+                            <IconButton
+                              onClick={handleRemoveAvatar}
+                              sx={{
+                                bgcolor: 'error.main',
+                                color: 'white',
+                                width: 40,
+                                height: 40,
+                                boxShadow: 3,
+                                '&:hover': {
+                                  bgcolor: 'error.dark',
+                                  transform: 'scale(1.1)'
+                                },
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              <IconX size={20} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    )
+                  }
+                >
+                  <Avatar
+                    src={avatarUrl}
+                    alt="user-avatar"
+                    sx={{
+                      width: 140,
+                      height: 140,
+                      border: `5px solid white`,
+                      boxShadow: `0 4px 20px ${alpha(theme.palette.primary.main, 0.3)}`,
+                      transition: 'transform 0.3s ease',
+                      '&:hover': {
+                        transform: editMode ? 'scale(1.05)' : 'none',
+                        cursor: editMode ? 'pointer' : 'default'
+                      }
+                    }}
+                    onClick={editMode ? handleAvatarClick : undefined}
+                  />
+                </Badge>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  style={{ display: 'none' }}
                 />
-                {editMode && (
-                  <>
-                    <IconButton
-                      onClick={handleAvatarClick}
-                      sx={{
-                        position: 'absolute',
-                        bottom: 12,
-                        right: -8,
-                        bgcolor: 'primary.main',
-                        color: 'white',
-                        width: 36,
-                        height: 36,
-                        '&:hover': {
-                          bgcolor: 'primary.dark'
-                        }
-                      }}
-                    >
-                      <IconCamera size={20} />
-                    </IconButton>
-                    {(user?.avatar_url || avatarFile) && (
-                      <IconButton
-                        onClick={handleRemoveAvatar}
-                        sx={{
-                          position: 'absolute',
-                          bottom: 12,
-                          right: 32,
-                          bgcolor: 'error.main',
-                          color: 'white',
-                          width: 36,
-                          height: 36,
-                          '&:hover': {
-                            bgcolor: 'error.dark'
-                          }
-                        }}
-                      >
-                        <IconX size={20} />
-                      </IconButton>
-                    )}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleAvatarChange}
-                      style={{ display: 'none' }}
-                    />
-                  </>
-                )}
               </Box>
-              <Typography variant="h2" gutterBottom>
+              
+              <Typography variant="h2" gutterBottom sx={{ fontWeight: 600 }}>
                 {user?.fullName || 'Пользователь'}
               </Typography>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                {user?.email}
-              </Typography>
-              <Chip label={getRoleDisplayName()} color="primary" sx={{ mt: 1 }} />
+              
+              <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center" sx={{ mb: 1 }}>
+                <IconMail size={16} color={theme.palette.text.secondary} />
+                <Typography variant="body2" color="text.secondary">
+                  {user?.email}
+                </Typography>
+              </Stack>
+              
+              <Chip 
+                label={getRoleDisplayName()} 
+                color="primary" 
+                size="medium"
+                icon={<IconShield size={16} />}
+                sx={{ 
+                  mt: 1, 
+                  fontWeight: 600,
+                  boxShadow: 1
+                }} 
+              />
               
               {user?.phone && (
                 <>
-                  <Divider sx={{ my: 2 }} />
-                  <Box>
-                    <Typography variant="subtitle2" color="text.secondary" align="left">
-                      Телефон
-                    </Typography>
-                    <Typography variant="body1" align="left">
+                  <Divider sx={{ my: 2.5 }} />
+                  <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                    <IconPhone size={18} color={theme.palette.primary.main} />
+                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
                       {user.phone}
                     </Typography>
-                  </Box>
+                  </Stack>
                 </>
               )}
+              
+              <Collapse in={editMode}>
+                <Alert 
+                  severity="info" 
+                  icon={<IconInfoCircle size={20} />}
+                  sx={{ mt: 2, textAlign: 'left' }}
+                >
+                  Нажмите на фото, чтобы изменить аватар. Макс. размер: 5МБ
+                </Alert>
+              </Collapse>
             </CardContent>
           </Card>
         </Grid>
@@ -319,401 +454,447 @@ const SocialProfile = () => {
         {/* Детальная информация об организации */}
         <Grid item xs={12} md={8}>
           {/* Личная информация пользователя */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h3" gutterBottom>
-                Личная информация
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Grid container spacing={2}>
+          <Paper 
+            elevation={0}
+            sx={{ 
+              mb: 3,
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+              borderRadius: 2,
+              overflow: 'hidden'
+            }}
+          >
+            <Box sx={{ 
+              p: 2.5, 
+              background: `linear-gradient(90deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, ${alpha(theme.palette.primary.light, 0.05)} 100%)`,
+              borderBottom: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
+            }}>
+              <Stack direction="row" alignItems="center" spacing={1.5}>
+                <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}>
+                  <IconUserCheck size={20} />
+                </Avatar>
+                <Typography variant="h3" sx={{ fontWeight: 600 }}>
+                  Личная информация
+                </Typography>
+              </Stack>
+            </Box>
+            <CardContent sx={{ p: 3 }}>
+              <Grid container spacing={3}>
                 <Grid item xs={12} sm={6}>
-                  <Box>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Полное имя
+                  <Stack spacing={0.5}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <IconUserCheck size={16} color={theme.palette.text.secondary} />
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                        Полное имя
+                      </Typography>
+                    </Stack>
+                    <Typography variant="body1" sx={{ pl: 3, fontWeight: 500 }}>
+                      {user?.fullName || 'Не указано'}
                     </Typography>
-                    <Typography variant="body1">{user?.fullName || 'Не указано'}</Typography>
-                  </Box>
+                  </Stack>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <Box>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Email
+                  <Stack spacing={0.5}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <IconMail size={16} color={theme.palette.text.secondary} />
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                        Email
+                      </Typography>
+                    </Stack>
+                    <Typography variant="body1" sx={{ pl: 3, fontWeight: 500 }}>
+                      {user?.email || 'Не указано'}
                     </Typography>
-                    <Typography variant="body1">{user?.email || 'Не указано'}</Typography>
-                  </Box>
+                  </Stack>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <Box>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Телефон
+                  <Stack spacing={0.5}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <IconPhone size={16} color={theme.palette.text.secondary} />
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                        Телефон
+                      </Typography>
+                    </Stack>
+                    <Typography variant="body1" sx={{ pl: 3, fontWeight: 500 }}>
+                      {user?.phone || 'Не указано'}
                     </Typography>
-                    <Typography variant="body1">{user?.phone || 'Не указано'}</Typography>
-                  </Box>
+                  </Stack>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <Box>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Роль
-                    </Typography>
-                    <Typography variant="body1">{getRoleDisplayName()}</Typography>
-                  </Box>
+                  <Stack spacing={0.5}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <IconShield size={16} color={theme.palette.text.secondary} />
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                        Роль в системе
+                      </Typography>
+                    </Stack>
+                    <Chip 
+                      label={getRoleDisplayName()} 
+                      color="primary" 
+                      size="small"
+                      sx={{ ml: 3, width: 'fit-content' }}
+                    />
+                  </Stack>
                 </Grid>
               </Grid>
             </CardContent>
-          </Card>
+          </Paper>
 
           {/* Реквизиты организации */}
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h3">
+          <Paper 
+            elevation={0}
+            sx={{ 
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+              borderRadius: 2,
+              overflow: 'hidden'
+            }}
+          >
+            <Box sx={{ 
+              p: 2.5, 
+              background: `linear-gradient(90deg, ${alpha(theme.palette.success.main, 0.08)} 0%, ${alpha(theme.palette.success.light, 0.05)} 100%)`,
+              borderBottom: `1px solid ${alpha(theme.palette.success.main, 0.1)}`
+            }}>
+              <Stack direction="row" alignItems="center" spacing={1.5}>
+                <Avatar sx={{ bgcolor: 'success.main', width: 36, height: 36 }}>
+                  <IconBuildingBank size={20} />
+                </Avatar>
+                <Typography variant="h3" sx={{ fontWeight: 600, flexGrow: 1 }}>
                   Реквизиты организации
                 </Typography>
-                {!editMode ? (
-                  <Button
-                    variant="outlined"
-                    startIcon={<IconEdit />}
-                    onClick={handleEdit}
-                    size="small"
-                  >
-                    Редактировать
-                  </Button>
-                ) : (
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button
-                      variant="contained"
-                      startIcon={<IconDeviceFloppy />}
-                      onClick={handleSave}
-                      size="small"
-                    >
-                      Сохранить
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      startIcon={<IconX />}
-                      onClick={handleCancel}
-                      size="small"
-                    >
-                      Отмена
-                    </Button>
-                  </Box>
-                )}
-              </Box>
-              <Divider sx={{ mb: 3 }} />
+              </Stack>
+            </Box>
+            <CardContent sx={{ p: 3 }}>
               
-              <Grid container spacing={2}>
+              <Grid container spacing={3}>
                 {/* Наименование организации */}
                 <Grid item xs={12}>
                   {editMode ? (
                     <TextField
                       fullWidth
-                      size="small"
                       label="Полное наименование организации"
                       value={formData.companyFullName}
                       onChange={handleChange('companyFullName')}
                       placeholder='ООО "Главная компания"'
+                      variant="outlined"
+                      InputProps={{
+                        sx: { borderRadius: 1.5 }
+                      }}
                     />
                   ) : (
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Полное наименование организации
-                      </Typography>
-                      <Typography variant="body1">
-                        {formData.companyFullName || 'Не указано'}
-                      </Typography>
-                    </Box>
+                    <InfoField 
+                      label="Полное наименование организации"
+                      value={formData.companyFullName}
+                      icon={IconBuildingBank}
+                    />
                   )}
                 </Grid>
 
-                {/* ИНН */}
-                <Grid item xs={12} sm={6}>
+                {/* ИНН, ОГРН/ОГРНИП, КПП */}
+                <Grid item xs={12} sm={4}>
                   {editMode ? (
                     <TextField
                       fullWidth
-                      size="small"
                       label="ИНН"
                       value={formData.inn}
                       onChange={handleChange('inn')}
                       placeholder="10 или 12 цифр"
                       inputProps={{ maxLength: 12 }}
+                      variant="outlined"
+                      InputProps={{
+                        sx: { borderRadius: 1.5 }
+                      }}
                     />
                   ) : (
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        ИНН
-                      </Typography>
-                      <Typography variant="body1">
-                        {formData.inn || 'Не указано'}
-                      </Typography>
-                    </Box>
+                    <InfoField 
+                      label="ИНН"
+                      value={formData.inn}
+                      monospace
+                    />
                   )}
                 </Grid>
 
-                {/* ОГРН/ОГРНИП */}
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={4}>
                   {editMode ? (
                     <TextField
                       fullWidth
-                      size="small"
                       label="ОГРН/ОГРНИП"
                       value={formData.ogrn}
                       onChange={handleChange('ogrn')}
                       placeholder="13 или 15 цифр"
                       inputProps={{ maxLength: 15 }}
+                      variant="outlined"
+                      InputProps={{
+                        sx: { borderRadius: 1.5 }
+                      }}
                     />
                   ) : (
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        ОГРН/ОГРНИП
-                      </Typography>
-                      <Typography variant="body1">
-                        {formData.ogrn || 'Не указано'}
-                      </Typography>
-                    </Box>
+                    <InfoField 
+                      label="ОГРН/ОГРНИП"
+                      value={formData.ogrn}
+                      monospace
+                    />
                   )}
                 </Grid>
 
-                {/* КПП */}
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={4}>
                   {editMode ? (
                     <TextField
                       fullWidth
-                      size="small"
-                      label="КПП (необязательно)"
+                      label="КПП"
                       value={formData.kpp}
                       onChange={handleChange('kpp')}
                       placeholder="9 цифр"
                       inputProps={{ maxLength: 9 }}
+                      variant="outlined"
+                      InputProps={{
+                        sx: { borderRadius: 1.5 }
+                      }}
                     />
                   ) : (
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        КПП
-                      </Typography>
-                      <Typography variant="body1">
-                        {formData.kpp || 'Не указано'}
-                      </Typography>
-                    </Box>
+                    <InfoField 
+                      label="КПП"
+                      value={formData.kpp}
+                      monospace
+                    />
                   )}
                 </Grid>
 
-                {/* Юридический адрес */}
+                {/* Адреса */}
                 <Grid item xs={12}>
                   {editMode ? (
                     <TextField
                       fullWidth
-                      size="small"
                       multiline
                       rows={2}
                       label="Юридический адрес"
                       value={formData.legalAddress}
                       onChange={handleChange('legalAddress')}
                       placeholder="г. Москва, ул. Ленина, д. 1, офис 10"
+                      variant="outlined"
+                      InputProps={{
+                        sx: { borderRadius: 1.5 }
+                      }}
                     />
                   ) : (
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Юридический адрес
-                      </Typography>
-                      <Typography variant="body1">
-                        {formData.legalAddress || 'Не указано'}
-                      </Typography>
-                    </Box>
+                    <InfoField 
+                      label="Юридический адрес"
+                      value={formData.legalAddress}
+                      icon={IconMapPin}
+                    />
                   )}
                 </Grid>
 
-                {/* Фактический адрес */}
                 <Grid item xs={12}>
                   {editMode ? (
                     <TextField
                       fullWidth
-                      size="small"
                       multiline
                       rows={2}
-                      label="Фактический адрес (необязательно)"
+                      label="Фактический адрес"
                       value={formData.actualAddress}
                       onChange={handleChange('actualAddress')}
                       placeholder="г. Москва, ул. Ленина, д. 1, офис 10"
+                      variant="outlined"
+                      InputProps={{
+                        sx: { borderRadius: 1.5 }
+                      }}
                     />
                   ) : (
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Фактический адрес
-                      </Typography>
-                      <Typography variant="body1">
-                        {formData.actualAddress || 'Не указано'}
-                      </Typography>
-                    </Box>
+                    <InfoField 
+                      label="Фактический адрес"
+                      value={formData.actualAddress}
+                      icon={IconMapPin}
+                    />
                   )}
                 </Grid>
               </Grid>
 
               {/* Банковские реквизиты */}
-              <Typography variant="h3" gutterBottom sx={{ mt: 4 }}>
-                Банковские реквизиты
-              </Typography>
-              <Divider sx={{ mb: 3 }} />
+              <Box sx={{ mt: 4, mb: 2 }}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Divider sx={{ flexGrow: 1 }} />
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Avatar sx={{ bgcolor: alpha(theme.palette.info.main, 0.1), width: 32, height: 32 }}>
+                      <IconBuildingBank size={18} color={theme.palette.info.main} />
+                    </Avatar>
+                    <Typography variant="h4" color="info.main" sx={{ fontWeight: 600 }}>
+                      Банковские реквизиты
+                    </Typography>
+                  </Stack>
+                  <Divider sx={{ flexGrow: 1 }} />
+                </Stack>
+              </Box>
               
-              <Grid container spacing={2}>
-                {/* Расчетный счет */}
+              <Grid container spacing={3}>
                 <Grid item xs={12} sm={6}>
                   {editMode ? (
                     <TextField
                       fullWidth
-                      size="small"
                       label="Расчетный счет"
                       value={formData.bankAccount}
                       onChange={handleChange('bankAccount')}
                       placeholder="40702810000000000000"
                       inputProps={{ maxLength: 20 }}
+                      variant="outlined"
+                      InputProps={{
+                        sx: { borderRadius: 1.5, fontFamily: 'monospace' }
+                      }}
                     />
                   ) : (
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Расчетный счет
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>
-                        {formData.bankAccount || 'Не указано'}
-                      </Typography>
-                    </Box>
+                    <InfoField 
+                      label="Расчетный счет"
+                      value={formData.bankAccount}
+                      monospace
+                    />
                   )}
                 </Grid>
 
-                {/* Корреспондентский счет */}
                 <Grid item xs={12} sm={6}>
                   {editMode ? (
                     <TextField
                       fullWidth
-                      size="small"
                       label="Корреспондентский счет"
                       value={formData.correspondentAccount}
                       onChange={handleChange('correspondentAccount')}
                       placeholder="30101810000000000000"
                       inputProps={{ maxLength: 20 }}
+                      variant="outlined"
+                      InputProps={{
+                        sx: { borderRadius: 1.5, fontFamily: 'monospace' }
+                      }}
                     />
                   ) : (
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Корреспондентский счет
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>
-                        {formData.correspondentAccount || 'Не указано'}
-                      </Typography>
-                    </Box>
+                    <InfoField 
+                      label="Корреспондентский счет"
+                      value={formData.correspondentAccount}
+                      monospace
+                    />
                   )}
                 </Grid>
 
-                {/* БИК */}
                 <Grid item xs={12} sm={6}>
                   {editMode ? (
                     <TextField
                       fullWidth
-                      size="small"
                       label="БИК"
                       value={formData.bankBik}
                       onChange={handleChange('bankBik')}
                       placeholder="044525225"
                       inputProps={{ maxLength: 9 }}
+                      variant="outlined"
+                      InputProps={{
+                        sx: { borderRadius: 1.5, fontFamily: 'monospace' }
+                      }}
                     />
                   ) : (
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        БИК
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>
-                        {formData.bankBik || 'Не указано'}
-                      </Typography>
-                    </Box>
+                    <InfoField 
+                      label="БИК"
+                      value={formData.bankBik}
+                      monospace
+                    />
                   )}
                 </Grid>
 
-                {/* Наименование банка */}
                 <Grid item xs={12} sm={6}>
                   {editMode ? (
                     <TextField
                       fullWidth
-                      size="small"
                       label="Наименование банка"
                       value={formData.bankName}
                       onChange={handleChange('bankName')}
-                      placeholder="ПАО Сбербанк"
+                      placeholder="ПАО СБЕРБАНК"
+                      variant="outlined"
+                      InputProps={{
+                        sx: { borderRadius: 1.5 }
+                      }}
                     />
                   ) : (
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Наименование банка
-                      </Typography>
-                      <Typography variant="body1">
-                        {formData.bankName || 'Не указано'}
-                      </Typography>
-                    </Box>
+                    <InfoField 
+                      label="Наименование банка"
+                      value={formData.bankName}
+                    />
                   )}
                 </Grid>
               </Grid>
 
               {/* Должностные лица */}
-              <Typography variant="h3" gutterBottom sx={{ mt: 4 }}>
-                Должностные лица
-              </Typography>
-              <Divider sx={{ mb: 3 }} />
+              <Box sx={{ mt: 4, mb: 2 }}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Divider sx={{ flexGrow: 1 }} />
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Avatar sx={{ bgcolor: alpha(theme.palette.warning.main, 0.1), width: 32, height: 32 }}>
+                      <IconUserCheck size={18} color={theme.palette.warning.main} />
+                    </Avatar>
+                    <Typography variant="h4" color="warning.main" sx={{ fontWeight: 600 }}>
+                      Должностные лица
+                    </Typography>
+                  </Stack>
+                  <Divider sx={{ flexGrow: 1 }} />
+                </Stack>
+              </Box>
               
-              <Grid container spacing={2}>
-                {/* Генеральный директор */}
+              <Grid container spacing={3}>
                 <Grid item xs={12} sm={6}>
                   {editMode ? (
                     <TextField
                       fullWidth
-                      size="small"
                       label="Генеральный директор"
                       value={formData.directorName}
                       onChange={handleChange('directorName')}
                       placeholder="Иванов Иван Иванович"
+                      variant="outlined"
+                      InputProps={{
+                        sx: { borderRadius: 1.5 }
+                      }}
                     />
                   ) : (
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Генеральный директор
-                      </Typography>
-                      <Typography variant="body1">
-                        {formData.directorName || 'Не указано'}
-                      </Typography>
-                    </Box>
+                    <InfoField 
+                      label="Генеральный директор"
+                      value={formData.directorName}
+                      icon={IconUserCheck}
+                    />
                   )}
                 </Grid>
 
-                {/* Главный бухгалтер */}
                 <Grid item xs={12} sm={6}>
                   {editMode ? (
                     <TextField
                       fullWidth
-                      size="small"
                       label="Главный бухгалтер"
                       value={formData.accountantName}
                       onChange={handleChange('accountantName')}
                       placeholder="Петрова Мария Сергеевна"
+                      variant="outlined"
+                      InputProps={{
+                        sx: { borderRadius: 1.5 }
+                      }}
                     />
                   ) : (
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Главный бухгалтер
-                      </Typography>
-                      <Typography variant="body1">
-                        {formData.accountantName || 'Не указано'}
-                      </Typography>
-                    </Box>
+                    <InfoField 
+                      label="Главный бухгалтер"
+                      value={formData.accountantName}
+                      icon={IconUserCheck}
+                    />
                   )}
                 </Grid>
               </Grid>
 
-              {editMode && (
-                <Box sx={{ mt: 3, p: 2, bgcolor: 'info.lighter', borderRadius: 1 }}>
-                  <Typography variant="body2" color="info.dark">
-                    💡 Эти данные будут использоваться при формировании документов, актов выполненных работ и других отчетов.
+              <Collapse in={editMode}>
+                <Alert 
+                  severity="success" 
+                  icon={<IconInfoCircle size={20} />}
+                  sx={{ 
+                    mt: 3,
+                    borderRadius: 2,
+                    background: alpha(theme.palette.success.main, 0.08),
+                    border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    💡 Эти данные будут использоваться при формировании документов, актов выполненных работ и договоров.
                   </Typography>
-                </Box>
-              )}
+                </Alert>
+              </Collapse>
             </CardContent>
-          </Card>
+          </Paper>
         </Grid>
       </Grid>
     </MainCard>

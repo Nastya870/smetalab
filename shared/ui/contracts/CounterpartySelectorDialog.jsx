@@ -173,7 +173,7 @@ const CounterpartySelectorDialog = ({ open, onClose, onSelect }) => {
                             {person.full_name}
                           </Typography>
                           <Typography variant="caption" color="textSecondary">
-                            Паспорт: {person.passport_series_number}
+                            Паспорт: {person.passportSeries} {person.passportNumber} (код: {person.passportIssuedByCode || 'не указан'})
                             {person.phone && ` • Тел: ${person.phone}`}
                           </Typography>
                         </Box>

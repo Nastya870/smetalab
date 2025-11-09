@@ -23,12 +23,12 @@ export async function create(data, tenantId, userId) {
     const query = `
       INSERT INTO counterparties (
         tenant_id, entity_type,
-        full_name, birth_date, birth_place, passport_series_number, passport_issued_by, passport_issue_date, registration_address,
+        full_name, birth_date, birth_place, passport_series, passport_number, passport_issued_by_code, passport_issued_by, passport_issue_date, registration_address,
         company_name, inn, ogrn, kpp, legal_address, actual_address,
         bank_account, correspondent_account, bank_bik, bank_name, director_name, accountant_name,
         phone, email, created_by, updated_by
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $24
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $26
       )
       RETURNING *
     `;
@@ -39,7 +39,9 @@ export async function create(data, tenantId, userId) {
       sanitizeValue(data.fullName), 
       sanitizeValue(data.birthDate), 
       sanitizeValue(data.birthPlace), 
-      sanitizeValue(data.passportSeriesNumber), 
+      sanitizeValue(data.passportSeries), 
+      sanitizeValue(data.passportNumber), 
+      sanitizeValue(data.passportIssuedByCode), 
       sanitizeValue(data.passportIssuedBy), 
       sanitizeValue(data.passportIssueDate), 
       sanitizeValue(data.registrationAddress),
@@ -151,12 +153,12 @@ export async function update(id, data, tenantId, userId) {
     const query = `
       UPDATE counterparties SET
         entity_type = $1,
-        full_name = $2, birth_date = $3, birth_place = $4, passport_series_number = $5, passport_issued_by = $6, 
-        passport_issue_date = $7, registration_address = $8,
-        company_name = $9, inn = $10, ogrn = $11, kpp = $12, legal_address = $13, actual_address = $14,
-        bank_account = $15, correspondent_account = $16, bank_bik = $17, bank_name = $18, director_name = $19, accountant_name = $20,
-        phone = $21, email = $22, updated_at = NOW(), updated_by = $23
-      WHERE id = $24 AND tenant_id = $25
+        full_name = $2, birth_date = $3, birth_place = $4, passport_series = $5, passport_number = $6, passport_issued_by_code = $7, passport_issued_by = $8, 
+        passport_issue_date = $9, registration_address = $10,
+        company_name = $11, inn = $12, ogrn = $13, kpp = $14, legal_address = $15, actual_address = $16,
+        bank_account = $17, correspondent_account = $18, bank_bik = $19, bank_name = $20, director_name = $21, accountant_name = $22,
+        phone = $23, email = $24, updated_at = NOW(), updated_by = $25
+      WHERE id = $26 AND tenant_id = $27
       RETURNING *
     `;
     
@@ -165,7 +167,9 @@ export async function update(id, data, tenantId, userId) {
       sanitizeValue(data.fullName), 
       sanitizeValue(data.birthDate), 
       sanitizeValue(data.birthPlace), 
-      sanitizeValue(data.passportSeriesNumber), 
+      sanitizeValue(data.passportSeries), 
+      sanitizeValue(data.passportNumber), 
+      sanitizeValue(data.passportIssuedByCode), 
       sanitizeValue(data.passportIssuedBy), 
       sanitizeValue(data.passportIssueDate), 
       sanitizeValue(data.registrationAddress),

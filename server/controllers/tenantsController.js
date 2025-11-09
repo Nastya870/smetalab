@@ -231,6 +231,8 @@ export async function getTenant(req, res) {
     const { id } = req.params;
     const tenantId = req.user.tenantId;
 
+    console.log('[TENANTS] GET request:', { requestId: id, userTenantId: tenantId });
+
     // Проверка прав
     if (id !== tenantId) {
       return res.status(403).json({
@@ -241,6 +243,23 @@ export async function getTenant(req, res) {
 
     const tenant = await tenantsRepository.findById(id);
 
+    console.log('[TENANTS] Tenant from DB (raw):', {
+      id: tenant?.id,
+      name: tenant?.name,
+      company_full_name: tenant?.company_full_name,
+      inn: tenant?.inn,
+      ogrn: tenant?.ogrn,
+      kpp: tenant?.kpp,
+      legal_address: tenant?.legal_address,
+      actual_address: tenant?.actual_address,
+      bank_account: tenant?.bank_account,
+      correspondent_account: tenant?.correspondent_account,
+      bank_bik: tenant?.bank_bik,
+      bank_name: tenant?.bank_name,
+      director_name: tenant?.director_name,
+      accountant_name: tenant?.accountant_name
+    });
+
     if (!tenant) {
       return res.status(404).json({
         success: false,
@@ -248,9 +267,19 @@ export async function getTenant(req, res) {
       });
     }
 
+    const camelCaseTenant = toCamelCase(tenant);
+    console.log('[TENANTS] Tenant after toCamelCase:', {
+      id: camelCaseTenant?.id,
+      name: camelCaseTenant?.name,
+      companyFullName: camelCaseTenant?.companyFullName,
+      inn: camelCaseTenant?.inn,
+      ogrn: camelCaseTenant?.ogrn,
+      kpp: camelCaseTenant?.kpp
+    });
+
     res.json({
       success: true,
-      data: { tenant: toCamelCase(tenant) }
+      data: { tenant: camelCaseTenant }
     });
 
   } catch (error) {

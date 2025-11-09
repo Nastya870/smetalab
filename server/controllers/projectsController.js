@@ -1450,11 +1450,8 @@ export const createProject = async (req, res) => {
     // Если name не указан, используем objectName
     const projectName = name || objectName;
 
-    // Генерируем номер договора
-    const contractNumberQuery = `SELECT generate_contract_number($1::UUID) as contract_number`;
-    const contractNumberResult = await pool.query(contractNumberQuery, [tenantId]);
-    const contractNumber = contractNumberResult.rows[0].contract_number;
-
+    // Номер договора будет NULL при создании проекта
+    // Он будет заполнен автоматически при создании договора в таблице contracts
     const query = `
       INSERT INTO projects (
         tenant_id, name, object_name, client, contractor, address,
@@ -1481,7 +1478,7 @@ export const createProject = async (req, res) => {
       userId, // updated_by
       managerId || userId, // manager_id (по умолчанию создатель)
       description || null,
-      contractNumber // номер договора
+      null // contract_number - будет заполнен при создании договора
     ];
 
     const result = await pool.query(query, params);

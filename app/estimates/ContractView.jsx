@@ -312,7 +312,7 @@ const ContractView = ({ estimateId, projectId }) => {
               {contract.customer && (
                 <Box>
                   <Typography variant="body2" color="textSecondary">
-                    Паспорт: {contract.customer.passport_series_number}
+                    Паспорт: {contract.customer.passportSeries} {contract.customer.passportNumber} (код: {contract.customer.passportIssuedByCode || 'не указан'})
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
                     Адрес: {contract.customer.registration_address}

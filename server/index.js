@@ -32,6 +32,7 @@ import usersRoutes from './routes/users.js';
 import rolesRoutes from './routes/roles.js';
 import globalPurchasesRoutes from './routes/globalPurchases.js';
 import contractsRoutes from './routes/contracts.js';
+import tenantsRoutes from './routes/tenants.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -130,6 +131,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/global-purchases', globalPurchasesRoutes);
 app.use('/api/contracts', contractsRoutes);
+app.use('/api/tenants', tenantsRoutes);
 
 // 404 handler
 app.use((req, res) => {

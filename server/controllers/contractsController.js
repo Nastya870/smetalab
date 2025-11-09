@@ -170,11 +170,29 @@ export const generateContract = async (req, res) => {
 
     // Генерация номера договора (формат: Д-YYYY-NNN)
     const year = new Date().getFullYear();
-    const countResult = await db.query(
-      `SELECT COUNT(*) as count FROM contracts WHERE EXTRACT(YEAR FROM created_at) = $1`,
-      [year]
+    
+    // Находим максимальный номер договора для этого tenant в текущем году
+    const maxNumberResult = await db.query(
+      `SELECT contract_number 
+       FROM contracts 
+       WHERE tenant_id = $1 
+         AND EXTRACT(YEAR FROM contract_date) = $2
+         AND contract_number LIKE $3
+       ORDER BY contract_number DESC
+       LIMIT 1`,
+      [req.user.tenantId, year, `Д-${year}-%`]
     );
-    const contractNumber = `Д-${year}-${String(parseInt(countResult.rows[0].count) + 1).padStart(3, '0')}`;
+
+    let nextNumber = 1;
+    if (maxNumberResult.rows.length > 0) {
+      const lastNumber = maxNumberResult.rows[0].contract_number;
+      const match = lastNumber.match(/Д-\d{4}-(\d{3})/);
+      if (match) {
+        nextNumber = parseInt(match[1]) + 1;
+      }
+    }
+
+    const contractNumber = `Д-${year}-${String(nextNumber).padStart(3, '0')}`;
 
     // Получаем стоимость сметы
     const totalAmount = estimate.total_cost || 0;
@@ -266,6 +284,12 @@ export const generateContract = async (req, res) => {
         'draft',
         JSON.stringify(templateData)
       ]
+    );
+
+    // Обновляем номер договора в проекте
+    await db.query(
+      `UPDATE projects SET contract_number = $1 WHERE id = $2`,
+      [contractNumber, projectId]
     );
 
     // Получаем полную информацию о созданном договоре
@@ -436,11 +460,31 @@ export const getContractDOCX = async (req, res) => {
 
     const contract = result.rows[0];
 
+    // Получаем данные графика (фазы работ)
+    let schedulePhases = [];
+    if (contract.estimate_id) {
+      const scheduleResult = await db.query(
+        `SELECT 
+          phase,
+          SUM(total_price) as phase_total
+        FROM schedules
+        WHERE estimate_id = $1
+        GROUP BY phase
+        ORDER BY MIN(position_number)`,
+        [contract.estimate_id]
+      );
+      
+      schedulePhases = scheduleResult.rows.map(row => ({
+        phase: row.phase,
+        amount: parseFloat(row.phase_total)
+      }));
+    }
+
     // Импортируем генератор DOCX
     const { generateContractDOCX } = await import('../utils/contractDocxGenerator.js');
 
-    // Генерируем DOCX
-    const buffer = await generateContractDOCX(contract);
+    // Генерируем DOCX с данными графика
+    const buffer = await generateContractDOCX(contract, schedulePhases);
 
     // Кодируем имя файла для корректной работы с кириллицей
     const filename = `Договор_${contract.contract_number}.docx`;

@@ -11,7 +11,8 @@ const CounterpartyModal = ({ open, onClose, onSuccess, counterparty }) => {
   const [loading, setLoading] = useState(false);
   const [entityType, setEntityType] = useState('individual');
   const [formData, setFormData] = useState({
-    fullName: '', birthDate: '', birthPlace: '', passportSeriesNumber: '',
+    fullName: '', birthDate: '', birthPlace: '', 
+    passportSeries: '', passportNumber: '', passportIssuedByCode: '',
     passportIssuedBy: '', passportIssueDate: '', registrationAddress: '',
     companyName: '', inn: '', ogrn: '', kpp: '', legalAddress: '', actualAddress: '',
     bankAccount: '', correspondentAccount: '', bankBik: '', bankName: '',
@@ -25,7 +26,9 @@ const CounterpartyModal = ({ open, onClose, onSuccess, counterparty }) => {
         fullName: counterparty.fullName || '',
         birthDate: counterparty.birthDate || '',
         birthPlace: counterparty.birthPlace || '',
-        passportSeriesNumber: counterparty.passportSeriesNumber || '',
+        passportSeries: counterparty.passportSeries || '',
+        passportNumber: counterparty.passportNumber || '',
+        passportIssuedByCode: counterparty.passportIssuedByCode || '',
         passportIssuedBy: counterparty.passportIssuedBy || '',
         passportIssueDate: counterparty.passportIssueDate || '',
         registrationAddress: counterparty.registrationAddress || '',
@@ -47,7 +50,8 @@ const CounterpartyModal = ({ open, onClose, onSuccess, counterparty }) => {
     } else {
       setEntityType('individual');
       setFormData({
-        fullName: '', birthDate: '', birthPlace: '', passportSeriesNumber: '',
+        fullName: '', birthDate: '', birthPlace: '', 
+        passportSeries: '', passportNumber: '', passportIssuedByCode: '',
         passportIssuedBy: '', passportIssueDate: '', registrationAddress: '',
         companyName: '', inn: '', ogrn: '', kpp: '', legalAddress: '', actualAddress: '',
         bankAccount: '', correspondentAccount: '', bankBik: '', bankName: '',
@@ -122,8 +126,44 @@ const CounterpartyModal = ({ open, onClose, onSuccess, counterparty }) => {
                       value={formData.birthPlace} onChange={handleChange('birthPlace')} />
                   </Grid>
                 </Grid>
-                <TextField label="Паспорт (серия и номер)" required
-                  value={formData.passportSeriesNumber} onChange={handleChange('passportSeriesNumber')} />
+                <Grid container spacing={2}>
+                  <Grid item xs={4}>
+                    <TextField 
+                      label="Серия паспорта" 
+                      required 
+                      fullWidth
+                      value={formData.passportSeries} 
+                      onChange={handleChange('passportSeries')}
+                      inputProps={{ maxLength: 4, pattern: '[0-9]{4}' }}
+                      placeholder="1234"
+                      helperText="4 цифры"
+                    />
+                  </Grid>
+                  <Grid item xs={4}>
+                    <TextField 
+                      label="Номер паспорта" 
+                      required 
+                      fullWidth
+                      value={formData.passportNumber} 
+                      onChange={handleChange('passportNumber')}
+                      inputProps={{ maxLength: 6, pattern: '[0-9]{6}' }}
+                      placeholder="567890"
+                      helperText="6 цифр"
+                    />
+                  </Grid>
+                  <Grid item xs={4}>
+                    <TextField 
+                      label="Код подразделения" 
+                      required 
+                      fullWidth
+                      value={formData.passportIssuedByCode} 
+                      onChange={handleChange('passportIssuedByCode')}
+                      inputProps={{ maxLength: 7, pattern: '[0-9]{3}-[0-9]{3}' }}
+                      placeholder="123-456"
+                      helperText="Формат: 123-456"
+                    />
+                  </Grid>
+                </Grid>
                 <TextField label="Кем выдан" required multiline rows={2}
                   value={formData.passportIssuedBy} onChange={handleChange('passportIssuedBy')} />
                 <TextField label="Дата выдачи" type="date" required
