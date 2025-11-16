@@ -464,11 +464,11 @@ const WorksReferencePage = () => {
               return (
                 <Box sx={{ mb: 2 }}>
                   <Card sx={{ width: '100%' }}>
-                    <CardContent>
+                    <CardContent sx={{ pb: 1 }}>
                       <Stack spacing={1.5}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <Box sx={{ flex: 1 }}>
-                            <Typography variant="h6" sx={{ mb: 0.5, wordBreak: 'break-word' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 0.5, wordBreak: 'break-word' }}>
                               {work.name}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
@@ -487,34 +487,34 @@ const WorksReferencePage = () => {
                         </Box>
                         
                         {hierarchyText && (
-                          <Box sx={{ bgcolor: 'grey.50', p: 1, borderRadius: 1 }}>
+                          <Box sx={{ bgcolor: 'action.hover', px: 1.5, py: 0.75, borderRadius: 1 }}>
                             <Typography variant="caption" color="text.secondary">
                               {hierarchyText}
                             </Typography>
                           </Box>
                         )}
                         
-                        <Divider />
-                        
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: 0.5 }}>
                           <Box>
-                            <Typography variant="caption" color="text.secondary">Категория</Typography>
-                            <Typography variant="body2">{work.category || '—'}</Typography>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Ед. изм.
+                            </Typography>
+                            <Typography variant="body2" fontWeight={500}>
+                              {work.unit}
+                            </Typography>
                           </Box>
-                          <Box>
-                            <Typography variant="caption" color="text.secondary">Ед. изм.</Typography>
-                            <Typography variant="body2">{work.unit}</Typography>
-                          </Box>
-                          <Box sx={{ gridColumn: '1 / -1' }}>
-                            <Typography variant="caption" color="text.secondary">Базовая цена</Typography>
-                            <Typography variant="h6" color="primary.main">
-                              {formatPrice(work.basePrice)}
+                          <Box sx={{ textAlign: 'right' }}>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Базовая цена
+                            </Typography>
+                            <Typography variant="h6" color="primary.main" fontWeight={600}>
+                              {work.basePrice && !isNaN(work.basePrice) ? formatPrice(work.basePrice) : '—'}
                             </Typography>
                           </Box>
                         </Box>
                       </Stack>
                     </CardContent>
-                    <CardActions sx={{ justifyContent: 'flex-end', px: 2, pb: 2 }}>
+                    <CardActions sx={{ justifyContent: 'flex-end', px: 2, py: 1, pt: 0 }}>
                       <IconButton 
                         size="small" 
                         color="primary"

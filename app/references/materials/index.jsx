@@ -493,11 +493,11 @@ const MaterialsReferencePage = () => {
             itemContent={(index, material) => (
               <Box sx={{ mb: 2 }}>
                 <Card sx={{ width: '100%' }}>
-                  <CardContent>
+                  <CardContent sx={{ pb: 1 }}>
                     <Stack spacing={1.5}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="h6" sx={{ mb: 0.5, wordBreak: 'break-word' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 0.5, wordBreak: 'break-word' }}>
                             {material.name}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
@@ -515,37 +515,45 @@ const MaterialsReferencePage = () => {
                         )}
                       </Box>
                       
-                      <Divider />
-                      
-                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, pt: 0.5 }}>
                         <Box>
-                          <Typography variant="caption" color="text.secondary">Категория</Typography>
-                          <Typography variant="body2">{material.category}</Typography>
-                        </Box>
-                        <Box>
-                          <Typography variant="caption" color="text.secondary">Ед. изм.</Typography>
-                          <Typography variant="body2">{material.unit}</Typography>
-                        </Box>
-                        <Box>
-                          <Typography variant="caption" color="text.secondary">Цена</Typography>
-                          <Typography variant="body2" fontWeight={600} color="primary.main">
-                            {formatPrice(material.price)}
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Ед. изм.
+                          </Typography>
+                          <Typography variant="body2" fontWeight={500}>
+                            {material.unit}
                           </Typography>
                         </Box>
                         <Box>
-                          <Typography variant="caption" color="text.secondary">Вес</Typography>
-                          <Typography variant="body2">{material.weight} кг</Typography>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Вес
+                          </Typography>
+                          <Typography variant="body2" fontWeight={500}>
+                            {material.weight} кг
+                          </Typography>
                         </Box>
-                        {showSupplierColumn && (
+                        <Box sx={{ gridColumn: '1 / -1' }}>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Цена
+                          </Typography>
+                          <Typography variant="h6" color="primary.main" fontWeight={600}>
+                            {material.price && !isNaN(material.price) ? formatPrice(material.price) : '—'}
+                          </Typography>
+                        </Box>
+                        {showSupplierColumn && material.supplier && (
                           <Box sx={{ gridColumn: '1 / -1' }}>
-                            <Typography variant="caption" color="text.secondary">Поставщик</Typography>
-                            <Typography variant="body2">{material.supplier}</Typography>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Поставщик
+                            </Typography>
+                            <Typography variant="body2">
+                              {material.supplier}
+                            </Typography>
                           </Box>
                         )}
                       </Box>
                     </Stack>
                   </CardContent>
-                  <CardActions sx={{ justifyContent: 'flex-end', px: 2, pb: 2 }}>
+                  <CardActions sx={{ justifyContent: 'flex-end', px: 2, py: 1, pt: 0 }}>
                     {material.productUrl && (
                       <IconButton 
                         size="small" 
