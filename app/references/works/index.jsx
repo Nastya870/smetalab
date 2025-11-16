@@ -26,7 +26,12 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   Stack,
-  Tooltip
+  Tooltip,
+  Card,
+  CardContent,
+  CardActions,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import { IconPlus, IconEdit, IconTrash, IconSearch, IconWorld, IconBuilding, IconDownload, IconUpload } from '@tabler/icons-react';
 
@@ -45,6 +50,9 @@ const WorkDialog = lazy(() => import('./WorkDialog'));
 // ==============================|| WORKS REFERENCE PAGE ||============================== //
 
 const WorksReferencePage = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
   // State
   const [works, setWorks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -442,22 +450,103 @@ const WorksReferencePage = () => {
         </Grid>
       </Grid>
 
-      {/* Таблица работ */}
+      {/* Таблица работ или карточки */}
       {filteredWorks.length > 0 ? (
-        <Paper>
-        <TableVirtuoso
-          data={filteredWorks}
-          style={{ height: 600 }}
-          components={{
-            Scroller: React.forwardRef((props, ref) => (
-              <TableContainer {...props} ref={ref} sx={{ overflowX: 'auto', maxWidth: '100%' }} />
-            )),
-            Table: (props) => <Table {...props} sx={{ tableLayout: 'fixed' }} />,
-            TableHead: TableHead,
-            TableRow: TableRow,
-            TableBody: TableBody,
-          }}
-          fixedHeaderContent={() => (
+        isMobile ? (
+          // Карточный вид для мобильных
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {filteredWorks.map((work) => {
+              const hierarchyParts = [work.phase, work.section, work.subsection].filter(Boolean);
+              const hierarchyText = hierarchyParts.length > 0 ? hierarchyParts.join(' → ') : null;
+              
+              return (
+                <Card key={work.id} sx={{ width: '100%' }}>
+                  <CardContent>
+                    <Stack spacing={1.5}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="h6" sx={{ mb: 0.5, wordBreak: 'break-word' }}>
+                            {work.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Код: {work.code}
+                          </Typography>
+                        </Box>
+                        {work.isGlobal && (
+                          <Chip 
+                            icon={<IconWorld size={14} />} 
+                            label="Общая" 
+                            size="small" 
+                            color="primary" 
+                            variant="outlined"
+                          />
+                        )}
+                      </Box>
+                      
+                      {hierarchyText && (
+                        <Box sx={{ bgcolor: 'grey.50', p: 1, borderRadius: 1 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {hierarchyText}
+                          </Typography>
+                        </Box>
+                      )}
+                      
+                      <Divider />
+                      
+                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Категория</Typography>
+                          <Typography variant="body2">{work.category || '—'}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Ед. изм.</Typography>
+                          <Typography variant="body2">{work.unit}</Typography>
+                        </Box>
+                        <Box sx={{ gridColumn: '1 / -1' }}>
+                          <Typography variant="caption" color="text.secondary">Базовая цена</Typography>
+                          <Typography variant="h6" color="primary.main">
+                            {formatPrice(work.basePrice)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Stack>
+                  </CardContent>
+                  <CardActions sx={{ justifyContent: 'flex-end', px: 2, pb: 2 }}>
+                    <IconButton 
+                      size="small" 
+                      color="primary"
+                      onClick={() => handleOpenEdit(work)}
+                    >
+                      <IconEdit size={18} />
+                    </IconButton>
+                    <IconButton 
+                      size="small" 
+                      color="error"
+                      onClick={() => handleDeleteWork(work.id)}
+                    >
+                      <IconTrash size={18} />
+                    </IconButton>
+                  </CardActions>
+                </Card>
+              );
+            })}
+          </Box>
+        ) : (
+          // Таблица для десктопа
+          <Paper>
+          <TableVirtuoso
+            data={filteredWorks}
+            style={{ height: 600 }}
+            components={{
+              Scroller: React.forwardRef((props, ref) => (
+                <TableContainer {...props} ref={ref} sx={{ overflowX: 'auto', maxWidth: '100%' }} />
+              )),
+              Table: (props) => <Table {...props} sx={{ tableLayout: 'fixed' }} />,
+              TableHead: TableHead,
+              TableRow: TableRow,
+              TableBody: TableBody,
+            }}
+            fixedHeaderContent={() => (
             <TableRow sx={{ bgcolor: 'primary.light' }}>
               <TableCell sx={{ width: '120px' }}>
                 <Typography variant="subtitle1" fontWeight={600}>
@@ -555,6 +644,7 @@ const WorksReferencePage = () => {
           }}
           />
         </Paper>
+        )
       ) : works.length === 0 ? (
         <EmptyState onCreateClick={handleOpenCreate} />
       ) : (

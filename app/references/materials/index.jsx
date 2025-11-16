@@ -28,7 +28,12 @@ import {
   Snackbar,
   ToggleButtonGroup,
   ToggleButton,
-  Tooltip
+  Tooltip,
+  Card,
+  CardContent,
+  CardActions,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import { IconPlus, IconEdit, IconTrash, IconSearch, IconExternalLink, IconWorld, IconBuilding, IconUpload } from '@tabler/icons-react';
 
@@ -46,6 +51,9 @@ const MaterialDialog = lazy(() => import('./MaterialDialog'));
 // ==============================|| MATERIALS REFERENCE PAGE ||============================== //
 
 const MaterialsReferencePage = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
   // State
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -475,22 +483,109 @@ const MaterialsReferencePage = () => {
         </Grid>
       </Grid>
 
-      {/* Таблица материалов */}
+      {/* Таблица материалов или карточки */}
       {filteredMaterials.length > 0 ? (
-        <Paper>
-        <TableVirtuoso
-          data={filteredMaterials}
-          style={{ height: 600 }}
-          components={{
-            Scroller: React.forwardRef((props, ref) => (
-              <TableContainer {...props} ref={ref} sx={{ overflowX: 'auto', maxWidth: '100%' }} />
-            )),
-            Table: (props) => <Table {...props} sx={{ tableLayout: 'fixed' }} />,
-            TableHead: TableHead,
-            TableRow: TableRow,
-            TableBody: TableBody,
-          }}
-          fixedHeaderContent={() => (
+        isMobile ? (
+          // Карточный вид для мобильных
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {filteredMaterials.map((material) => (
+              <Card key={material.id} sx={{ width: '100%' }}>
+                <CardContent>
+                  <Stack spacing={1.5}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="h6" sx={{ mb: 0.5, wordBreak: 'break-word' }}>
+                          {material.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          SKU: {material.sku}
+                        </Typography>
+                      </Box>
+                      {material.isGlobal && (
+                        <Chip 
+                          icon={<IconWorld size={14} />} 
+                          label="Общий" 
+                          size="small" 
+                          color="primary" 
+                          variant="outlined"
+                        />
+                      )}
+                    </Box>
+                    
+                    <Divider />
+                    
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Категория</Typography>
+                        <Typography variant="body2">{material.category}</Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Ед. изм.</Typography>
+                        <Typography variant="body2">{material.unit}</Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Цена</Typography>
+                        <Typography variant="body2" fontWeight={600} color="primary.main">
+                          {formatPrice(material.price)}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Вес</Typography>
+                        <Typography variant="body2">{material.weight} кг</Typography>
+                      </Box>
+                      {showSupplierColumn && (
+                        <Box sx={{ gridColumn: '1 / -1' }}>
+                          <Typography variant="caption" color="text.secondary">Поставщик</Typography>
+                          <Typography variant="body2">{material.supplier}</Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  </Stack>
+                </CardContent>
+                <CardActions sx={{ justifyContent: 'flex-end', px: 2, pb: 2 }}>
+                  {material.productUrl && (
+                    <IconButton 
+                      size="small" 
+                      color="info"
+                      onClick={() => window.open(material.productUrl, '_blank')}
+                    >
+                      <IconExternalLink size={18} />
+                    </IconButton>
+                  )}
+                  <IconButton 
+                    size="small" 
+                    color="primary"
+                    onClick={() => handleOpenEdit(material)}
+                  >
+                    <IconEdit size={18} />
+                  </IconButton>
+                  <IconButton 
+                    size="small" 
+                    color="error"
+                    onClick={() => handleDeleteMaterial(material.id)}
+                  >
+                    <IconTrash size={18} />
+                  </IconButton>
+                </CardActions>
+              </Card>
+            ))}
+          </Box>
+        ) : (
+          // Таблица для десктопа
+          <Paper>
+          <TableVirtuoso
+            data={filteredMaterials}
+            style={{ height: 600 }}
+            components={{
+              Scroller: React.forwardRef((props, ref) => (
+                <TableContainer {...props} ref={ref} sx={{ overflowX: 'auto', maxWidth: '100%' }} />
+              )),
+              Table: (props) => <Table {...props} sx={{ tableLayout: 'fixed' }} />,
+              TableHead: TableHead,
+              TableRow: TableRow,
+              TableBody: TableBody,
+            }}
+            fixedHeaderContent={() => (
             <TableRow sx={{ bgcolor: 'primary.light' }}>
               <TableCell sx={{ width: '130px' }}>
                 <Typography variant="subtitle1" fontWeight={600}>
@@ -646,6 +741,7 @@ const MaterialsReferencePage = () => {
               )}
             />
         </Paper>
+        )
       ) : materials.length === 0 ? (
         <EmptyState onCreateClick={handleOpenCreate} />
       ) : (
