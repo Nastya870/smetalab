@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import debounce from 'lodash.debounce';
-import { TableVirtuoso } from 'react-virtuoso';
+import { TableVirtuoso, Virtuoso } from 'react-virtuoso';
 
 // material-ui
 import {
@@ -486,90 +486,94 @@ const MaterialsReferencePage = () => {
       {/* Таблица материалов или карточки */}
       {filteredMaterials.length > 0 ? (
         isMobile ? (
-          // Карточный вид для мобильных
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {filteredMaterials.map((material) => (
-              <Card key={material.id} sx={{ width: '100%' }}>
-                <CardContent>
-                  <Stack spacing={1.5}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="h6" sx={{ mb: 0.5, wordBreak: 'break-word' }}>
-                          {material.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          SKU: {material.sku}
-                        </Typography>
-                      </Box>
-                      {material.isGlobal && (
-                        <Chip 
-                          icon={<IconWorld size={14} />} 
-                          label="Общий" 
-                          size="small" 
-                          color="primary" 
-                          variant="outlined"
-                        />
-                      )}
-                    </Box>
-                    
-                    <Divider />
-                    
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Категория</Typography>
-                        <Typography variant="body2">{material.category}</Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Ед. изм.</Typography>
-                        <Typography variant="body2">{material.unit}</Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Цена</Typography>
-                        <Typography variant="body2" fontWeight={600} color="primary.main">
-                          {formatPrice(material.price)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Вес</Typography>
-                        <Typography variant="body2">{material.weight} кг</Typography>
-                      </Box>
-                      {showSupplierColumn && (
-                        <Box sx={{ gridColumn: '1 / -1' }}>
-                          <Typography variant="caption" color="text.secondary">Поставщик</Typography>
-                          <Typography variant="body2">{material.supplier}</Typography>
+          // Виртуализированный карточный вид для мобильных
+          <Virtuoso
+            style={{ height: '600px' }}
+            data={filteredMaterials}
+            itemContent={(index, material) => (
+              <Box sx={{ mb: 2 }}>
+                <Card sx={{ width: '100%' }}>
+                  <CardContent>
+                    <Stack spacing={1.5}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="h6" sx={{ mb: 0.5, wordBreak: 'break-word' }}>
+                            {material.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            SKU: {material.sku}
+                          </Typography>
                         </Box>
-                      )}
-                    </Box>
-                  </Stack>
-                </CardContent>
-                <CardActions sx={{ justifyContent: 'flex-end', px: 2, pb: 2 }}>
-                  {material.productUrl && (
+                        {material.isGlobal && (
+                          <Chip 
+                            icon={<IconWorld size={14} />} 
+                            label="Общий" 
+                            size="small" 
+                            color="primary" 
+                            variant="outlined"
+                          />
+                        )}
+                      </Box>
+                      
+                      <Divider />
+                      
+                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Категория</Typography>
+                          <Typography variant="body2">{material.category}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Ед. изм.</Typography>
+                          <Typography variant="body2">{material.unit}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Цена</Typography>
+                          <Typography variant="body2" fontWeight={600} color="primary.main">
+                            {formatPrice(material.price)}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Вес</Typography>
+                          <Typography variant="body2">{material.weight} кг</Typography>
+                        </Box>
+                        {showSupplierColumn && (
+                          <Box sx={{ gridColumn: '1 / -1' }}>
+                            <Typography variant="caption" color="text.secondary">Поставщик</Typography>
+                            <Typography variant="body2">{material.supplier}</Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    </Stack>
+                  </CardContent>
+                  <CardActions sx={{ justifyContent: 'flex-end', px: 2, pb: 2 }}>
+                    {material.productUrl && (
+                      <IconButton 
+                        size="small" 
+                        color="info"
+                        onClick={() => window.open(material.productUrl, '_blank')}
+                      >
+                        <IconExternalLink size={18} />
+                      </IconButton>
+                    )}
                     <IconButton 
                       size="small" 
-                      color="info"
-                      onClick={() => window.open(material.productUrl, '_blank')}
+                      color="primary"
+                      onClick={() => handleOpenEdit(material)}
                     >
-                      <IconExternalLink size={18} />
+                      <IconEdit size={18} />
                     </IconButton>
-                  )}
-                  <IconButton 
-                    size="small" 
-                    color="primary"
-                    onClick={() => handleOpenEdit(material)}
-                  >
-                    <IconEdit size={18} />
-                  </IconButton>
-                  <IconButton 
-                    size="small" 
-                    color="error"
-                    onClick={() => handleDeleteMaterial(material.id)}
-                  >
-                    <IconTrash size={18} />
-                  </IconButton>
-                </CardActions>
-              </Card>
-            ))}
-          </Box>
+                    <IconButton 
+                      size="small" 
+                      color="error"
+                      onClick={() => handleDeleteMaterial(material.id)}
+                    >
+                      <IconTrash size={18} />
+                    </IconButton>
+                  </CardActions>
+                </Card>
+              </Box>
+            )}
+          />
         ) : (
           // Таблица для десктопа
           <Paper>

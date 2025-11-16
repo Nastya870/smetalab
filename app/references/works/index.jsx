@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import debounce from 'lodash.debounce';
-import { TableVirtuoso } from 'react-virtuoso';
+import { TableVirtuoso, Virtuoso } from 'react-virtuoso';
 
 // material-ui
 import {
@@ -453,84 +453,88 @@ const WorksReferencePage = () => {
       {/* Таблица работ или карточки */}
       {filteredWorks.length > 0 ? (
         isMobile ? (
-          // Карточный вид для мобильных
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {filteredWorks.map((work) => {
+          // Виртуализированный карточный вид для мобильных
+          <Virtuoso
+            style={{ height: '600px' }}
+            data={filteredWorks}
+            itemContent={(index, work) => {
               const hierarchyParts = [work.phase, work.section, work.subsection].filter(Boolean);
               const hierarchyText = hierarchyParts.length > 0 ? hierarchyParts.join(' → ') : null;
               
               return (
-                <Card key={work.id} sx={{ width: '100%' }}>
-                  <CardContent>
-                    <Stack spacing={1.5}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="h6" sx={{ mb: 0.5, wordBreak: 'break-word' }}>
-                            {work.name}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            Код: {work.code}
-                          </Typography>
+                <Box sx={{ mb: 2 }}>
+                  <Card sx={{ width: '100%' }}>
+                    <CardContent>
+                      <Stack spacing={1.5}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="h6" sx={{ mb: 0.5, wordBreak: 'break-word' }}>
+                              {work.name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Код: {work.code}
+                            </Typography>
+                          </Box>
+                          {work.isGlobal && (
+                            <Chip 
+                              icon={<IconWorld size={14} />} 
+                              label="Общая" 
+                              size="small" 
+                              color="primary" 
+                              variant="outlined"
+                            />
+                          )}
                         </Box>
-                        {work.isGlobal && (
-                          <Chip 
-                            icon={<IconWorld size={14} />} 
-                            label="Общая" 
-                            size="small" 
-                            color="primary" 
-                            variant="outlined"
-                          />
+                        
+                        {hierarchyText && (
+                          <Box sx={{ bgcolor: 'grey.50', p: 1, borderRadius: 1 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              {hierarchyText}
+                            </Typography>
+                          </Box>
                         )}
-                      </Box>
-                      
-                      {hierarchyText && (
-                        <Box sx={{ bgcolor: 'grey.50', p: 1, borderRadius: 1 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            {hierarchyText}
-                          </Typography>
+                        
+                        <Divider />
+                        
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">Категория</Typography>
+                            <Typography variant="body2">{work.category || '—'}</Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">Ед. изм.</Typography>
+                            <Typography variant="body2">{work.unit}</Typography>
+                          </Box>
+                          <Box sx={{ gridColumn: '1 / -1' }}>
+                            <Typography variant="caption" color="text.secondary">Базовая цена</Typography>
+                            <Typography variant="h6" color="primary.main">
+                              {formatPrice(work.basePrice)}
+                            </Typography>
+                          </Box>
                         </Box>
-                      )}
-                      
-                      <Divider />
-                      
-                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
-                        <Box>
-                          <Typography variant="caption" color="text.secondary">Категория</Typography>
-                          <Typography variant="body2">{work.category || '—'}</Typography>
-                        </Box>
-                        <Box>
-                          <Typography variant="caption" color="text.secondary">Ед. изм.</Typography>
-                          <Typography variant="body2">{work.unit}</Typography>
-                        </Box>
-                        <Box sx={{ gridColumn: '1 / -1' }}>
-                          <Typography variant="caption" color="text.secondary">Базовая цена</Typography>
-                          <Typography variant="h6" color="primary.main">
-                            {formatPrice(work.basePrice)}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Stack>
-                  </CardContent>
-                  <CardActions sx={{ justifyContent: 'flex-end', px: 2, pb: 2 }}>
-                    <IconButton 
-                      size="small" 
-                      color="primary"
-                      onClick={() => handleOpenEdit(work)}
-                    >
-                      <IconEdit size={18} />
-                    </IconButton>
-                    <IconButton 
-                      size="small" 
-                      color="error"
-                      onClick={() => handleDeleteWork(work.id)}
-                    >
-                      <IconTrash size={18} />
-                    </IconButton>
-                  </CardActions>
-                </Card>
+                      </Stack>
+                    </CardContent>
+                    <CardActions sx={{ justifyContent: 'flex-end', px: 2, pb: 2 }}>
+                      <IconButton 
+                        size="small" 
+                        color="primary"
+                        onClick={() => handleOpenEdit(work)}
+                      >
+                        <IconEdit size={18} />
+                      </IconButton>
+                      <IconButton 
+                        size="small" 
+                        color="error"
+                        onClick={() => handleDeleteWork(work.id)}
+                      >
+                        <IconTrash size={18} />
+                      </IconButton>
+                    </CardActions>
+                  </Card>
+                </Box>
               );
-            })}
-          </Box>
+            }}
+          />
         ) : (
           // Таблица для десктопа
           <Paper>
