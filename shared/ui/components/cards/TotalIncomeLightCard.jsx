@@ -56,14 +56,11 @@ export default function TotalIncomeLightCard({ isLoading, total, icon, label, us
 
       try {
         setLoading(true);
-        console.log('🔄 Загрузка данных дохода от материалов...');
-        // Импортируем API здесь, чтобы избежать циклических зависимостей
+// Импортируем API здесь, чтобы избежать циклических зависимостей
         const { projectsAPI } = await import('api/projects');
         const response = await projectsAPI.getTotalIncomeMaterials();
-        console.log('📊 Ответ API дохода от материалов:', response);
-        if (response.success) {
-          console.log('✅ Данные дохода от материалов получены:', response.data);
-          setMaterialsData({
+if (response.success) {
+setMaterialsData({
             totalIncome: response.data.totalIncomeMaterials || 0,
             projectsCount: 0
           });

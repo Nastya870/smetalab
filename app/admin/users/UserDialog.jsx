@@ -13,6 +13,8 @@ import Grid from '@mui/material/Grid';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 
 // project imports
 import { createUser, updateUser } from 'api/users';
@@ -20,6 +22,8 @@ import { createUser, updateUser } from 'api/users';
 // ==============================|| USER CREATE/EDIT DIALOG ||============================== //
 
 const UserDialog = ({ open, user, onClose, onSave }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -105,7 +109,19 @@ const UserDialog = ({ open, user, onClose, onSave }) => {
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={handleClose} 
+      maxWidth="sm" 
+      fullWidth
+      fullScreen={isMobile}
+      sx={{
+        '& .MuiDialog-paper': {
+          m: isMobile ? 0 : 2,
+          maxHeight: isMobile ? '100%' : 'calc(100% - 64px)'
+        }
+      }}
+    >
       <form onSubmit={formik.handleSubmit}>
         <DialogTitle>{isEdit ? 'Редактирование пользователя' : 'Создание пользователя'}</DialogTitle>
         <DialogContent>
@@ -116,7 +132,7 @@ const UserDialog = ({ open, user, onClose, onSave }) => {
           )}
 
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label="Полное имя *"
@@ -130,7 +146,7 @@ const UserDialog = ({ open, user, onClose, onSave }) => {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label="Email *"
@@ -145,7 +161,7 @@ const UserDialog = ({ open, user, onClose, onSave }) => {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label="Телефон"
@@ -160,7 +176,7 @@ const UserDialog = ({ open, user, onClose, onSave }) => {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label={isEdit ? 'Новый пароль (оставьте пустым, если не меняете)' : 'Пароль *'}
@@ -175,7 +191,7 @@ const UserDialog = ({ open, user, onClose, onSave }) => {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label="Подтверждение пароля"

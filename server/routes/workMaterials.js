@@ -10,7 +10,8 @@ import {
   getWorksByMaterial,
   createWorkMaterial,
   updateWorkMaterial,
-  deleteWorkMaterial
+  deleteWorkMaterial,
+  getMaterialsForMultipleWorks
 } from '../controllers/workMaterialsController.js';
 import { authenticateToken } from '../middleware/auth.js';
 
@@ -18,6 +19,9 @@ const router = express.Router();
 
 // Все маршруты требуют авторизации
 router.use(authenticateToken);
+
+// POST /api/work-materials/batch - получить материалы для нескольких работ (batch)
+router.post('/batch', getMaterialsForMultipleWorks);
 
 // GET /api/work-materials - получить все связи
 router.get('/', getAllWorkMaterials);

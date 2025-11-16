@@ -5,7 +5,8 @@ import { useState, useEffect } from 'react';
 import { 
   Dialog, DialogTitle, DialogContent, DialogActions, 
   Divider, Button, TextField, Stack, Box, Typography, 
-  Autocomplete, CircularProgress 
+  Autocomplete, CircularProgress,
+  useMediaQuery, useTheme
 } from '@mui/material';
 import { IconBriefcase, IconTrash } from '@tabler/icons-react';
 
@@ -17,6 +18,8 @@ import useAuth from 'hooks/useAuth';
 // ==============================|| PROJECT DIALOG ||============================== //
 
 const ProjectDialog = ({ open, editMode, project, onClose, onSave, onDelete, onChange }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { tenant } = useAuth(); // Получаем данные нашей компании
   
   // State для контрагентов
@@ -30,11 +33,8 @@ const ProjectDialog = ({ open, editMode, project, onClose, onSave, onDelete, onC
       
       try {
         setLoadingCounterparties(true);
-        console.log('[ProjectDialog] Loading counterparties...');
-        const data = await counterpartiesAPI.getAll();
-        console.log('[ProjectDialog] Counterparties loaded:', data);
-        console.log('[ProjectDialog] Counterparties count:', data?.length || 0);
-        setCounterparties(data || []);
+const data = await counterpartiesAPI.getAll();
+setCounterparties(data || []);
       } catch (error) {
         console.error('[ProjectDialog] Error loading counterparties:', error);
         console.error('[ProjectDialog] Error details:', {
@@ -67,19 +67,25 @@ const ProjectDialog = ({ open, editMode, project, onClose, onSave, onDelete, onC
   
   // DEBUG: Логирование состояния
   useEffect(() => {
-    console.log('[ProjectDialog] State update:', {
-      counterpartiesCount: counterparties.length,
-      loading: loadingCounterparties,
-      contractorName,
-      tenant
-    });
-  }, [counterparties, loadingCounterparties, contractorName, tenant]);
+}, [counterparties, loadingCounterparties, contractorName, tenant]);
   
   const isFormValid =
     project.client && project.contractor && project.address && project.objectName;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="md" 
+      fullWidth
+      fullScreen={isMobile}
+      sx={{
+        '& .MuiDialog-paper': {
+          m: isMobile ? 0 : 2,
+          maxHeight: isMobile ? '100%' : 'calc(100% - 64px)'
+        }
+      }}
+    >
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <IconBriefcase size={24} />

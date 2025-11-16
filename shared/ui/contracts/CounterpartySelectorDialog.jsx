@@ -19,7 +19,9 @@ import {
   Box,
   Divider,
   Chip,
-  Stack
+  Stack,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import {
   IconUser,
@@ -37,6 +39,8 @@ import counterpartiesAPI from 'api/counterparties';
  * Компонент для выбора контрагентов (Заказчик и Подрядчик) при создании договора
  */
 const CounterpartySelectorDialog = ({ open, onClose, onSelect }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   
@@ -108,9 +112,16 @@ const CounterpartySelectorDialog = ({ open, onClose, onSelect }) => {
   return (
     <Dialog
       open={open}
-      onClose={handleClose}
+      onClose={onClose}
       maxWidth="md"
       fullWidth
+      fullScreen={isMobile}
+      sx={{
+        '& .MuiDialog-paper': {
+          m: isMobile ? 0 : 2,
+          maxHeight: isMobile ? '100%' : 'calc(100% - 64px)'
+        }
+      }}
     >
       <DialogTitle>
         <Stack spacing={0.5}>
@@ -131,7 +142,7 @@ const CounterpartySelectorDialog = ({ open, onClose, onSelect }) => {
         ) : (
           <Grid container spacing={3}>
             {error && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Alert severity="error" onClose={() => setError(null)}>
                   {error}
                 </Alert>
@@ -139,7 +150,7 @@ const CounterpartySelectorDialog = ({ open, onClose, onSelect }) => {
             )}
 
             {/* ЗАКАЗЧИК (Физическое лицо) */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Box sx={{ mb: 2 }}>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
                   <IconUser size={20} />
@@ -191,7 +202,7 @@ const CounterpartySelectorDialog = ({ open, onClose, onSelect }) => {
             </Grid>
 
             {/* ПОДРЯДЧИК (Юридическое лицо) */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Box sx={{ mb: 2 }}>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
                   <IconBuilding size={20} />

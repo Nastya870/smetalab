@@ -13,13 +13,7 @@ export function AuthProvider({ children }) {
       try {
         const storedUser = localStorage.getItem('user');
         const storedTenant = localStorage.getItem('tenant');
-        const token = localStorage.getItem('accessToken');
-
-        console.log('[AuthContext] Loading user from localStorage');
-        console.log('[AuthContext] Stored user:', storedUser);
-        console.log('[AuthContext] Has token:', !!token);
-
-        if (storedUser && token) {
+        const token = localStorage.getItem('accessToken');if (storedUser && token) {
           const userData = JSON.parse(storedUser);
           const tenantData = storedTenant ? JSON.parse(storedTenant) : null;
 
@@ -27,10 +21,7 @@ export function AuthProvider({ children }) {
             ...userData,
             tenant: tenantData,
             emailVerified: userData.emailVerified || false
-          };
-
-          console.log('[AuthContext] Setting user:', userWithVerification);
-          setUser(userWithVerification);
+          };setUser(userWithVerification);
         }
       } catch (error) {
         console.error('[AuthContext] Ошибка загрузки пользователя:', error);
@@ -52,10 +43,7 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  const login = (userData, tenantData, accessToken) => {
-    console.log('[AuthContext] Login called with userData:', userData);
-    
-    localStorage.setItem('user', JSON.stringify(userData));
+  const login = (userData, tenantData, accessToken) => {localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('tenant', JSON.stringify(tenantData));
     localStorage.setItem('accessToken', accessToken);
 
@@ -66,10 +54,7 @@ export function AuthProvider({ children }) {
     });
   };
 
-  const logout = () => {
-    console.log('[AuthContext] Logout called');
-    
-    localStorage.removeItem('user');
+  const logout = () => {localStorage.removeItem('user');
     localStorage.removeItem('tenant');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');

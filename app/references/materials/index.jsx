@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import debounce from 'lodash.debounce';
 import { TableVirtuoso } from 'react-virtuoso';
 
@@ -38,6 +38,7 @@ import EmptyState from './EmptyState';
 import { emptyMaterial } from './mockData';
 import materialsAPI from 'api/materials';
 import ImportDialog from './ImportDialog';
+import { fullTextSearch } from 'shared/lib/utils/fullTextSearch';
 
 // Code Splitting: Lazy load MaterialDialog (загружается только при открытии)
 const MaterialDialog = lazy(() => import('./MaterialDialog'));
@@ -127,19 +128,13 @@ const MaterialsReferencePage = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // Мемоизированная фильтрация материалов (пересчитывается только при изменении materials или searchTerm)
+  // Мемоизированная фильтрация материалов с полнотекстовым поиском
+  // Поддерживает поиск по нескольким словам одновременно
   const filteredMaterials = useMemo(() => {
-    if (!searchTerm) return materials; // Если поиск пустой, возвращаем все материалы без фильтрации
+    if (!searchTerm) return materials; // Если поиск пустой, возвращаем все материалы
     
-    const lowerSearch = searchTerm.toLowerCase();
-    return materials.filter(
-      (material) =>
-        (material.name && material.name.toLowerCase().includes(lowerSearch)) ||
-        (material.sku && material.sku.toLowerCase().includes(lowerSearch)) ||
-        (material.unit && material.unit.toLowerCase().includes(lowerSearch)) ||
-        (material.supplier && material.supplier.toLowerCase().includes(lowerSearch)) ||
-        (material.category && material.category.toLowerCase().includes(lowerSearch))
-    );
+    // Используем полнотекстовый поиск по всем полям
+    return fullTextSearch(materials, searchTerm, ['name', 'sku', 'unit', 'supplier', 'category']);
   }, [materials, searchTerm]);
 
   // Мемоизированные обработчики (стабильные функции, не пересоздаются при каждом рендере)
@@ -438,7 +433,7 @@ const MaterialsReferencePage = () => {
 
       {/* Статистика */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={3}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <Paper sx={{ p: 2, bgcolor: 'primary.light', textAlign: 'center' }}>
             <Typography variant="h2" color="primary.dark">
               {materials.length}
@@ -448,7 +443,7 @@ const MaterialsReferencePage = () => {
             </Typography>
           </Paper>
         </Grid>
-        <Grid item xs={12} sm={3}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <Paper sx={{ p: 2, bgcolor: 'success.light', textAlign: 'center' }}>
             <Typography variant="h2" color="success.dark">
               {new Set(materials.map((m) => m.category)).size}
@@ -458,7 +453,7 @@ const MaterialsReferencePage = () => {
             </Typography>
           </Paper>
         </Grid>
-        <Grid item xs={12} sm={3}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <Paper sx={{ p: 2, bgcolor: 'warning.light', textAlign: 'center' }}>
             <Typography variant="h2" color="warning.dark">
               {new Set(materials.map((m) => m.supplier)).size}
@@ -468,7 +463,7 @@ const MaterialsReferencePage = () => {
             </Typography>
           </Paper>
         </Grid>
-        <Grid item xs={12} sm={3}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <Paper sx={{ p: 2, bgcolor: 'secondary.light', textAlign: 'center' }}>
             <Typography variant="h2" color="secondary.dark">
               {formatPrice(materials.reduce((sum, m) => sum + m.price, 0) / materials.length)}
@@ -487,7 +482,9 @@ const MaterialsReferencePage = () => {
           data={filteredMaterials}
           style={{ height: 600 }}
           components={{
-            Scroller: TableContainer,
+            Scroller: React.forwardRef((props, ref) => (
+              <TableContainer {...props} ref={ref} sx={{ overflowX: 'auto', maxWidth: '100%' }} />
+            )),
             Table: (props) => <Table {...props} sx={{ tableLayout: 'fixed' }} />,
             TableHead: TableHead,
             TableRow: TableRow,

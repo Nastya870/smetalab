@@ -114,9 +114,7 @@ const ProjectDashboard = () => {
   const refreshProject = async () => {
     try {
       const data = await projectsAPI.getById(id);
-      setProject(data);
-      console.log('✅ Project data refreshed, progress:', data.progress);
-    } catch (err) {
+      setProject(data);} catch (err) {
       console.error('Error refreshing project:', err);
     }
   };
@@ -224,11 +222,7 @@ const ProjectDashboard = () => {
   const handleSaveEstimate = async (estimateData) => {
     try {
       // Создать смету через API
-      const newEstimate = await estimatesAPI.create(id, estimateData);
-      
-      console.log('Estimate created successfully:', newEstimate);
-      
-      // Переходим к просмотру созданной сметы
+      const newEstimate = await estimatesAPI.create(id, estimateData);// Переходим к просмотру созданной сметы
       navigate(`/app/projects/${id}/estimates/${newEstimate.id}`, {
         state: { 
           estimateData: newEstimate, 
@@ -255,10 +249,7 @@ const ProjectDashboard = () => {
       await estimatesAPI.delete(estimateId);
       
       // Обновляем список смет, удаляя удаленную смету
-      setEstimates(prevEstimates => prevEstimates.filter(est => est.id !== estimateId));
-      
-      console.log('Estimate deleted successfully:', estimateId);
-    } catch (error) {
+      setEstimates(prevEstimates => prevEstimates.filter(est => est.id !== estimateId));} catch (error) {
       console.error('Failed to delete estimate:', error);
       alert('Ошибка при удалении сметы: ' + (error.message || 'Неизвестная ошибка'));
     }
@@ -281,10 +272,7 @@ const ProjectDashboard = () => {
         open: true,
         message: `Статус проекта изменён на "${getStatusText(newStatus)}"`,
         severity: 'success'
-      });
-      
-      console.log('Project status updated:', response);
-    } catch (error) {
+      });} catch (error) {
       console.error('Failed to update project status:', error);
       setSnackbar({
         open: true,
@@ -432,10 +420,10 @@ const ProjectDashboard = () => {
     >
       {/* Статус и основная информация */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Paper sx={{ p: 3, bgcolor: 'primary.light' }}>
             <Grid container spacing={3} alignItems="center">
-              <Grid item xs={12} md={3}>
+              <Grid size={{ xs: 12, md: 3 }}>
                 <Box>
                   <Typography variant="subtitle2" color="primary.dark" gutterBottom>
                     Статус проекта
@@ -449,7 +437,7 @@ const ProjectDashboard = () => {
                   </Box>
                 </Box>
               </Grid>
-              <Grid item xs={12} md={3}>
+              <Grid size={{ xs: 12, md: 3 }}>
                 <Box>
                   <Typography variant="subtitle2" color="primary.dark" gutterBottom>
                     Прогресс выполнения
@@ -459,7 +447,7 @@ const ProjectDashboard = () => {
                   </Typography>
                 </Box>
               </Grid>
-              <Grid item xs={12} md={3}>
+              <Grid size={{ xs: 12, md: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <IconClock size={20} />
                   <Box>
@@ -472,7 +460,7 @@ const ProjectDashboard = () => {
                   </Box>
                 </Box>
               </Grid>
-              <Grid item xs={12} md={3}>
+              <Grid size={{ xs: 12, md: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <IconCalendar size={20} />
                   <Box>
@@ -493,7 +481,7 @@ const ProjectDashboard = () => {
       {/* Основной контент: левая колонка (информация + список) и правая колонка (график) */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {/* Левая колонка */}
-        <Grid item xs={12} lg={6}>
+        <Grid size={{ xs: 12, lg: 6 }}>
           {/* Информация о проекте */}
           <Card sx={{ mb: 3 }}>
             <CardContent sx={{ pb: 2 }}>
@@ -503,7 +491,7 @@ const ProjectDashboard = () => {
               </Box>
 
               <Grid container spacing={2}>
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <Typography variant="caption" color="text.secondary" display="block">
                     Заказчик
                   </Typography>
@@ -512,7 +500,7 @@ const ProjectDashboard = () => {
                   </Typography>
                 </Grid>
 
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <Typography variant="caption" color="text.secondary" display="block">
                     Подрядчик
                   </Typography>
@@ -521,7 +509,7 @@ const ProjectDashboard = () => {
                   </Typography>
                 </Grid>
 
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <Typography variant="caption" color="text.secondary" display="block">
                     Адрес объекта
                   </Typography>
@@ -629,7 +617,7 @@ const ProjectDashboard = () => {
         </Grid>
 
         {/* Правая колонка - Финансовая сводка */}
-        <Grid item xs={12} lg={6}>
+        <Grid size={{ xs: 12, lg: 6 }}>
           <FinancialSummaryChart projectId={project?.id} estimates={estimates} />
         </Grid>
       </Grid>

@@ -80,10 +80,7 @@ export default function AuthLogin() {
         email,
         password
       });
-
-      console.log('Login successful:', result);
-      
-      // Дополнительно сохраняем роли если они есть
+// Дополнительно сохраняем роли если они есть
       if (result.data?.roles) {
         localStorage.setItem('roles', JSON.stringify(result.data.roles));
       }
@@ -91,12 +88,6 @@ export default function AuthLogin() {
       // Проверяем что токены действительно сохранились
       const savedToken = localStorage.getItem('accessToken');
       const savedUser = localStorage.getItem('user');
-      
-      console.log('Tokens saved check:', {
-        hasToken: !!savedToken,
-        hasUser: !!savedUser,
-        tokenPreview: savedToken ? savedToken.substring(0, 50) + '...' : 'none'
-      });
       
       if (!savedToken || !savedUser) {
         throw new Error('Ошибка сохранения данных авторизации');

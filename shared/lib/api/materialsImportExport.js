@@ -200,11 +200,7 @@ const materialsImportExportAPI = {
     // Отправляем каждый пакет последовательно
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
-      const batchNum = i + 1;
-      
-      console.log(`Отправка пакета материалов ${batchNum}/${batches.length}: ${batch.length} материалов...`);
-      
-      try {
+      const batchNum = i + 1;try {
         const response = await axiosInstance.post('/materials/bulk', {
           materials: batch,
           mode,

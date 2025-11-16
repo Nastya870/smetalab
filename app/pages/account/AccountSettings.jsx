@@ -21,7 +21,7 @@ const AccountSettings = () => {
     <MainCard title="Настройки аккаунта">
       <Grid container spacing={3}>
         {/* Информация о пользователе */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ bgcolor: theme.palette.primary.light }}>
             <CardContent>
               <Typography variant="h3" gutterBottom>
@@ -59,7 +59,7 @@ const AccountSettings = () => {
         </Grid>
 
         {/* Информация о компании */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ bgcolor: theme.palette.secondary.light }}>
             <CardContent>
               <Typography variant="h3" gutterBottom>
@@ -95,7 +95,7 @@ const AccountSettings = () => {
         </Grid>
 
         {/* Заглушка для будущих настроек */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Card>
             <CardContent>
               <Typography variant="h3" gutterBottom>

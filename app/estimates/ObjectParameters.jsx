@@ -84,6 +84,10 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
   }));
 
   const [rows, setRows] = useState(initialRows);
+  
+  // Убираем состояние editingCell - оно вызывает проблемы с перерендером
+  // Вместо этого будем сохранять оригинальное значение в ref
+  const originalValueRef = useRef(null);
 
   // ==================== HELPER ФУНКЦИИ ДЛЯ РАБОТЫ С ЗАПЯТОЙ ====================
   
@@ -224,17 +228,27 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
 
   // Функция преобразования данных для сохранения в API
   const prepareDataForSave = () => {
-    return rows.filter(row => row.room.trim() !== '').map(row => {
+    // ✅ ИСПРАВЛЕНИЕ: Используем calculatedRows вместо rows, чтобы получить рассчитанные значения wallArea и windows
+    const prepared = calculatedRows.filter(row => row.room.trim() !== '').map(row => {
       const openings = [];
+
+      // Безопасное преобразование чисел с округлением до 2 знаков
+      const toFloat = (val) => {
+        if (!val || val === '') return null;
+        const num = parseCommaFloat(val);
+        if (num === null) return null;
+        // Округляем до 2 знаков для точного сохранения в DECIMAL(10,2)
+        return Math.round(num * 100) / 100;
+      };
 
       // Собираем окна
       for (let i = 1; i <= 3; i++) {
         const height = row[`window${i}H`];
         const width = row[`window${i}W`];
         if (height && width) {
-          const h = parseFloat(height);
-          const w = parseFloat(width);
-          if (!isNaN(h) && !isNaN(w) && h > 0 && w > 0) {
+          const h = toFloat(height);
+          const w = toFloat(width);
+          if (h !== null && w !== null && h > 0 && w > 0) {
             openings.push({
               type: 'window',
               position: i,
@@ -250,9 +264,9 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
         const height = row[`portal${i}H`];
         const width = row[`portal${i}W`];
         if (height && width) {
-          const h = parseFloat(height);
-          const w = parseFloat(width);
-          if (!isNaN(h) && !isNaN(w) && h > 0 && w > 0) {
+          const h = toFloat(height);
+          const w = toFloat(width);
+          if (h !== null && w !== null && h > 0 && w > 0) {
             openings.push({
               type: 'portal',
               position: i,
@@ -262,11 +276,6 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
           }
         }
       }
-
-      // Безопасное преобразование чисел (поддержка запятой)
-      const toFloat = (val) => {
-        return parseCommaFloat(val); // Используем helper с поддержкой запятой
-      };
 
       const toInt = (val) => {
         if (!val || val === '') return 0;
@@ -282,6 +291,7 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
         height: toFloat(row.height),
         floorArea: toFloat(row.floorArea),
         wallArea: toFloat(row.wallArea),
+        totalWindowSlopes: toFloat(row.windows), // ✅ Откосы - автоматически рассчитанное поле
         ceilingArea: toFloat(row.ceilingArea),
         ceilingSlopes: toFloat(row.ceilingSlopes),
         doorsCount: toInt(row.doorsCount),
@@ -289,6 +299,8 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
         openings
       };
     });
+    
+    return prepared;
   };
 
   // Функция безопасного вычисления математических выражений (поддержка запятой)
@@ -315,7 +327,6 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
       }
     } catch (error) {
       // Если ошибка вычисления, возвращаем исходное значение
-      console.warn('Ошибка вычисления выражения:', expression, error);
     }
     
     return expression;
@@ -328,33 +339,83 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
     );
   };
 
-  // Обработка при потере фокуса или Enter - вычисляем выражение
-  const handleCellBlur = (rowId, columnId, value) => {
-    const column = simpleColumns.find(col => col.id === columnId);
+  // Обработчик фокуса - сохраняем оригинальное значение и выделяем весь текст
+  const handleCellFocus = (rowId, columnId, currentValue, event) => {
+    // Сохраняем оригинальное значение в ref для возможности отмены по ESC
+    originalValueRef.current = {
+      rowId,
+      columnId,
+      value: currentValue
+    };
     
-    // Для числовых полей вычисляем математическое выражение
-    if (column?.type === 'number') {
-      const calculatedValue = calculateExpression(value);
-      
-      // Обновляем значение только если оно изменилось
-      if (calculatedValue !== value) {
-        setRows((prevRows) =>
-          prevRows.map((row) => (row.id === rowId ? { ...row, [columnId]: calculatedValue } : row))
-        );
-      }
+    // Выделяем весь текст в поле для удобства замены
+    if (event && event.target) {
+      // Используем requestAnimationFrame для гарантированного выполнения после рендера
+      requestAnimationFrame(() => {
+        event.target.select();
+      });
     }
   };
 
-  // Обработка для размерных полей (окна/порталы) - они всегда числовые
-  const handleDimensionBlur = (rowId, columnId, value) => {
-    const calculatedValue = calculateExpression(value);
+  // Обработчик нажатия клавиш
+  const handleCellKeyDown = (rowId, columnId, event, isAutoCalculated = false) => {
+    if (isAutoCalculated) return;
     
-    // Обновляем значение только если оно изменилось
-    if (calculatedValue !== value) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.target.blur(); // Применяем изменения через onBlur
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      // Возвращаем оригинальное значение
+      if (originalValueRef.current && 
+          originalValueRef.current.rowId === rowId && 
+          originalValueRef.current.columnId === columnId) {
+        setRows((prevRows) =>
+          prevRows.map((row) =>
+            row.id === rowId ? { ...row, [columnId]: originalValueRef.current.value } : row
+          )
+        );
+        originalValueRef.current = null;
+      }
+      event.target.blur(); // Снимаем фокус
+    }
+  };
+
+  // Обработка при потере фокуса - форматируем и сохраняем
+  const handleCellBlur = (rowId, columnId, value) => {
+    const column = simpleColumns.find(col => col.id === columnId);
+    
+    // Для числовых полей вычисляем математическое выражение и форматируем
+    if (column?.type === 'number') {
+      const calculatedValue = calculateExpression(value);
+      const formattedValue = calculatedValue !== '' && parseCommaFloat(calculatedValue) !== null
+        ? formatCommaFloat(parseCommaFloat(calculatedValue), 2)
+        : calculatedValue;
+      
+      // Обновляем значение
       setRows((prevRows) =>
-        prevRows.map((row) => (row.id === rowId ? { ...row, [columnId]: calculatedValue } : row))
+        prevRows.map((row) => (row.id === rowId ? { ...row, [columnId]: formattedValue } : row))
       );
     }
+    
+    // Очищаем ref
+    originalValueRef.current = null;
+  };
+
+  // Обработка для размерных полей (окна/порталы)
+  const handleDimensionBlur = (rowId, columnId, value) => {
+    const calculatedValue = calculateExpression(value);
+    const formattedValue = calculatedValue !== '' && parseCommaFloat(calculatedValue) !== null
+      ? formatCommaFloat(parseCommaFloat(calculatedValue), 2)
+      : calculatedValue;
+    
+    // Обновляем значение
+    setRows((prevRows) =>
+      prevRows.map((row) => (row.id === rowId ? { ...row, [columnId]: formattedValue } : row))
+    );
+    
+    // Очищаем ref
+    originalValueRef.current = null;
   };
 
   // Функция для получения числового значения из строки
@@ -383,8 +444,9 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
     
     return {
       ...row,
-      wallArea: wallArea > 0 ? formatCommaFloat(wallArea, 2) : '',
-      windows: windowsSlopes > 0 ? formatCommaFloat(windowsSlopes, 2) : ''
+      // ✅ ВСЕГДА сохраняем рассчитанные значения (даже если 0)
+      wallArea: (perimeter > 0 && height > 0) ? formatCommaFloat(wallArea, 2) : formatCommaFloat(0, 2),
+      windows: formatCommaFloat(windowsSlopes, 2)
     };
   };
 
@@ -458,8 +520,6 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
     
     const parametersToSave = prepareDataForSave();
     
-    console.log('Prepared data for save:', parametersToSave);
-    
     if (parametersToSave.length === 0) {
       setError('Нет данных для сохранения. Заполните хотя бы одно помещение.');
       setSaving(false);
@@ -472,8 +532,6 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
     try {
       // Фоновое сохранение на сервер
       const result = await objectParametersAPI.saveAll(estimateId, parametersToSave);
-      
-      console.log('✅ Parameters saved:', result);
       
       // Обновляем сообщение на "Успешно"
       setSuccessMessage(`✅ Сохранено ${result.parameters?.length || parametersToSave.length} помещений`);
@@ -657,6 +715,10 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                   // Поля, которые вычисляются автоматически
                   const isAutoCalculated = col.id === 'wallArea' || col.id === 'windows';
                   
+                  // Всегда показываем текущее значение из row (без форматирования в value)
+                  // Форматирование применяется только при потере фокуса
+                  const cellValue = row[col.id];
+                  
                   return (
                     <TableCell 
                       key={col.id} 
@@ -671,15 +733,11 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                         fullWidth
                         size="small"
                         type={col.type === 'number' ? 'text' : col.type}
-                        value={row[col.id]}
+                        value={cellValue}
                         onChange={!isAutoCalculated ? (e) => handleCellChange(row.id, col.id, e.target.value) : undefined}
+                        onFocus={!isAutoCalculated ? (e) => handleCellFocus(row.id, col.id, row[col.id], e) : undefined}
                         onBlur={!isAutoCalculated ? (e) => handleCellBlur(row.id, col.id, e.target.value) : undefined}
-                        onKeyDown={!isAutoCalculated ? (e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            e.target.blur();
-                          }
-                        } : undefined}
+                        onKeyDown={!isAutoCalculated ? (e) => handleCellKeyDown(row.id, col.id, e, isAutoCalculated) : undefined}
                         placeholder={col.id === 'room' ? 'Помещение' : '0'}
                         variant="standard"
                         disabled={isAutoCalculated}
@@ -722,11 +780,16 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                       }}
                     />
                   </TableCell>
-                  );
+                );
                 })}
 
                 {/* Поля с размерами (В x Ш) */}
-                {dimensionColumns.map((col, colIndex) => (
+                {dimensionColumns.map((col, colIndex) => {
+                  // Используем текущие значения напрямую из row
+                  const heightValue = row[`${col.id}H`];
+                  const widthValue = row[`${col.id}W`];
+                  
+                  return (
                   <React.Fragment key={col.id}>
                     <TableCell 
                       key={`${col.id}-h`} 
@@ -740,15 +803,11 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                       <TextField
                         size="small"
                         type="text"
-                        value={row[`${col.id}H`]}
+                        value={heightValue}
                         onChange={(e) => handleCellChange(row.id, `${col.id}H`, e.target.value)}
+                        onFocus={(e) => handleCellFocus(row.id, `${col.id}H`, row[`${col.id}H`], e)}
                         onBlur={(e) => handleDimensionBlur(row.id, `${col.id}H`, e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            e.target.blur();
-                          }
-                        }}
+                        onKeyDown={(e) => handleCellKeyDown(row.id, `${col.id}H`, e)}
                         placeholder="0"
                         variant="standard"
                         InputProps={{
@@ -799,15 +858,11 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                       <TextField
                         size="small"
                         type="text"
-                        value={row[`${col.id}W`]}
+                        value={widthValue}
                         onChange={(e) => handleCellChange(row.id, `${col.id}W`, e.target.value)}
+                        onFocus={(e) => handleCellFocus(row.id, `${col.id}W`, row[`${col.id}W`], e)}
                         onBlur={(e) => handleDimensionBlur(row.id, `${col.id}W`, e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            e.target.blur();
-                          }
-                        }}
+                        onKeyDown={(e) => handleCellKeyDown(row.id, `${col.id}W`, e)}
                         placeholder="0"
                         variant="standard"
                         InputProps={{
@@ -847,7 +902,8 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                       />
                     </TableCell>
                   </React.Fragment>
-                ))}
+                  );
+                })}
 
                 {/* Кнопка удаления */}
                 <TableCell 

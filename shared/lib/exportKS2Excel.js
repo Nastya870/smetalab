@@ -787,11 +787,7 @@ const applyBorders = (worksheet) => {
  * Создание базового шаблона КС-2
  */
 export const generateKS2Excel = async (data = {}, includeVat = false) => {
-  try {
-    console.log('generateKS2Excel: Начало генерации, includeVat=', includeVat);
-    console.log('generateKS2Excel: data=', data);
-    
-    const workbook = new ExcelJS.Workbook();
+  try {const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('КС-2', {
     pageSetup: {
       paperSize: 9, // A4
@@ -1519,10 +1515,7 @@ export const generateKS2Excel = async (data = {}, includeVat = false) => {
   link.href = url;
   link.download = fileName;
   link.click();
-  window.URL.revokeObjectURL(url);
-  
-  console.log('generateKS2Excel: Файл успешно создан:', fileName);
-  } catch (error) {
+  window.URL.revokeObjectURL(url);} catch (error) {
     console.error('generateKS2Excel: Ошибка при генерации файла:', error);
     throw error;
   }

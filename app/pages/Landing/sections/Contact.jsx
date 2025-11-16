@@ -102,10 +102,10 @@ const Contact = () => {
 
         <Grid container spacing={6}>
           {/* Контактная информация - в один ряд */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Grid container spacing={4} sx={{ mb: 6, justifyContent: 'center' }}>
               {CONTACT_INFO.map((contact, index) => (
-                <Grid item xs={12} sm={6} md={4} key={index}>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
                   <ContactCard elevation={2}>
                     <ContactIcon>
                       <contact.icon sx={{ fontSize: 30 }} />

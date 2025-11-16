@@ -77,15 +77,10 @@ const GlobalPurchases = () => {
   useEffect(() => {
     const loadProjects = async () => {
       try {
-        console.log('📂 [GLOBAL PURCHASES] Загрузка списка проектов');
-        const response = await projectsAPI.getAll();
-        console.log('   Ответ от API:', response);
-        
-        // projectsAPI.getAll() возвращает { data: [...], pagination: {...} }
+const response = await projectsAPI.getAll();
+// projectsAPI.getAll() возвращает { data: [...], pagination: {...} }
         const projectsList = response.data || response.projects || [];
-        console.log('   Проектов получено:', projectsList.length);
-        
-        setProjects(projectsList);
+setProjects(projectsList);
       } catch (err) {
         console.error('❌ Ошибка загрузки проектов:', err);
       }
@@ -98,18 +93,8 @@ const GlobalPurchases = () => {
     try {
       setLoading(true);
       setError(null);
-
-      console.log('📊 [GLOBAL PURCHASES] Загрузка закупок');
-      console.log('   Фильтры:', JSON.stringify(filters, null, 2));
-      console.log('   projectId:', filters.projectId, '(type:', typeof filters.projectId, ')');
-      console.log('   dateFrom:', filters.dateFrom);
-      console.log('   dateTo:', filters.dateTo);
-
-      const response = await globalPurchasesAPI.getAllGlobalPurchases(filters);
       
-      console.log('✅ Получено закупок:', response.purchases?.length || 0);
-      console.log('   Первая закупка:', response.purchases?.[0]);
-
+      const response = await globalPurchasesAPI.getAllGlobalPurchases(filters);
       setPurchases(response.purchases || []);
 
       // Загрузка статистики
@@ -221,15 +206,7 @@ const GlobalPurchases = () => {
         setError('Цена не может быть отрицательной');
         return;
       }
-
-      console.log('📝 Обновление закупки:', editingPurchase.id);
-      console.log('   Старые данные:', {
-        quantity: editingPurchase.quantity,
-        price: editingPurchase.purchase_price
-      });
-      console.log('   Новые данные:', editFormData);
-
-      await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
+await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
         quantity,
         purchasePrice,
         purchaseDate: editFormData.purchaseDate
@@ -317,7 +294,7 @@ const GlobalPurchases = () => {
       {/* Статистика */}
       {statistics && (
         <Grid container spacing={2} mb={3}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper sx={{ p: 2, textAlign: 'center' }}>
               <Typography variant="h4" color="primary">
                 {statistics.totalPurchases}
@@ -327,7 +304,7 @@ const GlobalPurchases = () => {
               </Typography>
             </Paper>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper sx={{ p: 2, textAlign: 'center' }}>
               <Typography variant="h4" color="primary">
                 {statistics.uniqueMaterials}
@@ -337,7 +314,7 @@ const GlobalPurchases = () => {
               </Typography>
             </Paper>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper sx={{ p: 2, textAlign: 'center' }}>
               <Typography variant="h4" color="primary">
                 {statistics.projectsCount}
@@ -347,7 +324,7 @@ const GlobalPurchases = () => {
               </Typography>
             </Paper>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper sx={{ p: 2, textAlign: 'center' }}>
               <Typography variant="h4" color="success.main">
                 {formatCurrency(statistics.totalSpent)}
@@ -414,7 +391,7 @@ const GlobalPurchases = () => {
           <Divider />
           
           <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 select
                 fullWidth
@@ -457,7 +434,7 @@ const GlobalPurchases = () => {
               </TextField>
             </Grid>
             
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <TextField
                 type="date"
                 fullWidth
@@ -478,7 +455,7 @@ const GlobalPurchases = () => {
               />
             </Grid>
             
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <TextField
                 type="date"
                 fullWidth
@@ -787,7 +764,7 @@ const GlobalPurchases = () => {
             {editingPurchase && (
               <Box sx={{ p: 2, bgcolor: 'primary.lighter', borderRadius: 1 }}>
                 <Grid container spacing={2}>
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Stack direction="row" alignItems="center" spacing={2}>
                       <Avatar
                         src={editingPurchase.material_image}
@@ -811,7 +788,7 @@ const GlobalPurchases = () => {
                     </Stack>
                   </Grid>
                   
-                  <Grid item xs={6}>
+                  <Grid size={6}>
                     <Typography variant="caption" color="text.secondary">
                       Проект
                     </Typography>
@@ -820,7 +797,7 @@ const GlobalPurchases = () => {
                     </Typography>
                   </Grid>
                   
-                  <Grid item xs={6}>
+                  <Grid size={6}>
                     <Typography variant="caption" color="text.secondary">
                       Смета
                     </Typography>

@@ -115,7 +115,7 @@ const About = () => {
 
           <Grid container spacing={4} justifyContent="center">
             {BENEFITS.map((benefit, index) => (
-              <Grid item xs={12} md={6} key={index}>
+              <Grid size={{ xs: 12, md: 6 }} key={index}>
                 <BenefitCard elevation={2}>
                   <BenefitIcon>
                     <benefit.icon sx={{ fontSize: 24 }} />

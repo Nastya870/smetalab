@@ -21,6 +21,8 @@ import { IconBox, IconTrash } from '@tabler/icons-react';
 // ==============================|| MATERIAL DIALOG ||============================== //
 
 const MaterialDialog = ({ open, editMode, material, onClose, onSave, onDelete, onChange }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isFormValid = material.sku && material.name && material.category && material.unit && material.price >= 0 && material.supplier && material.weight >= 0;
 
   const categories = [
@@ -39,7 +41,19 @@ const MaterialDialog = ({ open, editMode, material, onClose, onSave, onDelete, o
   const units = ['м', 'м²', 'м³', 'шт', 'т', 'кг', 'л', 'упак.', 'рул.'];
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="md" 
+      fullWidth
+      fullScreen={isMobile}
+      sx={{
+        '& .MuiDialog-paper': {
+          m: isMobile ? 0 : 2,
+          maxHeight: isMobile ? '100%' : 'calc(100% - 64px)'
+        }
+      }}
+    >
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <IconBox size={24} />

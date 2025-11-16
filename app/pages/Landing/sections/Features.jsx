@@ -169,7 +169,7 @@ const Features = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
           <Grid container spacing={3} sx={{ maxWidth: 1000, justifyContent: 'center' }}>
             {FEATURES.map((feature, index) => (
-              <Grid item xs={12} sm={6} md={4} key={index} sx={{ display: 'flex', justifyContent: 'center' }}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index} sx={{ display: 'flex', justifyContent: 'center' }}>
                 <FeatureCard elevation={2}>
                   <FeatureImageContainer>
                     <FeatureImage 

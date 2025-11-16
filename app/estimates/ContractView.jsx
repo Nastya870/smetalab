@@ -238,7 +238,7 @@ const ContractView = ({ estimateId, projectId }) => {
       {/* Заголовок и кнопки действий */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Typography variant="h3" gutterBottom>
               Договор № {contract.contract_number}
             </Typography>
@@ -254,7 +254,7 @@ const ContractView = ({ estimateId, projectId }) => {
             </Stack>
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap">
               <Tooltip title="Обновить">
                 <IconButton onClick={loadContract} color="primary">
@@ -298,7 +298,7 @@ const ContractView = ({ estimateId, projectId }) => {
 
         <Grid container spacing={3}>
           {/* Заказчик */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Stack spacing={1}>
               <Stack direction="row" spacing={1} alignItems="center">
                 <IconUser size={20} />
@@ -328,7 +328,7 @@ const ContractView = ({ estimateId, projectId }) => {
           </Grid>
 
           {/* Подрядчик */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Stack spacing={1}>
               <Stack direction="row" spacing={1} alignItems="center">
                 <IconBuilding size={20} />
@@ -357,12 +357,12 @@ const ContractView = ({ estimateId, projectId }) => {
             </Stack>
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Divider />
           </Grid>
 
           {/* Финансовая информация */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Typography variant="subtitle2" color="textSecondary" gutterBottom>
               Общая стоимость работ
             </Typography>
@@ -371,7 +371,7 @@ const ContractView = ({ estimateId, projectId }) => {
             </Typography>
           </Grid>
 
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Typography variant="subtitle2" color="textSecondary" gutterBottom>
               Дата заключения
             </Typography>
@@ -380,7 +380,7 @@ const ContractView = ({ estimateId, projectId }) => {
             </Typography>
           </Grid>
 
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Typography variant="subtitle2" color="textSecondary" gutterBottom>
               Статус
             </Typography>
@@ -424,14 +424,14 @@ const ContractView = ({ estimateId, projectId }) => {
           {currentTab === 0 && (
             <Box sx={{ py: 2 }}>
               <Grid container spacing={3}>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="h4" gutterBottom>
                     Основная информация
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
                     fullWidth
                     label="Номер договора"
@@ -440,7 +440,7 @@ const ContractView = ({ estimateId, projectId }) => {
                   />
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
                     fullWidth
                     label="Дата договора"
@@ -449,7 +449,7 @@ const ContractView = ({ estimateId, projectId }) => {
                   />
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField
                     fullWidth
                     label="Общая стоимость"
@@ -458,14 +458,14 @@ const ContractView = ({ estimateId, projectId }) => {
                   />
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="h4" gutterBottom sx={{ mt: 2 }}>
                     Стороны договора
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Typography variant="subtitle2" color="textSecondary" gutterBottom>
                     Заказчик
                   </Typography>
@@ -474,7 +474,7 @@ const ContractView = ({ estimateId, projectId }) => {
                   </Typography>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Typography variant="subtitle2" color="textSecondary" gutterBottom>
                     Подрядчик
                   </Typography>

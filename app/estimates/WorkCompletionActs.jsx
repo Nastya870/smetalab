@@ -77,8 +77,7 @@ const WorkCompletionActs = ({ estimateId, projectId }) => {
       if (Array.isArray(data)) {
         setActs(data);
       } else {
-        console.warn('API returned non-array data:', data);
-        setActs([]);
+setActs([]);
       }
     } catch (err) {
       console.error('Error loading acts:', err);
@@ -99,8 +98,6 @@ const WorkCompletionActs = ({ estimateId, projectId }) => {
         projectId,
         actType
       });
-      
-      console.log('Generated act(s):', result);
       
       // Перезагрузка списка актов
       await loadActs();
@@ -169,20 +166,14 @@ const WorkCompletionActs = ({ estimateId, projectId }) => {
 
   const handleTabChange = async (event, newValue) => {
     setCurrentTab(newValue);
-    
-    console.log('[WorkCompletionActs] Tab changed to:', newValue);
-    console.log('[WorkCompletionActs] selectedAct:', selectedAct);
-    
-    // Загружаем данные КС-2 при переходе на вкладку 1
+// Загружаем данные КС-2 при переходе на вкладку 1
     if (newValue === 1 && !ks2Data && selectedAct?.id) {
-      console.log('[WorkCompletionActs] Loading KS-2 data for act:', selectedAct.id);
-      await loadKS2Data(selectedAct.id);
+await loadKS2Data(selectedAct.id);
     }
     
     // Загружаем данные КС-3 при переходе на вкладку 2
     if (newValue === 2 && !ks3Data && selectedAct?.id) {
-      console.log('[WorkCompletionActs] Loading KS-3 data for act:', selectedAct.id);
-      await loadKS3Data(selectedAct.id);
+await loadKS3Data(selectedAct.id);
     }
   };
 
@@ -196,16 +187,11 @@ const WorkCompletionActs = ({ estimateId, projectId }) => {
     try {
       setKs2Loading(true);
       setError(null); // Очищаем предыдущие ошибки
-      console.log('[WorkCompletionActs] Fetching KS-2 data for actId:', actId);
-      
-      const data = await workCompletionActsAPI.getFormKS2(actId);
-      console.log('[WorkCompletionActs] KS-2 data received:', data);
-      
-      if (data) {
+const data = await workCompletionActsAPI.getFormKS2(actId);
+if (data) {
         setKs2Data(data);
       } else {
-        console.warn('[WorkCompletionActs] KS-2 data is empty');
-        setError('Форма КС-2 не содержит данных');
+setError('Форма КС-2 не содержит данных');
       }
     } catch (err) {
       console.error('[WorkCompletionActs] Error loading KS-2 data:', err);
@@ -226,16 +212,11 @@ const WorkCompletionActs = ({ estimateId, projectId }) => {
     try {
       setKs3Loading(true);
       setError(null); // Очищаем предыдущие ошибки
-      console.log('[WorkCompletionActs] Fetching KS-3 data for actId:', actId);
-      
-      const data = await workCompletionActsAPI.getFormKS3(actId);
-      console.log('[WorkCompletionActs] KS-3 data received:', data);
-      
-      if (data) {
+const data = await workCompletionActsAPI.getFormKS3(actId);
+if (data) {
         setKs3Data(data);
       } else {
-        console.warn('[WorkCompletionActs] KS-3 data is empty');
-        setError('Форма КС-3 не содержит данных');
+setError('Форма КС-3 не содержит данных');
       }
     } catch (err) {
       console.error('[WorkCompletionActs] Error loading KS-3 data:', err);
@@ -431,7 +412,8 @@ const WorkCompletionActs = ({ estimateId, projectId }) => {
             </Typography>
           </Box>
         ) : (
-          <Table>
+          <Box sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+            <Table sx={{ minWidth: 650 }}>
             <TableHead>
               <TableRow sx={{ bgcolor: 'action.hover' }}>
                 <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider', fontWeight: 'bold' }}>
@@ -525,6 +507,7 @@ const WorkCompletionActs = ({ estimateId, projectId }) => {
               ))}
             </TableBody>
           </Table>
+          </Box>
         )}
       </Paper>
 

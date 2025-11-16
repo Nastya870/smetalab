@@ -51,8 +51,7 @@ const Schedule = ({ estimateId, projectId }) => {
       } catch (err) {
         // Если график не найден (404), это не ошибка - просто еще не создан
         if (err.response?.status === 404) {
-          console.log('График еще не создан');
-        } else {
+} else {
           console.error('Ошибка загрузки графика:', err);
           setError('Не удалось загрузить график');
         }
@@ -215,7 +214,8 @@ const Schedule = ({ estimateId, projectId }) => {
               </Box>
 
               {/* Таблица работ */}
-              <Table size="small">
+              <Box sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+              <Table size="small" sx={{ minWidth: 650 }}>
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ width: 80, fontWeight: 600, borderRight: '2px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
@@ -282,6 +282,7 @@ const Schedule = ({ estimateId, projectId }) => {
                   ))}
                 </TableBody>
               </Table>
+              </Box>
 
               {/* Итого по фазе */}
               <Box sx={{ px: 2, py: 1.5, bgcolor: 'warning.lighter', borderTop: '2px solid', borderColor: 'warning.main' }}>

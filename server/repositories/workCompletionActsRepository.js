@@ -88,7 +88,7 @@ export async function generateClientAct(estimateId, projectId, tenantId, userId,
       WHERE wc.estimate_id = $1 
         AND wc.completed = true
         AND wc.actual_quantity > 0
-        AND (wc.last_act_id IS NULL OR wca.act_type != 'client') -- ⭐ Исключаем только акты клиента
+        AND (wc.last_act_id IS NULL OR wca.act_type IS NULL OR wca.act_type != 'client') -- ⭐ Исключаем только существующие акты клиента
         AND wc.tenant_id = $2
       ORDER BY ei.section NULLS LAST, ei.subsection NULLS LAST, ei.position_number
     `;
@@ -277,7 +277,7 @@ export async function generateSpecialistAct(estimateId, projectId, tenantId, use
       WHERE wc.estimate_id = $1 
         AND wc.completed = true
         AND wc.actual_quantity > 0
-        AND (wc.last_act_id IS NULL OR wca.act_type != 'specialist') -- ⭐ Исключаем только акты специалиста
+        AND (wc.last_act_id IS NULL OR wca.act_type IS NULL OR wca.act_type != 'specialist') -- ⭐ Исключаем только существующие акты специалиста
         AND wc.tenant_id = $2
       ORDER BY ei.section NULLS LAST, ei.subsection NULLS LAST, ei.position_number
     `;

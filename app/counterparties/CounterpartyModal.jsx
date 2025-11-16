@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField,
-  Stack, Box, ToggleButtonGroup, ToggleButton, Typography, Divider, Grid
+  Stack, Box, ToggleButtonGroup, ToggleButton, Typography, Divider, Grid,
+  useMediaQuery, useTheme
 } from '@mui/material';
 import { IconUser, IconBuilding } from '@tabler/icons-react';
 import counterpartiesAPI from 'api/counterparties';
 
 const CounterpartyModal = ({ open, onClose, onSuccess, counterparty }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isEdit = Boolean(counterparty);
   const [loading, setLoading] = useState(false);
   const [entityType, setEntityType] = useState('individual');
@@ -84,7 +87,19 @@ const CounterpartyModal = ({ open, onClose, onSuccess, counterparty }) => {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="md" 
+      fullWidth
+      fullScreen={isMobile}
+      sx={{
+        '& .MuiDialog-paper': {
+          m: isMobile ? 0 : 2,
+          maxHeight: isMobile ? '100%' : 'calc(100% - 64px)'
+        }
+      }}
+    >
       <form onSubmit={handleSubmit}>
         <DialogTitle>
           {isEdit ? 'Редактировать контрагента' : 'Добавить контрагента'}
@@ -117,17 +132,17 @@ const CounterpartyModal = ({ open, onClose, onSuccess, counterparty }) => {
                 <Divider><Typography variant="caption">Паспортные данные</Typography></Divider>
                 <TextField label="ФИО" required value={formData.fullName} onChange={handleChange('fullName')} />
                 <Grid container spacing={2}>
-                  <Grid item xs={6}>
+                  <Grid size={6}>
                     <TextField label="Дата рождения" type="date" required fullWidth
                       value={formData.birthDate} onChange={handleChange('birthDate')} InputLabelProps={{ shrink: true }} />
                   </Grid>
-                  <Grid item xs={6}>
+                  <Grid size={6}>
                     <TextField label="Место рождения" required fullWidth
                       value={formData.birthPlace} onChange={handleChange('birthPlace')} />
                   </Grid>
                 </Grid>
                 <Grid container spacing={2}>
-                  <Grid item xs={4}>
+                  <Grid size={4}>
                     <TextField 
                       label="Серия паспорта" 
                       required 
@@ -139,7 +154,7 @@ const CounterpartyModal = ({ open, onClose, onSuccess, counterparty }) => {
                       helperText="4 цифры"
                     />
                   </Grid>
-                  <Grid item xs={4}>
+                  <Grid size={4}>
                     <TextField 
                       label="Номер паспорта" 
                       required 
@@ -151,7 +166,7 @@ const CounterpartyModal = ({ open, onClose, onSuccess, counterparty }) => {
                       helperText="6 цифр"
                     />
                   </Grid>
-                  <Grid item xs={4}>
+                  <Grid size={4}>
                     <TextField 
                       label="Код подразделения" 
                       required 
@@ -177,13 +192,13 @@ const CounterpartyModal = ({ open, onClose, onSuccess, counterparty }) => {
                 <TextField label="Наименование организации" required
                   value={formData.companyName} onChange={handleChange('companyName')} />
                 <Grid container spacing={2}>
-                  <Grid item xs={4}>
+                  <Grid size={4}>
                     <TextField label="ИНН" required fullWidth value={formData.inn} onChange={handleChange('inn')} />
                   </Grid>
-                  <Grid item xs={4}>
+                  <Grid size={4}>
                     <TextField label="ОГРН/ОГРНИП" required fullWidth value={formData.ogrn} onChange={handleChange('ogrn')} />
                   </Grid>
-                  <Grid item xs={4}>
+                  <Grid size={4}>
                     <TextField label="КПП" required fullWidth value={formData.kpp} onChange={handleChange('kpp')} />
                   </Grid>
                 </Grid>
@@ -194,18 +209,18 @@ const CounterpartyModal = ({ open, onClose, onSuccess, counterparty }) => {
                 
                 <Divider><Typography variant="caption">Банковские реквизиты</Typography></Divider>
                 <Grid container spacing={2}>
-                  <Grid item xs={6}>
+                  <Grid size={6}>
                     <TextField label="Расчётный счёт" fullWidth value={formData.bankAccount} onChange={handleChange('bankAccount')} />
                   </Grid>
-                  <Grid item xs={6}>
+                  <Grid size={6}>
                     <TextField label="Корр. счёт" fullWidth value={formData.correspondentAccount} onChange={handleChange('correspondentAccount')} />
                   </Grid>
                 </Grid>
                 <Grid container spacing={2}>
-                  <Grid item xs={4}>
+                  <Grid size={4}>
                     <TextField label="БИК" fullWidth value={formData.bankBik} onChange={handleChange('bankBik')} />
                   </Grid>
-                  <Grid item xs={8}>
+                  <Grid size={8}>
                     <TextField label="Наименование банка" fullWidth value={formData.bankName} onChange={handleChange('bankName')} />
                   </Grid>
                 </Grid>
@@ -220,10 +235,10 @@ const CounterpartyModal = ({ open, onClose, onSuccess, counterparty }) => {
 
             <Divider><Typography variant="caption">Контактная информация</Typography></Divider>
             <Grid container spacing={2}>
-              <Grid item xs={6}>
+              <Grid size={6}>
                 <TextField label="Телефон" fullWidth value={formData.phone} onChange={handleChange('phone')} />
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={6}>
                 <TextField label="Email" type="email" fullWidth value={formData.email} onChange={handleChange('email')} />
               </Grid>
             </Grid>

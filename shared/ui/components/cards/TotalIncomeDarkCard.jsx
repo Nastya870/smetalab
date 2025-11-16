@@ -55,14 +55,11 @@ export default function TotalIncomeDarkCard({ isLoading }) {
     const fetchIncomeWorksData = async () => {
       try {
         setLoading(true);
-        console.log('🔄 Загрузка данных дохода от работ...');
-        // Импортируем API здесь, чтобы избежать циклических зависимостей
+// Импортируем API здесь, чтобы избежать циклических зависимостей
         const { projectsAPI } = await import('api/projects');
         const response = await projectsAPI.getTotalIncomeWorks();
-        console.log('📊 Ответ API дохода от работ:', response);
-        if (response.success) {
-          console.log('✅ Данные дохода от работ получены:', response.data);
-          setIncomeData({
+if (response.success) {
+setIncomeData({
             totalIncome: response.data.totalIncomeWorks || 0,
             projectsCount: 0
           });

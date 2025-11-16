@@ -357,7 +357,7 @@ const ProjectsPage = () => {
         <>
           <Grid container spacing={3}>
             {projects.map((project) => (
-              <Grid item xs={12} md={6} lg={4} key={project.id}>
+              <Grid size={{ xs: 12, md: 6, lg: 4 }} key={project.id}>
                 <ProjectCard
                   project={project}
                   onOpen={handleOpenProject}

@@ -40,18 +40,9 @@ export default function TotalOrderLineChartCard({ isLoading }) {
         const [monthResponse, yearResponse] = await Promise.all([
           projectsAPI.getChartData('month'),
           projectsAPI.getChartData('year')
-        ]);
-
-        console.log('📊 Ответы API проектов:', { monthResponse, yearResponse });
-        
-        if (monthResponse.success && yearResponse.success) {
+        ]);if (monthResponse.success && yearResponse.success) {
           const monthData = monthResponse.data.chartData;
-          const yearData = yearResponse.data.chartData;
-          
-          console.log('📅 Данные по месяцам:', monthData);
-          console.log('📆 Данные по годам:', yearData);
-          
-          // Подготавливаем данные для графиков - все 5 статусов
+          const yearData = yearResponse.data.chartData;// Подготавливаем данные для графиков - все 5 статусов
           const prepareStatusData = (data) => ({
             planning: data.map(item => item.planningProjects || 0),
             approval: data.map(item => item.approvalProjects || 0),
@@ -72,20 +63,14 @@ export default function TotalOrderLineChartCard({ isLoading }) {
             : 0;
           const currentYearInProgress = yearData.length > 0 
             ? yearData[yearData.length - 1].inProgressProjects || 0 
-            : 0;
-          
-          console.log('🔢 Текущие проекты в работе:', { currentMonthInProgress, currentYearInProgress });
-          
-          setProjectCounts({
+            : 0;setProjectCounts({
             month: currentMonthInProgress,
             year: currentYearInProgress
           });
 
           // Сохраняем русские названия месяцев из API
           if (yearResponse.data.months) {
-            setMonthNames(yearResponse.data.months);
-            console.log('📅 Русские месяцы:', yearResponse.data.months);
-          }
+            setMonthNames(yearResponse.data.months);}
         } else {
           console.error('❌ Ошибка в ответах API:', { monthResponse, yearResponse });
         }

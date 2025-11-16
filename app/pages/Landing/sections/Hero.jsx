@@ -168,7 +168,7 @@ const Hero = () => {
       <ContentWrapper maxWidth="xl">
         <Grid container spacing={4} alignItems="center">
           {/* Левая часть с текстом */}
-          <Grid item xs={12} md={7}>
+          <Grid size={{ xs: 12, md: 7 }}>
             <SubHeading variant="subtitle2">
               Профессиональная система сметного планирования
             </SubHeading>
@@ -194,7 +194,7 @@ const Hero = () => {
           </Grid>
 
           {/* Правая часть с изображением */}
-          <Grid item xs={12} md={5}>
+          <Grid size={{ xs: 12, md: 5 }}>
             <Box sx={{ 
               position: 'relative',
               zIndex: 3,

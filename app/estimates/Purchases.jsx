@@ -85,9 +85,7 @@ const Purchases = ({ estimateId, projectId }) => {
         }
       } catch (err) {
         // Если закупки не найдены (404), это не ошибка - просто еще не созданы
-        if (err.response?.status === 404) {
-          console.log('Закупки еще не созданы');
-        } else {
+        if (err.response?.status !== 404) {
           console.error('Ошибка загрузки закупок:', err);
           setError('Не удалось загрузить закупки');
         }
@@ -200,9 +198,6 @@ const Purchases = ({ estimateId, projectId }) => {
         isExtraCharge: selectedMaterial.isExtraCharge || false // Передаем флаг О/Ч если есть
       };
 
-      console.log('Отправка данных в общие закупки:', purchaseData);
-      console.log('Выбранный материал:', selectedMaterial);
-
       await globalPurchasesAPI.createGlobalPurchase(purchaseData);
 
       handleCloseAddDialog();
@@ -219,7 +214,6 @@ const Purchases = ({ estimateId, projectId }) => {
 
     } catch (err) {
       console.error('Ошибка добавления в общие закупки:', err);
-      console.error('Детали ошибки:', err.response?.data);
       setError(err.response?.data?.error || err.response?.data?.message || 'Не удалось добавить в общие закупки');
     } finally {
       setSubmitting(false);
@@ -269,14 +263,6 @@ const Purchases = ({ estimateId, projectId }) => {
     try {
       setSubmitting(true);
       setError(null);
-
-      console.log('Добавление О/Ч материала в закупки проекта:', {
-        estimateId,
-        projectId,
-        materialId: extraMaterialForm.material.id,
-        quantity: extraMaterialForm.quantity,
-        price: extraMaterialForm.purchasePrice
-      });
 
       // Добавляем ТОЛЬКО в закупки проекта (таблица purchases)
       // В глобальные закупки будет добавлено через кнопку "В закупку" 🛒
@@ -396,9 +382,9 @@ const Purchases = ({ estimateId, projectId }) => {
       ) : (
         // Сформированные закупки
         <>
-          <Paper sx={{ overflow: 'hidden' }}>
+          <Paper sx={{ overflowX: 'auto', maxWidth: '100%' }}>
             {/* Таблица материалов */}
-            <Table size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
+            <Table size="small" sx={{ tableLayout: 'fixed', minWidth: 800 }}>
               <TableHead>
                 {/* Первый уровень шапки */}
                 <TableRow>

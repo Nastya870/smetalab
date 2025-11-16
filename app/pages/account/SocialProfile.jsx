@@ -73,9 +73,7 @@ const SocialProfile = () => {
 
   // Обновляем formData когда tenant загружается или изменяется
   useEffect(() => {
-    if (tenant) {
-      console.log('[SocialProfile] Tenant loaded:', tenant);
-      setFormData({
+    if (tenant) {setFormData({
         companyFullName: tenant.companyFullName || '',
         inn: tenant.inn || '',
         ogrn: tenant.ogrn || '',
@@ -90,9 +88,7 @@ const SocialProfile = () => {
         accountantName: tenant.accountantName || ''
       });
     }
-    if (user) {
-      console.log('[SocialProfile] User loaded:', user);
-      setAvatarUrl(user.avatar_url || User1);
+    if (user) {setAvatarUrl(user.avatar_url || User1);
     }
   }, [tenant, user]);
 
@@ -142,10 +138,7 @@ const SocialProfile = () => {
         window.dispatchEvent(new StorageEvent('storage', {
           key: 'user',
           newValue: JSON.stringify(updatedUser)
-        }));
-        
-        console.log('[SocialProfile] Avatar removed successfully');
-        alert('Фото профиля успешно удалено');
+        }));alert('Фото профиля успешно удалено');
         window.location.reload();
       } catch (error) {
         console.error('[SocialProfile] Error removing avatar:', error);
@@ -181,24 +174,15 @@ const SocialProfile = () => {
   };
 
   const handleSave = async () => {
-    try {
-      console.log('[SocialProfile] Saving data...');
-      
-      // Сохраняем данные организации
+    try {// Сохраняем данные организации
       let updatedData = { ...formData };
-      const response = await tenantsAPI.update(tenant.id, updatedData);
-      console.log('[SocialProfile] Tenant updated, response:', response);
-      
-      // Если есть новый аватар пользователя, загружаем его
+      const response = await tenantsAPI.update(tenant.id, updatedData);// Если есть новый аватар пользователя, загружаем его
       if (avatarFile) {
         const avatarFormData = new FormData();
         avatarFormData.append('avatar', avatarFile);
         
         try {
-          const uploadResponse = await usersAPI.uploadAvatar(user.id, avatarFormData);
-          console.log('[SocialProfile] Avatar uploaded:', uploadResponse);
-          
-          // Обновляем user в localStorage
+          const uploadResponse = await usersAPI.uploadAvatar(user.id, avatarFormData);// Обновляем user в localStorage
           const updatedUser = { 
             ...user, 
             avatar_url: uploadResponse.avatar_url 
@@ -215,12 +199,7 @@ const SocialProfile = () => {
       const updatedTenant = { 
         ...tenant,
         ...response
-      };
-      console.log('[SocialProfile] Updating localStorage with tenant:', updatedTenant);
-      localStorage.setItem('tenant', JSON.stringify(updatedTenant));
-      
-      console.log('[SocialProfile] All data saved successfully');
-      alert('Данные успешно сохранены! Страница будет перезагружена.');
+      };localStorage.setItem('tenant', JSON.stringify(updatedTenant));alert('Данные успешно сохранены! Страница будет перезагружена.');
       
       // Перезагружаем страницу чтобы обновить данные в useAuth
       setTimeout(() => {
@@ -315,7 +294,7 @@ const SocialProfile = () => {
     >
       <Grid container spacing={3}>
         {/* Карточка профиля пользователя */}
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card 
             sx={{ 
               textAlign: 'center',
@@ -452,7 +431,7 @@ const SocialProfile = () => {
         </Grid>
 
         {/* Детальная информация об организации */}
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           {/* Личная информация пользователя */}
           <Paper 
             elevation={0}
@@ -479,7 +458,7 @@ const SocialProfile = () => {
             </Box>
             <CardContent sx={{ p: 3 }}>
               <Grid container spacing={3}>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Stack spacing={0.5}>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <IconUserCheck size={16} color={theme.palette.text.secondary} />
@@ -492,7 +471,7 @@ const SocialProfile = () => {
                     </Typography>
                   </Stack>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Stack spacing={0.5}>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <IconMail size={16} color={theme.palette.text.secondary} />
@@ -505,7 +484,7 @@ const SocialProfile = () => {
                     </Typography>
                   </Stack>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Stack spacing={0.5}>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <IconPhone size={16} color={theme.palette.text.secondary} />
@@ -518,7 +497,7 @@ const SocialProfile = () => {
                     </Typography>
                   </Stack>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Stack spacing={0.5}>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <IconShield size={16} color={theme.palette.text.secondary} />
@@ -565,7 +544,7 @@ const SocialProfile = () => {
               
               <Grid container spacing={3}>
                 {/* Наименование организации */}
-                <Grid item xs={12}>
+                <Grid size={12}>
                   {editMode ? (
                     <TextField
                       fullWidth
@@ -588,7 +567,7 @@ const SocialProfile = () => {
                 </Grid>
 
                 {/* ИНН, ОГРН/ОГРНИП, КПП */}
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   {editMode ? (
                     <TextField
                       fullWidth
@@ -611,7 +590,7 @@ const SocialProfile = () => {
                   )}
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   {editMode ? (
                     <TextField
                       fullWidth
@@ -634,7 +613,7 @@ const SocialProfile = () => {
                   )}
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   {editMode ? (
                     <TextField
                       fullWidth
@@ -658,7 +637,7 @@ const SocialProfile = () => {
                 </Grid>
 
                 {/* Адреса */}
-                <Grid item xs={12}>
+                <Grid size={12}>
                   {editMode ? (
                     <TextField
                       fullWidth
@@ -682,7 +661,7 @@ const SocialProfile = () => {
                   )}
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={12}>
                   {editMode ? (
                     <TextField
                       fullWidth
@@ -724,7 +703,7 @@ const SocialProfile = () => {
               </Box>
               
               <Grid container spacing={3}>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   {editMode ? (
                     <TextField
                       fullWidth
@@ -747,7 +726,7 @@ const SocialProfile = () => {
                   )}
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   {editMode ? (
                     <TextField
                       fullWidth
@@ -770,7 +749,7 @@ const SocialProfile = () => {
                   )}
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   {editMode ? (
                     <TextField
                       fullWidth
@@ -793,7 +772,7 @@ const SocialProfile = () => {
                   )}
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   {editMode ? (
                     <TextField
                       fullWidth
@@ -832,7 +811,7 @@ const SocialProfile = () => {
               </Box>
               
               <Grid container spacing={3}>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   {editMode ? (
                     <TextField
                       fullWidth
@@ -854,7 +833,7 @@ const SocialProfile = () => {
                   )}
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   {editMode ? (
                     <TextField
                       fullWidth

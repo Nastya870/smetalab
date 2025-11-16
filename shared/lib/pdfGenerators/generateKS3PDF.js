@@ -301,10 +301,7 @@ export function generateKS3PDF(data, filename = 'ks3.pdf') {
   }
 
   // 9. СОХРАНЕНИЕ ФАЙЛА
-  doc.save(filename);
-  
-  console.log(`✅ КС-3 PDF сгенерирован: ${filename}`);
-}
+  doc.save(filename);}
 
 // Вспомогательная функция для получения названия роли
 function getRoleLabel(role) {

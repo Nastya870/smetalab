@@ -72,10 +72,6 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
         try {
           const rows = parseResult.data;
           
-          console.log('[PARSE DEBUG] Parsed rows:', rows.length);
-          console.log('[PARSE DEBUG] First row:', rows[0]);
-          console.log('[PARSE DEBUG] Row keys:', rows[0] ? Object.keys(rows[0]) : 'no keys');
-          
           if (rows.length === 0) {
             setError('CSV файл пустой или не содержит данных');
             setLoading(false);
@@ -193,33 +189,18 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
           }
 
           // 🔍 DEBUG: Логируем что отправляем
-          console.log('[IMPORT DEBUG] Sending to server:', {
-            materialsCount: materials.length,
-            mode,
-            isGlobal,
-            firstMaterial: materials[0]
-          });
-
-          // Отправляем данные на сервер
+// Отправляем данные на сервер
           const importResult = await materialsImportExportAPI.importMaterials(materials, {
             mode,
             isGlobal
           });
-
-          console.log('[IMPORT DEBUG] Server response:', importResult);
-          console.log('[IMPORT DEBUG] successCount:', importResult?.successCount);
-          console.log('[IMPORT DEBUG] errorCount:', importResult?.errorCount);
-          
-          // ✅ ВСЕГДА показываем результат
+// ✅ ВСЕГДА показываем результат
           if (importResult) {
             setResult(importResult);
-            console.log('[IMPORT DEBUG] setResult called with:', importResult);
           }
           
           // ✅ ВСЕГДА обновляем список (даже если есть ошибки)
-          console.log('[IMPORT DEBUG] Calling onSuccess()...');
           onSuccess(); // Обновляем список материалов
-          console.log('[IMPORT DEBUG] onSuccess() called');
           
           // ✅ Автоматически закрываем модалку только если импорт полностью успешен
           if (importResult?.errorCount === 0 && importResult?.successCount > 0) {

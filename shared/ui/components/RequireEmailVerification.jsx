@@ -16,29 +16,20 @@ export default function RequireEmailVerification({ children }) {
   const [message, setMessage] = useState('');
 
   // DEBUG: Логируем состояние пользователя
-  console.log('[RequireEmailVerification] User:', user);
-  console.log('[RequireEmailVerification] Loading:', loading);
-  console.log('[RequireEmailVerification] EmailVerified:', user?.emailVerified);
-
-  // Показываем загрузку пока проверяем пользователя
+// Показываем загрузку пока проверяем пользователя
   if (loading) {
     return null; // или <Loader />
   }
 
   // Если пользователь не авторизован - редирект на логин
   if (!user) {
-    console.log('[RequireEmailVerification] No user - redirect to login');
     return <Navigate to="/pages/login" state={{ from: location }} replace />;
   }
 
   // Если email подтвержден - пропускаем дальше
   if (user.emailVerified) {
-    console.log('[RequireEmailVerification] Email verified - allow access');
     return children;
   }
-
-  console.log('[RequireEmailVerification] Email NOT verified - blocking access');
-
   // Email НЕ подтвержден - показываем блокирующую страницу
   const handleResendEmail = async () => {
     try {

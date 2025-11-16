@@ -38,7 +38,12 @@ import {
   DialogContent,
   DialogActions,
   Snackbar,
-  Grid
+  Grid,
+  Drawer,
+  Radio,
+  RadioGroup,
+  FormControl,
+  FormControlLabel
 } from '@mui/material';
 import {
   IconSearch,
@@ -50,7 +55,9 @@ import {
   IconEye,
   IconEyeOff,
   IconPercentage,
-  IconFileTypeXls
+  IconFileTypeXls,
+  IconFilter,
+  IconX
 } from '@tabler/icons-react';
 
 // project imports
@@ -62,6 +69,101 @@ import materialsAPI from 'api/materials';
 import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu'; // ✅ Для управления основным сайдбаром
 import PriceCoefficientModal from './PriceCoefficientModal';
 import ObjectParametersSidebar from './ObjectParametersSidebar';
+import { fullTextSearch } from 'shared/lib/utils/fullTextSearch';
+
+// ==============================|| HELPER FUNCTIONS ||============================== //
+
+/**
+ * Сравнивает две работы по правилу: Фаза → Код → Стадия → Подстадия
+ * @param {Object} a - первая работа
+ * @param {Object} b - вторая работа
+ * @returns {number} - результат сравнения (-1, 0, 1)
+ */
+const compareWorkItems = (a, b) => {
+  // 1. Сравниваем по фазе (phase)
+  const phaseA = a.phase || '';
+  const phaseB = b.phase || '';
+  if (phaseA !== phaseB) {
+    return phaseA.localeCompare(phaseB, 'ru');
+  }
+
+  // 2. Сравниваем по коду работы (с правильной числовой сортировкой)
+  const codeA = a.code || '';
+  const codeB = b.code || '';
+  if (codeA !== codeB) {
+    // Разбиваем код на части: "3-100" -> ["3", "100"]
+    const partsA = codeA.split(/[-–]/); // поддержка и дефиса и тире
+    const partsB = codeB.split(/[-–]/);
+    
+    // Сравниваем первую часть (префикс) как число
+    const prefixA = parseInt(partsA[0]) || 0;
+    const prefixB = parseInt(partsB[0]) || 0;
+    
+    if (prefixA !== prefixB) {
+      return prefixA - prefixB;
+    }
+    
+    // Если префиксы равны, сравниваем вторую часть как число
+    if (partsA.length > 1 && partsB.length > 1) {
+      const numA = parseInt(partsA[1]) || 0;
+      const numB = parseInt(partsB[1]) || 0;
+      
+      if (numA !== numB) {
+        return numA - numB;
+      }
+    }
+    
+    // Если числовые части равны, сравниваем как строки (на случай букв)
+    return codeA.localeCompare(codeB, 'ru');
+  }
+
+  // 3. Сравниваем по стадии (section)
+  const sectionA = a.section || '';
+  const sectionB = b.section || '';
+  if (sectionA !== sectionB) {
+    return sectionA.localeCompare(sectionB, 'ru');
+  }
+
+  // 4. Сравниваем по подстадии (subsection)
+  const subsectionA = a.subsection || '';
+  const subsectionB = b.subsection || '';
+  return subsectionA.localeCompare(subsectionB, 'ru');
+};
+
+/**
+ * Сортирует работы внутри раздела по правилу: Фаза → Код → Стадия → Подстадия
+ * @param {Array} items - массив работ для сортировки
+ */
+const sortWorkItems = (items) => {
+  items.sort((a, b) => compareWorkItems(a, b));
+};
+
+/**
+ * Находит позицию для вставки новой работы с сохранением сортировки
+ * @param {Array} items - отсортированный массив работ
+ * @param {Object} newItem - новая работа для вставки
+ * @returns {number} - индекс позиции для вставки
+ */
+const findInsertPosition = (items, newItem) => {
+  if (items.length === 0) return 0;
+  
+  // Бинарный поиск для нахождения позиции вставки
+  let left = 0;
+  let right = items.length;
+  
+  while (left < right) {
+    const mid = Math.floor((left + right) / 2);
+    const comparison = compareWorkItems(items[mid], newItem);
+    
+    if (comparison < 0) {
+      left = mid + 1;
+    } else {
+      right = mid;
+    }
+  }
+  
+  return left;
+};
 
 // ==============================|| ESTIMATE WITH SIDEBAR ||============================== //
 
@@ -69,6 +171,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // State
   const [sidebarVisible, setSidebarVisible] = useState(false); // ✅ По умолчанию скрыт (режим просмотра)
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSection, setSelectedSection] = useState(null); // ✅ Фильтр по стадии (разделу)
+  const [filtersPanelOpen, setFiltersPanelOpen] = useState(false); // ✅ Состояние панели фильтров
   const [workSourceTab, setWorkSourceTab] = useState('global'); // 'global' или 'tenant'
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false); // ✅ Флаг несохраненных изменений
   
@@ -130,14 +234,11 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           pageSize: 10000 // Загружаем все записи для виртуализации
         });
         
-        console.log(`API response (${workSourceTab}):`, response); // Debug log
-        
         // Извлекаем массив data из response
         const data = response.data || response;
         
         // Check if data is empty
         if (!data || !Array.isArray(data) || data.length === 0) {
-          console.warn('No works found in database');
           setErrorWorks('В справочнике пока нет работ. Добавьте работы в разделе "Справочники" → "Работы"');
           setAvailableWorks([]);
           return;
@@ -148,7 +249,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           id: work.id.toString(),
           code: work.code,
           name: work.name,
-          category: work.category || 'Без категории',
+          category: work.section || '', // ✅ Используем section как category
           unit: work.unit,
           price: work.base_price || 0,
           phase: work.phase || '',
@@ -156,7 +257,6 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           subsection: work.subsection || ''
         }));
         
-        console.log('Transformed works:', transformedWorks.length); // Debug log
         setAvailableWorks(transformedWorks);
       } catch (err) {
         console.error('Ошибка загрузки работ:', err);
@@ -206,7 +306,6 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     return () => {
       // Если сайдбар был открыт (режим расчета), закрываем его
       if (sidebarVisible) {
-        console.log('[EstimateWithSidebar] Компонент размонтируется - закрываем сайдбары');
         // Закрываем основной левый сайдбар, если он был открыт
         handlerDrawerOpen(false);
       }
@@ -241,28 +340,43 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     }
   }, [estimateData]); // Только estimateData в зависимостях!
 
-  // Фильтрация работ по поиску
-  const filteredWorks = useMemo(() => {
+  // Фильтрация работ с полнотекстовым поиском
+  // Поддерживает поиск по нескольким словам одновременно
+  // ✅ Работы после поиска (для подсчёта в фильтрах)
+  const worksAfterSearch = useMemo(() => {
     if (!searchTerm) return availableWorks;
-    const lower = searchTerm.toLowerCase();
-    return availableWorks.filter(
-      (work) =>
-        work.name.toLowerCase().includes(lower) ||
-        work.code.toLowerCase().includes(lower) ||
-        work.category.toLowerCase().includes(lower)
-    );
+    return fullTextSearch(availableWorks, searchTerm, ['name', 'code', 'section', 'subsection']);
   }, [searchTerm, availableWorks]);
 
-  // ✅ Фильтрация материалов по поиску в модалке
+  const filteredWorks = useMemo(() => {
+    let works = worksAfterSearch;
+    
+    // Фильтруем по выбранной стадии (разделу)
+    if (selectedSection) {
+      works = works.filter(work => work.section === selectedSection);
+    }
+    
+    return works;
+  }, [selectedSection, worksAfterSearch]);
+  
+  // ✅ Получаем уникальные стадии (разделы) из работ после поиска
+  const availableSections = useMemo(() => {
+    const sections = new Set();
+    worksAfterSearch.forEach(work => {
+      if (work.section) {
+        sections.add(work.section);
+      }
+    });
+    
+    return Array.from(sections).sort();
+  }, [worksAfterSearch]);
+
+  // ✅ Фильтрация материалов с полнотекстовым поиском
   const filteredMaterials = useMemo(() => {
     if (!materialSearchTerm) return availableMaterials;
-    const lower = materialSearchTerm.toLowerCase();
-    return availableMaterials.filter(
-      (material) =>
-        material.name.toLowerCase().includes(lower) ||
-        (material.sku && material.sku.toLowerCase().includes(lower)) ||
-        (material.category && material.category.toLowerCase().includes(lower))
-    );
+    
+    // Используем полнотекстовый поиск по всем полям
+    return fullTextSearch(availableMaterials, materialSearchTerm, ['name', 'sku', 'category', 'supplier', 'unit']);
   }, [materialSearchTerm, availableMaterials]);
 
   // Получить ID работ, которые уже добавлены в смету
@@ -295,19 +409,15 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       const worksToAdd = customWorks || [];
       
       if (worksToAdd.length === 0) {
-        console.log('⚠️ No works to transfer');
         setTransferringWorks(false);
         return;
       }
-      
-      console.log(`⏱️ Transferring ${worksToAdd.length} works...`);
 
       // ⚡ Загружаем материалы ОДНИМ запросом для всех работ
       const materialsStartTime = performance.now();
       const workIds = worksToAdd.map(w => w.id);
       const materialsMap = await workMaterialsAPI.getMaterialsForMultipleWorks(workIds);
       const materialsEndTime = performance.now();
-      console.log(`⚡ Batch materials loaded in ${(materialsEndTime - materialsStartTime).toFixed(0)}ms`);
 
       // Формируем worksWithMaterials из полученной карты
       const worksWithMaterials = worksToAdd.map(work => ({
@@ -316,23 +426,22 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       }));
 
     setEstimateData((prevData) => {
-      console.log(`➕ Adding ${worksWithMaterials.length} works. Current items: ${prevData.sections.flatMap(s => s.items).length}`);
       const newSections = [...prevData.sections];
 
       worksWithMaterials.forEach(({ work, materials }) => {
-        // Определяем раздел по коду работы (01-xxx -> раздел 01)
-        // Проверяем наличие кода и используем fallback
-        const sectionCode = work.code ? work.code.split('-')[0] : '00';
-        const sectionName = work.category || 'Без категории';
+        // Группируем работы по ФАЗЕ (Этап №0, Этап №1, и т.д.)
+        const phaseKey = work.phase || 'Без фазы';
+        const sectionCode = work.code ? work.code.split(/[-–]/)[0] : '00';
 
-        // Ищем существующий раздел или создаем новый
-        let section = newSections.find((s) => s.code === sectionCode);
+        // Ищем существующий раздел по ФАЗЕ
+        let section = newSections.find((s) => s.title === phaseKey);
 
         if (!section) {
           section = {
-            id: `s${sectionCode}`,
+            id: `s${sectionCode}-${Date.now()}`,
             code: sectionCode,
-            name: sectionName,
+            title: phaseKey,
+            name: phaseKey,
             items: [],
             subtotal: 0
           };
@@ -370,7 +479,11 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           materials: calculatedMaterials
         };
 
+        // ✅ Добавляем работу в конец массива
         section.items.push(newItem);
+        
+        // ✅ Сортируем весь раздел после добавления
+        sortWorkItems(section.items);
 
         // Пересчитываем subtotal раздела
         section.subtotal = section.items.reduce((sum, item) => sum + item.total, 0);
@@ -384,16 +497,11 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       });
 
       const totalItems = newSections.flatMap(s => s.items).length;
-      console.log(`✅ Works added. New total items: ${totalItems}`);
-      
       // ✅ Сохраняем оригинальные цены новых работ
       saveOriginalPrices(newSections);
       
       return { sections: newSections };
     });
-
-    const endTime = performance.now();
-    console.log(`⏱️ TOTAL transfer time: ${(endTime - startTime).toFixed(0)}ms`);
     } finally {
       setTransferringWorks(false);
     }
@@ -464,8 +572,6 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
-      console.log('✅ Excel экспортирован успешно');
     } catch (error) {
       console.error('Ошибка экспорта Excel:', error);
       alert('Не удалось экспортировать Excel. Проверьте консоль для деталей.');
@@ -531,7 +637,6 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       
       setAvailableMaterials(materials);
     } catch (error) {
-      console.error('Error loading materials:', error);
       setAvailableMaterials([]);
     } finally {
       setLoadingMaterials(false);
@@ -656,7 +761,6 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       }
     } catch (error) {
       // Если ошибка вычисления, возвращаем исходное значение
-      console.warn('Ошибка вычисления выражения:', expression, error);
     }
     
     return expression;
@@ -877,7 +981,6 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         // Сохраняем оригинальную цену только если её еще нет
         if (!newOriginalPrices.has(key)) {
           newOriginalPrices.set(key, item.price);
-          console.log(`💾 Saved original price for ${key}: ${item.price}`);
         }
       });
     });
@@ -929,8 +1032,6 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
 
   // Сбросить цены работ до оригинальных значений
   const handleResetPrices = () => {
-    console.log('🔄 Resetting prices. Original prices map:', originalPrices);
-    
     setEstimateData((prevData) => {
       const newSections = [...prevData.sections];
       
@@ -941,17 +1042,11 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           // Восстанавливаем оригинальную цену
           const originalPrice = originalPrices.get(key);
           
-          console.log(`🔍 Looking for key: ${key}, found: ${originalPrice}, current: ${item.price}`);
-          
           if (originalPrice !== undefined) {
             item.price = originalPrice;
             
             // Пересчитываем сумму работы
             item.total = parseFloat((item.quantity * originalPrice).toFixed(2));
-            
-            console.log(`✅ Reset price for ${item.name}: ${originalPrice}`);
-          } else {
-            console.warn(`⚠️ No original price found for ${item.name} (key: ${key})`);
           }
         });
         
@@ -989,8 +1084,22 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       showSnackbar('Смета сохраняется...', 'info');
 
       // Преобразуем estimateData в формат API
+      // ✅ Подготавливаем данные для сохранения
       const items = [];
-      estimateData.sections.forEach((section) => {
+      
+      // Клонируем sections и сортируем работы перед сохранением
+      const sortedSections = estimateData.sections.map(section => ({
+        ...section,
+        items: [...section.items] // Клонируем массив работ
+      }));
+      
+      // Сортируем работы внутри каждого раздела перед сохранением
+      sortedSections.forEach(section => {
+        sortWorkItems(section.items);
+      });
+      
+      // Формируем items из отсортированных разделов
+      sortedSections.forEach((section) => {
         section.items.forEach((item) => {
           // ✅ Сохраняем ВСЕ позиции, включая с quantity = 0
           // Пользователь увидит красную подсветку для quantity = 0
@@ -1044,9 +1153,6 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         items: items
       };
 
-      console.log('Saving estimate:', estimatePayload);
-      console.log('First item structure:', items[0]); // Debug: проверяем структуру первого элемента
-
       // ✅ Разрешаем сохранять даже если нет позиций или все с quantity = 0
       // Пользователь увидит красную подсветку и сможет исправить
 
@@ -1055,12 +1161,10 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       // ✅ ИСПРАВЛЕНИЕ: Используем estimateId из URL для UPDATE, иначе CREATE
       if (estimateId) {
         // Обновляем существующую смету (с полной перезаписью items)
-        console.log('Updating existing estimate:', estimateId);
         savedEstimate = await estimatesAPI.updateWithItems(estimateId, estimatePayload);
         showSnackbar(`Смета успешно обновлена! ID: ${savedEstimate.id}`, 'success');
       } else {
         // Создаем новую смету
-        console.log('Creating new estimate');
         savedEstimate = await estimatesAPI.create(estimatePayload);
         showSnackbar(`Смета успешно создана! ID: ${savedEstimate.id}`, 'success');
         
@@ -1068,8 +1172,6 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         localStorage.setItem('currentEstimateId', savedEstimate.id);
         localStorage.setItem(`estimate_${projectId}`, savedEstimate.id);
       }
-      
-      console.log('Saved estimate:', savedEstimate);
       
       // ✅ НЕ ОБНОВЛЯЕМ estimateData из savedEstimate!
       // Причина: savedEstimate содержит данные из БД, которые могут отличаться от текущего состояния
@@ -1081,8 +1183,6 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       if (onUnsavedChangesRef.current) {
         onUnsavedChangesRef.current(false);
       }
-      
-      console.log('✅ State preserved after save. Current items:', estimateData.sections.flatMap(s => s.items).length);
     } catch (error) {
       console.error('Error saving estimate:', error);
       showSnackbar(
@@ -1101,41 +1201,27 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       const estimateIdToLoad = estimateId || localStorage.getItem('currentEstimateId');
       
       if (!estimateIdToLoad) {
-        console.log('⏭️ No estimateId to load, skipping auto-load');
         return;
       }
       
       // ✅ ДВОЙНАЯ ЗАЩИТА: проверяем и ref, и наличие данных
       const hasData = estimateData.sections.length > 0;
       if (isInitialLoadRef.current || hasData) {
-        console.log(`⏭️ Already loaded, skipping (ref=${isInitialLoadRef.current}, hasData=${hasData}, sections=${estimateData.sections.length})`);
         return;
       }
 
       try {
         setLoading(true);
         isInitialLoadRef.current = true; // Отмечаем, что загрузка началась
-        console.log('🔄 Auto-loading estimate:', estimateIdToLoad);
 
         const estimate = await estimatesAPI.getById(estimateIdToLoad);
         
         // ✅ ВАЖНО: Проверяем, что смета принадлежит текущему проекту
         if (projectId && estimate.project_id !== projectId) {
-          console.warn(`Estimate ${estimateIdToLoad} belongs to project ${estimate.project_id}, but current project is ${projectId}. Skipping load.`);
           localStorage.removeItem('currentEstimateId'); // Очищаем неверный ID
           setLoading(false);
           return;
         }
-        
-        console.log('Loaded estimate:', estimate);
-
-        // ✅ Логируем данные проекта из API
-        console.log('📋 Project data from API:', {
-          client_name: estimate.client_name,
-          contractor_name: estimate.contractor_name,
-          object_address: estimate.object_address,
-          contract_number: estimate.contract_number,
-        });
 
         // ✅ Сохраняем метаданные сметы
         setEstimateMetadata({
@@ -1155,16 +1241,25 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           contractNumber: estimate.contract_number || '',
         };
 
-        console.log('📋 Project data prepared:', projectData);
-
         // Преобразуем данные из API в формат estimateData
         const sections = [];
         
         estimate.items.forEach((item) => {
-          // Находим или создаем секцию
-          let section = sections.find(s => s.title === (item.phase || 'Без фазы'));
+          // Группируем работы по ФАЗЕ (Этап №0, Этап №1, и т.д.)
+          const phaseKey = item.phase || 'Без фазы';
+          const sectionCode = item.code ? item.code.split(/[-–]/)[0] : '00';
+          
+          // Находим или создаем секцию по ФАЗЕ
+          let section = sections.find(s => s.title === phaseKey);
           if (!section) {
-            section = { title: item.phase || 'Без фазы', items: [] };
+            section = { 
+              id: `s${sectionCode}-${Date.now()}`,
+              code: sectionCode,
+              title: phaseKey,
+              name: phaseKey,
+              items: [],
+              subtotal: 0
+            };
             sections.push(section);
           }
 
@@ -1201,12 +1296,17 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           });
         });
 
+        // ✅ Сортируем работы внутри каждого раздела: Фаза → Код → Стадия → Подстадия
+        sections.forEach(section => {
+          sortWorkItems(section.items);
+          // Пересчитываем subtotal раздела
+          section.subtotal = section.items.reduce((sum, item) => sum + (item.total || 0), 0);
+        });
+
         setEstimateData({ 
           sections,
           ...projectData  // ✅ Добавляем данные проекта
         });
-        
-        console.log('✅ EstimateData updated with project data:', { sections: sections.length, ...projectData });
         
         // ✅ Обновляем savedEstimateDataRef после загрузки из БД
         savedEstimateDataRef.current = JSON.stringify({ sections, ...projectData });
@@ -1215,7 +1315,6 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           onUnsavedChangesRef.current(false);
         }
         
-        console.log(`✅ Loaded ${sections.length} sections with ${sections.flatMap(s => s.items).length} items from DB`);
         showSnackbar(`📂 Смета "${estimate.name}" загружена из БД`, 'info');
       } catch (error) {
         console.error('Error auto-loading estimate:', error);
@@ -1229,12 +1328,39 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     loadSavedEstimate();
   }, [estimateId, projectId]); // Перезагружаем только при изменении estimateId или projectId
 
+  // ✅ АВТОМАТИЧЕСКАЯ СОРТИРОВКА: мемоизируем отсортированные данные
+  const sortedEstimateData = useMemo(() => {
+    if (!estimateData.sections || estimateData.sections.length === 0) {
+      return estimateData;
+    }
+
+    const sortedSections = estimateData.sections.map(section => {
+      if (!section.items || section.items.length <= 1) {
+        return section;
+      }
+
+      // Создаем копию массива и сортируем
+      const sortedItems = [...section.items];
+      sortWorkItems(sortedItems);
+
+      return {
+        ...section,
+        items: sortedItems
+      };
+    });
+
+    return {
+      ...estimateData,
+      sections: sortedSections
+    };
+  }, [estimateData]);
+
   // ✅ Подсчет итогов по работам и материалам
   const calculateTotals = useMemo(() => {
     let totalWorks = 0;
     let totalMaterials = 0;
 
-    estimateData.sections.forEach(section => {
+    sortedEstimateData.sections.forEach(section => {
       section.items.forEach(item => {
         // Добавляем стоимость работы
         totalWorks += parseFloat(item.total) || 0;
@@ -1378,6 +1504,139 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
               />
             </Box>
 
+            {/* ✅ Кнопка открытия фильтров */}
+            {availableSections.length > 0 && (
+              <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+                <Button
+                  fullWidth
+                  variant={selectedSection ? 'contained' : 'outlined'}
+                  size="small"
+                  startIcon={<IconFilter size={16} />}
+                  onClick={() => setFiltersPanelOpen(true)}
+                  sx={{ justifyContent: 'flex-start' }}
+                >
+                  Фильтры
+                  {selectedSection && (
+                    <Chip 
+                      label="1" 
+                      size="small" 
+                      color="primary"
+                      sx={{ ml: 1, height: 18, fontSize: '0.65rem' }}
+                    />
+                  )}
+                </Button>
+              </Box>
+            )}
+
+            {/* ✅ Боковая панель фильтров */}
+            <Drawer
+              anchor="left"
+              open={filtersPanelOpen}
+              onClose={() => setFiltersPanelOpen(false)}
+              sx={{
+                '& .MuiDrawer-paper': {
+                  width: 320,
+                  boxSizing: 'border-box'
+                }
+              }}
+            >
+              <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                {/* Заголовок */}
+                <Box sx={{ 
+                  p: 2, 
+                  borderBottom: 1, 
+                  borderColor: 'divider',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+                    Фильтры
+                  </Typography>
+                  <IconButton size="small" onClick={() => setFiltersPanelOpen(false)}>
+                    <IconX size={18} />
+                  </IconButton>
+                </Box>
+
+                {/* Контент фильтров */}
+                <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+                  {/* Фильтр по стадии */}
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
+                      📋 По стадии
+                    </Typography>
+                    <FormControl component="fieldset" fullWidth>
+                      <RadioGroup
+                        value={selectedSection || 'all'}
+                        onChange={(e) => setSelectedSection(e.target.value === 'all' ? null : e.target.value)}
+                      >
+                        <FormControlLabel
+                          value="all"
+                          control={<Radio size="small" />}
+                          label={
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', pr: 1 }}>
+                              <Typography variant="body2">Все</Typography>
+                              <Chip label={worksAfterSearch.length} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
+                            </Box>
+                          }
+                          sx={{ mb: 0.5 }}
+                        />
+                        {availableSections.map(section => {
+                          // ✅ Считаем из работ ПОСЛЕ поиска, но ДО фильтрации по стадии
+                          const count = worksAfterSearch.filter(w => w.section === section).length;
+                          return (
+                            <FormControlLabel
+                              key={section}
+                              value={section}
+                              control={<Radio size="small" />}
+                              label={
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', pr: 1 }}>
+                                  <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                                    {section}
+                                  </Typography>
+                                  <Chip label={count} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
+                                </Box>
+                              }
+                              sx={{ mb: 0.5 }}
+                            />
+                          );
+                        })}
+                      </RadioGroup>
+                    </FormControl>
+                  </Box>
+                </Box>
+
+                {/* Кнопки действий */}
+                <Box sx={{ 
+                  p: 2, 
+                  borderTop: 1, 
+                  borderColor: 'divider',
+                  display: 'flex',
+                  gap: 1
+                }}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    size="small"
+                    onClick={() => {
+                      setSelectedSection(null);
+                      setFiltersPanelOpen(false);
+                    }}
+                  >
+                    Сбросить
+                  </Button>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    size="small"
+                    onClick={() => setFiltersPanelOpen(false)}
+                  >
+                    Применить
+                  </Button>
+                </Box>
+              </Box>
+            </Drawer>
+
             {/* Список работ - ВИРТУАЛИЗИРОВАННЫЙ */}
             <Box sx={{ flex: 1, overflow: 'hidden' }}>
               {/* Загрузка */}
@@ -1415,7 +1674,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                     const isAdded = addedWorkIds.has(work.id);
 
                     return (
-                      <>
+                      <React.Fragment key={work.id}>
                         <ListItem 
                           disablePadding
                           secondaryAction={
@@ -1455,7 +1714,15 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                                     {work.code} • {work.name}
                                   </Typography>
                                   <Stack direction="row" spacing={1} alignItems="center">
-                                    <Chip label={work.category} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
+                                    {work.category && (
+                                      <Chip 
+                                        label={work.category} 
+                                        size="small" 
+                                        color="primary"
+                                        variant="outlined"
+                                        sx={{ height: 20, fontSize: '0.7rem', '& .MuiChip-label': { px: 0.75 } }} 
+                                      />
+                                    )}
                                     <Typography variant="caption" color="text.secondary">
                                       {work.unit}
                                     </Typography>
@@ -1472,7 +1739,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                           </ListItemButton>
                         </ListItem>
                         <Divider />
-                      </>
+                      </React.Fragment>
                     );
                   }}
                 />
@@ -1485,7 +1752,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
           {/* Таблица сметы */}
           <Box sx={{ flex: 1, overflow: 'auto' }}>
-            <TableContainer component={Paper}>
+            <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
               <Table size="small">
                 <TableHead>
                   <TableRow sx={{ bgcolor: 'grey.100' }}>
@@ -1555,7 +1822,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {estimateData?.sections?.map((section, sectionIndex) => (
+                  {sortedEstimateData?.sections?.map((section, sectionIndex) => (
                     <React.Fragment key={section.id}>
                       {/* Работы и материалы раздела */}
                       {section.items?.map((item, itemIndex) => (
@@ -1603,11 +1870,13 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                                       fontStyle: 'italic'
                                     }}
                                   >
-                                    {item.phase && <span style={{ color: '#81C784' }}>{item.phase}</span>}
-                                    {item.phase && item.section && <span> → </span>}
-                                    {item.section && <span style={{ color: '#E57373' }}>{item.section}</span>}
-                                    {item.section && item.subsection && <span> → </span>}
-                                    {item.subsection && <span style={{ color: '#64B5F6' }}>{item.subsection}</span>}
+                                    {[
+                                      item.phase && <span key="phase" style={{ color: '#81C784' }}>{item.phase}</span>,
+                                      item.phase && item.section && <span key="arrow1"> → </span>,
+                                      item.section && <span key="section" style={{ color: '#E57373' }}>{item.section}</span>,
+                                      item.section && item.subsection && <span key="arrow2"> → </span>,
+                                      item.subsection && <span key="subsection" style={{ color: '#64B5F6' }}>{item.subsection}</span>
+                                    ].filter(Boolean)}
                                   </Typography>
                                 )}
                               </Box>
@@ -2112,7 +2381,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           <TextField
             fullWidth
             size="small"
-            placeholder="Поиск по названию, артикулу... (мин. 2 символа)"
+            placeholder="Поиск: название, артикул, категория, поставщик, ед.изм..."
             value={materialSearchTerm}
             onChange={(e) => {
               const value = e.target.value;
@@ -2185,6 +2454,15 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                               label={material.category} 
                               size="small" 
                               color="primary"
+                              variant="outlined"
+                              sx={{ height: 18, fontSize: '0.7rem', '& .MuiChip-label': { px: 0.75 } }}
+                            />
+                          )}
+                          {material.supplier && (
+                            <Chip 
+                              label={material.supplier} 
+                              size="small" 
+                              color="secondary"
                               variant="outlined"
                               sx={{ height: 18, fontSize: '0.7rem', '& .MuiChip-label': { px: 0.75 } }}
                             />

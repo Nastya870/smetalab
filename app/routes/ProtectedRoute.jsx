@@ -13,13 +13,7 @@ export default function ProtectedRoute({ children }) {
   const userStr = localStorage.getItem('user');
   
   // Если токен или пользователь отсутствуют, перенаправляем на страницу входа
-  if (!accessToken || !userStr) {
-    console.log('[ProtectedRoute] Missing auth data:', { 
-      hasToken: !!accessToken, 
-      hasUser: !!userStr 
-    });
-    
-    // Сохраняем текущий путь для возврата после входа
+  if (!accessToken || !userStr) {// Сохраняем текущий путь для возврата после входа
     const currentPath = window.location.pathname + window.location.search;
     localStorage.setItem('redirectAfterLogin', currentPath);
     
@@ -28,9 +22,7 @@ export default function ProtectedRoute({ children }) {
 
   // Базовая проверка токена - он должен иметь правильный формат JWT
   const tokenParts = accessToken.split('.');
-  if (tokenParts.length !== 3) {
-    console.log('[ProtectedRoute] Invalid token format');
-    localStorage.clear(); // Очищаем некорректные данные
+  if (tokenParts.length !== 3) {localStorage.clear(); // Очищаем некорректные данные
     return <Navigate to="/pages/login" replace />;
   }
 

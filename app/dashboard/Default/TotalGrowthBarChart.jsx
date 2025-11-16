@@ -46,24 +46,15 @@ export default function TotalGrowthBarChart({ isLoading }) {
   useEffect(() => {
     const fetchGrowthData = async () => {
       try {
-        setLoading(true);
-        console.log('🔄 Загрузка данных роста по месяцам...');
-        // Импортируем API здесь, чтобы избежать циклических зависимостей
+        setLoading(true);// Импортируем API здесь, чтобы избежать циклических зависимостей
         const { projectsAPI } = await import('api/projects');
-        const response = await projectsAPI.getMonthlyGrowthData();
-        console.log('📊 Ответ API данных роста:', response);
-        if (response.success && response.data && response.data.series) {
-          console.log('✅ Данные роста получены:', response.data);
-          // Проверяем, есть ли реальные данные (не все нули)
+        const response = await projectsAPI.getMonthlyGrowthData();if (response.success && response.data && response.data.series) {// Проверяем, есть ли реальные данные (не все нули)
           const hasRealData = response.data.series.some(series => 
             series.data.some(value => value > 0)
           );
           
           if (hasRealData) {
-            setChartSeries(response.data.series);
-            console.log('✅ Установлены реальные данные графика');
-            
-            // Обновляем категории месяцев из данных API
+            setChartSeries(response.data.series);// Обновляем категории месяцев из данных API
             if (response.data.months && response.data.months.length > 0) {
               setChartOptions((prev) => ({
                 ...prev,
@@ -71,9 +62,7 @@ export default function TotalGrowthBarChart({ isLoading }) {
                   ...prev.xaxis,
                   categories: response.data.months
                 }
-              }));
-              console.log('✅ Установлены месяцы:', response.data.months);
-            }
+              }));}
             
             // Вычисляем общий рост (доходы - расходы)
             const totalIncome = response.data.series[0].data.reduce((sum, val) => sum + val, 0) + 
@@ -81,9 +70,7 @@ export default function TotalGrowthBarChart({ isLoading }) {
             const totalExpense = response.data.series[2].data.reduce((sum, val) => sum + val, 0) + 
                                 response.data.series[3].data.reduce((sum, val) => sum + val, 0);
             setTotalGrowth((totalIncome - totalExpense) * 1000); // Конвертируем обратно из тысяч
-          } else {
-            console.log('ℹ️ Данные пустые, используем пустые серии');
-            setChartSeries(emptySeries);
+          } else {setChartSeries(emptySeries);
             setTotalGrowth(0);
           }
         } else {

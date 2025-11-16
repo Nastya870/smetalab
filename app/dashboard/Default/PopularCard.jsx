@@ -49,15 +49,9 @@ export default function PopularCard({ isLoading }) {
   useEffect(() => {
     const fetchProjectsData = async () => {
       try {
-        setLoading(true);
-        console.log('🔄 Загрузка данных прибыли проектов...');
-        // Импортируем API здесь, чтобы избежать циклических зависимостей
+        setLoading(true);// Импортируем API здесь, чтобы избежать циклических зависимостей
         const { projectsAPI } = await import('api/projects');
-        const response = await projectsAPI.getProjectsProfitData(10); // Загружаем больше проектов
-        console.log('📊 Ответ API прибыли проектов:', response);
-        if (response.success) {
-          console.log('✅ Данные прибыли проектов получены:', response.data);
-          setProjects(response.data);
+        const response = await projectsAPI.getProjectsProfitData(10); // Загружаем больше проектовif (response.success) {setProjects(response.data);
         } else {
           console.error('❌ API вернул ошибку:', response);
         }

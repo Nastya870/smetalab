@@ -12,7 +12,9 @@ import {
   Grid,
   CircularProgress,
   Alert,
-  Typography
+  Typography,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import {
   IconDeviceFloppy,
@@ -22,6 +24,8 @@ import {
 // ==============================|| CREATE ESTIMATE DIALOG ||============================== //
 
 const CreateEstimateDialog = ({ open, onClose, onSave, projectName, projectId }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [formData, setFormData] = useState({
     name: '',
     description: ''
@@ -101,7 +105,19 @@ const CreateEstimateDialog = ({ open, onClose, onSave, projectName, projectId })
   };
 
   return (
-    <Dialog open={open} onClose={!loading ? handleClose : undefined} maxWidth="sm" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={!loading ? handleClose : undefined} 
+      maxWidth="sm" 
+      fullWidth
+      fullScreen={isMobile}
+      sx={{
+        '& .MuiDialog-paper': {
+          m: isMobile ? 0 : 2,
+          maxHeight: isMobile ? '100%' : 'calc(100% - 64px)'
+        }
+      }}
+    >
       <DialogTitle>
         Создание новой сметы
         {projectName && (
@@ -118,7 +134,7 @@ const CreateEstimateDialog = ({ open, onClose, onSave, projectName, projectId })
         )}
         <Grid container spacing={2.5} sx={{ mt: 0.5 }}>
           {/* Наименование сметы - на всю строку */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               fullWidth
               label="Наименование сметы *"

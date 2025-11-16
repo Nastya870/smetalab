@@ -28,13 +28,6 @@ const getById = (id) => {
   return axiosInstance
     .get(`/estimates/${id}`)
     .then((res) => {
-      console.log('🔍 estimatesAPI.getById - response data:', {
-        id: res.data.id,
-        client_name: res.data.client_name,
-        contractor_name: res.data.contractor_name,
-        object_address: res.data.object_address,
-        contract_number: res.data.contract_number,
-      });
       return res.data;
     })
     .catch((error) => {

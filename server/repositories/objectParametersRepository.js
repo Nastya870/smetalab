@@ -47,6 +47,14 @@ async function findByEstimateId(estimateId, tenantId) {
   `;
 
   const result = await pool.query(query, [estimateId, tenantId]);
+  console.log('📊 [findByEstimateId] Loaded parameters:', result.rows.map(r => ({
+    id: r.id,
+    room_name: r.room_name,
+    floor_area: r.floor_area,
+    wall_area: r.wall_area,
+    total_window_slopes: r.total_window_slopes,
+    ceiling_area: r.ceiling_area
+  })));
   return result.rows;
 }
 
@@ -133,10 +141,10 @@ async function saveAll(estimateId, parameters, tenantId, userId) {
         INSERT INTO object_parameters (
           tenant_id, estimate_id, position_number, room_name,
           perimeter, height, floor_area, wall_area, ceiling_area,
-          ceiling_slopes, doors_count, baseboards,
+          ceiling_slopes, doors_count, baseboards, total_window_slopes,
           created_by, updated_by
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING *
       `;
 
@@ -153,6 +161,7 @@ async function saveAll(estimateId, parameters, tenantId, userId) {
         param.ceilingSlopes || null,
         param.doorsCount || 0,
         param.baseboards || null,
+        param.totalWindowSlopes || null, // ✅ Добавлено поле откосов
         userId,
         userId
       ];
@@ -170,8 +179,9 @@ async function saveAll(estimateId, parameters, tenantId, userId) {
         ceiling_slopes: paramValues[9],
         doors_count: paramValues[10],
         baseboards: paramValues[11],
-        created_by: paramValues[12],
-        updated_by: paramValues[13]
+        total_window_slopes: paramValues[12],
+        created_by: paramValues[13],
+        updated_by: paramValues[14]
       });
 
       const paramResult = await client.query(paramQuery, paramValues);

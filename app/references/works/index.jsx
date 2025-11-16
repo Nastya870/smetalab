@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import debounce from 'lodash.debounce';
 import { TableVirtuoso } from 'react-virtuoso';
 
@@ -37,6 +37,7 @@ import { emptyWork } from './mockData';
 import worksAPI from 'api/works';
 import worksImportExportAPI from 'api/worksImportExport';
 import ImportDialog from './ImportDialog';
+import { fullTextSearch } from 'shared/lib/utils/fullTextSearch';
 
 // Code Splitting: Lazy load WorkDialog (загружается только при открытии)
 const WorkDialog = lazy(() => import('./WorkDialog'));
@@ -116,18 +117,13 @@ const WorksReferencePage = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // Мемоизированная фильтрация работ (пересчитывается только при изменении works или searchTerm)
+  // Мемоизированная фильтрация работ с полнотекстовым поиском
+  // Поддерживает поиск по нескольким словам одновременно
   const filteredWorks = useMemo(() => {
-    if (!searchTerm) return works; // Если поиск пустой, возвращаем все работы без фильтрации
+    if (!searchTerm) return works; // Если поиск пустой, возвращаем все работы
     
-    const lowerSearch = searchTerm.toLowerCase();
-    return works.filter(
-      (work) =>
-        work.name.toLowerCase().includes(lowerSearch) ||
-        work.code.toLowerCase().includes(lowerSearch) ||
-        work.unit.toLowerCase().includes(lowerSearch) ||
-        work.category.toLowerCase().includes(lowerSearch)
-    );
+    // Используем полнотекстовый поиск по всем полям
+    return fullTextSearch(works, searchTerm, ['name', 'code', 'unit', 'category']);
   }, [works, searchTerm]);
 
   // Мемоизированные обработчики (стабильные функции, не пересоздаются при каждом рендере)
@@ -414,7 +410,7 @@ const WorksReferencePage = () => {
 
       {/* Статистика */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={4}>
+        <Grid size={{ xs: 12, sm: 4 }}>
           <Paper sx={{ p: 2, bgcolor: 'primary.light', textAlign: 'center' }}>
             <Typography variant="h2" color="primary.dark">
               {works.length}
@@ -424,7 +420,7 @@ const WorksReferencePage = () => {
             </Typography>
           </Paper>
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid size={{ xs: 12, sm: 4 }}>
           <Paper sx={{ p: 2, bgcolor: 'success.light', textAlign: 'center' }}>
             <Typography variant="h2" color="success.dark">
               {new Set(works.map((w) => w.category)).size}
@@ -434,7 +430,7 @@ const WorksReferencePage = () => {
             </Typography>
           </Paper>
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid size={{ xs: 12, sm: 4 }}>
           <Paper sx={{ p: 2, bgcolor: 'warning.light', textAlign: 'center' }}>
             <Typography variant="h2" color="warning.dark">
               {formatPrice(works.reduce((sum, w) => sum + w.basePrice, 0) / works.length)}
@@ -453,7 +449,9 @@ const WorksReferencePage = () => {
           data={filteredWorks}
           style={{ height: 600 }}
           components={{
-            Scroller: TableContainer,
+            Scroller: React.forwardRef((props, ref) => (
+              <TableContainer {...props} ref={ref} sx={{ overflowX: 'auto', maxWidth: '100%' }} />
+            )),
             Table: (props) => <Table {...props} sx={{ tableLayout: 'fixed' }} />,
             TableHead: TableHead,
             TableRow: TableRow,

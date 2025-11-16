@@ -77,9 +77,7 @@ export const cleanupOldEstimates = (currentEstimateId) => {
     }
   }
 
-  keysToRemove.forEach(key => {
-    console.log(`🗑️ Удалён старый ключ: ${key}`);
-    localStorage.removeItem(key);
+  keysToRemove.forEach(key => {localStorage.removeItem(key);
   });
 
   return keysToRemove.length;
@@ -91,23 +89,12 @@ export const cleanupOldEstimates = (currentEstimateId) => {
 export const logStorageReport = () => {
   const info = getLocalStorageSize();
   
-  console.group('📦 localStorage Monitor');
-  console.log(`📊 Использовано: ${info.totalFormatted} (${info.percentUsed}% из 5MB)`);
-  console.log(`📝 Количество ключей: ${info.itemCount}`);
-  console.log(`\n📋 Детали:`);
-  
-  Object.entries(info.items).forEach(([key, data]) => {
-    console.log(`  ${key}: ${data.sizeFormatted}`);
-    console.log(`    └─ "${data.preview}"`);
-  });
+  console.group('📦 localStorage Monitor');`);Object.entries(info.items).forEach(([key, data]) => {});
   
   console.groupEnd();
 
   // Предупреждение если больше 80%
-  if (parseFloat(info.percentUsed) > 80) {
-    console.warn('⚠️ ВНИМАНИЕ: localStorage заполнен более чем на 80%!');
-    console.log('💡 Рекомендуется очистка старых данных');
-  }
+  if (parseFloat(info.percentUsed) > 80) {}
 
   return info;
 };
@@ -132,9 +119,7 @@ export const exportLocalStorage = () => {
   link.download = `localStorage-backup-${new Date().toISOString().split('T')[0]}.json`;
   link.click();
   
-  URL.revokeObjectURL(url);
-  console.log('✅ localStorage экспортирован');
-};
+  URL.revokeObjectURL(url);};
 
 /**
  * Импортировать данные из JSON файла
@@ -150,10 +135,7 @@ export const importLocalStorage = (file) => {
         
         Object.entries(data).forEach(([key, value]) => {
           localStorage.setItem(key, value);
-        });
-        
-        console.log('✅ localStorage импортирован');
-        resolve(Object.keys(data).length);
+        });resolve(Object.keys(data).length);
       } catch (error) {
         console.error('❌ Ошибка импорта:', error);
         reject(error);
@@ -179,18 +161,14 @@ export const importLocalStorage = (file) => {
 export const enableAutoMonitoring = () => {
   // Проверка при загрузке
   const info = getLocalStorageSize();
-  if (parseFloat(info.percentUsed) > 80) {
-    console.warn('⚠️ localStorage заполнен более чем на 80%');
-    console.log('💡 Используйте cleanupOldEstimates() для очистки');
+  if (parseFloat(info.percentUsed) > 80) {для очистки');
   }
 
   // Проверка каждые 5 минут
   setInterval(() => {
     const info = getLocalStorageSize();
     if (parseFloat(info.percentUsed) > 90) {
-      console.error('🚨 КРИТИЧНО: localStorage заполнен более чем на 90%!');
-      console.log('⚠️ Данные могут не сохраняться!');
-    }
+      console.error('🚨 КРИТИЧНО: localStorage заполнен более чем на 90%!');}
   }, 5 * 60 * 1000); // 5 минут
 };
 

@@ -25,6 +25,8 @@ import workHierarchyAPI from 'api/workHierarchy';
 // ==============================|| WORK DIALOG ||============================== //
 
 const WorkDialog = ({ open, editMode, work, onClose, onSave, onDelete, onChange }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isFormValid = work.code && work.name && work.unit && work.basePrice >= 0;
 
   // State для autocomplete options
@@ -100,7 +102,19 @@ const WorkDialog = ({ open, editMode, work, onClose, onSave, onDelete, onChange 
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="md" 
+      fullWidth
+      fullScreen={isMobile}
+      sx={{
+        '& .MuiDialog-paper': {
+          m: isMobile ? 0 : 2,
+          maxHeight: isMobile ? '100%' : 'calc(100% - 64px)'
+        }
+      }}
+    >
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <IconTool size={24} />

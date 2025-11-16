@@ -44,13 +44,7 @@ export default function EarningCard({ isLoading }) {
   useEffect(() => {
     const fetchProfitData = async () => {
       try {
-        setLoading(true);
-        console.log('🔄 Загрузка данных прибыли...');
-        const response = await projectsAPI.getTotalProfit();
-        console.log('📊 Ответ API прибыли:', response);
-        if (response.success) {
-          console.log('✅ Данные прибыли получены:', response.data);
-          setProfitData(response.data);
+        setLoading(true);const response = await projectsAPI.getTotalProfit();if (response.success) {setProfitData(response.data);
         } else {
           console.error('❌ API вернул ошибку:', response);
         }

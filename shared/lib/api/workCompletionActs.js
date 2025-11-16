@@ -10,7 +10,6 @@ const workCompletionActsAPI = {
    * @returns {Promise<Object|Array>} Сгенерированный акт или массив актов (если actType='both')
    */
   generateActs: async ({ estimateId, projectId, actType = 'both' }) => {
-    console.log(`[generateActs] Generating ${actType} act(s) for estimate ${estimateId}`);
     const startTime = Date.now();
     
     const response = await axiosInstance.post('/work-completion-acts/generate', {
@@ -22,12 +21,6 @@ const workCompletionActsAPI = {
     const duration = Date.now() - startTime;
     const result = response.data;
     
-    if (Array.isArray(result)) {
-      console.log(`[generateActs] ✅ Generated ${result.length} acts in ${duration}ms`);
-    } else {
-      console.log(`[generateActs] ✅ Generated 1 act in ${duration}ms`);
-    }
-    
     return result;
   },
 
@@ -38,8 +31,7 @@ const workCompletionActsAPI = {
    */
   getActsByEstimate: async (estimateId) => {
     const response = await axiosInstance.get(`/work-completion-acts/estimate/${estimateId}`);
-    console.log(`[getActsByEstimate] Loaded ${response.data.count || 0} acts for estimate ${estimateId}`);
-    // ✅ Возвращаем массив актов из объекта response
+// ✅ Возвращаем массив актов из объекта response
     return response.data.acts || [];
   },
 
@@ -50,7 +42,6 @@ const workCompletionActsAPI = {
    */
   getActById: async (actId) => {
     const response = await axiosInstance.get(`/work-completion-acts/${actId}`);
-    console.log(`[getActById] Loaded act ${actId} with ${response.data.items?.length || 0} items`);
     return response.data;
   },
 
@@ -61,7 +52,6 @@ const workCompletionActsAPI = {
    */
   deleteAct: async (actId) => {
     const response = await axiosInstance.delete(`/work-completion-acts/${actId}`);
-    console.log(`[deleteAct] ✅ Deleted act ${actId}`);
     return response.data;
   },
 
@@ -73,7 +63,6 @@ const workCompletionActsAPI = {
    */
   updateActStatus: async (actId, status) => {
     const response = await axiosInstance.patch(`/work-completion-acts/${actId}/status`, { status });
-    console.log(`[updateActStatus] ✅ Updated act ${actId} status to ${status}`);
     return response.data;
   },
 
@@ -84,7 +73,6 @@ const workCompletionActsAPI = {
    */
   getFormKS2: async (actId) => {
     const response = await axiosInstance.get(`/work-completion-acts/${actId}/ks2`);
-    console.log(`[getFormKS2] ✅ Loaded KS-2 data for act ${actId}`);
     return response.data;
   },
 
@@ -95,7 +83,6 @@ const workCompletionActsAPI = {
    */
   getFormKS3: async (actId) => {
     const response = await axiosInstance.get(`/work-completion-acts/${actId}/ks3`);
-    console.log(`[getFormKS3] ✅ Loaded KS-3 data for act ${actId}`);
     return response.data;
   },
 
@@ -107,7 +94,6 @@ const workCompletionActsAPI = {
    */
   updateActDetails: async (actId, details) => {
     const response = await axiosInstance.patch(`/work-completion-acts/${actId}/details`, details);
-    console.log(`[updateActDetails] ✅ Updated act ${actId} details`);
     return response.data;
   },
 
@@ -119,7 +105,6 @@ const workCompletionActsAPI = {
    */
   updateSignatories: async (actId, signatories) => {
     const response = await axiosInstance.post(`/work-completion-acts/${actId}/signatories`, { signatories });
-    console.log(`[updateSignatories] ✅ Updated ${signatories.length} signatories for act ${actId}`);
     return response.data;
   }
 };

@@ -62,9 +62,7 @@ const ObjectParametersSidebar = ({ estimateId, open, onToggle }) => {
       const [paramsData, statsData] = await Promise.all([
         objectParametersAPI.getByEstimateId(estimateId),
         objectParametersAPI.getStatistics(estimateId)
-      ]);
-
-      setParameters(paramsData || []);
+      ]);setParameters(paramsData || []);
       setStatistics(statsData || null);
     } catch (err) {
       console.error('Error loading object parameters:', err);
@@ -325,46 +323,42 @@ const ObjectParametersSidebar = ({ estimateId, open, onToggle }) => {
                       <Collapse in={expandedRooms.includes(param.id)}>
                         <Box sx={{ p: 1.5, bgcolor: 'background.paper' }}>
                           <Stack spacing={0.75}>
-                            {param.floor_area > 0 && (
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                  S пола
-                                </Typography>
-                                <Typography variant="body2" fontWeight={600} color="primary.dark" sx={{ fontSize: '0.8rem' }}>
-                                  {formatNumber(param.floor_area)} м²
-                                </Typography>
-                              </Box>
-                            )}
-                            {param.wall_area > 0 && (
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                  S стен
-                                </Typography>
-                                <Typography variant="body2" fontWeight={600} color="success.dark" sx={{ fontSize: '0.8rem' }}>
-                                  {formatNumber(param.wall_area)} м²
-                                </Typography>
-                              </Box>
-                            )}
-                            {param.total_window_slopes > 0 && (
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                  Откосы
-                                </Typography>
-                                <Typography variant="body2" fontWeight={600} color="warning.dark" sx={{ fontSize: '0.8rem' }}>
-                                  {formatNumber(param.total_window_slopes)} м
-                                </Typography>
-                              </Box>
-                            )}
-                            {param.ceiling_area > 0 && (
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                  S потолка
-                                </Typography>
-                                <Typography variant="body2" fontWeight={600} color="info.dark" sx={{ fontSize: '0.8rem' }}>
-                                  {formatNumber(param.ceiling_area)} м²
-                                </Typography>
-                              </Box>
-                            )}
+                            {/* ✅ Всегда показываем основные параметры */}
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                S пола
+                              </Typography>
+                              <Typography variant="body2" fontWeight={600} color="primary.dark" sx={{ fontSize: '0.8rem' }}>
+                                {formatNumber(param.floor_area)} м²
+                              </Typography>
+                            </Box>
+                            
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                S стен
+                              </Typography>
+                              <Typography variant="body2" fontWeight={600} color="success.dark" sx={{ fontSize: '0.8rem' }}>
+                                {formatNumber(param.wall_area)} м²
+                              </Typography>
+                            </Box>
+                            
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                Откосы
+                              </Typography>
+                              <Typography variant="body2" fontWeight={600} color="warning.dark" sx={{ fontSize: '0.8rem' }}>
+                                {formatNumber(param.total_window_slopes)} м
+                              </Typography>
+                            </Box>
+                            
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                S потолка
+                              </Typography>
+                              <Typography variant="body2" fontWeight={600} color="info.dark" sx={{ fontSize: '0.8rem' }}>
+                                {formatNumber(param.ceiling_area)} м²
+                              </Typography>
+                            </Box>
                             {param.ceiling_slopes > 0 && (
                               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>

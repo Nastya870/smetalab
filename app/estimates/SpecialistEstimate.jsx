@@ -48,12 +48,7 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
   const difference = totalPlanAmount - totalActualAmount; // Экономия или перерасход
 
   // Функция для сохранения изменений в БД (с debounce)
-  const saveWorkCompletions = async (data) => {
-    console.log('💾 saveWorkCompletions called');
-    console.log('💾 estimateId:', estimateId);
-    console.log('💾 projectId:', projectId);
-    
-    try {
+  const saveWorkCompletions = async (data) => {try {
       setSaving(true);
       
       // Собираем все записи о выполнении работ
@@ -74,24 +69,13 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
       });
 
       if (completions.length > 0) {
-        await estimatesAPI.batchSaveWorkCompletions(estimateId, completions);
-        console.log('✅ Work completions saved:', completions.length);
-        
-        // Автоматически рассчитываем прогресс проекта после сохранения
+        await estimatesAPI.batchSaveWorkCompletions(estimateId, completions);// Автоматически рассчитываем прогресс проекта после сохранения
         if (projectId) {
-          try {
-            console.log('🔄 Requesting progress calculation for project:', projectId);
-            const progressData = await projectsAPI.calculateProgress(projectId);
-            console.log('✅ Project progress calculated:', progressData);
-            console.log('📊 Progress:', progressData.progress + '%');
-            console.log('📊 Completed:', progressData.completedWorks, '/', progressData.totalWorks);
-          } catch (progressError) {
+          try {const progressData = await projectsAPI.calculateProgress(projectId);} catch (progressError) {
             console.error('⚠️ Error calculating progress:', progressError);
             // Не показываем ошибку пользователю, это второстепенная операция
           }
-        } else {
-          console.warn('⚠️ No projectId provided, skipping progress calculation');
-        }
+        } else {}
       }
     } catch (err) {
       console.error('❌ Error saving work completions:', err);
@@ -175,12 +159,8 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
           if (completionsResponse.success && completionsResponse.data) {
             completionsResponse.data.forEach(completion => {
               completionsMap.set(completion.estimate_item_id, completion);
-            });
-            console.log('📋 Work completions loaded:', completionsMap.size);
-          }
-        } catch (err) {
-          console.warn('⚠️ Could not load work completions:', err);
-        }
+            });}
+        } catch (err) {}
         
         if (estimate && estimate.items && estimate.items.length > 0) {
           // Сохраняем метаданные
@@ -194,11 +174,7 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
           // Получаем workIds всех работ в смете
           const workIds = estimate.items
             .filter(item => item.work_id)
-            .map(item => item.work_id);
-
-          console.log('📊 Loading base prices for works:', workIds);
-
-          // Загружаем базовые цены работ из справочника
+            .map(item => item.work_id);// Загружаем базовые цены работ из справочника
           const basePricesMap = new Map();
           
           if (workIds.length > 0) {
@@ -210,12 +186,7 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
               // Создаем Map для быстрого поиска
               works.forEach(work => {
                 basePricesMap.set(work.id.toString(), work.base_price || 0);
-              });
-              
-              console.log('💰 Base prices loaded:', basePricesMap.size);
-            } catch (err) {
-              console.warn('⚠️ Could not load base prices from works directory:', err);
-            }
+              });} catch (err) {}
           }
 
           // Группируем по фазам/разделам (используем phase или section)
@@ -237,11 +208,7 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
               : item.unit_price;
 
             // Цена клиента - из сметы (с учетом коэффициента)
-            const clientPrice = item.unit_price;
-
-            console.log(`📝 ${item.name}: Client price=${clientPrice}, Base price=${basePrice}`);
-
-            // Получаем сохраненные данные о выполнении для этой работы
+            const clientPrice = item.unit_price;// Получаем сохраненные данные о выполнении для этой работы
             const completion = completionsMap.get(item.id);
 
             // Добавляем работу с полными данными (план + факт)
@@ -314,12 +281,8 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
         if (completionsResponse.success && completionsResponse.data) {
           completionsResponse.data.forEach(completion => {
             completionsMap.set(completion.estimate_item_id, completion);
-          });
-          console.log('📋 Work completions loaded:', completionsMap.size);
-        }
-      } catch (err) {
-        console.warn('⚠️ Could not load work completions:', err);
-      }
+          });}
+      } catch (err) {}
       
       if (estimate && estimate.items && estimate.items.length > 0) {
         // Сохраняем метаданные
@@ -333,11 +296,7 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
         // Получаем workIds всех работ в смете
         const workIds = estimate.items
           .filter(item => item.work_id)
-          .map(item => item.work_id);
-
-        console.log('📊 Loading base prices for works:', workIds);
-
-        // Загружаем базовые цены работ из справочника
+          .map(item => item.work_id);// Загружаем базовые цены работ из справочника
         const basePricesMap = new Map();
         
         if (workIds.length > 0) {
@@ -349,12 +308,7 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
             // Создаем Map для быстрого поиска
             works.forEach(work => {
               basePricesMap.set(work.id.toString(), work.base_price || 0);
-            });
-            
-            console.log('💰 Base prices loaded:', basePricesMap.size);
-          } catch (err) {
-            console.warn('⚠️ Could not load base prices from works directory:', err);
-          }
+            });} catch (err) {}
         }
 
         // Группируем по фазам/разделам

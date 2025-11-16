@@ -72,11 +72,7 @@ export default function AuthRegister() {
     setLoading(true);
 
     try {
-      const result = await authService.register(formData);
-      
-      console.log('Registration successful:', result);
-      
-      // Перенаправляем на страницу "Спасибо за регистрацию"
+      const result = await authService.register(formData);// Перенаправляем на страницу "Спасибо за регистрацию"
       navigate('/registration-success', {
         state: {
           email: formData.email,

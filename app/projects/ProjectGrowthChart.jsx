@@ -61,65 +61,30 @@ export default function ProjectGrowthChart({ projectId, estimates = [] }) {
         let totalIncomeMaterials = 0;
         let totalExpenseMaterials = 0;
 
-        // Загружаем данные для каждой сметы
-        console.log('📊 ProjectGrowthChart: Loading data for', estimates.length, 'estimates');
-        
-        for (const estimate of estimates) {
-          try {
-            console.log(`📋 Loading estimate ${estimate.id}:`, estimate.name);
-            
-            // Получаем ВСЕ акты для сметы
-            const allActs = await workCompletionActsAPI.getActsByEstimate(estimate.id);
-            console.log('� All acts:', allActs?.length || 0, 'acts');
-            
-            // Фильтруем акты заказчика
-            const clientActs = allActs?.filter(act => act.actType === 'client') || [];
-            console.log('👤 Client acts:', clientActs.length, 'acts');
-            if (clientActs.length > 0) {
-              const clientTotal = clientActs.reduce((sum, act) => sum + (parseFloat(act.totalAmount) || 0), 0);
-              console.log('💰 Client acts total:', clientTotal);
-              totalIncomeWorks += clientTotal;
+        // Загружаем данные для каждой сметыfor (const estimate of estimates) {
+          try {// Получаем ВСЕ акты для сметы
+            const allActs = await workCompletionActsAPI.getActsByEstimate(estimate.id);// Фильтруем акты заказчика
+            const clientActs = allActs?.filter(act => act.actType === 'client') || [];if (clientActs.length > 0) {
+              const clientTotal = clientActs.reduce((sum, act) => sum + (parseFloat(act.totalAmount) || 0), 0);totalIncomeWorks += clientTotal;
             }
 
             // Фильтруем акты специалиста
-            const specialistActs = allActs?.filter(act => act.actType === 'specialist') || [];
-            console.log('👨‍💼 Specialist acts:', specialistActs.length, 'acts');
-            if (specialistActs.length > 0) {
-              const specialistTotal = specialistActs.reduce((sum, act) => sum + (parseFloat(act.totalAmount) || 0), 0);
-              console.log('💸 Specialist acts total:', specialistTotal);
-              totalExpenseWorks += specialistTotal;
+            const specialistActs = allActs?.filter(act => act.actType === 'specialist') || [];if (specialistActs.length > 0) {
+              const specialistTotal = specialistActs.reduce((sum, act) => sum + (parseFloat(act.totalAmount) || 0), 0);totalExpenseWorks += specialistTotal;
             }
 
             // Получаем закупки
-            const purchases = await purchasesAPI.getByEstimateId(estimate.id);
-            console.log('🛒 Purchases response:', purchases);
-            if (purchases && purchases.purchases) {
-              const purchasesData = purchases.purchases;
-              console.log('📦 Purchases data:', purchasesData?.length || 0, 'items');
-              
-              // ИТОГО ПО СМЕТЕ (плановая сумма)
-              const plannedTotal = purchasesData.reduce((sum, p) => sum + (parseFloat(p.total) || 0), 0);
-              console.log('📊 ИТОГО ПО СМЕТЕ:', plannedTotal);
-              totalIncomeMaterials += plannedTotal;
+            const purchases = await purchasesAPI.getByEstimateId(estimate.id);if (purchases && purchases.purchases) {
+              const purchasesData = purchases.purchases;// ИТОГО ПО СМЕТЕ (плановая сумма)
+              const plannedTotal = purchasesData.reduce((sum, p) => sum + (parseFloat(p.total) || 0), 0);totalIncomeMaterials += plannedTotal;
 
               // ИТОГО ЗАКУПЛЕННО (фактическая сумма)
-              const actualTotal = purchasesData.reduce((sum, p) => sum + (parseFloat(p.actualTotalPrice) || 0), 0);
-              console.log('✅ ИТОГО ЗАКУПЛЕННО:', actualTotal);
-              totalExpenseMaterials += actualTotal;
+              const actualTotal = purchasesData.reduce((sum, p) => sum + (parseFloat(p.actualTotalPrice) || 0), 0);totalExpenseMaterials += actualTotal;
             }
           } catch (err) {
             console.error(`Error loading data for estimate ${estimate.id}:`, err);
           }
-        }
-
-        console.log('📈 FINAL TOTALS:', {
-          incomeWorks: totalIncomeWorks,
-          expenseWorks: totalExpenseWorks,
-          incomeMaterials: totalIncomeMaterials,
-          expenseMaterials: totalExpenseMaterials
-        });
-
-        // Рассчитываем прибыли
+        }// Рассчитываем прибыли
         const profitWorks = totalIncomeWorks - totalExpenseWorks;
         const profitMaterials = totalIncomeMaterials - totalExpenseMaterials;
 

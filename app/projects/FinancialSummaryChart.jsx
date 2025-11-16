@@ -39,93 +39,59 @@ export default function FinancialSummaryChart({ projectId, estimates = [] }) {
   // Загрузка данных
   useEffect(() => {
     const loadData = async () => {
-      console.log('💰💰💰 FinancialSummary START');
-      console.log('  projectId:', projectId);
-      console.log('  estimates:', estimates);
-      console.log('  estimates.length:', estimates?.length);
-      
-      if (!projectId || !estimates || estimates.length === 0) {
-        console.log('⚠️⚠️⚠️ FinancialSummary: EARLY EXIT!');
-        console.log('  Reason: projectId=', projectId, 'estimates.length=', estimates?.length);
-        setLoading(false);
+if (!projectId || !estimates || estimates.length === 0) {
+setLoading(false);
         return;
       }
 
       try {
         setLoading(true);
-        console.log('💰 FinancialSummary: Loading data for', estimates.length, 'estimates');
-        
-        let totalIncomeWorks = 0;
+let totalIncomeWorks = 0;
         let totalExpenseWorks = 0;
         let totalIncomeMaterials = 0;
         let totalExpenseMaterials = 0;
 
         for (const estimate of estimates) {
           try {
-            console.log(`📋 Processing estimate:`, estimate);
-            console.log(`  ID: ${estimate.id}`);
-            console.log(`  Name: ${estimate.name}`);
-            
             // Получаем акты
             const allActs = await workCompletionActsAPI.getActsByEstimate(estimate.id);
-            console.log(`  📄 Acts RAW response:`, allActs);
-            console.log(`  📄 Acts type:`, typeof allActs, Array.isArray(allActs));
-            console.log(`  📄 Acts loaded: ${allActs?.length || 0}`);
             
             if (allActs && allActs.length > 0) {
-              console.log(`  📄 First act:`, allActs[0]);
-              
               // Акты заказчика = Доход
               const clientActs = allActs.filter(act => act.actType === 'client');
-              console.log(`  👤 Client acts filtered:`, clientActs);
               const clientTotal = clientActs.reduce((sum, act) => sum + (parseFloat(act.totalAmount) || 0), 0);
               totalIncomeWorks += clientTotal;
-              console.log(`  👤 Client acts: ${clientActs.length}, total: ${clientTotal}₽`);
               
               // Акты специалиста = Расход
               const specialistActs = allActs.filter(act => act.actType === 'specialist');
-              console.log(`  👨‍💼 Specialist acts filtered:`, specialistActs);
               const specialistTotal = specialistActs.reduce((sum, act) => sum + (parseFloat(act.totalAmount) || 0), 0);
               totalExpenseWorks += specialistTotal;
-              console.log(`  👨‍💼 Specialist acts: ${specialistActs.length}, total: ${specialistTotal}₽`);
-            } else {
-              console.log('  ⚠️ No acts found for this estimate');
             }
 
-            // Получаем закупки
-            const purchases = await purchasesAPI.getByEstimateId(estimate.id);
-            console.log(`  🛒 Purchases RAW response:`, purchases);
-            console.log(`  🛒 Purchases.purchases:`, purchases?.purchases);
-            
-            if (purchases && purchases.purchases) {
-              console.log(`  🛒 Purchases.purchases.length:`, purchases.purchases.length);
-              if (purchases.purchases.length > 0) {
-                console.log(`  🛒 First purchase:`, purchases.purchases[0]);
-              }
-              // План = Доход материалов
-              const plannedTotal = purchases.purchases.reduce((sum, p) => sum + (parseFloat(p.total) || 0), 0);
-              totalIncomeMaterials += plannedTotal;
-              console.log(`  📊 Planned: ${plannedTotal}₽`);
+            // Получаем закупки (если не сформированы - пропускаем)
+            try {
+              const purchases = await purchasesAPI.getByEstimateId(estimate.id);
               
-              // Факт = Расход материалов
-              const actualTotal = purchases.purchases.reduce((sum, p) => sum + (parseFloat(p.actualTotalPrice) || 0), 0);
-              totalExpenseMaterials += actualTotal;
-              console.log(`  ✅ Actual: ${actualTotal}₽`);
-            } else {
-              console.log('  ⚠️ No purchases found');
+              if (purchases && purchases.purchases && purchases.purchases.length > 0) {
+                // План = Доход материалов
+                const plannedTotal = purchases.purchases.reduce((sum, p) => sum + (parseFloat(p.total) || 0), 0);
+                totalIncomeMaterials += plannedTotal;
+                
+                // Факт = Расход материалов
+                const actualTotal = purchases.purchases.reduce((sum, p) => sum + (parseFloat(p.actualTotalPrice) || 0), 0);
+                totalExpenseMaterials += actualTotal;
+              }
+            } catch (purchasesErr) {
+              // 404 - закупки не сформированы, это нормально
+              if (purchasesErr.response?.status !== 404) {
+                console.error(`Error loading purchases for estimate ${estimate.id}:`, purchasesErr);
+              }
             }
           } catch (err) {
             console.error(`Error processing estimate ${estimate.id}:`, err);
           }
         }
-
-        console.log('💰 TOTALS:', {
-          incomeWorks: totalIncomeWorks,
-          expenseWorks: totalExpenseWorks,
-          incomeMaterials: totalIncomeMaterials,
-          expenseMaterials: totalExpenseMaterials
-        });
-
+        
         setFinancialData({
           incomeWorks: totalIncomeWorks,
           expenseWorks: totalExpenseWorks,
@@ -280,7 +246,7 @@ export default function FinancialSummaryChart({ projectId, estimates = [] }) {
         
         {/* Статистика сверху */}
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'success.lighter', borderRadius: 1 }}>
               <Typography variant="h6" color="success.dark">
                 {formatCurrency(financialData.incomeWorks + financialData.incomeMaterials)}
@@ -290,7 +256,7 @@ export default function FinancialSummaryChart({ projectId, estimates = [] }) {
               </Typography>
             </Box>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'error.lighter', borderRadius: 1 }}>
               <Typography variant="h6" color="error.dark">
                 {formatCurrency(financialData.expenseWorks + financialData.expenseMaterials)}
@@ -300,7 +266,7 @@ export default function FinancialSummaryChart({ projectId, estimates = [] }) {
               </Typography>
             </Box>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Box sx={{ 
               textAlign: 'center', 
               p: 2, 

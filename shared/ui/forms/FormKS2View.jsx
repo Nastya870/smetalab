@@ -36,12 +36,8 @@ const FormKS2View = ({ data }) => {
   };
 
   const handleConfirmDownload = async () => {
-    try {
-      console.log('КС-2: Начало скачивания, includeVat:', includeVat);
-      setOpenVatDialog(false);
-      await generateKS2Excel(data, includeVat);
-      console.log('КС-2: Скачивание завершено');
-      setIncludeVat(false);
+    try {setOpenVatDialog(false);
+      await generateKS2Excel(data, includeVat);setIncludeVat(false);
     } catch (error) {
       console.error('КС-2: Ошибка при скачивании:', error);
       alert('Ошибка при создании файла КС-2: ' + error.message);

@@ -18,7 +18,6 @@ const estimatesAPI = {
     const response = await axiosInstance.get('/estimates', { 
       params: { projectId } 
     });
-    console.log(`[getByProjectId] Loaded ${response.data?.length || 0} estimates for project ${projectId}`);
     return response.data;
   },
 
@@ -57,28 +56,19 @@ const estimatesAPI = {
    * @param {Object} data - Данные сметы с items
    */
   updateWithItems: async (id, data) => {
-    console.log(`[updateWithItems] Updating estimate ${id} with ${data.items?.length || 0} items`);
-    
-    const startTime = Date.now();
-    
     // 1. Обновляем основную информацию о смете
     const estimateData = { ...data };
     delete estimateData.items; // Удаляем items из основных данных
     
     await axiosInstance.put(`/estimates/${id}`, estimateData);
-    console.log('[updateWithItems] ✅ Estimate metadata updated');
     
     // 2. Заменяем все позиции одним запросом (DELETE + INSERT в одной транзакции)
     const response = await axiosInstance.put(`/estimates/${id}/items/replace`, {
       items: data.items || []
     });
     
-    const duration = Date.now() - startTime;
-    console.log(`[updateWithItems] ✅ Replaced with ${response.data.count} items in ${duration}ms (atomic transaction)`);
-    
     // 3. Возвращаем обновленную смету
     const fullEstimate = await axiosInstance.get(`/estimates/${id}/full`);
-    console.log('[updateWithItems] ✅ Full estimate reloaded');
     return fullEstimate.data;
   },
 

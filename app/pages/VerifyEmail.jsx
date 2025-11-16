@@ -54,9 +54,7 @@ export default function VerifyEmail() {
           if (storedUser) {
             const userData = JSON.parse(storedUser);
             userData.emailVerified = true;
-            localStorage.setItem('user', JSON.stringify(userData));
-            console.log('✅ [VerifyEmail] Обновлен emailVerified в localStorage');
-          }
+            localStorage.setItem('user', JSON.stringify(userData));}
         } catch (error) {
           console.error('❌ [VerifyEmail] Ошибка обновления localStorage:', error);
         }

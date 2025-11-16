@@ -8,7 +8,11 @@ import {
   Tab,
   Menu,
   MenuItem,
-  Typography
+  Typography,
+  Select,
+  FormControl,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import {
   IconSettings,
@@ -23,6 +27,8 @@ import {
 // ==============================|| ESTIMATE NAV BAR ||============================== //
 
 const EstimateNavBar = ({ activeTab, onTabChange }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [documentsAnchor, setDocumentsAnchor] = useState(null);
   const documentsOpen = Boolean(documentsAnchor);
 
@@ -50,6 +56,23 @@ const EstimateNavBar = ({ activeTab, onTabChange }) => {
 
   return (
     <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+      {isMobile ? (
+        <FormControl fullWidth sx={{ mb: 2 }}>
+          <Select
+            value={activeTab}
+            onChange={(e) => onTabChange(e.target.value)}
+            size="small"
+          >
+            <MenuItem value="parameters">📐 Параметры объекта</MenuItem>
+            <MenuItem value="estimate_v2">📄 Смета</MenuItem>
+            <MenuItem value="schedule">📅 График</MenuItem>
+            <MenuItem value="specialist_estimate">🔨 Выполнение</MenuItem>
+            <MenuItem value="purchases">🛒 Закупки</MenuItem>
+            <MenuItem value="acts">📋 Акты</MenuItem>
+            <MenuItem value="contract">📑 Договор</MenuItem>
+          </Select>
+        </FormControl>
+      ) : (
       <Tabs
         value={activeTab === 'documents' ? false : activeTab}
         onChange={handleTabChange}
@@ -127,6 +150,7 @@ const EstimateNavBar = ({ activeTab, onTabChange }) => {
           <Typography>Договор</Typography>
         </MenuItem>
       </Menu>
+      )}
     </Box>
   );
 };

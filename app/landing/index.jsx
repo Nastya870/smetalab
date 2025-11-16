@@ -63,7 +63,7 @@ export default function Landing() {
       <Container maxWidth="lg">
         <Grid container spacing={6} alignItems="center">
           {/* Левая часть - Контент */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Stack spacing={4}>
               {/* Логотип */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -195,7 +195,7 @@ export default function Landing() {
           </Grid>
 
           {/* Правая часть - Иллюстрация */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Box
               sx={{
                 position: 'relative',
