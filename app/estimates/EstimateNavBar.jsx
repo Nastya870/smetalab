@@ -150,7 +150,8 @@ const EstimateNavBar = ({ activeTab, onTabChange }) => {
           <Typography>Договор</Typography>
         </MenuItem>
       </Menu>
-      )}
+      )
+      }
     </Box>
   );
 };
