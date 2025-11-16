@@ -73,85 +73,86 @@ const EstimateNavBar = ({ activeTab, onTabChange }) => {
           </Select>
         </FormControl>
       ) : (
-      <Tabs
-        value={activeTab === 'documents' ? false : activeTab}
-        onChange={handleTabChange}
-        variant="scrollable"
-        scrollButtons="auto"
-        aria-label="estimate navigation tabs"
-      >
-        <Tab
-          value="parameters"
-          label="Параметры объекта"
-          icon={<IconSettings size={18} />}
-          iconPosition="start"
-          sx={{ minHeight: 56 }}
-        />
-        <Tab
-          value="estimate_v2"
-          label="Смета"
-          icon={<IconFileText size={18} />}
-          iconPosition="start"
-          sx={{ minHeight: 56 }}
-        />
-        <Tab
-          value="schedule"
-          label="График"
-          icon={<IconCalendarStats size={18} />}
-          iconPosition="start"
-          sx={{ minHeight: 56 }}
-        />
-        <Tab
-          value="specialist_estimate"
-          label="Выполнение"
-          icon={<IconFileInvoice size={18} />}
-          iconPosition="start"
-          sx={{ minHeight: 56 }}
-        />
-        <Tab
-          value="purchases"
-          label="Закупки"
-          icon={<IconShoppingCart size={18} />}
-          iconPosition="start"
-          sx={{ minHeight: 56 }}
-        />
-        <Tab
-          value="documents"
-          label={
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              Документы
-              <IconChevronDown size={16} />
-            </Box>
-          }
-          icon={<IconFiles size={18} />}
-          iconPosition="start"
-          sx={{ minHeight: 56 }}
-        />
-      </Tabs>
+      <>
+        <Tabs
+          value={activeTab === 'documents' ? false : activeTab}
+          onChange={handleTabChange}
+          variant="scrollable"
+          scrollButtons="auto"
+          aria-label="estimate navigation tabs"
+        >
+          <Tab
+            value="parameters"
+            label="Параметры объекта"
+            icon={<IconSettings size={18} />}
+            iconPosition="start"
+            sx={{ minHeight: 56 }}
+          />
+          <Tab
+            value="estimate_v2"
+            label="Смета"
+            icon={<IconFileText size={18} />}
+            iconPosition="start"
+            sx={{ minHeight: 56 }}
+          />
+          <Tab
+            value="schedule"
+            label="График"
+            icon={<IconCalendarStats size={18} />}
+            iconPosition="start"
+            sx={{ minHeight: 56 }}
+          />
+          <Tab
+            value="specialist_estimate"
+            label="Выполнение"
+            icon={<IconFileInvoice size={18} />}
+            iconPosition="start"
+            sx={{ minHeight: 56 }}
+          />
+          <Tab
+            value="purchases"
+            label="Закупки"
+            icon={<IconShoppingCart size={18} />}
+            iconPosition="start"
+            sx={{ minHeight: 56 }}
+          />
+          <Tab
+            value="documents"
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                Документы
+                <IconChevronDown size={16} />
+              </Box>
+            }
+            icon={<IconFiles size={18} />}
+            iconPosition="start"
+            sx={{ minHeight: 56 }}
+          />
+        </Tabs>
 
-      {/* Выпадающее меню для Документов */}
-      <Menu
-        anchorEl={documentsAnchor}
-        open={documentsOpen}
-        onClose={handleDocumentsClose}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'left'
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'left'
-        }}
-      >
-        <MenuItem onClick={() => handleDocumentSelect('acts')}>
-          <Typography>Акты выполненных работ</Typography>
-        </MenuItem>
-        <MenuItem onClick={() => handleDocumentSelect('contract')}>
-          <Typography>Договор</Typography>
-        </MenuItem>
-      </Menu>
-      )
-      }
+        {/* Выпадающее меню для Документов */}
+        <Menu
+          anchorEl={documentsAnchor}
+          open={documentsOpen}
+          onClose={handleDocumentsClose}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'left'
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'left'
+          }}
+        >
+          <MenuItem onClick={() => handleDocumentSelect('acts')}>
+            <Typography>Акты выполненных работ</Typography>
+          </MenuItem>
+          <MenuItem onClick={() => handleDocumentSelect('contract')}>
+            <Typography>Договор</Typography>
+          </MenuItem>
+        </Menu>
+      </>
+      )}
     </Box>
   );
 };
