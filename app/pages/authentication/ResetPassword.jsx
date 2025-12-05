@@ -148,7 +148,7 @@ export default function ResetPassword() {
               <AuthCardWrapper>
                 <Grid container spacing={2} sx={{ alignItems: 'center', justifyContent: 'center' }}>
                   <Grid sx={{ mb: 3 }}>
-                    <Link to="#" aria-label="logo">
+                    <Link to="/" aria-label="logo">
                       <Logo />
                     </Link>
                   </Grid>

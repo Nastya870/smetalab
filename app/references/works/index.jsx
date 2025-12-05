@@ -29,7 +29,6 @@ import {
   Tooltip,
   Card,
   CardContent,
-  CardActions,
   useMediaQuery,
   useTheme
 } from '@mui/material';
@@ -62,7 +61,10 @@ const WorksReferencePage = () => {
   const [currentWork, setCurrentWork] = useState(emptyWork);
   const [searchInput, setSearchInput] = useState(''); // Для input (мгновенно)
   const [searchTerm, setSearchTerm] = useState(''); // Для фильтрации (debounced)
-  const [globalFilter, setGlobalFilter] = useState('all'); // 'all' | 'global' | 'tenant'
+  // Восстанавливаем фильтр из localStorage или используем 'global' по умолчанию
+  const [globalFilter, setGlobalFilter] = useState(() => {
+    return localStorage.getItem('worksGlobalFilter') || 'global';
+  });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [openImportDialog, setOpenImportDialog] = useState(false);
 
@@ -80,6 +82,11 @@ const WorksReferencePage = () => {
       debouncedSearch.cancel();
     };
   }, [debouncedSearch]);
+
+  // Сохранение фильтра в localStorage при изменении
+  useEffect(() => {
+    localStorage.setItem('worksGlobalFilter', globalFilter);
+  }, [globalFilter]);
 
   // Загрузка данных из API при монтировании
   useEffect(() => {
@@ -130,8 +137,8 @@ const WorksReferencePage = () => {
   const filteredWorks = useMemo(() => {
     if (!searchTerm) return works; // Если поиск пустой, возвращаем все работы
     
-    // Используем полнотекстовый поиск по всем полям
-    return fullTextSearch(works, searchTerm, ['name', 'code', 'unit', 'category']);
+    // Используем полнотекстовый поиск по всем полям (включая иерархию)
+    return fullTextSearch(works, searchTerm, ['name', 'code', 'unit', 'phase', 'section', 'subsection']);
   }, [works, searchTerm]);
 
   // Мемоизированные обработчики (стабильные функции, не пересоздаются при каждом рендере)
@@ -170,7 +177,6 @@ const WorksReferencePage = () => {
           const updated = await worksAPI.update(currentWork.id, {
             code: currentWork.code,
             name: currentWork.name,
-            category: currentWork.category,
             unit: currentWork.unit,
             basePrice: currentWork.basePrice,
             phase: currentWork.phase || null,
@@ -206,7 +212,6 @@ const WorksReferencePage = () => {
           const created = await worksAPI.create({
             code: currentWork.code,
             name: currentWork.name,
-            category: currentWork.category,
             unit: currentWork.unit,
             basePrice: currentWork.basePrice,
             phase: currentWork.phase || null,
@@ -325,29 +330,12 @@ const WorksReferencePage = () => {
   };
 
   return (
-    <MainCard title="Справочник работ">
-      {/* Шапка с кнопкой добавления */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h3" color="textPrimary">
+    <MainCard title="Справочник работ" data-testid="works-page">
+      {/* Шапка */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h3" color="textPrimary" data-testid="works-title">
           Виды работ
         </Typography>
-        <Stack direction="row" spacing={1}>
-          <Button 
-            variant="outlined" 
-            startIcon={<IconUpload />} 
-            onClick={handleOpenImport}
-          >
-            Импорт
-          </Button>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            startIcon={<IconPlus />} 
-            onClick={handleOpenCreate}
-          >
-            Добавить работу
-          </Button>
-        </Stack>
       </Box>
 
       <Divider sx={{ mb: 3 }} />
@@ -381,6 +369,7 @@ const WorksReferencePage = () => {
             setSearchInput(value);
             debouncedSearch(value);
           }}
+          data-testid="works-search"
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -391,64 +380,140 @@ const WorksReferencePage = () => {
         />
         
         {/* Фильтр по типу (глобальный/тенантный) */}
-        <Stack direction="row" spacing={2} sx={{ mt: 2, alignItems: 'center' }}>
-          <Typography variant="body2" color="textSecondary">
-            Тип работ:
-          </Typography>
-          <ToggleButtonGroup
-            value={globalFilter}
-            exclusive
-            onChange={(e, newValue) => newValue && setGlobalFilter(newValue)}
-            size="small"
+        <Stack 
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={{ xs: 2, sm: 2 }}
+          sx={{ 
+            mt: 2, 
+            alignItems: { xs: 'stretch', sm: 'center' },
+            justifyContent: 'space-between',
+            gap: 2
+          }}
+        >
+          <Stack 
+            direction="row"
+            spacing={2}
+            sx={{ 
+              alignItems: 'center',
+              width: { xs: '100%', sm: 'auto' }
+            }}
           >
-            <ToggleButton value="all">
-              Все
-            </ToggleButton>
-            <ToggleButton value="global">
-              <IconWorld size={18} style={{ marginRight: 4 }} />
-              Глобальные
-            </ToggleButton>
-            <ToggleButton value="tenant">
-              <IconBuilding size={18} style={{ marginRight: 4 }} />
-              Мои
-            </ToggleButton>
-          </ToggleButtonGroup>
+            {/* iOS-style Toggle Switch - только иконки */}
+            <Tooltip 
+              title={globalFilter === 'global' ? 'Глобальные работы' : 'Мои работы'}
+              arrow
+              placement="top"
+            >
+              <Box
+                onClick={() => setGlobalFilter(globalFilter === 'global' ? 'tenant' : 'global')}
+                sx={{
+                  position: 'relative',
+                  width: { xs: 80, sm: 90 },
+                  height: 36,
+                  bgcolor: 'rgba(33, 150, 243, 0.3)',
+                  borderRadius: '18px',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: 1,
+                  '&:hover': {
+                    boxShadow: 3,
+                    transform: 'translateY(-1px)'
+                  },
+                  '&:active': {
+                    transform: 'translateY(0px)',
+                    boxShadow: 1
+                  }
+                }}
+              >
+                {/* Белый круг-переключатель */}
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 3,
+                    left: globalFilter === 'global' ? 3 : 'calc(50% - 3px)',
+                    width: 'calc(50% - 3px)',
+                    height: 30,
+                    bgcolor: 'white',
+                    borderRadius: '15px',
+                    transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+                  }}
+                />
+                
+                {/* Иконки на фоне */}
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '50%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: globalFilter === 'global' ? 0 : 1,
+                    transition: 'opacity 0.3s ease',
+                    pointerEvents: 'none'
+                  }}
+                >
+                  <IconWorld size={18} color="#000" />
+                </Box>
+                
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    width: '50%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: globalFilter === 'tenant' ? 0 : 1,
+                    transition: 'opacity 0.3s ease',
+                    pointerEvents: 'none'
+                  }}
+                >
+                  <IconBuilding size={18} color="#000" />
+                </Box>
+              </Box>
+            </Tooltip>
+          </Stack>
+
+          {/* Кнопки управления - только для тенантного справочника */}
+          {globalFilter === 'tenant' && (
+            <Stack direction="row" spacing={1}>
+              <Button 
+                variant="outlined" 
+                size="small"
+                startIcon={<IconUpload size={16} />} 
+                onClick={handleOpenImport}
+              >
+                Импорт
+              </Button>
+              <Button 
+                variant="contained" 
+                color="primary" 
+                size="small"
+                startIcon={<IconPlus size={16} />} 
+                onClick={handleOpenCreate}
+              >
+                Добавить
+              </Button>
+            </Stack>
+          )}
         </Stack>
       </Box>
 
       {/* Статистика */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <Paper sx={{ p: 2, bgcolor: 'primary.light', textAlign: 'center' }}>
-            <Typography variant="h2" color="primary.dark">
-              {works.length}
-            </Typography>
-            <Typography variant="body2" color="primary.dark">
-              Всего работ
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <Paper sx={{ p: 2, bgcolor: 'success.light', textAlign: 'center' }}>
-            <Typography variant="h2" color="success.dark">
-              {new Set(works.map((w) => w.category)).size}
-            </Typography>
-            <Typography variant="body2" color="success.dark">
-              Категорий
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <Paper sx={{ p: 2, bgcolor: 'warning.light', textAlign: 'center' }}>
-            <Typography variant="h2" color="warning.dark">
-              {formatPrice(works.reduce((sum, w) => sum + w.basePrice, 0) / works.length)}
-            </Typography>
-            <Typography variant="body2" color="warning.dark">
-              Средняя базовая цена
-            </Typography>
-          </Paper>
-        </Grid>
-      </Grid>
+      <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'primary.main', flexShrink: 0 }} />
+          <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.primary' }}>
+            Всего работ — <strong>{works.length}</strong>
+          </Typography>
+        </Box>
+      </Box>
 
       {/* Таблица работ или карточки */}
       {filteredWorks.length > 0 ? (
@@ -508,28 +573,32 @@ const WorksReferencePage = () => {
                               Базовая цена
                             </Typography>
                             <Typography variant="h6" color="primary.main" fontWeight={600}>
-                              {work.basePrice && !isNaN(work.basePrice) ? formatPrice(work.basePrice) : '—'}
+                              {work.basePrice != null && !isNaN(Number(work.basePrice))
+                                ? formatPrice(Number(work.basePrice))
+                                : '—'}
                             </Typography>
                           </Box>
                         </Box>
+
+                        {/* Действия */}
+                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end', mt: 1 }}>
+                          <IconButton 
+                            size="small" 
+                            color="primary"
+                            onClick={() => handleOpenEdit(work)}
+                          >
+                            <IconEdit size={16} />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            color="error"
+                            onClick={() => handleDeleteWork(work.id)}
+                          >
+                            <IconTrash size={16} />
+                          </IconButton>
+                        </Box>
                       </Stack>
                     </CardContent>
-                    <CardActions sx={{ justifyContent: 'flex-end', px: 2, py: 1, pt: 0 }}>
-                      <IconButton 
-                        size="small" 
-                        color="primary"
-                        onClick={() => handleOpenEdit(work)}
-                      >
-                        <IconEdit size={18} />
-                      </IconButton>
-                      <IconButton 
-                        size="small" 
-                        color="error"
-                        onClick={() => handleDeleteWork(work.id)}
-                      >
-                        <IconTrash size={18} />
-                      </IconButton>
-                    </CardActions>
                   </Card>
                 </Box>
               );

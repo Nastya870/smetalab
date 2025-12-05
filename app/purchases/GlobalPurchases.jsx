@@ -10,6 +10,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TableFooter,
   Button,
   Stack,
   Divider,
@@ -36,7 +37,8 @@ import {
   IconDownload,
   IconFileTypeCsv,
   IconFileTypeXls,
-  IconFileTypePdf
+  IconFileTypePdf,
+  IconFilter
 } from '@tabler/icons-react';
 
 // API
@@ -225,31 +227,11 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
     }
   };
 
+  // Вычисляем общую сумму из закупок
+  const totalSpent = purchases.reduce((sum, p) => sum + parseFloat(p.total_price || 0), 0);
+
   return (
     <Box>
-      {/* Заголовок */}
-      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
-        <Typography variant="h3">Общие закупки</Typography>
-        <Stack direction="row" spacing={2}>
-          <Button
-            variant="contained"
-            startIcon={<IconDownload />}
-            onClick={handleExportMenuOpen}
-            disabled={loading || purchases.length === 0}
-          >
-            Экспорт
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<IconRefresh />}
-            onClick={handleRefresh}
-            disabled={loading}
-          >
-            Обновить
-          </Button>
-        </Stack>
-      </Stack>
-
       {/* Меню экспорта */}
       <Menu
         anchorEl={exportAnchorEl}
@@ -258,10 +240,10 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
       >
         <MenuItem onClick={handleExportCSV}>
           <Stack direction="row" spacing={1.5} alignItems="center">
-            <IconFileTypeCsv size={20} />
+            <IconFileTypeCsv size={18} />
             <Box>
-              <Typography variant="body2" fontWeight={500}>CSV</Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8125rem' }}>CSV</Typography>
+              <Typography variant="caption" sx={{ color: '#9CA3AF', fontSize: '0.6875rem' }}>
                 Для Excel, Google Sheets
               </Typography>
             </Box>
@@ -269,128 +251,117 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
         </MenuItem>
         <MenuItem onClick={handleExportExcel}>
           <Stack direction="row" spacing={1.5} alignItems="center">
-            <IconFileTypeXls size={20} />
+            <IconFileTypeXls size={18} />
             <Box>
-              <Typography variant="body2" fontWeight={500}>Excel (XLS)</Typography>
-              <Typography variant="caption" color="text.secondary">
-                С форматированием и группировкой
+              <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8125rem' }}>Excel (XLS)</Typography>
+              <Typography variant="caption" sx={{ color: '#9CA3AF', fontSize: '0.6875rem' }}>
+                С форматированием
               </Typography>
             </Box>
           </Stack>
         </MenuItem>
         <MenuItem onClick={handleExportPDF}>
           <Stack direction="row" spacing={1.5} alignItems="center">
-            <IconFileTypePdf size={20} />
+            <IconFileTypePdf size={18} />
             <Box>
-              <Typography variant="body2" fontWeight={500}>PDF</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Для печати и отправки
+              <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8125rem' }}>PDF</Typography>
+              <Typography variant="caption" sx={{ color: '#9CA3AF', fontSize: '0.6875rem' }}>
+                Для печати
               </Typography>
             </Box>
           </Stack>
         </MenuItem>
       </Menu>
 
-      {/* Статистика */}
-      {statistics && (
-        <Grid container spacing={2} mb={3}>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Paper sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="h4" color="primary">
-                {statistics.totalPurchases}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Всего закупок
-              </Typography>
-            </Paper>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Paper sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="h4" color="primary">
-                {statistics.uniqueMaterials}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Уникальных материалов
-              </Typography>
-            </Paper>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Paper sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="h4" color="primary">
-                {statistics.projectsCount}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Проектов
-              </Typography>
-            </Paper>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Paper sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="h4" color="success.main">
-                {formatCurrency(statistics.totalSpent)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Общая сумма
-              </Typography>
-            </Paper>
-          </Grid>
-        </Grid>
+      {/* Ошибка */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2, borderRadius: '8px' }}>
+          {error}
+        </Alert>
       )}
 
-      {/* Фильтры */}
+      {/* Единый белый контейнер */}
       <Paper 
         elevation={0}
         sx={{ 
-          p: 2.5, 
-          mb: 3, 
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 2,
-          bgcolor: 'background.paper'
+          bgcolor: '#FFFFFF',
+          borderRadius: '12px',
+          pt: 3,
+          pb: 4,
+          px: 4,
+          border: '1px solid #E5E7EB'
         }}
       >
-        <Stack spacing={2}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between">
-            <Stack direction="row" alignItems="center" spacing={1.5}>
-              <Box
-                sx={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 2,
-                  bgcolor: 'primary.lighter',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <IconCalendar size={20} style={{ color: 'var(--mui-palette-primary-main)' }} />
-              </Box>
-              <Box>
-                <Typography variant="h6" fontWeight={600}>
-                  Фильтры
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Найдено закупок: {purchases.length}
-                </Typography>
-              </Box>
+        {/* 1. Заголовок раздела */}
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+          <Typography variant="h4" sx={{ fontWeight: 600, color: '#111827', fontSize: '1.25rem' }}>
+            Общие закупки
+          </Typography>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              startIcon={<IconDownload size={16} />}
+              onClick={handleExportMenuOpen}
+              disabled={loading || purchases.length === 0}
+              sx={{ 
+                height: 36,
+                fontSize: '0.8125rem',
+                textTransform: 'none',
+                bgcolor: '#6366F1',
+                borderRadius: '8px',
+                '&:hover': { bgcolor: '#4F46E5' }
+              }}
+            >
+              Экспорт
+            </Button>
+            <IconButton
+              onClick={handleRefresh}
+              disabled={loading}
+              sx={{ 
+                width: 36,
+                height: 36,
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                color: '#6B7280',
+                '&:hover': { 
+                  bgcolor: '#F9FAFB',
+                  borderColor: '#D1D5DB'
+                }
+              }}
+            >
+              <IconRefresh size={18} />
+            </IconButton>
+          </Stack>
+        </Stack>
+
+        {/* 2. Фильтры (без внешнего блока) */}
+        <Box sx={{ mb: 4 }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+            <Stack direction="row" alignItems="center" spacing={0.75}>
+              <IconFilter size={14} style={{ color: '#9CA3AF' }} />
+              <Typography sx={{ fontWeight: 500, fontSize: '0.875rem', color: '#6B7280' }}>
+                Фильтры
+              </Typography>
             </Stack>
             
             {(filters.projectId || filters.dateFrom || filters.dateTo) && (
               <Button
                 size="small"
-                variant="outlined"
-                color="error"
+                variant="text"
                 onClick={() => setFilters({ projectId: '', dateFrom: '', dateTo: '' })}
-                sx={{ textTransform: 'none' }}
+                sx={{ 
+                  textTransform: 'none',
+                  fontSize: '0.75rem',
+                  color: '#EF4444',
+                  '&:hover': { bgcolor: '#FEF2F2' }
+                }}
               >
-                ✕ Сбросить фильтры
+                ✕ Сбросить
               </Button>
             )}
           </Stack>
           
-          <Divider />
-          
-          <Grid container spacing={2}>
+          <Grid container spacing={2.5}>
             <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 select
@@ -401,34 +372,24 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                 size="small"
                 variant="outlined"
                 InputLabelProps={{ shrink: true }}
-                SelectProps={{
-                  displayEmpty: true
-                }}
+                SelectProps={{ displayEmpty: true }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    bgcolor: 'background.default',
-                    '&:hover': {
-                      bgcolor: 'action.hover'
-                    }
-                  }
+                    height: 38,
+                    bgcolor: '#F9FAFB',
+                    borderRadius: '6px',
+                    '& fieldset': { borderColor: '#E5E7EB' },
+                    '&:hover fieldset': { borderColor: '#D1D5DB' }
+                  },
+                  '& .MuiInputLabel-root': { fontSize: '0.8125rem' }
                 }}
               >
                 <MenuItem value="">
-                  <em style={{ color: '#999' }}>Все проекты</em>
+                  <em style={{ color: '#9CA3AF' }}>Все проекты</em>
                 </MenuItem>
                 {projects.map((project) => (
                   <MenuItem key={project.id} value={project.id}>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <Box
-                        sx={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: '50%',
-                          bgcolor: 'primary.main'
-                        }}
-                      />
-                      <Typography variant="body2">{project.name}</Typography>
-                    </Stack>
+                    <Typography variant="body2" sx={{ fontSize: '0.8125rem' }}>{project.name}</Typography>
                   </MenuItem>
                 ))}
               </TextField>
@@ -443,14 +404,15 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                 onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
                 InputLabelProps={{ shrink: true }}
                 size="small"
-                variant="outlined"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    bgcolor: 'background.default',
-                    '&:hover': {
-                      bgcolor: 'action.hover'
-                    }
-                  }
+                    height: 38,
+                    bgcolor: '#F9FAFB',
+                    borderRadius: '6px',
+                    '& fieldset': { borderColor: '#E5E7EB' },
+                    '&:hover fieldset': { borderColor: '#D1D5DB' }
+                  },
+                  '& .MuiInputLabel-root': { fontSize: '0.8125rem' }
                 }}
               />
             </Grid>
@@ -464,14 +426,15 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                 onChange={(e) => handleFilterChange('dateTo', e.target.value)}
                 InputLabelProps={{ shrink: true }}
                 size="small"
-                variant="outlined"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    bgcolor: 'background.default',
-                    '&:hover': {
-                      bgcolor: 'action.hover'
-                    }
-                  }
+                    height: 38,
+                    bgcolor: '#F9FAFB',
+                    borderRadius: '6px',
+                    '& fieldset': { borderColor: '#E5E7EB' },
+                    '&:hover fieldset': { borderColor: '#D1D5DB' }
+                  },
+                  '& .MuiInputLabel-root': { fontSize: '0.8125rem' }
                 }}
               />
             </Grid>
@@ -479,262 +442,292 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
           
           {/* Активные фильтры (чипы) */}
           {(filters.projectId || filters.dateFrom || filters.dateTo) && (
-            <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
+            <Stack direction="row" spacing={0.75} sx={{ mt: 1.5 }} flexWrap="wrap" gap={0.5}>
               {filters.projectId && (
                 <Chip
                   label={`Проект: ${projects.find(p => p.id === filters.projectId)?.name || 'Выбран'}`}
                   onDelete={() => handleFilterChange('projectId', '')}
-                  color="primary"
                   size="small"
-                  variant="outlined"
+                  sx={{ 
+                    height: 24,
+                    fontSize: '0.6875rem',
+                    bgcolor: '#EEF2FF',
+                    color: '#4F46E5',
+                    '& .MuiChip-deleteIcon': { color: '#818CF8', '&:hover': { color: '#4F46E5' } }
+                  }}
                 />
               )}
               {filters.dateFrom && (
                 <Chip
                   label={`С: ${new Date(filters.dateFrom).toLocaleDateString('ru-RU')}`}
                   onDelete={() => handleFilterChange('dateFrom', '')}
-                  color="info"
                   size="small"
-                  variant="outlined"
+                  sx={{ 
+                    height: 24,
+                    fontSize: '0.6875rem',
+                    bgcolor: '#F0F9FF',
+                    color: '#0369A1',
+                    '& .MuiChip-deleteIcon': { color: '#7DD3FC', '&:hover': { color: '#0369A1' } }
+                  }}
                 />
               )}
               {filters.dateTo && (
                 <Chip
                   label={`По: ${new Date(filters.dateTo).toLocaleDateString('ru-RU')}`}
                   onDelete={() => handleFilterChange('dateTo', '')}
-                  color="info"
                   size="small"
-                  variant="outlined"
+                  sx={{ 
+                    height: 24,
+                    fontSize: '0.6875rem',
+                    bgcolor: '#F0F9FF',
+                    color: '#0369A1',
+                    '& .MuiChip-deleteIcon': { color: '#7DD3FC', '&:hover': { color: '#0369A1' } }
+                  }}
                 />
               )}
             </Stack>
           )}
-        </Stack>
-      </Paper>
+        </Box>
 
-      {/* Ошибка */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
+        {/* Разделитель */}
+        <Divider sx={{ mb: 2.5 }} />
 
-      {/* Заголовок ведомости с датами */}
-      {!loading && purchases.length > 0 && (
-        <Paper sx={{ p: 3, mb: 2, bgcolor: 'primary.lighter' }}>
-          <Typography variant="h5" fontWeight={600} textAlign="center">
+        {/* 3. Подзаголовок списка */}
+        <Box sx={{ mb: 2 }}>
+          <Typography sx={{ fontWeight: 600, color: '#374151', fontSize: '0.9375rem' }}>
+            Список закупок
+          </Typography>
+          <Typography sx={{ color: '#9CA3AF', fontSize: '0.8125rem' }}>
             {filters.dateFrom && filters.dateTo ? (
-              <>
-                Ведомость закупки материалов от {formatDate(filters.dateFrom)} по {formatDate(filters.dateTo)}
-              </>
+              <>Период: {formatDate(filters.dateFrom)} — {formatDate(filters.dateTo)} • Найдено: {purchases.length}</>
             ) : filters.dateFrom ? (
-              <>
-                Ведомость закупки материалов от {formatDate(filters.dateFrom)}
-              </>
+              <>С {formatDate(filters.dateFrom)} • Найдено: {purchases.length}</>
             ) : filters.dateTo ? (
-              <>
-                Ведомость закупки материалов по {formatDate(filters.dateTo)}
-              </>
+              <>По {formatDate(filters.dateTo)} • Найдено: {purchases.length}</>
             ) : (
-              <>
-                Ведомость закупки материалов (все периоды)
-              </>
+              <>Все периоды • Найдено: {purchases.length}</>
             )}
           </Typography>
-        </Paper>
-      )}
+        </Box>
 
-      {/* Таблица закупок */}
-      <Paper>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
-            <CircularProgress />
-          </Box>
-        ) : purchases.length === 0 ? (
-          <Box sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="h6" color="text.secondary">
-              Закупок пока нет
-            </Typography>
-            <Typography variant="body2" color="text.secondary" mt={1}>
-              Добавляйте закупки через кнопку "В закупку" в разделе "Закупки" смет
-            </Typography>
-          </Box>
-        ) : (
-          <Box sx={{ overflowX: 'auto' }}>
-            <Table>
-              <TableHead>
-                <TableRow sx={{ bgcolor: 'primary.lighter' }}>
-                  <TableCell sx={{ fontWeight: 600 }}>Смета</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Материал</TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: 60 }}>Фото</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>Количество</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Ед.изм.</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>Цена закупки</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>Сумма</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 600 }}>Действия</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {(() => {
-                  // Группируем закупки по проектам
-                  const groupedPurchases = purchases.reduce((acc, purchase) => {
-                    const projectName = purchase.project_name || 'Без проекта';
-                    if (!acc[projectName]) {
-                      acc[projectName] = {
-                        projectId: purchase.project_id,
-                        purchases: [],
-                        total: 0
-                      };
-                    }
-                    acc[projectName].purchases.push(purchase);
-                    acc[projectName].total += parseFloat(purchase.total_price || 0);
-                    return acc;
-                  }, {});
+        {/* 4. Таблица закупок */}
+        <Box sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden' }}>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}>
+              <CircularProgress size={32} />
+            </Box>
+          ) : purchases.length === 0 ? (
+            <Box sx={{ p: 4, textAlign: 'center' }}>
+              <Typography sx={{ color: '#6B7280', fontWeight: 500, fontSize: '0.9375rem' }}>
+                Закупок пока нет
+              </Typography>
+              <Typography sx={{ color: '#9CA3AF', mt: 0.5, fontSize: '0.8125rem' }}>
+                Добавляйте закупки через кнопку "В закупку" в разделе "Закупки" смет
+              </Typography>
+            </Box>
+          ) : (
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>Смета</TableCell>
+                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>Материал</TableCell>
+                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', py: 1.25, width: 56, borderBottom: '1px solid #E5E7EB' }}>Фото</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>Кол-во</TableCell>
+                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>Ед.</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>Цена</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>Сумма</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', py: 1.25, width: 80, borderBottom: '1px solid #E5E7EB' }}></TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {(() => {
+                    const groupedPurchases = purchases.reduce((acc, purchase) => {
+                      const projectName = purchase.project_name || 'Без проекта';
+                      if (!acc[projectName]) {
+                        acc[projectName] = { projectId: purchase.project_id, purchases: [], total: 0 };
+                      }
+                      acc[projectName].purchases.push(purchase);
+                      acc[projectName].total += parseFloat(purchase.total_price || 0);
+                      return acc;
+                    }, {});
 
-                  // Рендерим группы
-                  return Object.entries(groupedPurchases).map(([projectName, data], groupIndex) => (
-                    <React.Fragment key={projectName}>
-                      {/* Заголовок группы (проект) */}
-                      <TableRow>
-                        <TableCell 
-                          colSpan={8} 
-                          sx={{ 
-                            bgcolor: 'action.hover',
-                            borderLeft: '4px solid',
-                            borderLeftColor: 'primary.main',
-                            py: 1.5
-                          }}
-                        >
-                          <Stack direction="row" justifyContent="space-between" alignItems="center">
-                            <Stack direction="row" alignItems="center" spacing={2}>
-                              <Box
-                                sx={{
-                                  width: 32,
-                                  height: 32,
-                                  borderRadius: 1.5,
-                                  bgcolor: 'primary.main',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  color: 'white',
-                                  fontWeight: 700
-                                }}
-                              >
-                                {groupIndex + 1}
-                              </Box>
-                              <Typography variant="h6" fontWeight={600}>
-                                {projectName}
-                              </Typography>
-                              <Chip 
-                                label={`${data.purchases.length} ${data.purchases.length === 1 ? 'закупка' : 'закупок'}`} 
-                                size="small" 
-                                color="primary" 
-                                variant="outlined"
-                              />
-                            </Stack>
-                            <Typography variant="h6" fontWeight={700} color="primary.main">
-                              Итого: {formatCurrency(data.total)}
-                            </Typography>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-
-                      {/* Закупки проекта */}
-                      {data.purchases.map((purchase, index) => (
-                        <TableRow 
-                          key={purchase.id} 
-                          hover
-                          sx={{
-                            '&:last-of-type': groupIndex < Object.keys(groupedPurchases).length - 1 ? {
-                              borderBottom: '2px solid',
-                              borderBottomColor: 'divider'
-                            } : {}
-                          }}
-                        >
-                          <TableCell sx={{ width: 180 }}>
-                            <Typography variant="body2" noWrap sx={{ maxWidth: 180 }}>
-                              {purchase.estimate_name || '-'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell sx={{ minWidth: 250 }}>
-                            <Stack direction="row" alignItems="center" spacing={1}>
-                              {purchase.is_extra_charge && (
-                                <Chip label="О/Ч" color="warning" size="small" />
-                              )}
-                              <Box>
-                                <Typography variant="body2" fontWeight={500}>
-                                  {purchase.material_name}
+                    return Object.entries(groupedPurchases).map(([projectName, data], groupIndex) => (
+                      <React.Fragment key={projectName}>
+                        <TableRow>
+                          <TableCell 
+                            colSpan={8} 
+                            sx={{ 
+                              bgcolor: '#F3F4F6',
+                              borderLeft: '3px solid #6366F1',
+                              py: 1,
+                              borderBottom: '1px solid #E5E7EB'
+                            }}
+                          >
+                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                              <Stack direction="row" alignItems="center" spacing={1.5}>
+                                <Box
+                                  sx={{
+                                    width: 22,
+                                    height: 22,
+                                    borderRadius: '4px',
+                                    bgcolor: '#6366F1',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'white',
+                                    fontSize: '0.6875rem',
+                                    fontWeight: 700
+                                  }}
+                                >
+                                  {groupIndex + 1}
+                                </Box>
+                                <Typography sx={{ fontWeight: 600, color: '#374151', fontSize: '0.8125rem' }}>
+                                  {projectName}
                                 </Typography>
-                                {purchase.material_sku && (
-                                  <Typography variant="caption" color="text.secondary">
-                                    Арт: {purchase.material_sku}
-                                  </Typography>
-                                )}
-                              </Box>
-                            </Stack>
-                          </TableCell>
-                          <TableCell>
-                            <Avatar
-                              src={purchase.material_image}
-                              alt={purchase.material_name}
-                              variant="rounded"
-                              sx={{ width: 36, height: 36, border: '1px solid', borderColor: 'divider' }}
-                            >
-                              {!purchase.material_image && <IconPhoto size={16} />}
-                            </Avatar>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography variant="body2" fontWeight={600}>
-                              {parseFloat(purchase.quantity).toLocaleString('ru-RU', {
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 2
-                              })}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" color="text.secondary">
-                              {purchase.unit}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography variant="body2">
-                              {formatCurrency(purchase.purchase_price)}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography variant="body2" fontWeight={600} color="success.main">
-                              {formatCurrency(purchase.total_price)}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Stack direction="row" spacing={0.5} justifyContent="center">
-                              <IconButton
-                                size="small"
-                                color="primary"
-                                onClick={() => handleOpenEditDialog(purchase)}
-                                title="Редактировать"
-                              >
-                                <IconEdit size={18} />
-                              </IconButton>
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => handleDelete(purchase.id)}
-                                title="Удалить"
-                              >
-                                <IconTrash size={18} />
-                              </IconButton>
+                                <Chip 
+                                  label={`${data.purchases.length} поз.`} 
+                                  size="small" 
+                                  sx={{ height: 16, fontSize: '0.5625rem', bgcolor: '#F5F3FF', color: '#7C3AED', fontWeight: 500 }}
+                                />
+                              </Stack>
                             </Stack>
                           </TableCell>
                         </TableRow>
-                      ))}
-                    </React.Fragment>
-                  ));
-                })()}
-              </TableBody>
-            </Table>
-          </Box>
-        )}
+
+                        {data.purchases.map((purchase) => (
+                          <TableRow 
+                            key={purchase.id} 
+                            hover
+                            sx={{ '&:hover': { bgcolor: '#FAFAFA' } }}
+                          >
+                            <TableCell sx={{ py: 1, maxWidth: 160, borderBottom: '1px solid #F3F4F6' }}>
+                              <Typography noWrap sx={{ fontSize: '0.8125rem', color: '#4B5563' }}>
+                                {purchase.estimate_name || '—'}
+                              </Typography>
+                            </TableCell>
+                            <TableCell sx={{ py: 1, minWidth: 200, borderBottom: '1px solid #F3F4F6' }}>
+                              <Stack direction="row" alignItems="center" spacing={0.75}>
+                                {purchase.is_extra_charge && (
+                                  <Chip 
+                                    label="О/Ч" 
+                                    size="small" 
+                                    sx={{ height: 18, fontSize: '0.5625rem', bgcolor: '#FEF3C7', color: '#92400E' }}
+                                  />
+                                )}
+                                <Box>
+                                  <Typography sx={{ fontWeight: 500, fontSize: '0.8125rem', color: '#374151' }}>
+                                    {purchase.material_name}
+                                  </Typography>
+                                  {purchase.material_sku && (
+                                    <Typography sx={{ color: '#9CA3AF', fontSize: '0.6875rem', lineHeight: 1.2, display: 'block' }}>
+                                      Арт: {purchase.material_sku}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              </Stack>
+                            </TableCell>
+                            <TableCell sx={{ py: 1, borderBottom: '1px solid #F3F4F6' }}>
+                              <Box
+                                sx={{
+                                  width: 40,
+                                  height: 40,
+                                  borderRadius: '4px',
+                                  border: '1px solid #E5E7EB',
+                                  overflow: 'hidden',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  bgcolor: '#F9FAFB'
+                                }}
+                              >
+                                {purchase.material_image ? (
+                                  <img
+                                    src={purchase.material_image}
+                                    alt={purchase.material_name}
+                                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                  />
+                                ) : (
+                                  <Typography sx={{ color: '#D1D5DB', fontSize: '0.625rem' }}>—</Typography>
+                                )}
+                              </Box>
+                            </TableCell>
+                            <TableCell align="right" sx={{ py: 1, borderBottom: '1px solid #F3F4F6' }}>
+                              <Typography sx={{ fontWeight: 600, fontSize: '0.8125rem', color: '#374151' }}>
+                                {parseFloat(purchase.quantity).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                              </Typography>
+                            </TableCell>
+                            <TableCell sx={{ py: 1, borderBottom: '1px solid #F3F4F6' }}>
+                              <Typography sx={{ color: '#6B7280', fontSize: '0.8125rem' }}>
+                                {purchase.unit}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="right" sx={{ py: 1, borderBottom: '1px solid #F3F4F6' }}>
+                              <Typography sx={{ fontSize: '0.8125rem', color: '#4B5563' }}>
+                                {formatCurrency(purchase.purchase_price)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="right" sx={{ py: 1, borderBottom: '1px solid #F3F4F6' }}>
+                              <Typography sx={{ fontWeight: 600, fontSize: '0.8125rem', color: '#059669' }}>
+                                {formatCurrency(purchase.total_price)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center" sx={{ py: 1, borderBottom: '1px solid #F3F4F6' }}>
+                              <Stack direction="row" spacing={1} justifyContent="center">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleOpenEditDialog(purchase)}
+                                  title="Редактировать"
+                                  sx={{ width: 28, height: 28, color: '#6B7280', '&:hover': { bgcolor: '#F3F4F6', color: '#4B5563' } }}
+                                >
+                                  <IconEdit size={16} />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleDelete(purchase.id)}
+                                  title="Удалить"
+                                  sx={{ width: 28, height: 28, color: '#F87171', '&:hover': { bgcolor: '#FEF2F2' } }}
+                                >
+                                  <IconTrash size={16} />
+                                </IconButton>
+                              </Stack>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </React.Fragment>
+                    ));
+                  })()}
+                </TableBody>
+                
+                {/* Footer с итогом */}
+                {purchases.length > 0 && (
+                  <TableFooter>
+                    <TableRow>
+                      <TableCell 
+                        colSpan={6} 
+                        align="right"
+                        sx={{ bgcolor: '#F9FAFB', borderTop: '2px solid rgba(0,0,0,0.07)', py: 2 }}
+                      >
+                        <Typography sx={{ fontWeight: 600, color: '#374151', fontSize: '0.875rem' }}>
+                          Итого по всем проектам:
+                        </Typography>
+                      </TableCell>
+                      <TableCell 
+                        align="right"
+                        sx={{ bgcolor: '#F9FAFB', borderTop: '2px solid rgba(0,0,0,0.07)', py: 2 }}
+                      >
+                        <Typography sx={{ fontWeight: 700, color: '#059669', fontSize: '1rem' }}>
+                          {formatCurrency(totalSpent)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ bgcolor: '#F9FAFB', borderTop: '2px solid rgba(0,0,0,0.07)', py: 2 }} />
+                    </TableRow>
+                  </TableFooter>
+                )}
+              </Table>
+            </Box>
+          )}
+        </Box>
       </Paper>
 
       {/* Диалог редактирования закупки */}

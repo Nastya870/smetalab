@@ -32,7 +32,7 @@ function Sidebar() {
 
   const logo = useMemo(
     () => (
-      <Box sx={{ display: 'flex', p: 2 }}>
+      <Box sx={{ display: 'flex', p: 2, pt: 2 }}>
         <LogoSection />
       </Box>
     ),
@@ -44,14 +44,25 @@ function Sidebar() {
       <>
         {/* MenuCard скрыт - виджет "Get Extra Space" не нужен */}
         {/* <MenuCard /> */}
-        <Stack direction="row" sx={{ justifyContent: 'center', mb: 2 }}>
-          <Chip label={import.meta.env.VITE_APP_VERSION} size="small" color="default" />
+        <Stack direction="row" sx={{ justifyContent: 'center', mb: 1.5, mt: 'auto', pt: 1.5 }}>
+          <Chip 
+            label={import.meta.env.VITE_APP_VERSION} 
+            size="small" 
+            sx={{
+              bgcolor: '#F4F5F9',
+              color: '#9CA3AF',
+              fontSize: '0.65rem',
+              fontWeight: 500,
+              borderRadius: '6px',
+              height: 20
+            }}
+          />
         </Stack>
       </>
     );
 
-    let drawerSX = { paddingLeft: '0px', paddingRight: '0px', marginTop: '20px' };
-    if (drawerOpen) drawerSX = { paddingLeft: '16px', paddingRight: '16px', marginTop: '0px' };
+    let drawerSX = { paddingLeft: '0px', paddingRight: '0px', marginTop: '8px' };
+    if (drawerOpen) drawerSX = { paddingLeft: '10px', paddingRight: '10px', marginTop: '0px', paddingTop: '4px' };
 
     return (
       <>
@@ -98,7 +109,7 @@ function Sidebar() {
         </Drawer>
       ) : (
         <MiniDrawerStyled variant="permanent" open={drawerOpen}>
-          <Box sx={{ mt: 10 }}>{drawer}</Box>
+          <Box sx={{ mt: 8 }}>{drawer}</Box>
         </MiniDrawerStyled>
       )}
     </Box>

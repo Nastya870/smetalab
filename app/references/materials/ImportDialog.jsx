@@ -68,6 +68,7 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
+      delimiter: '', // Автоопределение разделителя (запятая или точка с запятой)
       complete: async (parseResult) => {
         try {
           const rows = parseResult.data;
@@ -195,15 +196,17 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
             isGlobal
           });
 // ✅ ВСЕГДА показываем результат
-          if (importResult) {
-            setResult(importResult);
+          // API возвращает { success, data: { successCount, errorCount, errors }, message }
+          const resultData = importResult.data || importResult;
+          if (resultData) {
+            setResult(resultData);
           }
           
           // ✅ ВСЕГДА обновляем список (даже если есть ошибки)
           onSuccess(); // Обновляем список материалов
           
           // ✅ Автоматически закрываем модалку только если импорт полностью успешен
-          if (importResult?.errorCount === 0 && importResult?.successCount > 0) {
+          if (resultData?.errorCount === 0 && resultData?.successCount > 0) {
             setTimeout(() => {
               handleClose();
             }, 2000); // Показываем успех 2 секунды, затем закрываем
@@ -253,9 +256,20 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
         <Stack spacing={3}>
           {/* Описание */}
           <Alert severity="info">
-            <Typography variant="body2">
-              Загрузите CSV файл с материалами для импорта. Поля: <b>sku, name, category, unit, price, supplier, weight, image, productUrl, showImage</b>
-            </Typography>
+            <Stack spacing={1}>
+              <Typography variant="body2">
+                📄 Загрузите CSV файл с материалами для импорта. Файл можно редактировать в <b>Excel</b> или любом текстовом редакторе.
+              </Typography>
+              <Typography variant="body2">
+                <b>Обязательные поля:</b> Артикул, Наименование, Категория, Единица измерения, Цена, Поставщик
+              </Typography>
+              <Typography variant="body2">
+                <b>Дополнительные поля:</b> Вес (кг), Автоматический расчёт (да/нет), Расход на единицу, URL изображения, URL товара, Показывать изображение (да/нет)
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                💡 Совет: Скачайте шаблон, заполните его в Excel и загрузите обратно
+              </Typography>
+            </Stack>
           </Alert>
 
           {/* Кнопка скачивания шаблона */}
@@ -390,13 +404,14 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={handleClose} disabled={loading}>
+        <Button onClick={handleClose} disabled={loading} size="small">
           Закрыть
         </Button>
         <Button 
           onClick={handleImport} 
           variant="contained" 
           disabled={!file || loading}
+          size="small"
         >
           Импортировать
         </Button>

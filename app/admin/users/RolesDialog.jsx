@@ -93,20 +93,18 @@ const RolesDialog = ({ open, user, onClose, onSave }) => {
   const roleDisplayNames = {
     super_admin: 'Системный администратор',
     admin: 'Администратор',
-    project_manager: 'Менеджер проектов',
+    manager: 'Менеджер',
     estimator: 'Сметчик',
-    supplier: 'Поставщик',
-    viewer: 'Наблюдатель'
+    supplier: 'Снабженец'
   };
 
   // Role descriptions
   const roleDescriptions = {
     super_admin: 'Полный доступ ко всем функциям системы',
     admin: 'Управление компанией и пользователями',
-    project_manager: 'Управление проектами и сметами',
+    manager: 'Управление проектами, сметами и закупками',
     estimator: 'Создание и редактирование смет',
-    supplier: 'Просмотр материалов и поставки',
-    viewer: 'Только просмотр данных'
+    supplier: 'Управление закупками и материалами'
   };
 
   return (
@@ -191,7 +189,7 @@ const RolesDialog = ({ open, user, onClose, onSave }) => {
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} disabled={loading}>
+        <Button onClick={handleClose} disabled={loading} size="small">
           Отмена
         </Button>
         <Button
@@ -199,6 +197,7 @@ const RolesDialog = ({ open, user, onClose, onSave }) => {
           variant="contained"
           disabled={loading || selectedRoles.length === 0}
           startIcon={loading && <CircularProgress size={16} />}
+          size="small"
         >
           Сохранить
         </Button>

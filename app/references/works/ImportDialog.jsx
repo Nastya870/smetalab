@@ -67,6 +67,7 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
+      delimiter: '', // Автоопределение разделителя (запятая или точка с запятой)
       complete: async (parseResult) => {
         try {
           const rows = parseResult.data;
@@ -84,7 +85,7 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
           rows.forEach((row, index) => {
             const lineNumber = index + 2; // +2 потому что 1 строка - заголовки
 
-            // Поддержка как русских, так и английских заголовков
+            // Поддержка как русских, так и английских заголовков (с точкой и без точки в "Ед. изм.")
             const code = row['Код'] || row['code'] || row['Code'];
             const name = row['Наименование'] || row['name'] || row['Name'];
 
@@ -112,8 +113,7 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
             works.push({
               code: code?.trim(),
               name: name?.trim(),
-              category: (row['Категория'] || row['category'] || '')?.trim(),
-              unit: (row['Ед. изм.'] || row['unit'] || 'шт')?.trim(),
+              unit: (row['Ед изм'] || row['Ед. изм.'] || row['unit'] || 'шт')?.trim(),
               basePrice: basePrice,
               phase: (row['Фаза'] || row['phase'])?.trim() || null,
               section: (row['Раздел'] || row['section'])?.trim() || null,
@@ -139,9 +139,11 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
             isGlobal
           });
 
-          setResult(importResult);
+          // API возвращает { success, data: { successCount, errorCount, errors }, message }
+          const resultData = importResult.data || importResult;
+          setResult(resultData);
           
-          if (importResult.errorCount === 0) {
+          if (resultData.errorCount === 0) {
             // Успешный импорт
             setTimeout(() => {
               onSuccess();
@@ -185,10 +187,20 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
         <Stack spacing={3}>
           {/* Описание */}
           <Alert severity="info">
-            <Typography variant="body2">
-              Загрузите CSV файл с работами для импорта. Обязательные поля: <b>Код, Наименование</b>. 
-              Дополнительные: Категория, Ед. изм., Базовая цена, Фаза, Раздел, Подраздел
-            </Typography>
+            <Stack spacing={1}>
+              <Typography variant="body2">
+                📄 Загрузите CSV файл с работами для импорта. Файл можно редактировать в <b>Excel</b> или любом текстовом редакторе.
+              </Typography>
+              <Typography variant="body2">
+                <b>Обязательные поля:</b> Код, Наименование
+              </Typography>
+              <Typography variant="body2">
+                <b>Дополнительные поля:</b> Ед изм, Базовая цена, Фаза, Раздел, Подраздел
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                💡 Совет: Скачайте шаблон, заполните его в Excel и загрузите обратно
+              </Typography>
+            </Stack>
           </Alert>
 
           {/* Кнопка скачивания шаблона */}
@@ -317,7 +329,7 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={handleClose} disabled={loading}>
+        <Button onClick={handleClose} disabled={loading} size="small">
           Отмена
         </Button>
         <Button
@@ -325,6 +337,7 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
           variant="contained"
           disabled={!file || loading}
           startIcon={<IconFileUpload />}
+          size="small"
         >
           {loading ? 'Импортируем...' : 'Импортировать'}
         </Button>

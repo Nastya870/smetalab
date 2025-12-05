@@ -25,12 +25,30 @@ export default function ThemeCustomization({ children }) {
     () => ({
       direction: 'ltr',
       palette: theme.palette,
+      breakpoints: {
+        values: {
+          xs: 0,
+          sm: 600,
+          md: 900,
+          lg: 1200,
+          xl: 1536
+        }
+      },
       mixins: {
         toolbar: {
-          minHeight: '48px',
-          padding: '16px',
+          minHeight: '56px',
+          padding: '8px 16px',
+          '@media (max-width: 600px)': {
+            minHeight: '56px',
+            padding: '8px 12px'
+          },
           '@media (min-width: 600px)': {
-            minHeight: '48px'
+            minHeight: '64px',
+            padding: '12px 16px'
+          },
+          '@media (min-width: 900px)': {
+            minHeight: '64px',
+            padding: '16px'
           }
         }
       },

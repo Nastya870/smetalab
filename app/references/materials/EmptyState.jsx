@@ -24,7 +24,7 @@ const EmptyState = ({ onCreateClick }) => {
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
         Добавьте строительные материалы для использования в сметах
       </Typography>
-      <Button variant="contained" color="primary" startIcon={<IconPlus />} onClick={onCreateClick}>
+      <Button variant="contained" color="primary" startIcon={<IconPlus />} onClick={onCreateClick} size="small">
         Добавить материал
       </Button>
     </Box>

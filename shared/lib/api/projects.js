@@ -106,12 +106,40 @@ export const projectsAPI = {
   },
 
   /**
+   * Get all dashboard data in a single request (optimized: 7 requests → 1)
+   * This endpoint combines: totalProfit, incomeWorks, incomeMaterials, chartData (month/year), growthData, projectsProfitData
+   * @returns {Promise} All dashboard data in one response
+   */
+  getDashboardSummary: () => {
+    return axiosInstance.get('/projects/dashboard-summary').then((res) => res.data);
+  },
+
+  /**
    * Get project by ID with team details
    * @param {string} id - Project UUID
    * @returns {Promise} Project object with team members
    */
   getById: (id) => {
     return axiosInstance.get(`/projects/${id}`).then((res) => toCamelCase(res.data.data));
+  },
+
+  /**
+   * Get full project dashboard data in a single request (optimized: 4+ requests → 1)
+   * This endpoint combines: project, team, estimates, financialSummary
+   * Replaces: getById + getTeam + getEstimates + N×2 requests for financial data
+   * @param {string} id - Project UUID
+   * @returns {Promise} Object with project, team, estimates, financialSummary
+   */
+  getFullDashboard: (id) => {
+    return axiosInstance.get(`/projects/${id}/full-dashboard`).then((res) => {
+      const data = res.data.data;
+      return {
+        project: toCamelCase(data.project),
+        team: toCamelCase(data.team),
+        estimates: toCamelCase(data.estimates),
+        financialSummary: data.financialSummary
+      };
+    });
   },
 
   /**

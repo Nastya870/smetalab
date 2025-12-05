@@ -19,6 +19,7 @@ import Box from '@mui/material/Box';
 // project imports
 import NavItem from '../NavItem';
 import Transitions from 'ui-component/extended/Transitions';
+import usePermissions from 'hooks/usePermissions';
 
 import useConfig from 'hooks/useConfig';
 import { useGetMenuMaster } from 'api/menu';
@@ -32,10 +33,19 @@ import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 export default function NavCollapse({ menu, level, parentId }) {
   const theme = useTheme();
   const ref = useRef(null);
+  const { checkVisibility } = usePermissions();
 
   const { borderRadius } = useConfig();
   const { menuMaster } = useGetMenuMaster();
   const drawerOpen = menuMaster.isDashboardDrawerOpened;
+  
+  // Проверка видимости элемента меню
+  if (menu.permission) {
+    const isVisible = checkVisibility(menu.permission.resource, menu.permission.action);
+    if (!isVisible) {
+      return null; // Скрываем элемент
+    }
+  }
 
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -119,6 +129,14 @@ export default function NavCollapse({ menu, level, parentId }) {
 
   // menu collapse & item
   const menus = menu.children?.map((item) => {
+    // Проверяем видимость дочернего элемента
+    if (item.permission) {
+      const isVisible = checkVisibility(item.permission.resource, item.permission.action);
+      if (!isVisible) {
+        return null; // Скрываем элемент
+      }
+    }
+    
     switch (item.type) {
       case 'collapse':
         return <NavCollapse key={item.id} menu={item} level={level + 1} parentId={parentId} />;
@@ -131,7 +149,7 @@ export default function NavCollapse({ menu, level, parentId }) {
           </Typography>
         );
     }
-  });
+  }).filter(Boolean); // Удаляем null элементы
 
   const isSelected = selected === menu.id;
 

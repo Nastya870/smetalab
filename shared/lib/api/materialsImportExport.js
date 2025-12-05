@@ -56,12 +56,12 @@ const materialsImportExportAPI = {
       }
     ];
 
-    // ✅ Конфигурация Papa.unparse для корректного CSV
+    // ✅ Конфигурация Papa.unparse для удобного заполнения в Excel
     const csv = '\ufeff' + Papa.unparse(templateData, {
-      quotes: false, // Убираем кавычки (Excel лучше понимает)
+      quotes: false, // Убираем кавычки для читаемости
       quoteChar: '"',
       escapeChar: '"',
-      delimiter: ',', // ✅ Явно указываем запятую
+      delimiter: ';', // ✅ Точка с запятой - удобно для Excel
       header: true,
       newline: '\r\n', // ✅ Windows-style перенос строки для Excel
       skipEmptyLines: false,
@@ -85,7 +85,7 @@ const materialsImportExportAPI = {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', 'materials_template.csv');
+    link.setAttribute('download', 'Шаблон_импорта_материалов.csv');
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -134,7 +134,7 @@ const materialsImportExportAPI = {
       quotes: false,
       quoteChar: '"',
       escapeChar: '"',
-      delimiter: ',', // ✅ Запятая
+      delimiter: ';', // ✅ Точка с запятой для удобства Excel
       header: true,
       newline: '\r\n', // ✅ Windows перенос
       skipEmptyLines: false,
@@ -160,10 +160,10 @@ const materialsImportExportAPI = {
     link.setAttribute('href', url);
     
     // Формирование имени файла с параметрами
-    let filename = 'materials';
+    let filename = 'Материалы';
     if (params.category) filename += `_${params.category}`;
-    if (params.isGlobal === true) filename += '_global';
-    if (params.isGlobal === false) filename += '_my';
+    if (params.isGlobal === true) filename += '_глобальные';
+    if (params.isGlobal === false) filename += '_мои';
     filename += `_${new Date().toISOString().split('T')[0]}.csv`;
     
     link.setAttribute('download', filename);
@@ -200,7 +200,8 @@ const materialsImportExportAPI = {
     // Отправляем каждый пакет последовательно
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
-      const batchNum = i + 1;try {
+      const batchNum = i + 1;
+try {
         const response = await axiosInstance.post('/materials/bulk', {
           materials: batch,
           mode,

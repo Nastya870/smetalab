@@ -33,6 +33,10 @@ import rolesRoutes from './routes/roles.js';
 import globalPurchasesRoutes from './routes/globalPurchases.js';
 import contractsRoutes from './routes/contracts.js';
 import tenantsRoutes from './routes/tenants.js';
+import estimateTemplatesRoutes from './routes/estimateTemplates.js';
+import permissionsRoutes from './routes/permissions.js';
+import { apiLimiter, heavyOperationsLimiter } from './middleware/rateLimiter.js';
+import { sanitizeErrorMessage } from './utils/sanitize.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -112,6 +116,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// ==================== Rate Limiting ====================
+// Общий лимит: 100 запросов в минуту на все API endpoints
+app.use('/api', apiLimiter);
+
 // ==================== API Routes ====================
 app.use('/api/auth', authRoutes);
 app.use('/api/email', emailRoutes);
@@ -132,6 +140,8 @@ app.use('/api/roles', rolesRoutes);
 app.use('/api/global-purchases', globalPurchasesRoutes);
 app.use('/api/contracts', contractsRoutes);
 app.use('/api/tenants', tenantsRoutes);
+app.use('/api/estimate-templates', estimateTemplatesRoutes);
+app.use('/api/permissions', permissionsRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -146,9 +156,13 @@ app.use((req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
-  res.status(500).json({
+  
+  // Санитизируем сообщение об ошибке для защиты от XSS
+  const safeMessage = sanitizeErrorMessage(err.message || 'Internal server error');
+  
+  res.status(err.status || 500).json({
     success: false,
-    message: 'Internal server error'
+    message: safeMessage
   });
 });
 

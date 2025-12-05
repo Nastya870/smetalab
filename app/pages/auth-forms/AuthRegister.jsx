@@ -72,11 +72,16 @@ export default function AuthRegister() {
     setLoading(true);
 
     try {
-      const result = await authService.register(formData);// Перенаправляем на страницу "Спасибо за регистрацию"
+      const result = await authService.register(formData);
+// Перенаправляем на страницу "Спасибо за регистрацию"
+      // В России принято: "Фамилия Имя Отчество", берём имя (второе слово)
+      const nameParts = formData.fullName.trim().split(' ');
+      const userName = nameParts.length >= 2 ? nameParts[1] : nameParts[0];
+      
       navigate('/registration-success', {
         state: {
           email: formData.email,
-          userName: formData.fullName.split(' ')[0] // Берем только имя
+          userName: userName
         }
       });
     } catch (err) {

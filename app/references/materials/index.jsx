@@ -31,7 +31,6 @@ import {
   Tooltip,
   Card,
   CardContent,
-  CardActions,
   useMediaQuery,
   useTheme
 } from '@mui/material';
@@ -63,7 +62,10 @@ const MaterialsReferencePage = () => {
   const [currentMaterial, setCurrentMaterial] = useState(emptyMaterial);
   const [searchInput, setSearchInput] = useState(''); // Для input (мгновенно)
   const [searchTerm, setSearchTerm] = useState(''); // Для фильтрации (debounced)
-  const [globalFilter, setGlobalFilter] = useState('all'); // 'all' | 'global' | 'tenant'
+  // Восстанавливаем фильтр из localStorage или используем 'global' по умолчанию
+  const [globalFilter, setGlobalFilter] = useState(() => {
+    return localStorage.getItem('materialsGlobalFilter') || 'global';
+  });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
   // Управление видимостью колонок
@@ -85,7 +87,12 @@ const MaterialsReferencePage = () => {
     };
   }, [debouncedSearch]);
 
-  // Загрузка материалов из API
+  // Сохранение фильтра в localStorage при изменении
+  useEffect(() => {
+    localStorage.setItem('materialsGlobalFilter', globalFilter);
+  }, [globalFilter]);
+
+  // Загрузка материалов из API (загружаем ВСЕ для виртуализации)
   useEffect(() => {
     fetchMaterials();
   }, [globalFilter]); // Перезагружаем при изменении фильтра
@@ -95,7 +102,7 @@ const MaterialsReferencePage = () => {
       setLoading(true);
       setError(null);
       const params = {
-        pageSize: 50000 // Загружаем все записи для виртуализации (максимум 50K материалов)
+        pageSize: 50000 // Загружаем все материалы для виртуализации (оптимизированный SQL)
       };
       if (globalFilter === 'global') params.isGlobal = 'true';
       if (globalFilter === 'tenant') params.isGlobal = 'false';
@@ -334,7 +341,7 @@ const MaterialsReferencePage = () => {
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
-        <Button variant="contained" onClick={fetchMaterials}>
+        <Button variant="contained" onClick={fetchMaterials} size="small">
           Повторить попытку
         </Button>
       </MainCard>
@@ -342,29 +349,12 @@ const MaterialsReferencePage = () => {
   }
 
   return (
-    <MainCard title="Справочник материалов">
-      {/* Шапка с кнопками */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h3" color="textPrimary">
+    <MainCard title="Справочник материалов" data-testid="materials-page">
+      {/* Шапка */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h3" color="textPrimary" data-testid="materials-title">
           Строительные материалы
         </Typography>
-        <Stack direction="row" spacing={1}>
-          <Button 
-            variant="outlined" 
-            startIcon={<IconUpload />} 
-            onClick={handleOpenImport}
-          >
-            Импорт
-          </Button>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            startIcon={<IconPlus />} 
-            onClick={handleOpenCreate}
-          >
-            Добавить материал
-          </Button>
-        </Stack>
       </Box>
 
       <Divider sx={{ mb: 3 }} />
@@ -380,6 +370,7 @@ const MaterialsReferencePage = () => {
             setSearchInput(value);
             debouncedSearch(value);
           }}
+          data-testid="materials-search"
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -390,28 +381,130 @@ const MaterialsReferencePage = () => {
         />
         
         {/* Фильтр по типу (глобальный/тенантный) */}
-        <Stack direction="row" spacing={2} sx={{ mt: 2, alignItems: 'center' }}>
-          <Typography variant="body2" color="textSecondary">
-            Тип материалов:
-          </Typography>
-          <ToggleButtonGroup
-            value={globalFilter}
-            exclusive
-            onChange={(e, newValue) => newValue && setGlobalFilter(newValue)}
-            size="small"
+        <Stack 
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={{ xs: 2, sm: 2 }}
+          sx={{ 
+            mt: 2, 
+            alignItems: { xs: 'stretch', sm: 'center' },
+            justifyContent: 'space-between',
+            gap: 2
+          }}
+        >
+          <Stack 
+            direction="row"
+            spacing={2}
+            sx={{ 
+              alignItems: 'center',
+              width: { xs: '100%', sm: 'auto' }
+            }}
           >
-            <ToggleButton value="all">
-              Все
-            </ToggleButton>
-            <ToggleButton value="global">
-              <IconWorld size={18} style={{ marginRight: 4 }} />
-              Глобальные
-            </ToggleButton>
-            <ToggleButton value="tenant">
-              <IconBuilding size={18} style={{ marginRight: 4 }} />
-              Мои
-            </ToggleButton>
-          </ToggleButtonGroup>
+            {/* iOS-style Toggle Switch - только иконки */}
+            <Tooltip 
+              title={globalFilter === 'global' ? 'Глобальные материалы' : 'Мои материалы'}
+              arrow
+              placement="top"
+            >
+              <Box
+                onClick={() => setGlobalFilter(globalFilter === 'global' ? 'tenant' : 'global')}
+                sx={{
+                  position: 'relative',
+                  width: { xs: 80, sm: 90 },
+                  height: 36,
+                  bgcolor: 'rgba(33, 150, 243, 0.3)',
+                  borderRadius: '18px',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: 1,
+                  '&:hover': {
+                    boxShadow: 3,
+                    transform: 'translateY(-1px)'
+                  },
+                  '&:active': {
+                    transform: 'translateY(0px)',
+                    boxShadow: 1
+                  }
+                }}
+              >
+                {/* Белый круг-переключатель */}
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 3,
+                    left: globalFilter === 'global' ? 3 : 'calc(50% - 3px)',
+                    width: 'calc(50% - 3px)',
+                    height: 30,
+                    bgcolor: 'white',
+                    borderRadius: '15px',
+                    transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+                  }}
+                />
+                
+                {/* Иконки на фоне */}
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '50%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: globalFilter === 'global' ? 0 : 1,
+                    transition: 'opacity 0.3s ease',
+                    pointerEvents: 'none'
+                  }}
+                >
+                  <IconWorld size={18} color="#000" />
+                </Box>
+                
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    width: '50%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: globalFilter === 'tenant' ? 0 : 1,
+                    transition: 'opacity 0.3s ease',
+                    pointerEvents: 'none'
+                  }}
+                >
+                  <IconBuilding size={18} color="#000" />
+                </Box>
+              </Box>
+            </Tooltip>
+          </Stack>
+
+          {/* Кнопки управления - только для тенантного справочника */}
+          {globalFilter === 'tenant' && (
+            <Stack direction="row" spacing={1}>
+              <Button 
+                variant="outlined" 
+                size="small"
+                startIcon={<IconUpload size={16} />} 
+                onClick={handleOpenImport}
+                data-testid="materials-import-btn"
+              >
+                Импорт
+              </Button>
+              <Button 
+                variant="contained" 
+                color="primary" 
+                size="small"
+                startIcon={<IconPlus size={16} />} 
+                onClick={handleOpenCreate}
+                data-testid="materials-add-btn"
+              >
+                Добавить
+              </Button>
+            </Stack>
+          )}
         </Stack>
         
         {/* Переключатели видимости колонок */}
@@ -440,48 +533,20 @@ const MaterialsReferencePage = () => {
       </Box>
 
       {/* Статистика */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 12, sm: 3 }}>
-          <Paper sx={{ p: 2, bgcolor: 'primary.light', textAlign: 'center' }}>
-            <Typography variant="h2" color="primary.dark">
-              {materials.length}
-            </Typography>
-            <Typography variant="body2" color="primary.dark">
-              Всего материалов
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 3 }}>
-          <Paper sx={{ p: 2, bgcolor: 'success.light', textAlign: 'center' }}>
-            <Typography variant="h2" color="success.dark">
-              {new Set(materials.map((m) => m.category)).size}
-            </Typography>
-            <Typography variant="body2" color="success.dark">
-              Категорий
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 3 }}>
-          <Paper sx={{ p: 2, bgcolor: 'warning.light', textAlign: 'center' }}>
-            <Typography variant="h2" color="warning.dark">
-              {new Set(materials.map((m) => m.supplier)).size}
-            </Typography>
-            <Typography variant="body2" color="warning.dark">
-              Поставщиков
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 3 }}>
-          <Paper sx={{ p: 2, bgcolor: 'secondary.light', textAlign: 'center' }}>
-            <Typography variant="h2" color="secondary.dark">
-              {formatPrice(materials.reduce((sum, m) => sum + m.price, 0) / materials.length)}
-            </Typography>
-            <Typography variant="body2" color="secondary.dark">
-              Средняя цена
-            </Typography>
-          </Paper>
-        </Grid>
-      </Grid>
+      <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'primary.main', flexShrink: 0 }} />
+          <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.primary' }}>
+            Всего материалов — <strong>{materials.length}</strong>
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'success.main', flexShrink: 0 }} />
+          <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.primary' }}>
+            Категорий — <strong>{new Set(materials.map((m) => m.category)).size}</strong>
+          </Typography>
+        </Box>
+      </Box>
 
       {/* Таблица материалов или карточки */}
       {filteredMaterials.length > 0 ? (
@@ -491,93 +556,127 @@ const MaterialsReferencePage = () => {
             style={{ height: '600px' }}
             data={filteredMaterials}
             itemContent={(index, material) => (
-              <Box sx={{ mb: 2 }}>
+              <Box sx={{ mb: 1.5 }}>
                 <Card sx={{ width: '100%' }}>
-                  <CardContent sx={{ pb: 1 }}>
-                    <Stack spacing={1.5}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 0.5, wordBreak: 'break-word' }}>
-                            {material.name}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            SKU: {material.sku}
-                          </Typography>
-                        </Box>
-                        {material.isGlobal && (
-                          <Chip 
-                            icon={<IconWorld size={14} />} 
-                            label="Общий" 
-                            size="small" 
-                            color="primary" 
-                            variant="outlined"
+                  <CardContent sx={{ p: 2, pb: 1, '&:last-child': { pb: 1 } }}>
+                    <Box sx={{ display: 'flex', gap: 2 }}>
+                      {/* Изображение слева */}
+                      <Box 
+                        sx={{ 
+                          width: 80, 
+                          height: 80, 
+                          flexShrink: 0,
+                          borderRadius: 1,
+                          overflow: 'hidden',
+                          bgcolor: 'grey.100',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {material.image ? (
+                          <Box
+                            component="img"
+                            src={material.image}
+                            alt={material.name}
+                            sx={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover'
+                            }}
                           />
+                        ) : (
+                          <Typography variant="caption" color="text.disabled">
+                            Нет фото
+                          </Typography>
                         )}
                       </Box>
-                      
-                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, pt: 0.5 }}>
-                        <Box>
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            Ед. изм.
-                          </Typography>
-                          <Typography variant="body2" fontWeight={500}>
-                            {material.unit}
-                          </Typography>
-                        </Box>
-                        <Box>
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            Вес
-                          </Typography>
-                          <Typography variant="body2" fontWeight={500}>
-                            {material.weight} кг
-                          </Typography>
-                        </Box>
-                        <Box sx={{ gridColumn: '1 / -1' }}>
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            Цена
-                          </Typography>
-                          <Typography variant="h6" color="primary.main" fontWeight={600}>
-                            {material.price && !isNaN(material.price) ? formatPrice(material.price) : '—'}
-                          </Typography>
-                        </Box>
-                        {showSupplierColumn && material.supplier && (
-                          <Box sx={{ gridColumn: '1 / -1' }}>
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              Поставщик
+
+                      {/* Контент справа */}
+                      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                        {/* Заголовок с бейджем */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 0.5 }}>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.25, wordBreak: 'break-word', lineHeight: 1.3 }}>
+                              {material.name}
                             </Typography>
-                            <Typography variant="body2">
-                              {material.supplier}
+                            <Typography variant="caption" color="text.secondary">
+                              {material.sku}
+                            </Typography>
+                          </Box>
+                          {material.isGlobal && (
+                            <Chip 
+                              icon={<IconWorld size={12} />} 
+                              label="Общий" 
+                              size="small" 
+                              color="primary" 
+                              variant="outlined"
+                              sx={{ height: 20, fontSize: '0.7rem' }}
+                            />
+                          )}
+                        </Box>
+                        
+                        {/* Компактная сетка параметров */}
+                        <Box sx={{ display: 'grid', gridTemplateColumns: 'auto auto 1fr', gap: 1.5, alignItems: 'center', mt: 'auto' }}>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">Ед. изм:</Typography>
+                            <Typography variant="body2" fontWeight={500} sx={{ ml: 0.5, display: 'inline' }}>
+                              {material.unit}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">Вес:</Typography>
+                            <Typography variant="body2" fontWeight={500} sx={{ ml: 0.5, display: 'inline' }}>
+                              {material.weight} кг
+                            </Typography>
+                          </Box>
+                          <Box sx={{ textAlign: 'right' }}>
+                            <Typography variant="h6" color="primary.main" fontWeight={600}>
+                              {material.price != null && !isNaN(Number(material.price)) 
+                                ? formatPrice(Number(material.price)) 
+                                : '—'}
+                            </Typography>
+                          </Box>
+                        </Box>
+
+                        {/* Поставщик (если есть) */}
+                        {showSupplierColumn && material.supplier && (
+                          <Box sx={{ mt: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              Поставщик: <Typography component="span" variant="caption" fontWeight={500}>{material.supplier}</Typography>
                             </Typography>
                           </Box>
                         )}
+
+                        {/* Действия */}
+                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end', mt: 1 }}>
+                          {material.productUrl && (
+                            <IconButton 
+                              size="small" 
+                              color="info"
+                              onClick={() => window.open(material.productUrl, '_blank')}
+                            >
+                              <IconExternalLink size={16} />
+                            </IconButton>
+                          )}
+                          <IconButton 
+                            size="small" 
+                            color="primary"
+                            onClick={() => handleOpenEdit(material)}
+                          >
+                            <IconEdit size={16} />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            color="error"
+                            onClick={() => handleDeleteMaterial(material.id)}
+                          >
+                            <IconTrash size={16} />
+                          </IconButton>
+                        </Box>
                       </Box>
-                    </Stack>
+                    </Box>
                   </CardContent>
-                  <CardActions sx={{ justifyContent: 'flex-end', px: 2, py: 1, pt: 0 }}>
-                    {material.productUrl && (
-                      <IconButton 
-                        size="small" 
-                        color="info"
-                        onClick={() => window.open(material.productUrl, '_blank')}
-                      >
-                        <IconExternalLink size={18} />
-                      </IconButton>
-                    )}
-                    <IconButton 
-                      size="small" 
-                      color="primary"
-                      onClick={() => handleOpenEdit(material)}
-                    >
-                      <IconEdit size={18} />
-                    </IconButton>
-                    <IconButton 
-                      size="small" 
-                      color="error"
-                      onClick={() => handleDeleteMaterial(material.id)}
-                    >
-                      <IconTrash size={18} />
-                    </IconButton>
-                  </CardActions>
                 </Card>
               </Box>
             )}

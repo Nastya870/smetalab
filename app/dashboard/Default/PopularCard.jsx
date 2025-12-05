@@ -1,19 +1,18 @@
 import PropTypes from 'prop-types';
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // material-ui
-import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
-import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+import LinearProgress from '@mui/material/LinearProgress';
 
 // project imports
 import BajajAreaChartCard from './BajajAreaChartCard';
@@ -24,14 +23,13 @@ import { gridSpacing } from 'store/constant';
 // assets
 import ChevronRightOutlinedIcon from '@mui/icons-material/ChevronRightOutlined';
 import MoreHorizOutlinedIcon from '@mui/icons-material/MoreHorizOutlined';
-import KeyboardArrowUpOutlinedIcon from '@mui/icons-material/KeyboardArrowUpOutlined';
-import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
 
-export default function PopularCard({ isLoading }) {
+export default function PopularCard({ isLoading, projectsData }) {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = React.useState(null);
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+
+  // Используем данные из пропсов или пустой массив
+  const projects = useMemo(() => projectsData || [], [projectsData]);
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
@@ -45,186 +43,169 @@ export default function PopularCard({ isLoading }) {
     navigate('/app/projects');
   };
 
-  // Загружаем данные о проектах с прибылью
-  useEffect(() => {
-    const fetchProjectsData = async () => {
-      try {
-        setLoading(true);// Импортируем API здесь, чтобы избежать циклических зависимостей
-        const { projectsAPI } = await import('api/projects');
-        const response = await projectsAPI.getProjectsProfitData(10); // Загружаем больше проектовif (response.success) {setProjects(response.data);
-        } else {
-          console.error('❌ API вернул ошибку:', response);
-        }
-      } catch (error) {
-        console.error('❌ Ошибка при загрузке данных прибыли проектов:', error);
-        console.error('🔍 Детали ошибки:', error.response?.data || error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (!isLoading) {
-      fetchProjectsData();
-    }
-  }, [isLoading]);
-
+  // Форматирование без копеек
   const formatCurrency = (value) => {
     const numValue = Number(value);
     if (isNaN(numValue) || numValue === null || numValue === undefined) {
-      return '₽0.00';
+      return '0 ₽';
     }
     return new Intl.NumberFormat('ru-RU', {
       style: 'currency',
       currency: 'RUB',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(Math.abs(numValue));
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(numValue);
   };
 
-  const formatPercentage = (value) => {
-    const numValue = Number(value);
-    if (isNaN(numValue) || numValue === null || numValue === undefined) {
-      return '0%';
-    }
-    return `${Math.abs(numValue).toFixed(1)}%`;
+  // Получение цвета в зависимости от маржинальности
+  const getProgressColor = (percentage, isProfit) => {
+    if (!isProfit) return 'error';
+    if (percentage >= 30) return 'success';
+    if (percentage >= 15) return 'primary';
+    return 'warning';
   };
 
-  const renderProjectItem = (project, index) => (
-    <React.Fragment key={project.id}>
-      <Grid container direction="column">
-        <Grid>
-          <Grid container sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-            <Grid>
-              <Typography variant="subtitle1" color="inherit" sx={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {project.name}
-              </Typography>
-            </Grid>
-            <Grid>
-              <Grid container sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-                <Grid>
-                  <Typography variant="subtitle1" color="inherit">
-                    {formatCurrency(project.totalProfit)}
-                  </Typography>
-                </Grid>
-                <Grid>
-                  <Avatar
-                    variant="rounded"
-                    sx={{
-                      width: 16,
-                      height: 16,
-                      borderRadius: '5px',
-                      bgcolor: project.isProfit ? 'success.light' : 'orange.light',
-                      color: project.isProfit ? 'success.dark' : 'orange.dark',
-                      ml: 2
-                    }}
-                  >
-                    {project.isProfit ? (
-                      <KeyboardArrowUpOutlinedIcon fontSize="small" color="inherit" />
-                    ) : (
-                      <KeyboardArrowDownOutlinedIcon fontSize="small" color="inherit" />
-                    )}
-                  </Avatar>
-                </Grid>
-              </Grid>
-            </Grid>
-          </Grid>
-        </Grid>
-        <Grid>
-          <Typography variant="subtitle2" sx={{ color: project.isProfit ? 'success.dark' : 'orange.dark' }}>
-            {formatPercentage(project.profitPercentage)} {project.isProfit ? 'Прибыль' : 'убыток'}
-          </Typography>
-        </Grid>
-      </Grid>
-      {index < projects.length - 1 && <Divider sx={{ my: 1.5 }} />}
-    </React.Fragment>
-  );
+  const renderProjectItem = (project, index) => {
+    const percentage = Math.abs(project.profitPercentage || 0);
+    const progressValue = Math.min(percentage, 100);
+    const progressColor = getProgressColor(percentage, project.isProfit);
+    
+    return (
+      <React.Fragment key={project.id}>
+        <Box
+          sx={{
+            py: 1.5,
+            px: 1.5,
+            borderRadius: 2,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            bgcolor: 'grey.50',
+            border: '1px solid',
+            borderColor: 'grey.100',
+            mb: 1,
+            '&:hover': { 
+              bgcolor: 'grey.100',
+              borderColor: 'grey.200',
+              transform: 'translateY(-1px)'
+            }
+          }}
+          onClick={() => navigate(`/app/projects/${project.id}`)}
+        >
+          {/* Строка 1: Название + Прибыль */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 0.75 }}>
+            <Typography 
+              sx={{ 
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                overflow: 'hidden', 
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '55%',
+                color: 'text.primary'
+              }}
+            >
+              {project.name}
+            </Typography>
+            <Typography 
+              sx={{ 
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                color: project.isProfit ? 'success.main' : 'error.main',
+                fontVariantNumeric: 'tabular-nums' // Выравнивание цифр
+              }}
+            >
+              {project.isProfit ? '+' : ''}{formatCurrency(project.totalProfit)}
+            </Typography>
+          </Box>
+          
+          {/* Строка 2: Прогресс-бар + процент */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <LinearProgress
+              variant="determinate"
+              value={progressValue}
+              color={progressColor}
+              sx={{
+                flex: 1,
+                height: 6,
+                borderRadius: '4px',
+                bgcolor: '#E5EAF0',
+                '& .MuiLinearProgress-bar': {
+                  borderRadius: '4px'
+                },
+                // Мягкий зелёный вместо неонового
+                '&.MuiLinearProgress-colorSuccess .MuiLinearProgress-bar': {
+                  backgroundColor: '#34A853'
+                }
+              }}
+            />
+            <Typography 
+              sx={{ 
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: project.isProfit ? `${progressColor}.main` : 'error.main',
+                minWidth: 42,
+                textAlign: 'right',
+                fontVariantNumeric: 'tabular-nums'
+              }}
+            >
+              {percentage.toFixed(1)}%
+            </Typography>
+          </Box>
+        </Box>
+      </React.Fragment>
+    );
+  };
+
+  // Высота списка проектов (с учетом мини-графика и кнопки)
+  const CARD_HEIGHT = 400; // Выровнено с IncomeExpenseDonutChart
+  const CHART_HEIGHT = 120; // Мини-график
+  const BUTTON_HEIGHT = 48; // Кнопка внизу
+  const PADDING = 32; // Паддинги
+  const LIST_HEIGHT = CARD_HEIGHT - CHART_HEIGHT - BUTTON_HEIGHT - PADDING;
 
   return (
     <>
       {isLoading ? (
         <SkeletonPopularCard />
       ) : (
-        <MainCard content={false} sx={{ height: '600px', display: 'flex', flexDirection: 'column' }}>
-          <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-            <Grid container spacing={gridSpacing} sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-              <Grid size={12}>
-                <Grid container sx={{ alignContent: 'center', justifyContent: 'space-between' }}>
-                  <Grid>
-                    <Typography variant="h4">Прибыльность проектов</Typography>
-                  </Grid>
-                  <Grid>
-                    <IconButton size="small" sx={{ mt: -0.625 }}>
-                      <MoreHorizOutlinedIcon
-                        fontSize="small"
-                        sx={{ cursor: 'pointer' }}
-                        aria-controls="menu-popular-card"
-                        aria-haspopup="true"
-                        onClick={handleClick}
-                      />
-                    </IconButton>
-                    <Menu
-                      id="menu-popular-card"
-                      anchorEl={anchorEl}
-                      keepMounted
-                      open={Boolean(anchorEl)}
-                      onClose={handleClose}
-                      variant="selectedMenu"
-                      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                      transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                    >
-                      <MenuItem onClick={handleClose}> Сегодня</MenuItem>
-                      <MenuItem onClick={handleClose}> Этот месяц</MenuItem>
-                      <MenuItem onClick={handleClose}> Этот год </MenuItem>
-                    </Menu>
-                  </Grid>
-                </Grid>
-              </Grid>
-              <Grid size={12} sx={{ mt: -1 }}>
-                <BajajAreaChartCard projects={projects} />
-              </Grid>
-              <Grid size={12} sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                {loading ? (
-                  <Typography variant="body2" sx={{ textAlign: 'center', py: 2 }}>
-                    Загрузка данных...
-                  </Typography>
-                ) : projects.length === 0 ? (
-                  <Typography variant="body2" sx={{ textAlign: 'center', py: 2, color: 'text.secondary' }}>
-                    Нет данных для отображения
-                  </Typography>
-                ) : (
-                  <Box
-                    sx={{
-                      flexGrow: 1, // Занимает оставшееся пространство
-                      overflowY: 'auto',
-                      pr: 0.5, // Небольшой отступ для скроллбара
-                      scrollbarWidth: 'thin', // Для Firefox
-                      scrollbarColor: '#c1c1c1 #f1f1f1', // Для Firefox
-                      // Стилизация скроллбара для Webkit браузеров
-                      '&::-webkit-scrollbar': {
-                        width: '6px',
-                      },
-                      '&::-webkit-scrollbar-track': {
-                        background: '#f1f1f1',
-                        borderRadius: '10px',
-                      },
-                      '&::-webkit-scrollbar-thumb': {
-                        background: '#c1c1c1',
-                        borderRadius: '10px',
-                      },
-                      '&::-webkit-scrollbar-thumb:hover': {
-                        background: '#a1a1a1',
-                      },
-                    }}
-                  >
-                    {projects.map((project, index) => renderProjectItem(project, index))}
-                  </Box>
-                )}
-              </Grid>
-            </Grid>
+        <MainCard content={false} sx={{ height: CARD_HEIGHT, display: 'flex', flexDirection: 'column' }}>
+          <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 2, overflow: 'hidden' }}>
+            {/* Мини-график */}
+            <Box sx={{ mb: 1, flexShrink: 0 }}>
+              <BajajAreaChartCard projects={projects} />
+            </Box>
+            
+            {/* Список проектов со скроллом */}
+            <Box sx={{ flexGrow: 1, minHeight: 0 }}>
+              {isLoading ? (
+                <Typography variant="body2" sx={{ textAlign: 'center', py: 2 }}>
+                  Загрузка данных...
+                </Typography>
+              ) : projects.length === 0 ? (
+                <Typography variant="body2" sx={{ textAlign: 'center', py: 2, color: 'text.secondary' }}>
+                  Нет данных для отображения
+                </Typography>
+              ) : (
+                <Box
+                  sx={{
+                    height: '100%',
+                    overflowY: projects.length > 2 ? 'auto' : 'visible',
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: '#c1c1c1 transparent',
+                    '&::-webkit-scrollbar': { width: '4px' },
+                    '&::-webkit-scrollbar-track': { background: 'transparent', borderRadius: '10px' },
+                    '&::-webkit-scrollbar-thumb': { background: '#c1c1c1', borderRadius: '10px' },
+                    '&::-webkit-scrollbar-thumb:hover': { background: '#a1a1a1' }
+                  }}
+                >
+                  {projects.map((project, index) => renderProjectItem(project, index))}
+                </Box>
+              )}
+            </Box>
           </CardContent>
-          <CardActions sx={{ p: 1.25, pt: 0, justifyContent: 'center' }}>
+          <CardActions sx={{ p: 1.25, pt: 0, justifyContent: 'center', flexShrink: 0 }}>
             <Button size="small" disableElevation onClick={handleViewAllProjects}>
-              Все проекты
+              Все Проекты
               <ChevronRightOutlinedIcon />
             </Button>
           </CardActions>
@@ -234,4 +215,13 @@ export default function PopularCard({ isLoading }) {
   );
 }
 
-PopularCard.propTypes = { isLoading: PropTypes.bool };
+PopularCard.propTypes = { 
+  isLoading: PropTypes.bool,
+  projectsData: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.number,
+    name: PropTypes.string,
+    totalProfit: PropTypes.number,
+    isProfit: PropTypes.bool,
+    profitPercentage: PropTypes.number
+  }))
+};

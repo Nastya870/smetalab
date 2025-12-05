@@ -10,6 +10,7 @@ import ThemeCustomization from 'themes';
 
 // auth provider
 import { AuthProvider } from 'contexts/AuthContext';
+import { PermissionsProvider } from 'shared/lib/contexts/PermissionsContext';
 
 // ==============================|| APP ||============================== //
 
@@ -18,7 +19,9 @@ export default function App() {
     <ThemeCustomization>
       <NavigationScroll>
         <AuthProvider>
-          <RouterProvider router={router} />
+          <PermissionsProvider>
+            <RouterProvider router={router} />
+          </PermissionsProvider>
         </AuthProvider>
       </NavigationScroll>
     </ThemeCustomization>

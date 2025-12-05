@@ -1,0 +1,45 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - generic [ref=e10]:
+    - link "logo" [ref=e12] [cursor=pointer]:
+      - /url: /
+      - img "Smeta Lab" [ref=e13]
+    - generic [ref=e17]:
+      - heading "Добро пожаловать!" [level=2] [ref=e18]
+      - generic [ref=e19]: Введите ваши данные для входа
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - generic: Email адрес
+        - generic [ref=e23]:
+          - textbox "Email адрес" [ref=e24]:
+            - /placeholder: example@company.com
+          - group
+      - generic [ref=e25]:
+        - generic: Пароль
+        - generic [ref=e26]:
+          - textbox "Пароль" [ref=e27]:
+            - /placeholder: Введите пароль
+          - button "toggle password visibility" [ref=e29] [cursor=pointer]:
+            - img [ref=e30]
+          - group
+      - generic [ref=e32]:
+        - generic [ref=e34] [cursor=pointer]:
+          - generic [ref=e35]:
+            - checkbox "Запомнить меня (48 часов)" [checked] [ref=e36]
+            - img [ref=e37]
+          - generic [ref=e39]: Запомнить меня (48 часов)
+        - link "Забыли пароль?" [ref=e41] [cursor=pointer]:
+          - /url: /pages/forgot-password
+      - generic [ref=e43]:
+        - button "Войти" [disabled]
+    - separator [ref=e45]
+    - link "Нет аккаунта? Зарегистрироваться" [ref=e48] [cursor=pointer]:
+      - /url: /auth/register
+  - generic [ref=e50]:
+    - link "berrydashboard.com" [ref=e51] [cursor=pointer]:
+      - /url: https://berrydashboard.com
+    - link "© codedthemes.com" [ref=e52] [cursor=pointer]:
+      - /url: https://codedthemes.com
+```

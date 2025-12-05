@@ -1,10 +1,9 @@
 // assets
-import { IconUsers, IconUserPlus, IconShield } from '@tabler/icons-react';
+import { IconUsers, IconShield } from '@tabler/icons-react';
 
 // constant
 const icons = {
   IconUsers,
-  IconUserPlus,
   IconShield
 };
 
@@ -21,7 +20,17 @@ const admin = {
       type: 'item',
       url: '/app/admin/users',
       icon: icons.IconUsers,
-      breadcrumbs: true
+      breadcrumbs: true,
+      permission: { resource: 'users', action: 'view_menu' }
+    },
+    {
+      id: 'permissions-management',
+      title: 'Управление разрешениями',
+      type: 'item',
+      url: '/app/admin/permissions',
+      icon: icons.IconShield,
+      breadcrumbs: true,
+      permission: { resource: 'admin', action: 'view_menu' }
     }
   ]
 };

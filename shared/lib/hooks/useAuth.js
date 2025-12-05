@@ -51,14 +51,14 @@ export const useAuth = () => {
     if (!roles || roles.length === 0) return null;
     
     // Приоритет ролей
-    const rolePriority = ['super_admin', 'admin', 'project_manager', 'estimator', 'supplier', 'viewer'];
+    const rolePriority = ['super_admin', 'admin', 'manager', 'estimator', 'supplier'];
     
     for (const role of rolePriority) {
-      const found = roles.find((r) => r.name === role);
-      if (found) return found.name;
+      const found = roles.find((r) => r.key === role);
+      if (found) return found.key;
     }
     
-    return roles[0]?.name || null;
+    return roles[0]?.key || null;
   };
 
   /**
@@ -71,10 +71,9 @@ export const useAuth = () => {
     const roleNames = {
       super_admin: 'Системный администратор',
       admin: 'Администратор',
-      project_manager: 'Менеджер проектов',
+      manager: 'Менеджер',
       estimator: 'Сметчик',
-      supplier: 'Поставщик',
-      viewer: 'Наблюдатель'
+      supplier: 'Снабженец'
     };
     
     return roleNames[role] || 'Пользователь';

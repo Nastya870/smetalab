@@ -23,7 +23,8 @@ export const authenticateToken = (req, res, next) => {
       userId: payload.userId,
       tenantId: payload.tenantId,
       email: payload.email,
-      isSuperAdmin: payload.isSuperAdmin || false
+      isSuperAdmin: payload.isSuperAdmin || false,
+      permissions: payload.permissions || [] // ⭐ ВАЖНО: добавляем разрешения из JWT
     };
 
     console.log('✅ Auth: User authenticated', req.method, req.path, req.user.email);

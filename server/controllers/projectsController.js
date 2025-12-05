@@ -2472,6 +2472,612 @@ export const calculateProjectProgress = async (req, res) => {
   }
 };
 
+/**
+ * @swagger
+ * /projects/dashboard-summary:
+ *   get:
+ *     tags: [Projects]
+ *     summary: Получить все данные для дашборда за один запрос
+ *     description: |
+ *       Объединённый endpoint для оптимизации загрузки дашборда.
+ *       Возвращает все данные, которые раньше загружались 7 отдельными запросами:
+ *       - Общая прибыль (totalProfit)
+ *       - Доход от работ (incomeWorks)
+ *       - Доход от материалов (incomeMaterials)
+ *       - График проектов по месяцам (chartData)
+ *       - Данные роста по месяцам (growthData)
+ *       - Топ прибыльных проектов (projectsProfitData)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Данные дашборда получены
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalProfit:
+ *                       type: number
+ *                     incomeWorks:
+ *                       type: number
+ *                     incomeMaterials:
+ *                       type: number
+ *                     chartDataMonth:
+ *                       type: object
+ *                     chartDataYear:
+ *                       type: object
+ *                     growthData:
+ *                       type: object
+ *                     projectsProfitData:
+ *                       type: array
+ *       401:
+ *         description: Не авторизован
+ *       500:
+ *         description: Внутренняя ошибка сервера
+ */
+export const getDashboardSummary = async (req, res) => {
+  const startTime = Date.now();
+  
+  try {
+    const tenantId = req.user.tenantId;
+    const isSuperAdmin = req.user.role === 'super_admin';
+
+    // Параллельно выполняем все запросы к БД
+    const [
+      profitResult,
+      incomeWorksResult,
+      incomeMaterialsResult,
+      chartMonthResult,
+      chartYearResult,
+      growthResult,
+      projectsProfitResult
+    ] = await Promise.all([
+      // 1. Общая прибыль
+      getTotalProfitData(tenantId, isSuperAdmin),
+      // 2. Доход от работ
+      getIncomeWorksData(tenantId, isSuperAdmin),
+      // 3. Доход от материалов
+      getIncomeMaterialsData(tenantId, isSuperAdmin),
+      // 4. Данные графика за месяц
+      getChartDataInternal(tenantId, isSuperAdmin, 'month'),
+      // 5. Данные графика за год
+      getChartDataInternal(tenantId, isSuperAdmin, 'year'),
+      // 6. Данные роста по месяцам
+      getMonthlyGrowthInternal(tenantId, isSuperAdmin),
+      // 7. Прибыльность проектов
+      getProjectsProfitInternal(tenantId, isSuperAdmin, 10)
+    ]);
+
+    const duration = Date.now() - startTime;
+    console.log(`📊 Dashboard summary loaded in ${duration}ms (single request vs 7 separate)`);
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: {
+        totalProfit: profitResult,
+        incomeWorks: incomeWorksResult,
+        incomeMaterials: incomeMaterialsResult,
+        chartDataMonth: chartMonthResult,
+        chartDataYear: chartYearResult,
+        growthData: growthResult,
+        projectsProfitData: projectsProfitResult
+      },
+      meta: {
+        loadTime: duration,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in getDashboardSummary:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'Ошибка при загрузке данных дашборда',
+      error: error.message
+    });
+  }
+};
+
+// ============= Internal helper functions for getDashboardSummary =============
+
+/**
+ * Получить общую прибыль (внутренняя функция)
+ */
+async function getTotalProfitData(tenantId, isSuperAdmin) {
+  let query = `
+    WITH project_profits AS (
+      SELECT 
+        p.id as project_id,
+        COALESCE(
+          (SELECT SUM(wca.total_amount) FROM work_completion_acts wca WHERE wca.estimate_id = e.id AND wca.act_type = 'client'), 0
+        ) - COALESCE(
+          (SELECT SUM(wca.total_amount) FROM work_completion_acts wca WHERE wca.estimate_id = e.id AND wca.act_type = 'specialist'), 0
+        ) as works_profit,
+        COALESCE(
+          (SELECT SUM(pur.total_price) FROM purchases pur WHERE pur.estimate_id = e.id AND pur.total_price IS NOT NULL), 0
+        ) - COALESCE(
+          (SELECT SUM(gp.total_price) FROM global_purchases gp WHERE gp.estimate_id = e.id AND gp.total_price IS NOT NULL), 0
+        ) as materials_profit
+      FROM projects p
+      JOIN estimates e ON p.id = e.project_id
+      WHERE 1=1 ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+    )
+    SELECT 
+      COALESCE(SUM(works_profit + materials_profit), 0) as total_profit,
+      COUNT(DISTINCT project_id) as projects_with_profit
+    FROM project_profits
+  `;
+
+  const params = !isSuperAdmin ? [tenantId] : [];
+  const result = await pool.query(query, params);
+  
+  return {
+    totalProfit: parseFloat(result.rows[0].total_profit) || 0,
+    projectsWithProfit: parseInt(result.rows[0].projects_with_profit) || 0
+  };
+}
+
+/**
+ * Получить доход от работ (внутренняя функция)
+ */
+async function getIncomeWorksData(tenantId, isSuperAdmin) {
+  let query = `
+    SELECT COALESCE(SUM(wca.total_amount), 0) as total_income_works
+    FROM work_completion_acts wca
+    JOIN estimates e ON wca.estimate_id = e.id
+    JOIN projects p ON e.project_id = p.id
+    WHERE wca.act_type = 'client'
+    ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+  `;
+
+  const params = !isSuperAdmin ? [tenantId] : [];
+  const result = await pool.query(query, params);
+  
+  return parseFloat(result.rows[0].total_income_works) || 0;
+}
+
+/**
+ * Получить доход от материалов (внутренняя функция)
+ */
+async function getIncomeMaterialsData(tenantId, isSuperAdmin) {
+  let query = `
+    SELECT COALESCE(SUM(pur.total_price), 0) as total_income_materials
+    FROM purchases pur
+    JOIN estimates e ON pur.estimate_id = e.id
+    JOIN projects p ON e.project_id = p.id
+    WHERE pur.total_price IS NOT NULL
+    ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+  `;
+
+  const params = !isSuperAdmin ? [tenantId] : [];
+  const result = await pool.query(query, params);
+  
+  return parseFloat(result.rows[0].total_income_materials) || 0;
+}
+
+/**
+ * Получить данные графика проектов (внутренняя функция)
+ */
+async function getChartDataInternal(tenantId, isSuperAdmin, period) {
+  const isMonth = period === 'month';
+  const interval = isMonth ? '30 days' : '12 months';
+  const dateGroup = isMonth ? 'day' : 'month';
+  const dateFormat = isMonth ? 'DD Mon' : 'Mon YYYY';
+  
+  let query;
+  
+  if (isMonth) {
+    // За последние 30 дней
+    query = `
+      WITH date_series AS (
+        SELECT generate_series(
+          DATE_TRUNC('day', CURRENT_DATE - INTERVAL '29 days'),
+          DATE_TRUNC('day', CURRENT_DATE),
+          INTERVAL '1 day'
+        )::date AS date_point
+      )
+      SELECT 
+        ds.date_point,
+        TO_CHAR(ds.date_point, 'DD') as label,
+        COUNT(DISTINCT CASE WHEN p.status = 'planning' THEN p.id END) as planning_projects,
+        COUNT(DISTINCT CASE WHEN p.status = 'approval' THEN p.id END) as approval_projects,
+        COUNT(DISTINCT CASE WHEN p.status = 'in_progress' THEN p.id END) as in_progress_projects,
+        COUNT(DISTINCT CASE WHEN p.status = 'rejected' THEN p.id END) as rejected_projects,
+        COUNT(DISTINCT CASE WHEN p.status = 'completed' THEN p.id END) as completed_projects,
+        COUNT(DISTINCT p.id) as total_projects
+      FROM date_series ds
+      LEFT JOIN projects p ON DATE_TRUNC('day', p.created_at) <= ds.date_point
+        ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+      GROUP BY ds.date_point
+      ORDER BY ds.date_point
+    `;
+  } else {
+    // За последние 12 месяцев
+    query = `
+      WITH month_series AS (
+        SELECT generate_series(
+          DATE_TRUNC('month', CURRENT_DATE - INTERVAL '11 months'),
+          DATE_TRUNC('month', CURRENT_DATE),
+          INTERVAL '1 month'
+        )::date AS month_point
+      )
+      SELECT 
+        ms.month_point,
+        CASE TO_CHAR(ms.month_point, 'Mon')
+          WHEN 'Jan' THEN 'Янв' WHEN 'Feb' THEN 'Фев' WHEN 'Mar' THEN 'Мар'
+          WHEN 'Apr' THEN 'Апр' WHEN 'May' THEN 'Май' WHEN 'Jun' THEN 'Июн'
+          WHEN 'Jul' THEN 'Июл' WHEN 'Aug' THEN 'Авг' WHEN 'Sep' THEN 'Сен'
+          WHEN 'Oct' THEN 'Окт' WHEN 'Nov' THEN 'Ноя' WHEN 'Dec' THEN 'Дек'
+        END as label,
+        COUNT(DISTINCT CASE WHEN p.status = 'planning' AND DATE_TRUNC('month', p.created_at) <= ms.month_point THEN p.id END) as planning_projects,
+        COUNT(DISTINCT CASE WHEN p.status = 'approval' AND DATE_TRUNC('month', p.created_at) <= ms.month_point THEN p.id END) as approval_projects,
+        COUNT(DISTINCT CASE WHEN p.status = 'in_progress' AND DATE_TRUNC('month', p.created_at) <= ms.month_point THEN p.id END) as in_progress_projects,
+        COUNT(DISTINCT CASE WHEN p.status = 'rejected' AND DATE_TRUNC('month', p.created_at) <= ms.month_point THEN p.id END) as rejected_projects,
+        COUNT(DISTINCT CASE WHEN p.status = 'completed' AND DATE_TRUNC('month', p.created_at) <= ms.month_point THEN p.id END) as completed_projects,
+        COUNT(DISTINCT CASE WHEN DATE_TRUNC('month', p.created_at) <= ms.month_point THEN p.id END) as total_projects
+      FROM month_series ms
+      LEFT JOIN projects p ON 1=1 ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+      GROUP BY ms.month_point
+      ORDER BY ms.month_point
+    `;
+  }
+
+  const params = !isSuperAdmin ? [tenantId] : [];
+  const result = await pool.query(query, params);
+
+  return {
+    months: result.rows.map(r => r.label),
+    chartData: result.rows.map(r => ({
+      planningProjects: parseInt(r.planning_projects) || 0,
+      approvalProjects: parseInt(r.approval_projects) || 0,
+      inProgressProjects: parseInt(r.in_progress_projects) || 0,
+      rejectedProjects: parseInt(r.rejected_projects) || 0,
+      completedProjects: parseInt(r.completed_projects) || 0,
+      totalProjects: parseInt(r.total_projects) || 0
+    }))
+  };
+}
+
+/**
+ * Получить данные роста по месяцам (внутренняя функция)
+ */
+async function getMonthlyGrowthInternal(tenantId, isSuperAdmin) {
+  const query = `
+    WITH month_series AS (
+      SELECT generate_series(
+        DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '11 months',
+        DATE_TRUNC('month', CURRENT_DATE),
+        INTERVAL '1 month'
+      )::date AS month_date
+    ),
+    monthly_data AS (
+      SELECT 
+        ms.month_date,
+        CASE TO_CHAR(ms.month_date, 'Mon')
+          WHEN 'Jan' THEN 'Янв' WHEN 'Feb' THEN 'Фев' WHEN 'Mar' THEN 'Мар'
+          WHEN 'Apr' THEN 'Апр' WHEN 'May' THEN 'Май' WHEN 'Jun' THEN 'Июн'
+          WHEN 'Jul' THEN 'Июл' WHEN 'Aug' THEN 'Авг' WHEN 'Sep' THEN 'Сен'
+          WHEN 'Oct' THEN 'Окт' WHEN 'Nov' THEN 'Ноя' WHEN 'Dec' THEN 'Дек'
+        END as month_name,
+        
+        -- Доход от актов заказчика
+        COALESCE((
+          SELECT SUM(wca.total_amount) / 1000.0
+          FROM work_completion_acts wca
+          JOIN estimates e ON wca.estimate_id = e.id
+          JOIN projects p ON e.project_id = p.id
+          WHERE wca.act_type = 'client'
+            AND DATE_TRUNC('month', wca.created_at) = ms.month_date
+            ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+        ), 0) as income_client_acts,
+        
+        -- Доход итого по смете
+        COALESCE((
+          SELECT SUM(pur.total_price) / 1000.0
+          FROM purchases pur
+          JOIN estimates e ON pur.estimate_id = e.id
+          JOIN projects p ON e.project_id = p.id
+          WHERE DATE_TRUNC('month', pur.created_at) = ms.month_date
+            ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+        ), 0) as income_estimate,
+        
+        -- Расход акты специалиста
+        COALESCE((
+          SELECT SUM(wca.total_amount) / 1000.0
+          FROM work_completion_acts wca
+          JOIN estimates e ON wca.estimate_id = e.id
+          JOIN projects p ON e.project_id = p.id
+          WHERE wca.act_type = 'specialist'
+            AND DATE_TRUNC('month', wca.created_at) = ms.month_date
+            ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+        ), 0) as expense_specialist_acts,
+        
+        -- Расход итого закупленно
+        COALESCE((
+          SELECT SUM(gp.total_price) / 1000.0
+          FROM global_purchases gp
+          JOIN estimates e ON gp.estimate_id = e.id
+          JOIN projects p ON e.project_id = p.id
+          WHERE DATE_TRUNC('month', gp.created_at) = ms.month_date
+            ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+        ), 0) as expense_purchases
+        
+      FROM month_series ms
+    )
+    SELECT * FROM monthly_data ORDER BY month_date
+  `;
+
+  const params = !isSuperAdmin ? [tenantId] : [];
+  const result = await pool.query(query, params);
+
+  return {
+    months: result.rows.map(r => r.month_name),
+    series: [
+      { name: 'Доход (Акты заказчика)', data: result.rows.map(r => parseFloat(r.income_client_acts) || 0) },
+      { name: 'Доход (Итого по смете)', data: result.rows.map(r => parseFloat(r.income_estimate) || 0) },
+      { name: 'Расход (Акты специалиста)', data: result.rows.map(r => parseFloat(r.expense_specialist_acts) || 0) },
+      { name: 'Расход (Итого закупленно)', data: result.rows.map(r => parseFloat(r.expense_purchases) || 0) }
+    ]
+  };
+}
+
+/**
+ * Получить прибыльность проектов (внутренняя функция)
+ */
+async function getProjectsProfitInternal(tenantId, isSuperAdmin, limit) {
+  let query = `
+    WITH project_financials AS (
+      SELECT 
+        p.id, p.name, p.status,
+        COALESCE((SELECT SUM(wca.total_amount) FROM work_completion_acts wca JOIN estimates e ON wca.estimate_id = e.id WHERE e.project_id = p.id AND wca.act_type = 'client'), 0) as income_works,
+        COALESCE((SELECT SUM(wca.total_amount) FROM work_completion_acts wca JOIN estimates e ON wca.estimate_id = e.id WHERE e.project_id = p.id AND wca.act_type = 'specialist'), 0) as expense_works,
+        COALESCE((SELECT SUM(pur.total_price) FROM purchases pur JOIN estimates e ON pur.estimate_id = e.id WHERE e.project_id = p.id), 0) as income_materials,
+        COALESCE((SELECT SUM(gp.total_price) FROM global_purchases gp JOIN estimates e ON gp.estimate_id = e.id WHERE e.project_id = p.id), 0) as expense_materials
+      FROM projects p
+      WHERE 1=1 ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+    )
+    SELECT 
+      id, name, status,
+      (income_works - expense_works + income_materials - expense_materials) as total_profit,
+      income_works + income_materials as total_income,
+      CASE 
+        WHEN (income_works + income_materials) > 0 
+        THEN ROUND(((income_works - expense_works + income_materials - expense_materials) / (income_works + income_materials) * 100)::numeric, 1)
+        ELSE 0 
+      END as profit_percentage
+    FROM project_financials
+    WHERE (income_works + income_materials) > 0
+    ORDER BY total_profit DESC
+    LIMIT ${!isSuperAdmin ? '$2' : '$1'}
+  `;
+
+  const params = !isSuperAdmin ? [tenantId, limit] : [limit];
+  const result = await pool.query(query, params);
+
+  return result.rows.map(r => ({
+    id: r.id,
+    name: r.name,
+    status: r.status,
+    totalProfit: parseFloat(r.total_profit) || 0,
+    totalIncome: parseFloat(r.total_income) || 0,
+    profitPercentage: parseFloat(r.profit_percentage) || 0,
+    isProfit: parseFloat(r.total_profit) > 0
+  }));
+}
+
+/**
+ * @swagger
+ * /projects/{id}/full-dashboard:
+ *   get:
+ *     tags: [Projects]
+ *     summary: Получить все данные дашборда проекта за один запрос
+ *     description: |
+ *       Оптимизированный endpoint для страницы проекта.
+ *       Возвращает: проект, команду, сметы и финансовую сводку в одном запросе.
+ *       Заменяет 4+ отдельных API-запроса + N×2 запросов для каждой сметы.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: UUID проекта
+ *     responses:
+ *       200:
+ *         description: Все данные дашборда проекта
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     project:
+ *                       type: object
+ *                       description: Данные проекта
+ *                     team:
+ *                       type: array
+ *                       description: Команда проекта
+ *                     estimates:
+ *                       type: array
+ *                       description: Список смет проекта
+ *                     financialSummary:
+ *                       type: object
+ *                       properties:
+ *                         incomeWorks:
+ *                           type: number
+ *                           description: Доход по работам (акты заказчика)
+ *                         expenseWorks:
+ *                           type: number
+ *                           description: Расходы по работам (акты специалистов)
+ *                         incomeMaterials:
+ *                           type: number
+ *                           description: Доход по материалам (план)
+ *                         expenseMaterials:
+ *                           type: number
+ *                           description: Расходы по материалам (факт)
+ *       404:
+ *         description: Проект не найден
+ *       401:
+ *         description: Не авторизован
+ *       500:
+ *         description: Внутренняя ошибка сервера
+ */
+export const getProjectFullDashboard = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tenantId = req.user?.tenantId || null;
+    const isSuperAdmin = req.user?.role === 'super_admin';
+
+    // 1. Получаем проект с расширенной информацией
+    let projectQuery = `
+      SELECT 
+        p.*,
+        t.name as tenant_name,
+        creator.full_name as created_by_name,
+        updater.full_name as updated_by_name,
+        manager.full_name as manager_name,
+        manager.email as manager_email,
+        (SELECT COUNT(*) FROM project_team_members 
+         WHERE project_id = p.id AND left_at IS NULL) as team_size,
+        CASE 
+          WHEN p.end_date < CURRENT_DATE THEN (CURRENT_DATE - p.end_date)
+          ELSE (p.end_date - CURRENT_DATE)
+        END as days_remaining,
+        CASE WHEN p.end_date < CURRENT_DATE THEN true ELSE false END as is_overdue
+      FROM projects p
+      LEFT JOIN tenants t ON p.tenant_id = t.id
+      LEFT JOIN users creator ON p.created_by = creator.id
+      LEFT JOIN users updater ON p.updated_by = updater.id
+      LEFT JOIN users manager ON p.manager_id = manager.id
+      WHERE p.id = $1
+    `;
+    
+    const projectParams = [id];
+    
+    // Tenant isolation
+    if (isSuperAdmin) {
+      // Super admin видит все проекты
+    } else if (tenantId) {
+      projectQuery += ` AND p.tenant_id = $2`;
+      projectParams.push(tenantId);
+    } else {
+      projectQuery += ` AND FALSE`;
+    }
+
+    const projectResult = await pool.query(projectQuery, projectParams);
+
+    if (projectResult.rows.length === 0) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        success: false,
+        message: 'Проект не найден'
+      });
+    }
+
+    const project = projectResult.rows[0];
+
+    // 2. Получаем команду проекта
+    const teamQuery = `
+      SELECT 
+        ptm.*,
+        u.full_name,
+        u.email
+      FROM project_team_members ptm
+      JOIN users u ON ptm.user_id = u.id
+      WHERE ptm.project_id = $1 AND ptm.left_at IS NULL
+      ORDER BY ptm.joined_at DESC
+    `;
+    const teamResult = await pool.query(teamQuery, [id]);
+
+    // 3. Получаем сметы проекта
+    const estimatesQuery = `
+      SELECT 
+        id,
+        name,
+        status,
+        description,
+        created_at,
+        updated_at
+      FROM estimates
+      WHERE project_id = $1
+      ORDER BY created_at DESC
+    `;
+    const estimatesResult = await pool.query(estimatesQuery, [id]);
+
+    // 4. Получаем финансовую сводку для ВСЕХ смет проекта одним запросом
+    const financialQuery = `
+      SELECT 
+        -- Доходы от работ (акты заказчика)
+        COALESCE(
+          (SELECT SUM(wca.total_amount) 
+           FROM work_completion_acts wca 
+           JOIN estimates e ON wca.estimate_id = e.id 
+           WHERE e.project_id = $1 AND wca.act_type = 'client'), 0
+        ) as income_works,
+        
+        -- Расходы на работы (акты специалистов)
+        COALESCE(
+          (SELECT SUM(wca.total_amount) 
+           FROM work_completion_acts wca 
+           JOIN estimates e ON wca.estimate_id = e.id 
+           WHERE e.project_id = $1 AND wca.act_type = 'specialist'), 0
+        ) as expense_works,
+        
+        -- Доходы от материалов (планируемые - total из purchases)
+        COALESCE(
+          (SELECT SUM(pur.total_price) 
+           FROM purchases pur 
+           JOIN estimates e ON pur.estimate_id = e.id 
+           WHERE e.project_id = $1 AND pur.total_price IS NOT NULL), 0
+        ) as income_materials,
+        
+        -- Расходы на материалы (фактические - из global_purchases)
+        COALESCE(
+          (SELECT SUM(gp.total_price) 
+           FROM global_purchases gp 
+           JOIN estimates e ON gp.estimate_id = e.id 
+           WHERE e.project_id = $1 AND gp.total_price IS NOT NULL), 0
+        ) as expense_materials
+    `;
+    const financialResult = await pool.query(financialQuery, [id]);
+    const financialData = financialResult.rows[0];
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: {
+        project,
+        team: teamResult.rows,
+        estimates: estimatesResult.rows,
+        financialSummary: {
+          incomeWorks: parseFloat(financialData.income_works) || 0,
+          expenseWorks: parseFloat(financialData.expense_works) || 0,
+          incomeMaterials: parseFloat(financialData.income_materials) || 0,
+          expenseMaterials: parseFloat(financialData.expense_materials) || 0
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error in getProjectFullDashboard:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'Ошибка при получении данных дашборда проекта',
+      error: error.message
+    });
+  }
+};
+
 export default {
   getAllProjects,
   getProjectStats,
@@ -2481,6 +3087,7 @@ export default {
   getProjectsProfitData,
   getMonthlyGrowthData,
   getProjectsChartData,
+  getDashboardSummary,
   getProjectById,
   createProject,
   updateProject,
@@ -2490,5 +3097,6 @@ export default {
   addTeamMember,
   updateTeamMember,
   removeTeamMember,
-  calculateProjectProgress
+  calculateProjectProgress,
+  getProjectFullDashboard
 };

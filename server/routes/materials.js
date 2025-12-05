@@ -11,6 +11,7 @@ import {
   bulkImportMaterials // ✅ Добавили
 } from '../controllers/materialsController.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
+import { checkPermission, checkAnyPermission } from '../middleware/checkPermission.js';
 
 const router = express.Router();
 
@@ -57,32 +58,32 @@ router.get('/:id', getMaterialById);
 /**
  * @route   POST /api/materials/bulk
  * @desc    Массовый импорт материалов из CSV
- * @access  Private (требуется авторизация)
+ * @access  Private (требуется авторизация + materials.create)
  * @body    { materials: Array, mode: 'add'|'replace', isGlobal: boolean }
  */
-router.post('/bulk', authenticateToken, bulkImportMaterials);
+router.post('/bulk', authenticateToken, checkPermission('materials', 'create'), bulkImportMaterials);
 
 /**
  * @route   POST /api/materials
  * @desc    Создать новый материал
- * @access  Private (требуется авторизация)
+ * @access  Private (требуется materials.create)
  * @body    { sku, name, image, unit, price, supplier, weight, category, productUrl, showImage }
  */
-router.post('/', authenticateToken, createMaterial);
+router.post('/', authenticateToken, checkPermission('materials', 'create'), createMaterial);
 
 /**
  * @route   PUT /api/materials/:id
  * @desc    Обновить материал
- * @access  Private (требуется авторизация)
+ * @access  Private (требуется materials.update ИЛИ materials.manage)
  * @body    { sku?, name?, image?, unit?, price?, supplier?, weight?, category?, productUrl?, showImage? }
  */
-router.put('/:id', authenticateToken, updateMaterial);
+router.put('/:id', authenticateToken, checkAnyPermission(['materials', 'update'], ['materials', 'manage']), updateMaterial);
 
 /**
  * @route   DELETE /api/materials/:id
- * @desc    Удалить материал
- * @access  Private (требуется авторизация)
+ * @desc    Удалить материал (КРИТИЧНО!)
+ * @access  Private (требуется materials.delete ИЛИ materials.manage)
  */
-router.delete('/:id', authenticateToken, deleteMaterial);
+router.delete('/:id', authenticateToken, checkAnyPermission(['materials', 'delete'], ['materials', 'manage']), deleteMaterial);
 
 export default router;

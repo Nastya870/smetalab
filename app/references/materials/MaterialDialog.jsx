@@ -257,16 +257,16 @@ const MaterialDialog = ({ open, editMode, material, onClose, onSave, onDelete, o
       <DialogActions sx={{ p: 2.5, justifyContent: 'space-between' }}>
         <Box>
           {editMode && (
-            <Button onClick={onDelete} color="error" variant="outlined" startIcon={<IconTrash />}>
+            <Button onClick={onDelete} color="error" variant="outlined" startIcon={<IconTrash />} size="small">
               Удалить материал
             </Button>
           )}
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button onClick={onClose} color="secondary" variant="outlined">
+          <Button onClick={onClose} color="secondary" variant="outlined" size="small">
             Отмена
           </Button>
-          <Button onClick={onSave} color="primary" variant="contained" disabled={!isFormValid}>
+          <Button onClick={onSave} color="primary" variant="contained" disabled={!isFormValid} size="small">
             {editMode ? 'Сохранить изменения' : 'Добавить материал'}
           </Button>
         </Box>

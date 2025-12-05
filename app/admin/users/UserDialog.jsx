@@ -208,7 +208,7 @@ const UserDialog = ({ open, user, onClose, onSave }) => {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose} disabled={loading}>
+          <Button onClick={handleClose} disabled={loading} size="small">
             Отмена
           </Button>
           <Button
@@ -216,6 +216,7 @@ const UserDialog = ({ open, user, onClose, onSave }) => {
             variant="contained"
             disabled={loading}
             startIcon={loading && <CircularProgress size={16} />}
+            size="small"
           >
             {isEdit ? 'Сохранить' : 'Создать'}
           </Button>

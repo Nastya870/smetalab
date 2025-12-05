@@ -17,7 +17,8 @@ const dashboard = {
       type: 'item',
       url: '/app/dashboard/default',
       icon: icons.IconDashboard,
-      breadcrumbs: false
+      breadcrumbs: false,
+      permission: { resource: 'dashboard', action: 'view_menu' }
     }
   ]
 };

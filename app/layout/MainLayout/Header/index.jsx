@@ -6,7 +6,6 @@ import Box from '@mui/material/Box';
 
 // project imports
 import LogoSection from '../LogoSection';
-import SearchSection from './SearchSection';
 import ProfileSection from './ProfileSection';
 import NotificationSection from './NotificationSection';
 
@@ -15,7 +14,7 @@ import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu';
 // assets
 import { IconMenu2 } from '@tabler/icons-react';
 
-// ==============================|| MAIN NAVBAR / HEADER ||============================== //
+// ==============================|| MAIN NAVBAR / HEADER - MINIMAL SAAS STYLE ||============================== //
 
 export default function Header() {
   const theme = useTheme();
@@ -26,42 +25,45 @@ export default function Header() {
 
   return (
     <>
-      {/* logo & toggler button */}
-      <Box sx={{ width: downMD ? 'auto' : 228, display: 'flex' }}>
-        <Box component="span" sx={{ display: { xs: 'none', md: 'block' }, flexGrow: 1 }}>
+      {/* logo & toggler button - separated */}
+      <Box sx={{ 
+        width: downMD ? 'auto' : 220, 
+        display: 'flex', 
+        alignItems: 'center',
+        gap: 2.5  // 20px отступ между логотипом и бургером
+      }}>
+        <Box component="span" sx={{ display: { xs: 'none', md: 'block' } }}>
           <LogoSection />
         </Box>
         <Avatar
           variant="rounded"
           sx={{
-            ...theme.typography.commonAvatar,
-            ...theme.typography.mediumAvatar,
-            overflow: 'hidden',
+            width: 34,
+            height: 34,
+            bgcolor: '#F2F4F7',
+            color: 'primary.main',
+            borderRadius: '10px',
+            cursor: 'pointer',
             transition: 'all .2s ease-in-out',
-            bgcolor: 'secondary.light',
-            color: 'secondary.dark',
             '&:hover': {
-              bgcolor: 'secondary.dark',
-              color: 'secondary.light'
+              bgcolor: 'primary.light',
+              color: 'primary.dark'
             }
           }}
           onClick={() => handlerDrawerOpen(!drawerOpen)}
-          color="inherit"
         >
-          <IconMenu2 stroke={1.5} size="20px" />
+          <IconMenu2 stroke={1.5} size="18px" />
         </Avatar>
       </Box>
 
-      {/* header search */}
-      <SearchSection />
-      <Box sx={{ flexGrow: 1 }} />
+      {/* spacer */}
       <Box sx={{ flexGrow: 1 }} />
 
-      {/* notification */}
-      <NotificationSection />
-
-      {/* profile */}
-      <ProfileSection />
+      {/* right section - notifications & profile */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <NotificationSection />
+        <ProfileSection />
+      </Box>
     </>
   );
 }

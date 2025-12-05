@@ -26,6 +26,7 @@ import {
   replaceAllEstimateItems
 } from '../controllers/estimateItemsController.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { checkPermission, checkAnyPermission } from '../middleware/checkPermission.js';
 import exportEstimateHandler from '../../api/export-estimate-excel.js';
 
 const router = express.Router();
@@ -36,16 +37,16 @@ router.use(authenticateToken);
 /**
  * @route   GET /api/projects/:projectId/estimates
  * @desc    Получить все сметы проекта
- * @access  Private
+ * @access  Private (требуется estimates.read)
  */
-router.get('/projects/:projectId/estimates', getEstimatesByProject);
+router.get('/projects/:projectId/estimates', checkPermission('estimates', 'read'), getEstimatesByProject);
 
 /**
  * @route   POST /api/projects/:projectId/estimates
  * @desc    Создать новую смету для проекта
- * @access  Private
+ * @access  Private (требуется estimates.create)
  */
-router.post('/projects/:projectId/estimates', createEstimate);
+router.post('/projects/:projectId/estimates', checkPermission('estimates', 'create'), createEstimate);
 
 // ============================================================================
 // ESTIMATE ITEMS ROUTES (позиции смет)
@@ -56,30 +57,30 @@ router.post('/projects/:projectId/estimates', createEstimate);
 /**
  * @route   POST /api/estimates/:estimateId/items/bulk-from-works
  * @desc    Массовое добавление работ из справочника
- * @access  Private
+ * @access  Private (требуется estimates.update ИЛИ estimates.manage)
  */
-router.post('/estimates/:estimateId/items/bulk-from-works', bulkAddFromWorks);
+router.post('/estimates/:estimateId/items/bulk-from-works', checkAnyPermission(['estimates', 'update'], ['estimates', 'manage']), bulkAddFromWorks);
 
 /**
  * @route   POST /api/estimates/:estimateId/items/bulk
  * @desc    Массовое создание позиций с материалами (bulk insert в транзакции)
- * @access  Private
+ * @access  Private (требуется estimates.update ИЛИ estimates.manage)
  */
-router.post('/estimates/:estimateId/items/bulk', bulkCreateItems);
+router.post('/estimates/:estimateId/items/bulk', checkAnyPermission(['estimates', 'update'], ['estimates', 'manage']), bulkCreateItems);
 
 /**
  * @route   DELETE /api/estimates/:estimateId/items/all
- * @desc    Удалить все позиции сметы
- * @access  Private
+ * @desc    Удалить все позиции сметы (КРИТИЧНО!)
+ * @access  Private (требуется estimates.delete ИЛИ estimates.manage)
  */
-router.delete('/estimates/:estimateId/items/all', deleteAllEstimateItems);
+router.delete('/estimates/:estimateId/items/all', checkAnyPermission(['estimates', 'delete'], ['estimates', 'manage']), deleteAllEstimateItems);
 
 /**
  * @route   PUT /api/estimates/:estimateId/items/replace
  * @desc    Заменить все позиции сметы (удалить старые + создать новые в одной транзакции)
- * @access  Private
+ * @access  Private (требуется estimates.update ИЛИ estimates.manage)
  */
-router.put('/estimates/:estimateId/items/replace', (req, res, next) => {
+router.put('/estimates/:estimateId/items/replace', checkAnyPermission(['estimates', 'update'], ['estimates', 'manage']), (req, res, next) => {
   console.log('🎯 HIT: PUT /estimates/:estimateId/items/replace', req.params.estimateId);
   replaceAllEstimateItems(req, res, next);
 });
@@ -87,44 +88,44 @@ router.put('/estimates/:estimateId/items/replace', (req, res, next) => {
 /**
  * @route   PUT /api/estimates/:estimateId/items/reorder
  * @desc    Изменить порядок позиций
- * @access  Private
+ * @access  Private (требуется estimates.update ИЛИ estimates.manage)
  */
-router.put('/estimates/:estimateId/items/reorder', reorderEstimateItems);
+router.put('/estimates/:estimateId/items/reorder', checkAnyPermission(['estimates', 'update'], ['estimates', 'manage']), reorderEstimateItems);
 
 /**
  * @route   GET /api/estimates/:estimateId/items
  * @desc    Получить все позиции сметы
- * @access  Private
+ * @access  Private (требуется estimates.read)
  */
-router.get('/estimates/:estimateId/items', getEstimateItems);
+router.get('/estimates/:estimateId/items', checkPermission('estimates', 'read'), getEstimateItems);
 
 /**
  * @route   POST /api/estimates/:estimateId/items
  * @desc    Создать новую позицию в смете
- * @access  Private
+ * @access  Private (требуется estimates.update ИЛИ estimates.manage)
  */
-router.post('/estimates/:estimateId/items', createEstimateItem);
+router.post('/estimates/:estimateId/items', checkAnyPermission(['estimates', 'update'], ['estimates', 'manage']), createEstimateItem);
 
 /**
  * @route   GET /api/estimates/items/:id
  * @desc    Получить позицию по ID
- * @access  Private
+ * @access  Private (требуется estimates.read)
  */
-router.get('/estimates/items/:id', getEstimateItemById);
+router.get('/estimates/items/:id', checkPermission('estimates', 'read'), getEstimateItemById);
 
 /**
  * @route   PUT /api/estimates/items/:id
  * @desc    Обновить позицию
- * @access  Private
+ * @access  Private (требуется estimates.update ИЛИ estimates.manage)
  */
-router.put('/estimates/items/:id', updateEstimateItem);
+router.put('/estimates/items/:id', checkAnyPermission(['estimates', 'update'], ['estimates', 'manage']), updateEstimateItem);
 
 /**
  * @route   DELETE /api/estimates/items/:id
- * @desc    Удалить позицию
- * @access  Private
+ * @desc    Удалить позицию (КРИТИЧНО!)
+ * @access  Private (требуется estimates.delete ИЛИ estimates.manage)
  */
-router.delete('/estimates/items/:id', deleteEstimateItem);
+router.delete('/estimates/items/:id', checkAnyPermission(['estimates', 'delete'], ['estimates', 'manage']), deleteEstimateItem);
 
 // ============================================================================
 // ESTIMATES ROUTES (основные операции со сметами)
@@ -134,51 +135,51 @@ router.delete('/estimates/items/:id', deleteEstimateItem);
 /**
  * @route   GET /api/estimates/:id/statistics
  * @desc    Получить статистику по смете
- * @access  Private
+ * @access  Private (требуется estimates.read)
  */
-router.get('/estimates/:id/statistics', getEstimateStatistics);
+router.get('/estimates/:id/statistics', checkPermission('estimates', 'read'), getEstimateStatistics);
 
 /**
  * @route   GET /api/estimates/:id/full
  * @desc    Получить полную смету с позициями и материалами
- * @access  Private
+ * @access  Private (требуется estimates.read)
  */
-router.get('/estimates/:id/full', getEstimateFullDetails);
+router.get('/estimates/:id/full', checkPermission('estimates', 'read'), getEstimateFullDetails);
 
 /**
  * @route   POST /api/estimates/full
  * @desc    Создать смету с позициями и материалами
- * @access  Private
+ * @access  Private (требуется estimates.create)
  */
-router.post('/estimates/full', createEstimateWithDetails);
+router.post('/estimates/full', checkPermission('estimates', 'create'), createEstimateWithDetails);
 
 /**
  * @route   GET /api/estimates/:id
  * @desc    Получить смету по ID
- * @access  Private
+ * @access  Private (требуется estimates.read)
  */
-router.get('/estimates/:id', getEstimateById);
+router.get('/estimates/:id', checkPermission('estimates', 'read'), getEstimateById);
 
 /**
  * @route   PUT /api/estimates/:id
  * @desc    Обновить смету
- * @access  Private
+ * @access  Private (требуется estimates.update ИЛИ estimates.manage)
  */
-router.put('/estimates/:id', updateEstimate);
+router.put('/estimates/:id', checkAnyPermission(['estimates', 'update'], ['estimates', 'manage']), updateEstimate);
 
 /**
  * @route   DELETE /api/estimates/:id
- * @desc    Удалить смету
- * @access  Private
+ * @desc    Удалить смету (КРИТИЧНО! Финансовые данные)
+ * @access  Private (требуется estimates.delete ИЛИ estimates.manage)
  */
-router.delete('/estimates/:id', deleteEstimate);
+router.delete('/estimates/:id', checkAnyPermission(['estimates', 'delete'], ['estimates', 'manage']), deleteEstimate);
 
 /**
  * @route   POST /api/export-estimate-excel
  * @desc    Экспорт сметы в Excel
- * @access  Private
+ * @access  Private (требуется estimates.read)
  */
-router.post('/export-estimate-excel', async (req, res) => {
+router.post('/export-estimate-excel', checkPermission('estimates', 'read'), async (req, res) => {
   console.log('🔐 Export route - User:', req.user);
   console.log('📦 Export route - Has estimate:', !!req.body?.estimate);
   await exportEstimateHandler(req, res);

@@ -18,7 +18,8 @@
         "baseUrl": ".",
         "paths": {
             "app/*": ["app/*"],
-            "shared/*": ["shared/*"]
+            "shared/*": ["shared/*"],
+            "views/*": ["app/*"]
         }
     },
     "exclude": ["node_modules"],

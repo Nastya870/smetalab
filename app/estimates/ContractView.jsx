@@ -198,7 +198,7 @@ const ContractView = ({ estimateId, projectId }) => {
           <Button
             variant="contained"
             color="primary"
-            size="large"
+            size="small"
             startIcon={<IconPlus />}
             onClick={handleOpenSelector}
             disabled={generating}

@@ -15,7 +15,9 @@ import {
   Typography,
   MenuItem,
   Autocomplete,
-  CircularProgress
+  CircularProgress,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import { IconTool, IconTrash } from '@tabler/icons-react';
 
@@ -293,16 +295,16 @@ const WorkDialog = ({ open, editMode, work, onClose, onSave, onDelete, onChange 
       <DialogActions sx={{ p: 2.5, justifyContent: 'space-between' }}>
         <Box>
           {editMode && (
-            <Button onClick={onDelete} color="error" variant="outlined" startIcon={<IconTrash />}>
+            <Button onClick={onDelete} color="error" variant="outlined" startIcon={<IconTrash />} size="small">
               Удалить работу
             </Button>
           )}
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button onClick={onClose} color="secondary" variant="outlined">
+          <Button onClick={onClose} color="secondary" variant="outlined" size="small">
             Отмена
           </Button>
-          <Button onClick={onSave} color="primary" variant="contained" disabled={!isFormValid}>
+          <Button onClick={onSave} color="primary" variant="contained" disabled={!isFormValid} size="small">
             {editMode ? 'Сохранить изменения' : 'Добавить работу'}
           </Button>
         </Box>

@@ -57,7 +57,8 @@ import {
   IconPercentage,
   IconFileTypeXls,
   IconFilter,
-  IconX
+  IconX,
+  IconTemplate
 } from '@tabler/icons-react';
 
 // project imports
@@ -66,7 +67,8 @@ import worksAPI from 'api/works';
 import workMaterialsAPI from 'api/workMaterials';
 import estimatesAPI from 'api/estimates';
 import materialsAPI from 'api/materials';
-import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu'; // ✅ Для управления основным сайдбаром
+import estimateTemplatesAPI from 'shared/lib/api/estimateTemplates';
+import { useGetMenuMaster } from 'api/menu'; // ✅ Только для получения данных меню
 import PriceCoefficientModal from './PriceCoefficientModal';
 import ObjectParametersSidebar from './ObjectParametersSidebar';
 import { fullTextSearch } from 'shared/lib/utils/fullTextSearch';
@@ -202,10 +204,20 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // ✅ State для экспорта Excel
   const [exportingExcel, setExportingExcel] = useState(false);
   
+  // ✅ State для сохранения как шаблон
+  const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false);
+  const [templateFormData, setTemplateFormData] = useState({ name: '', description: '', category: '' });
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  
   // ✅ Кеш материалов для быстрого открытия модалки
   const materialsCache = useRef(null);
   const materialsCacheTimestamp = useRef(null);
   const MATERIALS_CACHE_TTL = 5 * 60 * 1000; // 5 минут
+  
+  // ✅ Кеш для справочника работ (отдельно для global и tenant)
+  const worksCache = useRef({ global: null, tenant: null });
+  const worksCacheTimestamp = useRef({ global: null, tenant: null });
+  const WORKS_CACHE_TTL = 10 * 60 * 1000; // 10 минут
   
   // ✅ Debounced поиск материалов - отложенный запрос к серверу
   const debouncedSearchMaterials = useCallback(
@@ -218,59 +230,101 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     []
   );
 
-  // Fetch works from API
-  useEffect(() => {
-    const fetchWorks = async () => {
+  // ✅ Debounced автосохранение (через 3 секунды после последнего изменения)
+  const debouncedAutoSave = useCallback(
+    debounce(async (dataToSave) => {
+      if (!estimateId) return; // Автосохранение только для существующих смет
+      
       try {
-        setLoadingWorks(true);
-        setErrorWorks(null);
-        
-        // Фильтруем по типу справочника
-        const isGlobal = workSourceTab === 'global';
-        
-        // Загружаем ВСЕ работы
-        const response = await worksAPI.getAll({ 
-          isGlobal: isGlobal.toString(),
-          pageSize: 10000 // Загружаем все записи для виртуализации
-        });
-        
-        // Извлекаем массив data из response
-        const data = response.data || response;
-        
-        // Check if data is empty
-        if (!data || !Array.isArray(data) || data.length === 0) {
-          setErrorWorks('В справочнике пока нет работ. Добавьте работы в разделе "Справочники" → "Работы"');
-          setAvailableWorks([]);
-          return;
-        }
-        
-        // Transform API data to match expected format
-        const transformedWorks = data.map(work => ({
-          id: work.id.toString(),
-          code: work.code,
-          name: work.name,
-          category: work.section || '', // ✅ Используем section как category
-          unit: work.unit,
-          price: work.base_price || 0,
-          phase: work.phase || '',
-          section: work.section || '',
-          subsection: work.subsection || ''
-        }));
-        
-        setAvailableWorks(transformedWorks);
-      } catch (err) {
-        console.error('Ошибка загрузки работ:', err);
-        const errorMessage = err.response?.status === 401 
-          ? 'Требуется авторизация. Войдите в систему для доступа к справочнику работ.'
-          : err.message || 'Не удалось загрузить данные';
-        setErrorWorks(errorMessage);
-      } finally {
-        setLoadingWorks(false);
+        console.log('🔄 Автосохранение...');
+        await handleSaveToDatabase();
+        console.log('✅ Автосохранение выполнено');
+      } catch (error) {
+        console.error('❌ Ошибка автосохранения:', error);
+        // Не показываем snackbar при ошибке автосохранения (не мешаем пользователю)
       }
-    };
+    }, 3000), // 3 секунды
+    [estimateId]
+  );
 
-    fetchWorks();
-  }, [workSourceTab]); // ★ Перезагружаем при смене вкладки!
+  // ✅ Загрузить работы с кешированием
+  const loadWorksCached = useCallback(async (sourceType) => {
+    const now = Date.now();
+    
+    // Проверяем валидность кеша
+    if (worksCache.current[sourceType] && 
+        worksCacheTimestamp.current[sourceType] && 
+        (now - worksCacheTimestamp.current[sourceType]) < WORKS_CACHE_TTL) {
+      // Используем кеш - мгновенная загрузка!
+      console.log(`✅ Кеш работ (${sourceType}): ${worksCache.current[sourceType].length} записей`);
+      setAvailableWorks(worksCache.current[sourceType]);
+      setLoadingWorks(false);
+      return;
+    }
+    
+    // Кеш устарел или отсутствует - загружаем заново
+    try {
+      setLoadingWorks(true);
+      setErrorWorks(null);
+      
+      console.log(`🔄 Загрузка работ из API (${sourceType})...`);
+      
+      // Фильтруем по типу справочника
+      const isGlobal = sourceType === 'global';
+      
+      // Загружаем ВСЕ работы
+      const response = await worksAPI.getAll({ 
+        isGlobal: isGlobal.toString(),
+        pageSize: 10000 // Загружаем все записи для виртуализации
+      });
+      
+      // Извлекаем массив data из response
+      const data = response.data || response;
+      
+      // Check if data is empty
+      if (!data || !Array.isArray(data) || data.length === 0) {
+        setErrorWorks('В справочнике пока нет работ. Добавьте работы в разделе "Справочники" → "Работы"');
+        setAvailableWorks([]);
+        worksCache.current[sourceType] = [];
+        worksCacheTimestamp.current[sourceType] = now;
+        return;
+      }
+      
+      // Transform API data to match expected format
+      const transformedWorks = data.map(work => ({
+        id: work.id.toString(),
+        code: work.code,
+        name: work.name,
+        category: work.section || '', // ✅ Используем section как category
+        unit: work.unit,
+        price: work.base_price || 0,
+        phase: work.phase || '',
+        section: work.section || '',
+        subsection: work.subsection || ''
+      }));
+      
+      // Сохраняем в кеш
+      worksCache.current[sourceType] = transformedWorks;
+      worksCacheTimestamp.current[sourceType] = now;
+      
+      setAvailableWorks(transformedWorks);
+      console.log(`✅ Работы загружены и закешированы (${sourceType}): ${transformedWorks.length} записей`);
+    } catch (err) {
+      console.error('Ошибка загрузки работ:', err);
+      const errorMessage = err.response?.status === 401 
+        ? 'Требуется авторизация. Войдите в систему для доступа к справочнику работ.'
+        : err.message || 'Не удалось загрузить данные';
+      setErrorWorks(errorMessage);
+    } finally {
+      setLoadingWorks(false);
+    }
+  }, []);
+
+  // Fetch works from API при изменении вкладки
+  useEffect(() => {
+    const sourceType = workSourceTab === 'global' ? 'global' : 'tenant';
+    loadWorksCached(sourceType);
+  }, [workSourceTab, loadWorksCached]); // ★ Используем кешированную загрузку!
 
   // Смета - данные загружаются из localStorage или начинаются с пустого состояния
   // ✅ ИСПРАВЛЕНИЕ: НЕ загружаем из localStorage при инициализации
@@ -293,6 +347,9 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // ✅ Ref для предотвращения повторной загрузки
   const isInitialLoadRef = useRef(false);
   
+  // 🛡️ ЗАЩИТА: Флаг завершения начальной загрузки данных (предотвращает автосохранение пустой сметы)
+  const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
+  
   // ✅ Ref для callback onUnsavedChanges (избегаем лишних зависимостей)
   const onUnsavedChangesRef = useRef(onUnsavedChanges);
   
@@ -300,17 +357,17 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     onUnsavedChangesRef.current = onUnsavedChanges;
   }, [onUnsavedChanges]);
 
-  // ✅ Автоматическое переключение в режим просмотра при уходе со страницы
-  useEffect(() => {
-    // Cleanup функция - выполнится при размонтировании компонента
-    return () => {
-      // Если сайдбар был открыт (режим расчета), закрываем его
-      if (sidebarVisible) {
-        // Закрываем основной левый сайдбар, если он был открыт
-        handlerDrawerOpen(false);
-      }
-    };
-  }, [sidebarVisible]); // Зависимость от sidebarVisible чтобы знать текущее состояние
+  // ❌ ОТКЛЮЧЕНО: Автоматическое сворачивание основного сайдбара
+  // useEffect(() => {
+  //   // Cleanup функция - выполнится при размонтировании компонента
+  //   return () => {
+  //     // Если сайдбар был открыт (режим расчета), закрываем его
+  //     if (sidebarVisible) {
+  //       // Закрываем основной левый сайдбар, если он был открыт
+  //       handlerDrawerOpen(false);
+  //     }
+  //   };
+  // }, [sidebarVisible]); // Зависимость от sidebarVisible чтобы знать текущее состояние
 
   // ❌ УДАЛЕНО: Сохранение в localStorage больше не нужно
   // Данные хранятся только в БД, localStorage используется только для estimateId
@@ -320,11 +377,17 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     save: handleSaveToDatabase
   }));
 
-  // ✅ Отслеживание изменений estimateData
+  // ✅ Отслеживание изменений estimateData + автосохранение
   useEffect(() => {
     // Игнорируем первый рендер (когда savedEstimateDataRef еще не установлен)
     if (savedEstimateDataRef.current === null) {
       savedEstimateDataRef.current = JSON.stringify(estimateData);
+      return;
+    }
+
+    // 🛡️ ЗАЩИТА #1: НЕ автосохранять до завершения начальной загрузки
+    if (!isInitialLoadComplete) {
+      console.log('⏸️ Автосохранение приостановлено: ожидание загрузки данных');
       return;
     }
 
@@ -338,7 +401,12 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     if (onUnsavedChangesRef.current) {
       onUnsavedChangesRef.current(hasChanges);
     }
-  }, [estimateData]); // Только estimateData в зависимостях!
+    
+    // ✅ Запускаем автосохранение при наличии изменений
+    if (hasChanges && estimateData.sections.length > 0) {
+      debouncedAutoSave(estimateData);
+    }
+  }, [estimateData, debouncedAutoSave, isInitialLoadComplete]); // Добавлен isInitialLoadComplete
 
   // Фильтрация работ с полнотекстовым поиском
   // Поддерживает поиск по нескольким словам одновременно
@@ -507,16 +575,12 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     }
   };
 
-  // Toggle режима расчёта/просмотра (управление ОСНОВНЫМ сайдбаром)
-  const { menuMaster } = useGetMenuMaster();
-  const mainDrawerOpen = menuMaster.isDashboardDrawerOpened;
-
+  // Toggle режима расчёта/просмотра - справочник как overlay, главный сайдбар НЕ трогаем
   const toggleSidebar = () => {
-    // Переключаем основной левый сайдбар
-    handlerDrawerOpen(!mainDrawerOpen);
-    // Также переключаем справочник работ синхронно
-    setSidebarVisible((prev) => !prev);
+    setSidebarVisible(prev => !prev);
   };
+
+  // ✅ Справочник работ теперь overlay - не требует cleanup
 
   // Очистить смету
   const handleClearEstimate = () => {
@@ -578,6 +642,57 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     } finally {
       setExportingExcel(false);
     }
+  };
+
+  // ============ СОХРАНЕНИЕ КАК ШАБЛОН ============
+  const handleSaveAsTemplate = () => {
+    if (!estimateId) {
+      showSnackbar('Сначала сохраните смету в БД', 'warning');
+      return;
+    }
+    
+    if (estimateData.sections.length === 0) {
+      showSnackbar('Смета пуста. Добавьте работы перед сохранением шаблона', 'warning');
+      return;
+    }
+    
+    // Открываем диалог
+    setTemplateFormData({
+      name: `Шаблон: ${estimateMetadata.name || 'Без названия'}`,
+      description: estimateMetadata.description || '',
+      category: ''
+    });
+    setSaveTemplateDialogOpen(true);
+  };
+
+  const handleSaveTemplateConfirm = async () => {
+    try {
+      setSavingTemplate(true);
+      
+      // Объединяем estimateId и данные формы в один объект
+      await estimateTemplatesAPI.createTemplate({
+        estimateId,
+        ...templateFormData
+      });
+      
+      showSnackbar('Шаблон успешно создан!', 'success');
+      setSaveTemplateDialogOpen(false);
+    } catch (error) {
+      console.error('Error creating template:', error);
+      showSnackbar(
+        error.response?.data?.message || 'Ошибка при создании шаблона',
+        'error'
+      );
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const handleTemplateFormChange = (field) => (event) => {
+    setTemplateFormData({
+      ...templateFormData,
+      [field]: event.target.value
+    });
   };
 
   // ============ ДЕЙСТВИЯ С МАТЕРИАЛАМИ ============
@@ -1080,6 +1195,24 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // Сохранить смету в БД
   const handleSaveToDatabase = async () => {
     try {
+      // 🛡️ ЗАЩИТА #3: Подтверждение при сохранении пустой сметы
+      if (estimateData.sections.length === 0 || 
+          estimateData.sections.every(s => !s.items || s.items.length === 0)) {
+        const confirmSave = window.confirm(
+          '⚠️ ВНИМАНИЕ!\n\n' +
+          'Смета пустая - в ней нет ни одной работы.\n\n' +
+          'Вы уверены, что хотите сохранить пустую смету?\n' +
+          'Это удалит все существующие данные из базы данных!'
+        );
+        
+        if (!confirmSave) {
+          console.log('❌ Сохранение пустой сметы отменено пользователем');
+          return;
+        }
+        
+        console.warn('⚠️ Пользователь подтвердил сохранение пустой сметы');
+      }
+      
       setSaving(true);
       showSnackbar('Смета сохраняется...', 'info');
 
@@ -1204,15 +1337,13 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         return;
       }
       
-      // ✅ ДВОЙНАЯ ЗАЩИТА: проверяем и ref, и наличие данных
-      const hasData = estimateData.sections.length > 0;
-      if (isInitialLoadRef.current || hasData) {
-        return;
-      }
-
+      // ✅ Сбрасываем флаг загрузки при изменении estimateId
+      isInitialLoadRef.current = false;
+      
       try {
         setLoading(true);
         isInitialLoadRef.current = true; // Отмечаем, что загрузка началась
+        console.log('🔄 Loading estimate:', estimateIdToLoad);
 
         const estimate = await estimatesAPI.getById(estimateIdToLoad);
         
@@ -1315,11 +1446,17 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           onUnsavedChangesRef.current(false);
         }
         
+        // 🛡️ ЗАЩИТА #2: Разрешаем автосохранение только ПОСЛЕ успешной загрузки
+        setIsInitialLoadComplete(true);
+        console.log('✅ Начальная загрузка завершена, автосохранение активировано');
+        
         showSnackbar(`📂 Смета "${estimate.name}" загружена из БД`, 'info');
       } catch (error) {
         console.error('Error auto-loading estimate:', error);
         // Не показываем ошибку пользователю при автозагрузке
         localStorage.removeItem('currentEstimateId');
+        // 🛡️ Даже при ошибке разрешаем автосохранение (чтобы не блокировать работу)
+        setIsInitialLoadComplete(true);
       } finally {
         setLoading(false);
       }
@@ -1410,6 +1547,18 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
 
         <Button
           variant="outlined"
+          color="info"
+          startIcon={<IconTemplate />}
+          onClick={handleSaveAsTemplate}
+          size="small"
+          sx={{ py: 0.5 }}
+          disabled={!estimateId || estimateData.sections.length === 0}
+        >
+          Сохранить как шаблон
+        </Button>
+
+        <Button
+          variant="outlined"
           color="secondary"
           startIcon={<IconPercentage />}
           onClick={() => setCoefficientModalOpen(true)}
@@ -1447,14 +1596,14 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         </Button>
       </Box>
 
-      {/* Основной контейнер с сайдбаром и сметой */}
+      {/* Основной контейнер - смета на всю ширину (справочник теперь overlay drawer) */}
       <Box sx={{ display: 'flex', gap: 2, height: 'calc(100vh - 250px)', minHeight: 500 }}>
-        {/* ЛЕВЫЙ САЙДБАР - Справочник работ */}
-        {sidebarVisible && (
+        {/* Справочник работ перенесен в Drawer (см. ниже) - этот блок будет удален */}
+        <Box sx={{ display: 'none' }}>
           <Paper
             sx={{
               width: 420,
-              flexShrink: 0,
+              height: '100%',
               display: 'flex',
               flexDirection: 'column',
               borderRadius: 2
@@ -1746,10 +1895,10 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
               )}
             </Box>
           </Paper>
-        )}
+        </Box>
 
         {/* ПРАВАЯ ЧАСТЬ - Смета */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+        <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
           {/* Таблица сметы */}
           <Box sx={{ flex: 1, overflow: 'auto' }}>
             <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
@@ -2345,7 +2494,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
               </Table>
             </TableContainer>
           </Box>
-        </Box>
+        </Paper>
       </Box>
 
       {/* 🎨 Компактный диалог выбора материала */}
@@ -2548,6 +2697,395 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         open={parametersWidgetOpen}
         onToggle={() => setParametersWidgetOpen(!parametersWidgetOpen)}
       />
+
+      {/* Диалог сохранения как шаблон */}
+      <Dialog
+        open={saveTemplateDialogOpen}
+        onClose={() => !savingTemplate && setSaveTemplateDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Сохранить как шаблон</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Название шаблона"
+              value={templateFormData.name}
+              onChange={handleTemplateFormChange('name')}
+              required
+              fullWidth
+              helperText='Например: "Шаблон: Ремонт квартиры"'
+            />
+            <TextField
+              label="Описание"
+              value={templateFormData.description}
+              onChange={handleTemplateFormChange('description')}
+              multiline
+              rows={3}
+              fullWidth
+              helperText="Краткое описание шаблона (необязательно)"
+            />
+            <TextField
+              label="Категория"
+              value={templateFormData.category}
+              onChange={handleTemplateFormChange('category')}
+              fullWidth
+              helperText='Например: "Квартиры", "Офисы", "Торговые центры"'
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSaveTemplateDialogOpen(false)} disabled={savingTemplate}>
+            Отмена
+          </Button>
+          <Button
+            onClick={handleSaveTemplateConfirm}
+            variant="contained"
+            disabled={savingTemplate || !templateFormData.name.trim()}
+            startIcon={savingTemplate ? <CircularProgress size={16} /> : <IconTemplate />}
+          >
+            {savingTemplate ? 'Сохранение...' : 'Сохранить'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 📚 OVERLAY DRAWER - Справочник работ */}
+      <Drawer
+        anchor="left"
+        open={sidebarVisible}
+        onClose={() => setSidebarVisible(false)}
+        variant="persistent"
+        hideBackdrop={true}
+        sx={{
+          zIndex: (theme) => theme.zIndex.drawer + 2,
+          '& .MuiDrawer-paper': {
+            width: 360,
+            boxSizing: 'border-box',
+            boxShadow: '4px 0 12px rgba(0, 0, 0, 0.2)',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            height: '100vh',
+          },
+        }}
+        ModalProps={{
+          keepMounted: true,
+          disableEnforceFocus: true,
+          disableAutoFocus: true,
+          disableRestoreFocus: true,
+        }}
+      >
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          {/* Заголовок с кнопкой закрытия */}
+          <Box sx={{ 
+            p: 1.5, 
+            borderBottom: 1, 
+            borderColor: 'divider',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start'
+          }}>
+            <Box>
+              <Typography variant="subtitle1" fontWeight={600}>
+                Справочник работ
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Выберите работы для добавления в смету
+              </Typography>
+            </Box>
+            <IconButton 
+              size="small" 
+              onClick={() => setSidebarVisible(false)}
+              sx={{ ml: 1 }}
+            >
+              <IconX size={18} />
+            </IconButton>
+          </Box>
+
+          {/* Tabs для переключения между глобальными и тенантными работами */}
+          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <Tabs 
+              value={workSourceTab} 
+              onChange={(e, newValue) => {
+                setWorkSourceTab(newValue);
+                setSearchTerm(''); // Сбрасываем поиск
+              }}
+              variant="fullWidth"
+            >
+              <Tab label="Глобальные работы" value="global" />
+              <Tab label="Мои работы" value="tenant" />
+            </Tabs>
+          </Box>
+
+          {/* Поиск */}
+          <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Поиск работ..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <IconSearch size={18} />
+                  </InputAdornment>
+                )
+              }}
+            />
+          </Box>
+
+          {/* ✅ Кнопка открытия фильтров */}
+          {availableSections.length > 0 && (
+            <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+              <Button
+                fullWidth
+                variant={selectedSection ? 'contained' : 'outlined'}
+                size="small"
+                startIcon={<IconFilter size={16} />}
+                onClick={() => setFiltersPanelOpen(true)}
+                sx={{ justifyContent: 'flex-start' }}
+              >
+                Фильтры
+                {selectedSection && (
+                  <Chip 
+                    label="1" 
+                    size="small" 
+                    color="primary"
+                    sx={{ ml: 1, height: 18, fontSize: '0.65rem' }}
+                  />
+                )}
+              </Button>
+            </Box>
+          )}
+
+          {/* ✅ Вложенный Drawer фильтров */}
+          <Drawer
+            anchor="left"
+            open={filtersPanelOpen}
+            onClose={() => setFiltersPanelOpen(false)}
+            sx={{
+              zIndex: (theme) => theme.zIndex.drawer + 3, // Поверх основного drawer
+              '& .MuiDrawer-paper': {
+                width: 320,
+                boxSizing: 'border-box'
+              }
+            }}
+          >
+            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              {/* Заголовок */}
+              <Box sx={{ 
+                p: 2, 
+                borderBottom: 1, 
+                borderColor: 'divider',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+                  Фильтры
+                </Typography>
+                <IconButton size="small" onClick={() => setFiltersPanelOpen(false)}>
+                  <IconX size={18} />
+                </IconButton>
+              </Box>
+
+              {/* Контент фильтров */}
+              <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
+                    📋 По стадии
+                  </Typography>
+                  <FormControl component="fieldset" fullWidth>
+                    <RadioGroup
+                      value={selectedSection || 'all'}
+                      onChange={(e) => setSelectedSection(e.target.value === 'all' ? null : e.target.value)}
+                    >
+                      <FormControlLabel
+                        value="all"
+                        control={<Radio size="small" />}
+                        label={
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', pr: 1 }}>
+                            <Typography variant="body2">Все</Typography>
+                            <Chip label={worksAfterSearch.length} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
+                          </Box>
+                        }
+                        sx={{ mb: 0.5 }}
+                      />
+                      {availableSections.map(section => {
+                        const count = worksAfterSearch.filter(w => w.section === section).length;
+                        return (
+                          <FormControlLabel
+                            key={section}
+                            value={section}
+                            control={<Radio size="small" />}
+                            label={
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', pr: 1 }}>
+                                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                                  {section}
+                                </Typography>
+                                <Chip label={count} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
+                              </Box>
+                            }
+                            sx={{ mb: 0.5 }}
+                          />
+                        );
+                      })}
+                    </RadioGroup>
+                  </FormControl>
+                </Box>
+              </Box>
+
+              {/* Кнопки действий */}
+              <Box sx={{ 
+                p: 2, 
+                borderTop: 1, 
+                borderColor: 'divider',
+                display: 'flex',
+                gap: 1
+              }}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    setSelectedSection(null);
+                    setFiltersPanelOpen(false);
+                  }}
+                >
+                  Сбросить
+                </Button>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  size="small"
+                  onClick={() => setFiltersPanelOpen(false)}
+                >
+                  Применить
+                </Button>
+              </Box>
+            </Box>
+          </Drawer>
+
+          {/* Список работ - ВИРТУАЛИЗИРОВАННЫЙ */}
+          <Box sx={{ flex: 1, overflow: 'hidden' }}>
+            {/* Загрузка */}
+            {loadingWorks && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+                <CircularProgress size={40} />
+              </Box>
+            )}
+
+            {/* Ошибка */}
+            {errorWorks && !loadingWorks && (
+              <Box sx={{ px: 2, py: 2 }}>
+                <Alert severity="error">
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    {errorWorks}
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="error"
+                    onClick={() => window.location.reload()}
+                  >
+                    Обновить страницу
+                  </Button>
+                </Alert>
+              </Box>
+            )}
+
+            {/* Виртуализированный список работ */}
+            {!loadingWorks && !errorWorks && (
+              <Virtuoso
+                style={{ height: '100%' }}
+                data={filteredWorks}
+                itemContent={(index, work) => {
+                  const isAdded = addedWorkIds.has(work.id);
+                  return (
+                    <React.Fragment key={work.id}>
+                      <ListItem 
+                        disablePadding
+                        secondaryAction={
+                          !isAdded && (
+                            <Tooltip title="Перенести в смету">
+                              <IconButton
+                                edge="end"
+                                size="small"
+                                color="primary"
+                                onClick={() => handleTransferToEstimate([work])}
+                                sx={{ mr: 1 }}
+                              >
+                                <IconArrowRight size={20} />
+                              </IconButton>
+                            </Tooltip>
+                          )
+                        }
+                      >
+                        <ListItemButton
+                          disabled={isAdded}
+                          sx={{
+                            py: 1.5,
+                            px: 2,
+                            '&:hover': { bgcolor: 'action.hover' }
+                          }}
+                        >
+                          <ListItemText
+                            primary={
+                              <Box>
+                                <Typography variant="body2" fontWeight={500} sx={{ mb: 0.5 }}>
+                                  {work.code} • {work.name}
+                                </Typography>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                  {work.category && (
+                                    <Chip 
+                                      label={work.category} 
+                                      size="small" 
+                                      color="primary"
+                                      variant="outlined"
+                                      sx={{ height: 20, fontSize: '0.7rem', '& .MuiChip-label': { px: 0.75 } }} 
+                                    />
+                                  )}
+                                  {work.image_url && (
+                                    <img 
+                                      src={work.image_url} 
+                                      alt={work.name}
+                                      style={{
+                                        width: 24,
+                                        height: 24,
+                                        objectFit: 'cover',
+                                        borderRadius: 4,
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        marginLeft: 4
+                                      }}
+                                      onError={(e) => { e.target.style.display = 'none'; }}
+                                    />
+                                  )}
+                                  <Typography variant="caption" color="text.secondary">
+                                    {work.unit}
+                                  </Typography>
+                                  <Typography variant="caption" fontWeight={600} color="primary">
+                                    {formatCurrency(work.price)}
+                                  </Typography>
+                                </Stack>
+                              </Box>
+                            }
+                          />
+                          {isAdded && (
+                            <Chip label="В смете" size="small" color="success" sx={{ ml: 1, height: 22 }} />
+                          )}
+                        </ListItemButton>
+                      </ListItem>
+                      <Divider />
+                    </React.Fragment>
+                  );
+                }}
+              />
+            )}
+          </Box>
+        </Box>
+      </Drawer>
     </Box>
   );
 });

@@ -3,6 +3,9 @@ import { Readable } from 'stream';
 import { StatusCodes } from 'http-status-codes';
 import * as worksRepository from '../repositories/worksRepository.js';
 
+// Максимальное количество элементов в одном import запросе
+const BULK_IMPORT_LIMIT = 500;
+
 /**
  * Экспорт работ в CSV
  * GET /api/works/export
@@ -184,6 +187,15 @@ export async function importFromCSV(req, res) {
     if (results.length === 0) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         message: 'CSV файл пустой или не содержит корректных данных'
+      });
+    }
+
+    // 🛡️ Защита от DoS: лимит на количество элементов
+    if (results.length > BULK_IMPORT_LIMIT) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        message: `Превышен лимит импорта: максимум ${BULK_IMPORT_LIMIT} работ за раз. В файле: ${results.length}`,
+        limit: BULK_IMPORT_LIMIT,
+        received: results.length
       });
     }
 

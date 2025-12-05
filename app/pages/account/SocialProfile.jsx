@@ -73,7 +73,8 @@ const SocialProfile = () => {
 
   // Обновляем formData когда tenant загружается или изменяется
   useEffect(() => {
-    if (tenant) {setFormData({
+    if (tenant) {
+setFormData({
         companyFullName: tenant.companyFullName || '',
         inn: tenant.inn || '',
         ogrn: tenant.ogrn || '',
@@ -88,7 +89,8 @@ const SocialProfile = () => {
         accountantName: tenant.accountantName || ''
       });
     }
-    if (user) {setAvatarUrl(user.avatar_url || User1);
+    if (user) {
+setAvatarUrl(user.avatar_url || User1);
     }
   }, [tenant, user]);
 
@@ -138,7 +140,8 @@ const SocialProfile = () => {
         window.dispatchEvent(new StorageEvent('storage', {
           key: 'user',
           newValue: JSON.stringify(updatedUser)
-        }));alert('Фото профиля успешно удалено');
+        }));
+alert('Фото профиля успешно удалено');
         window.location.reload();
       } catch (error) {
         console.error('[SocialProfile] Error removing avatar:', error);
@@ -174,15 +177,18 @@ const SocialProfile = () => {
   };
 
   const handleSave = async () => {
-    try {// Сохраняем данные организации
+    try {
+// Сохраняем данные организации
       let updatedData = { ...formData };
-      const response = await tenantsAPI.update(tenant.id, updatedData);// Если есть новый аватар пользователя, загружаем его
+      const response = await tenantsAPI.update(tenant.id, updatedData);
+// Если есть новый аватар пользователя, загружаем его
       if (avatarFile) {
         const avatarFormData = new FormData();
         avatarFormData.append('avatar', avatarFile);
         
         try {
-          const uploadResponse = await usersAPI.uploadAvatar(user.id, avatarFormData);// Обновляем user в localStorage
+          const uploadResponse = await usersAPI.uploadAvatar(user.id, avatarFormData);
+// Обновляем user в localStorage
           const updatedUser = { 
             ...user, 
             avatar_url: uploadResponse.avatar_url 
@@ -199,7 +205,9 @@ const SocialProfile = () => {
       const updatedTenant = { 
         ...tenant,
         ...response
-      };localStorage.setItem('tenant', JSON.stringify(updatedTenant));alert('Данные успешно сохранены! Страница будет перезагружена.');
+      };
+localStorage.setItem('tenant', JSON.stringify(updatedTenant));
+alert('Данные успешно сохранены! Страница будет перезагружена.');
       
       // Перезагружаем страницу чтобы обновить данные в useAuth
       setTimeout(() => {
@@ -260,9 +268,9 @@ const SocialProfile = () => {
             <Tooltip title="Редактировать профиль">
               <Button
                 variant="outlined"
-                startIcon={<IconEdit size={18} />}
-                onClick={handleEdit}
-                size="medium"
+                startIcon={<IconX size={18} />}
+                onClick={handleCancel}
+                size="small"
               >
                 Редактировать
               </Button>
@@ -273,7 +281,7 @@ const SocialProfile = () => {
                 variant="contained"
                 startIcon={<IconCheck size={18} />}
                 onClick={handleSave}
-                size="medium"
+                size="small"
                 color="success"
               >
                 Сохранить

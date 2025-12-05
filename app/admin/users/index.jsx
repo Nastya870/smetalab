@@ -158,10 +158,9 @@ const UsersManagement = () => {
     const roleMap = {
       super_admin: 'Супер Админ',
       admin: 'Админ',
-      project_manager: 'Менеджер',
+      manager: 'Менеджер',
       estimator: 'Сметчик',
-      supplier: 'Поставщик',
-      viewer: 'Наблюдатель'
+      supplier: 'Снабженец'
     };
 
     return roles.map((role) => roleMap[role.name] || role.name).join(', ');
@@ -172,7 +171,9 @@ const UsersManagement = () => {
     if (!roles || roles.length === 0) return 'default';
     if (roles.some((r) => r.name === 'super_admin')) return 'error';
     if (roles.some((r) => r.name === 'admin')) return 'warning';
-    if (roles.some((r) => r.name === 'project_manager')) return 'primary';
+    if (roles.some((r) => r.name === 'manager')) return 'primary';
+    if (roles.some((r) => r.name === 'estimator')) return 'info';
+    if (roles.some((r) => r.name === 'supplier')) return 'success';
     return 'secondary';
   };
 

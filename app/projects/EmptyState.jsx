@@ -24,7 +24,7 @@ const EmptyState = ({ onCreateClick }) => {
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
         Создайте ваш первый проект, чтобы начать работу
       </Typography>
-      <Button variant="contained" color="primary" startIcon={<IconPlus />} onClick={onCreateClick}>
+      <Button variant="contained" color="primary" startIcon={<IconPlus />} onClick={onCreateClick} size="small">
         Создать проект
       </Button>
     </Box>

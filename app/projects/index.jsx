@@ -284,35 +284,93 @@ const ProjectsPage = () => {
   }, []);
 
   return (
-    <MainCard title="Проекты">
+    <MainCard title="Проекты" data-testid="projects-page">
       {/* Шапка с кнопкой добавления */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h3" color="textPrimary">
+      <Box sx={{ mb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '0.9375rem', color: '#374151' }} data-testid="projects-title">
           Управление проектами
         </Typography>
-        <Button variant="contained" color="primary" startIcon={<IconPlus />} size="large" onClick={handleOpenCreate}>
+        <Button 
+          variant="contained" 
+          startIcon={<IconPlus size={16} />} 
+          size="small" 
+          onClick={handleOpenCreate} 
+          disableElevation
+          sx={{
+            height: 32,
+            borderRadius: '8px',
+            textTransform: 'none',
+            fontWeight: 500,
+            fontSize: '0.8125rem',
+            bgcolor: '#6366F1',
+            px: 2,
+            '&:hover': {
+              bgcolor: '#4F46E5'
+            }
+          }}
+          data-testid="create-project-btn"
+        >
           Создать проект
         </Button>
       </Box>
 
-      <Divider sx={{ mb: 3 }} />
-
-      {/* Статистика - компактная в одну строку */}
-      <Box sx={{ mb: 3, display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'center' }}>
-        <ProjectStatsCard title="Всего проектов" value={stats.total} bgcolor="primary.light" color="primary.dark" />
-        <ProjectStatsCard title="Планирование" value={stats.planning} bgcolor="warning.light" color="warning.dark" />
-        <ProjectStatsCard title="Согласование" value={stats.approval} bgcolor="info.light" color="info.dark" />
-        <ProjectStatsCard title="В работе" value={stats.inProgress} bgcolor="secondary.light" color="secondary.dark" />
-        <ProjectStatsCard title="Отказ" value={stats.rejected} bgcolor="error.light" color="error.dark" />
-        <ProjectStatsCard title="Завершено" value={stats.completed} bgcolor="success.light" color="success.dark" />
+      {/* Статистика - компактная строка */}
+      <Box sx={{ mb: 1.5 }}>
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            color: '#9CA3AF', 
+            fontWeight: 500, 
+            fontSize: '0.625rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            display: 'block',
+            mb: 0.5
+          }}
+        >
+          Статусы проектов
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <ProjectStatsCard title="Всего" value={stats.total} color="#6366F1" />
+          <ProjectStatsCard title="Планирование" value={stats.planning} color="#F59E0B" />
+          <ProjectStatsCard title="Согласование" value={stats.approval} color="#3B82F6" />
+          <ProjectStatsCard title="В работе" value={stats.inProgress} color="#8B5CF6" />
+          <ProjectStatsCard title="Отказ" value={stats.rejected} color="#EF4444" />
+          <ProjectStatsCard title="Завершено" value={stats.completed} color="#10B981" />
+        </Box>
       </Box>
 
-      {/* Поиск и фильтры (Phase 1 + Phase 2) */}
-      <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* Поиск и фильтры - компактный */}
+      <Box sx={{ mb: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}>
         {/* Search с debounce */}
         <TextField
-          sx={{ flex: '1 1 300px' }}
-          placeholder="Поиск по названию, объекту, заказчику, подрядчику, адресу..."
+          sx={{ 
+            width: 280,
+            '& .MuiOutlinedInput-root': {
+              height: 36,
+              borderRadius: '8px',
+              bgcolor: '#F9FAFB',
+              '& fieldset': {
+                borderColor: '#E5E7EB'
+              },
+              '&:hover fieldset': {
+                borderColor: '#D1D5DB'
+              },
+              '&.Mui-focused fieldset': {
+                borderColor: 'primary.main',
+                borderWidth: 1.5
+              }
+            },
+            '& .MuiOutlinedInput-input': {
+              py: 0.75,
+              fontSize: '0.8125rem',
+              '&::placeholder': {
+                color: '#9CA3AF',
+                opacity: 1
+              }
+            }
+          }}
+          placeholder="Поиск по названию, заказчику..."
           value={searchInput}
           onChange={(e) => {
             setSearchInput(e.target.value);
@@ -321,15 +379,35 @@ const ProjectsPage = () => {
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <IconSearch size={20} />
+                <IconSearch size={16} style={{ color: '#9CA3AF' }} />
               </InputAdornment>
             )
           }}
         />
 
         {/* Фильтр по статусу */}
-        <FormControl sx={{ minWidth: 200 }}>
-          <InputLabel>Статус</InputLabel>
+        <FormControl 
+          sx={{ 
+            minWidth: 140,
+            '& .MuiOutlinedInput-root': {
+              height: 36,
+              borderRadius: '8px',
+              bgcolor: '#F9FAFB',
+              '& fieldset': {
+                borderColor: '#E5E7EB'
+              },
+              '&:hover fieldset': {
+                borderColor: '#D1D5DB'
+              },
+              '&.Mui-focused fieldset': {
+                borderColor: 'primary.main',
+                borderWidth: 1.5
+              }
+            }
+          }}
+          size="small"
+        >
+          <InputLabel sx={{ fontSize: '0.8125rem' }}>Статус</InputLabel>
           <Select
             value={statusFilter}
             label="Статус"
@@ -337,6 +415,7 @@ const ProjectsPage = () => {
               setStatusFilter(e.target.value);
               setPage(0);
             }}
+            sx={{ fontSize: '0.8125rem' }}
           >
             <MenuItem value="">Все</MenuItem>
             <MenuItem value="planning">Планирование</MenuItem>
@@ -355,9 +434,9 @@ const ProjectsPage = () => {
         </Box>
       ) : projects.length > 0 ? (
         <>
-          <Grid container spacing={3}>
+          <Grid container spacing={1.5}>
             {projects.map((project) => (
-              <Grid size={{ xs: 12, md: 6, lg: 4 }} key={project.id}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, xl: 3 }} key={project.id}>
                 <ProjectCard
                   project={project}
                   onOpen={handleOpenProject}

@@ -85,29 +85,28 @@ export default function NotificationSection() {
 
   return (
     <>
-      <Box sx={{ ml: 2 }}>
-        <Avatar
-          variant="rounded"
-          sx={{
-            ...theme.typography.commonAvatar,
-            ...theme.typography.mediumAvatar,
-            transition: 'all .2s ease-in-out',
-            bgcolor: 'secondary.light',
-            color: 'secondary.dark',
-            '&[aria-controls="menu-list-grow"],&:hover': {
-              bgcolor: 'secondary.dark',
-              color: 'secondary.light'
-            }
-          }}
-          ref={anchorRef}
-          aria-controls={open ? 'menu-list-grow' : undefined}
-          aria-haspopup="true"
-          onClick={handleToggle}
-          color="inherit"
-        >
-          <IconBell stroke={1.5} size="20px" />
-        </Avatar>
-      </Box>
+      <Avatar
+        variant="rounded"
+        sx={{
+          width: 34,
+          height: 34,
+          bgcolor: '#F2F4F7',
+          color: 'primary.main',
+          borderRadius: '10px',
+          cursor: 'pointer',
+          transition: 'all .2s ease-in-out',
+          '&[aria-controls="menu-list-grow"],&:hover': {
+            bgcolor: 'primary.light',
+            color: 'primary.dark'
+          }
+        }}
+        ref={anchorRef}
+        aria-controls={open ? 'menu-list-grow' : undefined}
+        aria-haspopup="true"
+        onClick={handleToggle}
+      >
+        <IconBell stroke={1.5} size="18px" />
+      </Avatar>
       <Popper
         placement={downMD ? 'bottom' : 'bottom-end'}
         open={open}

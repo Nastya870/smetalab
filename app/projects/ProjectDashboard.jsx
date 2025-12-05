@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 // material-ui
 import {
@@ -35,7 +35,6 @@ import {
   IconEdit,
   IconFileText,
   IconClock,
-  IconFileDescription,
   IconTrash
 } from '@tabler/icons-react';
 
@@ -45,24 +44,44 @@ import ProjectDialog from './ProjectDialog';
 import CreateEstimateDialog from '../estimates/CreateEstimateDialog';
 import StatusChangeMenu from './StatusChangeMenu';
 import FinancialSummaryChart from './FinancialSummaryChart';
-import { getStatusColor, getStatusText, formatDate } from './utils';
+import { getStatusText, formatDate } from './utils';
 import { emptyProject } from './mockData';
 import { projectsAPI } from 'api/projects';
 import { estimatesAPI } from 'api/estimatesAPI';
 
+// Hooks
+import { useProjectDashboard, invalidateProjectDashboard } from 'hooks/useProjectDashboard';
+
 // ==============================|| PROJECT DASHBOARD ||============================== //
 
+/**
+ * Project Dashboard Page
+ * 
+ * ОПТИМИЗАЦИЯ: Использует единый SWR hook вместо 4+ отдельных useEffect:
+ * - Раньше: fetchProject + fetchTeam + fetchEstimates + refreshProject каждые 3 сек
+ * - Теперь: useProjectDashboard загружает всё одним запросом
+ * 
+ * Дополнительно FinancialSummaryChart больше НЕ делает N×2 запросов
+ * (по запросу на акты и закупки для каждой сметы)
+ */
 const ProjectDashboard = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [project, setProject] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  
+  // Используем оптимизированный hook вместо 4 useEffect
+  const { 
+    project, 
+    team: teamMembers, 
+    estimates, 
+    financialSummary,
+    isLoading: loading, 
+    error: loadError,
+    refresh 
+  } = useProjectDashboard(id);
+  
   const [openDialog, setOpenDialog] = useState(false);
   const [currentProject, setCurrentProject] = useState(emptyProject);
   const [openEstimateDialog, setOpenEstimateDialog] = useState(false);
-  const [teamMembers, setTeamMembers] = useState([]);
-  const [estimates, setEstimates] = useState([]);
   const [statusLoading, setStatusLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
@@ -89,82 +108,6 @@ const ProjectDashboard = () => {
     return statusObj?.label || status || 'Черновик';
   };
 
-  // Загружаем проект из API
-  useEffect(() => {
-    const fetchProject = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await projectsAPI.getById(id);
-        setProject(data);
-      } catch (err) {
-        console.error('Error fetching project:', err);
-        setError(err.message || 'Ошибка при загрузке проекта');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (id) {
-      fetchProject();
-    }
-  }, [id]);
-
-  // Функция для перезагрузки данных проекта (без spinner)
-  const refreshProject = async () => {
-    try {
-      const data = await projectsAPI.getById(id);
-      setProject(data);} catch (err) {
-      console.error('Error refreshing project:', err);
-    }
-  };
-
-  // Автоматическое обновление данных проекта каждые 3 секунды
-  useEffect(() => {
-    if (!id) return;
-
-    const interval = setInterval(() => {
-      refreshProject();
-    }, 3000); // Обновляем каждые 3 секунды
-
-    return () => clearInterval(interval);
-  }, [id]);
-
-  // Загружаем команду проекта из API
-  useEffect(() => {
-    const fetchTeam = async () => {
-      try {
-        const data = await projectsAPI.getTeam(id);
-        setTeamMembers(data);
-      } catch (err) {
-        console.error('Error fetching team:', err);
-        // Оставляем пустой массив при ошибке
-        setTeamMembers([]);
-      }
-    };
-
-    if (id) {
-      fetchTeam();
-    }
-  }, [id]);
-
-  // Загружаем список смет проекта
-  useEffect(() => {
-    const fetchEstimates = async () => {
-      if (!id) return;
-      
-      try {
-        const data = await estimatesAPI.getByProjectId(id);
-        setEstimates(data || []);
-      } catch (err) {
-        console.error('Error loading estimates:', err);
-        setEstimates([]);
-      }
-    };
-
-    fetchEstimates();
-  }, [id]);
-
   // Открыть модалку для редактирования
   const handleOpenEdit = (project) => {
     setCurrentProject({ ...project });
@@ -180,12 +123,17 @@ const ProjectDashboard = () => {
   // Сохранить проект (используем API)
   const handleSaveProject = async (updatedProject) => {
     try {
-      const saved = await projectsAPI.update(updatedProject.id, updatedProject);
-      setProject(saved);
+      await projectsAPI.update(updatedProject.id, updatedProject);
+      // Обновляем данные через SWR
+      refresh();
       handleCloseDialog();
     } catch (err) {
       console.error('Error updating project:', err);
-      setError(err.message || 'Ошибка при сохранении проекта');
+      setSnackbar({
+        open: true,
+        message: err.message || 'Ошибка при сохранении проекта',
+        severity: 'error'
+      });
     }
   };
 
@@ -198,7 +146,11 @@ const ProjectDashboard = () => {
         handleCloseDialog();
       } catch (err) {
         console.error('Error deleting project:', err);
-        setError(err.message || 'Ошибка при удалении проекта');
+        setSnackbar({
+          open: true,
+          message: err.message || 'Ошибка при удалении проекта',
+          severity: 'error'
+        });
       }
     }
   };
@@ -222,13 +174,18 @@ const ProjectDashboard = () => {
   const handleSaveEstimate = async (estimateData) => {
     try {
       // Создать смету через API
-      const newEstimate = await estimatesAPI.create(id, estimateData);// Переходим к просмотру созданной сметы
+      const newEstimate = await estimatesAPI.create(id, estimateData);
+      
+      // Переходим к просмотру созданной сметы
       navigate(`/app/projects/${id}/estimates/${newEstimate.id}`, {
         state: { 
           estimateData: newEstimate, 
           projectName: project?.name 
         }
       });
+      
+      // Возвращаем созданную смету для дальнейшей обработки (например, применения шаблона)
+      return newEstimate;
     } catch (error) {
       console.error('Failed to create estimate:', error);
       // Пробрасываем ошибку обратно в диалог для отображения
@@ -248,10 +205,21 @@ const ProjectDashboard = () => {
     try {
       await estimatesAPI.delete(estimateId);
       
-      // Обновляем список смет, удаляя удаленную смету
-      setEstimates(prevEstimates => prevEstimates.filter(est => est.id !== estimateId));} catch (error) {
+      // Обновляем данные через SWR
+      refresh();
+      
+      setSnackbar({
+        open: true,
+        message: 'Смета успешно удалена',
+        severity: 'success'
+      });
+    } catch (error) {
       console.error('Failed to delete estimate:', error);
-      alert('Ошибка при удалении сметы: ' + (error.message || 'Неизвестная ошибка'));
+      setSnackbar({
+        open: true,
+        message: 'Ошибка при удалении сметы: ' + (error.message || 'Неизвестная ошибка'),
+        severity: 'error'
+      });
     }
   };
 
@@ -260,19 +228,17 @@ const ProjectDashboard = () => {
     try {
       setStatusLoading(true);
       
-      const response = await projectsAPI.updateStatus(id, newStatus);
+      await projectsAPI.updateStatus(id, newStatus);
       
-      // Обновляем локальное состояние проекта
-      setProject(prevProject => ({
-        ...prevProject,
-        status: newStatus
-      }));
+      // Обновляем данные через SWR
+      refresh();
       
       setSnackbar({
         open: true,
         message: `Статус проекта изменён на "${getStatusText(newStatus)}"`,
         severity: 'success'
-      });} catch (error) {
+      });
+    } catch (error) {
       console.error('Failed to update project status:', error);
       setSnackbar({
         open: true,
@@ -309,14 +275,8 @@ const ProjectDashboard = () => {
     try {
       await estimatesAPI.update(selectedEstimate.id, { status: newStatus });
       
-      // Обновляем локальное состояние
-      setEstimates(prevEstimates => 
-        prevEstimates.map(est => 
-          est.id === selectedEstimate.id 
-            ? { ...est, status: newStatus }
-            : est
-        )
-      );
+      // Обновляем данные через SWR
+      refresh();
       
       setSnackbar({
         open: true,
@@ -347,13 +307,13 @@ const ProjectDashboard = () => {
   }
 
   // Error state
-  if (error) {
+  if (loadError) {
     return (
       <MainCard>
         <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
+          {loadError.message || 'Ошибка при загрузке проекта'}
         </Alert>
-        <Button variant="contained" onClick={() => navigate('/app/projects')}>
+        <Button variant="contained" onClick={() => navigate('/app/projects')} size="small">
           Вернуться к списку
         </Button>
       </MainCard>
@@ -367,7 +327,7 @@ const ProjectDashboard = () => {
         <Alert severity="warning" sx={{ mb: 2 }}>
           Проект не найден
         </Alert>
-        <Button variant="contained" onClick={() => navigate('/app/projects')}>
+        <Button variant="contained" onClick={() => navigate('/app/projects')} size="small">
           Вернуться к списку
         </Button>
       </MainCard>
@@ -412,7 +372,7 @@ const ProjectDashboard = () => {
           >
             Создать смету
           </Button>
-          <Button variant="contained" color="primary" startIcon={<IconEdit />} onClick={() => handleOpenEdit(project)}>
+          <Button variant="contained" color="primary" startIcon={<IconEdit />} onClick={() => handleOpenEdit(project)} size="small">
             Редактировать
           </Button>
         </Box>
@@ -618,7 +578,10 @@ const ProjectDashboard = () => {
 
         {/* Правая колонка - Финансовая сводка */}
         <Grid size={{ xs: 12, lg: 6 }}>
-          <FinancialSummaryChart projectId={project?.id} estimates={estimates} />
+          <FinancialSummaryChart 
+            financialSummary={financialSummary} 
+            isLoading={loading} 
+          />
         </Grid>
       </Grid>
 

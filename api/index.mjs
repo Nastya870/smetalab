@@ -17,13 +17,16 @@ import { getAllWorkMaterials, getMaterialsByWork, getWorksByMaterial, createWork
 import { generateSchedule, getScheduleByEstimate, deleteSchedule } from '../server/controllers/schedulesController.js';
 import { generatePurchases, getPurchasesByEstimate, deletePurchases, createExtraCharge } from '../server/controllers/purchasesController.js';
 import { createGlobalPurchase, getAllGlobalPurchases, getGlobalPurchaseById, updateGlobalPurchase, deleteGlobalPurchase, getCalendarDates, getStatistics as getGlobalPurchasesStatistics } from '../server/controllers/globalPurchasesController.js';
-import { getAllProjects, getProjectStats, getTotalProfit, getTotalIncomeWorks, getTotalIncomeMaterials, getProjectsProfitData, getMonthlyGrowthData, getProjectsChartData, getProjectById, createProject, updateProject, updateProjectStatus, deleteProject, getProjectTeam, addTeamMember, updateTeamMember, removeTeamMember, calculateProjectProgress } from '../server/controllers/projectsController.js';
+import { getAllProjects, getProjectStats, getTotalProfit, getTotalIncomeWorks, getTotalIncomeMaterials, getProjectsProfitData, getMonthlyGrowthData, getProjectsChartData, getProjectById, createProject, updateProject, updateProjectStatus, deleteProject, getProjectTeam, addTeamMember, updateTeamMember, removeTeamMember, calculateProjectProgress, getDashboardSummary } from '../server/controllers/projectsController.js';
 import { getAllUsers, getUserById, createUser, updateUser, deleteUser, assignRoles, deactivateUser, activateUser, uploadAvatar, getAllRoles } from '../server/controllers/usersController.js';
+import { getAllPermissions, getRolePermissions, updateRolePermissions, getUserPermissions, checkUIVisibility } from '../server/controllers/permissionsController.js';
+import { getAllRoles as getRoles, getRoleById, createRole, updateRole, deleteRole } from '../server/controllers/rolesController.js';
 import { getWorkCompletions, upsertWorkCompletion, batchUpsertWorkCompletions, deleteWorkCompletion } from '../server/controllers/workCompletionsController.js';
 import { generateAct, getActsByEstimate, getActById, deleteAct, updateActStatus, getFormKS2, getFormKS3, updateActDetails, updateSignatories } from '../server/controllers/workCompletionActsController.js';
 import { getAllCounterparties, getCounterpartyById, createCounterparty, updateCounterparty, deleteCounterparty } from '../server/controllers/counterpartiesController.js';
 import { getContractByEstimate, getById, generateContract, updateContract, deleteContract, getContractDOCX, updateStatus, getContractsByProject } from '../server/controllers/contractsController.js';
 import { updateTenant, getTenant, uploadLogo } from '../server/controllers/tenantsController.js';
+import { getTemplates, getTemplateById, createTemplate, updateTemplate, deleteTemplate, applyTemplate } from '../server/controllers/estimateTemplatesController.js';
 import { authenticateToken, optionalAuth } from '../server/middleware/auth.js';
 import db from '../server/config/database.js';
 import multer from 'multer';
@@ -574,6 +577,7 @@ app.delete('/api/global-purchases/:id', authenticateToken, deleteGlobalPurchase)
 
 // Projects Routes
 app.get('/api/projects/stats', authenticateToken, getProjectStats);
+app.get('/api/projects/dashboard-summary', authenticateToken, getDashboardSummary);
 app.get('/api/projects/total-profit', authenticateToken, getTotalProfit);
 app.get('/api/projects/total-income-works', authenticateToken, getTotalIncomeWorks);
 app.get('/api/projects/total-income-materials', authenticateToken, getTotalIncomeMaterials);
@@ -603,8 +607,22 @@ app.post('/api/users/:id/avatar', authenticateToken, upload.single('avatar'), up
 app.patch('/api/users/:id/deactivate', authenticateToken, deactivateUser);
 app.patch('/api/users/:id/activate', authenticateToken, activateUser);
 
-// Roles Routes
-app.get('/api/roles', authenticateToken, getAllRoles);
+// Roles Routes (from usersController - for user management)
+app.get('/api/users/roles', authenticateToken, getAllRoles);
+
+// Roles CRUD Routes (from rolesController - for RBAC management)
+app.get('/api/roles', authenticateToken, getRoles);
+app.get('/api/roles/:id', authenticateToken, getRoleById);
+app.post('/api/roles', authenticateToken, createRole);
+app.put('/api/roles/:id', authenticateToken, updateRole);
+app.delete('/api/roles/:id', authenticateToken, deleteRole);
+
+// Permissions Routes (RBAC system)
+app.get('/api/permissions', authenticateToken, getAllPermissions);
+app.get('/api/permissions/roles/:roleId', authenticateToken, getRolePermissions);
+app.put('/api/permissions/roles/:roleId', authenticateToken, updateRolePermissions);
+app.get('/api/permissions/users/:userId', authenticateToken, getUserPermissions);
+app.get('/api/permissions/check-visibility', authenticateToken, checkUIVisibility);
 
 // Work Completions Routes
 app.get('/api/estimates/:estimateId/work-completions', authenticateToken, getWorkCompletions);
@@ -646,6 +664,14 @@ app.patch('/api/contracts/:id/status', authenticateToken, updateStatus);
 app.get('/api/tenants/:id', authenticateToken, getTenant);
 app.put('/api/tenants/:id', authenticateToken, updateTenant);
 app.post('/api/tenants/:id/logo', authenticateToken, upload.single('logo'), uploadLogo);
+
+// Estimate Templates Routes
+app.get('/api/estimate-templates', authenticateToken, getTemplates);
+app.get('/api/estimate-templates/:id', authenticateToken, getTemplateById);
+app.post('/api/estimate-templates', authenticateToken, createTemplate);
+app.put('/api/estimate-templates/:id', authenticateToken, updateTemplate);
+app.delete('/api/estimate-templates/:id', authenticateToken, deleteTemplate);
+app.post('/api/estimate-templates/:id/apply', authenticateToken, applyTemplate);
 
 // Health check
 app.get('/api/health', (req, res) => {

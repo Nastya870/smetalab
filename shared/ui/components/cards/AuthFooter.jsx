@@ -7,12 +7,9 @@ import Stack from '@mui/material/Stack';
 
 export default function AuthFooter() {
   return (
-    <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
-      <Typography variant="subtitle2" component={Link} href="https://berrydashboard.com" target="_blank" underline="hover">
-        berrydashboard.com
-      </Typography>
-      <Typography variant="subtitle2" component={Link} href="https://codedthemes.com" target="_blank" underline="hover">
-        &copy; codedthemes.com
+    <Stack direction="row" sx={{ justifyContent: 'center' }}>
+      <Typography variant="subtitle2" component={Link} href="https://www.smeta-lab.ru" target="_blank" underline="hover">
+        © 2025 Smeta Lab
       </Typography>
     </Stack>
   );

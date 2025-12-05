@@ -1,7 +1,4 @@
-import { Link as RouterLink } from 'react-router-dom';
-
 // material-ui
-import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
@@ -13,35 +10,20 @@ export default function Footer() {
         alignItems: 'center',
         justifyContent: 'space-between',
         pt: 3,
+        pb: 2.5,
         mt: 'auto'
       }}
     >
-      <Typography variant="caption">
+      <Typography 
+        variant="caption"
+        sx={{
+          opacity: 0.65,
+          fontSize: '0.75rem',
+          color: 'text.secondary'
+        }}
+      >
         © 2025 Smeta Lab. Система управления сметами
       </Typography>
-      {/* Социальные ссылки скрыты */}
-      {/* <Stack direction="row" sx={{ gap: 1.5, alignItems: 'center', justifyContent: 'space-between' }}>
-        <Link
-          component={RouterLink}
-          to="https://x.com/codedthemes"
-          underline="hover"
-          target="_blank"
-          variant="caption"
-          color="text.primary"
-        >
-          Twitter
-        </Link>
-        <Link
-          component={RouterLink}
-          to="https://discord.com/invite/p2E2WhCb6s"
-          underline="hover"
-          target="_blank"
-          variant="caption"
-          color="text.primary"
-        >
-          Discord
-        </Link>
-      </Stack> */}
     </Stack>
   );
 }

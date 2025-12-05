@@ -17,7 +17,8 @@ const purchases = {
       type: 'item',
       url: '/app/purchases/global',
       icon: icons.IconShoppingCart,
-      breadcrumbs: false
+      breadcrumbs: false,
+      permission: { resource: 'purchases', action: 'view_menu' }
     }
   ]
 };

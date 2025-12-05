@@ -1,38 +1,40 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/adminAuth.js';
+import { checkPermission, checkAnyPermission } from '../middleware/checkPermission.js';
 import * as usersController from '../controllers/usersController.js';
 
 const router = express.Router();
 
 // Все маршруты требуют аутентификации + права админа
-// Дополнительная защита на уровне middleware
+// Дополнительная защита на уровне middleware + проверка разрешений
 
-// Получить всех пользователей компании
-router.get('/', authenticateToken, requireAdmin, usersController.getAllUsers);
+// ВАЖНО: /roles должен быть ВЫШЕ /:id чтобы не перехватывался как id='roles'
+// Получить все доступные роли (требует roles.read)
+router.get('/roles', authenticateToken, requireAdmin, checkPermission('roles', 'read'), usersController.getAllRoles);
 
-// Получить пользователя по ID  
-router.get('/:id', authenticateToken, requireAdmin, usersController.getUserById);
+// Получить всех пользователей компании (требует users.read)
+router.get('/', authenticateToken, requireAdmin, checkPermission('users', 'read'), usersController.getAllUsers);
 
-// Создать нового пользователя
-router.post('/', authenticateToken, requireAdmin, usersController.createUser);
+// Получить пользователя по ID (требует users.read)
+router.get('/:id', authenticateToken, requireAdmin, checkPermission('users', 'read'), usersController.getUserById);
 
-// Обновить пользователя
-router.put('/:id', authenticateToken, requireAdmin, usersController.updateUser);
+// Создать нового пользователя (требует users.create)
+router.post('/', authenticateToken, requireAdmin, checkPermission('users', 'create'), usersController.createUser);
 
-// Удалить пользователя  
-router.delete('/:id', authenticateToken, requireAdmin, usersController.deleteUser);
+// Обновить пользователя (требует users.update ИЛИ users.manage)
+router.put('/:id', authenticateToken, requireAdmin, checkAnyPermission(['users', 'update'], ['users', 'manage']), usersController.updateUser);
 
-// Назначить роли пользователю (КРИТИЧЕСКАЯ ОПЕРАЦИЯ)
-router.post('/:id/roles', authenticateToken, requireAdmin, usersController.assignRoles);
+// Удалить пользователя (КРИТИЧНО! Требует users.delete ИЛИ users.manage)
+router.delete('/:id', authenticateToken, requireAdmin, checkAnyPermission(['users', 'delete'], ['users', 'manage']), usersController.deleteUser);
 
-// Деактивировать пользователя
-router.patch('/:id/deactivate', authenticateToken, requireAdmin, usersController.deactivateUser);
+// Назначить роли пользователю (КРИТИЧЕСКАЯ ОПЕРАЦИЯ - требует roles.assign)
+router.post('/:id/roles', authenticateToken, requireAdmin, checkPermission('roles', 'assign'), usersController.assignRoles);
 
-// Активировать пользователя
-router.patch('/:id/activate', authenticateToken, requireAdmin, usersController.activateUser);
+// Деактивировать пользователя (требует users.update ИЛИ users.manage)
+router.patch('/:id/deactivate', authenticateToken, requireAdmin, checkAnyPermission(['users', 'update'], ['users', 'manage']), usersController.deactivateUser);
 
-// Получить все доступные роли (с ограничениями по уровню доступа)
-router.get('/roles', authenticateToken, requireAdmin, usersController.getAllRoles);
+// Активировать пользователя (требует users.update ИЛИ users.manage)
+router.patch('/:id/activate', authenticateToken, requireAdmin, checkAnyPermission(['users', 'update'], ['users', 'manage']), usersController.activateUser);
 
 export default router;

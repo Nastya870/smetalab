@@ -11,11 +11,22 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./tests/setup.js'],
-    include: ['tests/integration/**/*.test.{js,jsx}'],
+    // Запускаем integration тесты последовательно (не параллельно)
+    poolOptions: {
+      threads: {
+        singleThread: true
+      }
+    },
+    include: [
+      'tests/unit/**/*.test.{js,jsx}',
+      'tests/integration/**/*.test.{js,jsx}',
+      'tests/security/**/*.test.{js,jsx}',
+      'tests/production/**/*.test.{js,jsx}'
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
-      include: ['app/**/*.{js,jsx}', 'shared/**/*.{js,jsx}'],
+      include: ['app/**/*.{js,jsx}', 'shared/**/*.{js,jsx}', 'server/**/*.{js,jsx}'],
       exclude: [
         'app/index.jsx',
         'app/config.js',

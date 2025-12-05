@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography';
 // project imports
 import NavCollapse from '../NavCollapse';
 import NavItem from '../NavItem';
+import usePermissions from 'hooks/usePermissions';
 
 import { useGetMenuMaster } from 'api/menu';
 
@@ -20,6 +21,7 @@ import { useGetMenuMaster } from 'api/menu';
 export default function NavGroup({ item, lastItem, remItems, lastItemId, setSelectedID }) {
   const theme = useTheme();
   const { pathname } = useLocation();
+  const { checkVisibility } = usePermissions();
 
   const { menuMaster } = useGetMenuMaster();
   const drawerOpen = menuMaster.isDashboardDrawerOpened;
@@ -78,6 +80,14 @@ export default function NavGroup({ item, lastItem, remItems, lastItemId, setSele
 
   // menu list collapse & items
   const items = currentItem.children?.map((menu) => {
+    // Проверяем видимость элемента меню
+    if (menu.permission) {
+      const isVisible = checkVisibility(menu.permission.resource, menu.permission.action);
+      if (!isVisible) {
+        return null; // Скрываем элемент
+      }
+    }
+    
     switch (menu?.type) {
       case 'collapse':
         return <NavCollapse key={menu.id} menu={menu} level={1} parentId={currentItem.id} />;
@@ -90,16 +100,37 @@ export default function NavGroup({ item, lastItem, remItems, lastItemId, setSele
           </Typography>
         );
     }
-  });
+  }).filter(Boolean); // Удаляем null элементы
+
+  // Если нет видимых элементов, не рендерим группу вообще
+  if (!items || items.length === 0) {
+    return null;
+  }
 
   return (
     <>
       <List
         disablePadding={!drawerOpen}
+        sx={{ mb: 0.75 }}
         subheader={
           currentItem.title &&
           drawerOpen && (
-            <Typography variant="caption" gutterBottom sx={{ display: 'block', ...theme.typography.menuCaption }}>
+            <Typography 
+              variant="caption" 
+              gutterBottom 
+              sx={{ 
+                display: 'block', 
+                ...theme.typography.menuCaption,
+                color: '#9CA3AF',
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                mb: 0.5,
+                mt: 1.5,
+                px: 1.5
+              }}
+            >
               {currentItem.title}
               {currentItem.caption && (
                 <Typography variant="caption" gutterBottom sx={{ display: 'block', ...theme.typography.subMenuCaption }}>
@@ -113,8 +144,8 @@ export default function NavGroup({ item, lastItem, remItems, lastItemId, setSele
         {items}
       </List>
 
-      {/* group divider */}
-      {drawerOpen && <Divider sx={{ mt: 0.25, mb: 1.25 }} />}
+      {/* group divider - едва заметный */}
+      {drawerOpen && <Divider sx={{ mt: 0.25, mb: 0.75, borderColor: 'rgba(0,0,0,0.06)' }} />}
     </>
   );
 }

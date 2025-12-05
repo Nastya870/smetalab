@@ -28,7 +28,7 @@ export default function ForgotPassword() {
               <AuthCardWrapper>
                 <Grid container spacing={2} sx={{ alignItems: 'center', justifyContent: 'center' }}>
                   <Grid sx={{ mb: 3 }}>
-                    <Link to="#" aria-label="logo">
+                    <Link to="/" aria-label="logo">
                       <Logo />
                     </Link>
                   </Grid>
@@ -61,7 +61,7 @@ export default function ForgotPassword() {
                   </Grid>
                   <Grid size={12}>
                     <Grid container direction="column" sx={{ alignItems: 'center' }} size={12}>
-                      <Typography component={Link} to="/pages/register" variant="subtitle1" sx={{ textDecoration: 'none' }}>
+                      <Typography component={Link} to="/auth/register" variant="subtitle1" sx={{ textDecoration: 'none' }}>
                         Нет аккаунта? Зарегистрироваться
                       </Typography>
                     </Grid>

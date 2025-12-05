@@ -13,7 +13,8 @@ const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || 'your-access-token-
 const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET || 'your-refresh-token-secret-change-in-production';
 
 const ACCESS_TOKEN_EXPIRES = '15m'; // 15 минут
-const REFRESH_TOKEN_EXPIRES = '30d'; // 30 дней
+const REFRESH_TOKEN_EXPIRES_DEFAULT = '30d'; // 30 дней
+const REFRESH_TOKEN_EXPIRES_REMEMBER_ME = '48h'; // 48 часов для "запомнить меня"
 
 /**
  * Генерирует Access Token
@@ -34,9 +35,19 @@ export const generateRefreshToken = () => {
 /**
  * Генерирует пару токенов
  */
-export const generateTokens = (userId, tenantId, email, roles = [], emailVerified = false) => {
+export const generateTokens = (userId, tenantId, email, roles = [], emailVerified = false, permissions = []) => {
   // Проверяем, есть ли роль super_admin
   const isSuperAdmin = roles.some(r => r.key === 'super_admin' || r.key === 'superadmin');
+  
+  // Получаем ключ первой роли (для разграничения прав доступа)
+  const roleKey = roles.length > 0 ? roles[0].key : null;
+  
+  // Формируем массив разрешений для токена (key, resource, action)
+  const permissionsPayload = permissions.map(p => ({
+    key: p.key,
+    resource: p.resource,
+    action: p.action
+  }));
   
   const accessToken = generateAccessToken({
     userId,
@@ -44,6 +55,8 @@ export const generateTokens = (userId, tenantId, email, roles = [], emailVerifie
     email,
     emailVerified,
     isSuperAdmin,
+    roleKey, // Добавляем ключ роли для проверки прав
+    permissions: permissionsPayload, // ✨ Добавляем разрешения в токен
     type: 'access'
   });
 
@@ -80,10 +93,15 @@ export const decodeToken = (token) => {
 
 /**
  * Вычисляет дату истечения refresh токена
+ * @param {boolean} rememberMe - Флаг "запомнить меня" (48 часов вместо 30 дней)
  */
-export const getRefreshTokenExpiration = () => {
+export const getRefreshTokenExpiration = (rememberMe = false) => {
   const now = new Date();
-  now.setDate(now.getDate() + 30); // + 30 дней
+  if (rememberMe) {
+    now.setHours(now.getHours() + 48); // + 48 часов
+  } else {
+    now.setDate(now.getDate() + 30); // + 30 дней
+  }
   return now;
 };
 

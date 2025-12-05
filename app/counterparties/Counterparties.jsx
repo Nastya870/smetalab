@@ -99,20 +99,20 @@ const Counterparties = () => {
   const getEntityTypeIcon = (type) => type === 'individual' ? <IconUser size={16} /> : <IconBuilding size={16} />;
 
   return (
-    <Box>
+    <Box data-testid="counterparties-page">
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack spacing={2}>
           <Box display="flex" justifyContent="space-between" alignItems="center">
             <Box display="flex" alignItems="center" gap={1}>
               <IconUsers size={24} />
-              <Typography variant="h5">Контрагенты</Typography>
+              <Typography variant="h5" data-testid="counterparties-title">Контрагенты</Typography>
             </Box>
-            <Button variant="contained" startIcon={<IconPlus />} onClick={handleCreate}>
+            <Button variant="contained" startIcon={<IconPlus />} onClick={handleCreate} size="small" data-testid="add-counterparty-btn">
               Добавить контрагента
             </Button>
           </Box>
 
-          <Tabs value={entityTypeFilter} onChange={(e, v) => setEntityTypeFilter(v)}>
+          <Tabs value={entityTypeFilter} onChange={(e, v) => setEntityTypeFilter(v)} data-testid="counterparties-tabs">
             <Tab label="Все" value="all" />
             <Tab label="Физ. лица" value="individual" icon={<IconUser size={18} />} iconPosition="start" />
             <Tab label="Юр. лица" value="legal" icon={<IconBuilding size={18} />} iconPosition="start" />
@@ -122,6 +122,7 @@ const Counterparties = () => {
             placeholder="Поиск по имени, ИНН, телефону, email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            data-testid="counterparties-search"
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -149,7 +150,7 @@ const Counterparties = () => {
             </Typography>
           </Box>
         ) : (
-          <Table>
+          <Table data-testid="counterparties-table">
             <TableHead>
               <TableRow sx={{ bgcolor: 'action.hover' }}>
                 <TableCell sx={{ fontWeight: 'bold' }}>Тип</TableCell>
@@ -188,12 +189,12 @@ const Counterparties = () => {
                     <Stack direction="row" spacing={0.5} justifyContent="center">
                       <Tooltip title="Редактировать">
                         <IconButton size="small" color="primary" onClick={() => handleEdit(counterparty)}>
-                          <IconEdit size={18} />
+                          <IconEdit size={16} />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Удалить">
                         <IconButton size="small" color="error" onClick={() => handleDelete(counterparty.id)}>
-                          <IconTrash size={18} />
+                          <IconTrash size={16} />
                         </IconButton>
                       </Tooltip>
                     </Stack>

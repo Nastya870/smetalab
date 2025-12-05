@@ -15,9 +15,8 @@ const worksImportExportAPI = {
       {
         'Код': '01-001',
         'Наименование': 'Разработка грунта экскаватором',
-        'Категория': 'Земляные работы',
-        'Ед. изм.': 'м³',
-        'Базовая цена': 450,
+        'Ед изм': 'м³',
+        'Базовая цена': '450',
         'Фаза': 'Подготовительные работы',
         'Раздел': 'Земляные работы',
         'Подраздел': 'Разработка грунта'
@@ -25,9 +24,8 @@ const worksImportExportAPI = {
       {
         'Код': '02-001',
         'Наименование': 'Устройство бетонной подготовки',
-        'Категория': 'Бетонные работы',
-        'Ед. изм.': 'м³',
-        'Базовая цена': 3200,
+        'Ед изм': 'м³',
+        'Базовая цена': '3200',
         'Фаза': 'Основные строительные работы',
         'Раздел': 'Бетонные работы',
         'Подраздел': 'Бетонная подготовка'
@@ -35,19 +33,18 @@ const worksImportExportAPI = {
       {
         'Код': '03-001',
         'Наименование': 'Кладка стен из кирпича',
-        'Категория': 'Кирпичная кладка',
-        'Ед. изм.': 'м³',
-        'Базовая цена': 4500,
+        'Ед изм': 'м³',
+        'Базовая цена': '4500',
         'Фаза': 'Основные строительные работы',
         'Раздел': 'Каменные работы',
         'Подраздел': 'Кладка стен'
       }
     ];
 
-    // Генерируем CSV с помощью PapaParse
+    // Генерируем CSV с помощью PapaParse (используем точку с запятой для удобства Excel)
     const csv = '\ufeff' + Papa.unparse(templateData, {
-      quotes: true,
-      delimiter: ',',
+      quotes: false, // Не оборачиваем в кавычки для читаемости
+      delimiter: ';', // Точка с запятой вместо запятой
       header: true
     });
 
@@ -56,7 +53,7 @@ const worksImportExportAPI = {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'works_import_template.csv');
+    link.setAttribute('download', 'Шаблон_импорта_работ.csv');
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -73,18 +70,17 @@ const worksImportExportAPI = {
     const exportData = works.map(work => ({
       'Код': work.code,
       'Наименование': work.name,
-      'Категория': work.category,
-      'Ед. изм.': work.unit,
-      'Базовая цена': work.basePrice,
+      'Ед изм': work.unit || 'шт',
+      'Базовая цена': work.basePrice || 0,
       'Фаза': work.phase || '',
       'Раздел': work.section || '',
       'Подраздел': work.subsection || ''
     }));
 
-    // Генерируем CSV с BOM для Excel
+    // Генерируем CSV с BOM для Excel (используем точку с запятой)
     const csv = '\ufeff' + Papa.unparse(exportData, {
-      quotes: true,
-      delimiter: ',',
+      quotes: false, // Не оборачиваем в кавычки для читаемости
+      delimiter: ';', // Точка с запятой вместо запятой
       header: true
     });
 
@@ -97,8 +93,8 @@ const worksImportExportAPI = {
     // Определяем имя файла
     const timestamp = new Date().toISOString().split('T')[0];
     const filename = params.isGlobal === 'true' 
-      ? `works_global_${timestamp}.csv` 
-      : `works_tenant_${timestamp}.csv`;
+      ? `Работы_глобальные_${timestamp}.csv` 
+      : `Работы_экспорт_${timestamp}.csv`;
     
     link.setAttribute('download', filename);
     document.body.appendChild(link);
@@ -128,7 +124,8 @@ const worksImportExportAPI = {
     // Отправляем каждый пакет последовательно
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
-      const batchNum = i + 1;try {
+      const batchNum = i + 1;
+try {
         const response = await axiosInstance.post('/works/bulk', {
           works: batch,
           mode: options.mode || 'add',

@@ -8,7 +8,9 @@ import {
   getWorksStats,
   getWorkCategories
 } from '../controllers/worksController.js';
+import { bulkCreateWorks } from '../controllers/worksBulkController.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
+import { checkPermission, checkAnyPermission } from '../middleware/checkPermission.js';
 
 const router = express.Router();
 
@@ -45,26 +47,34 @@ router.get('/', optionalAuth, getAllWorks);
 router.get('/:id', getWorkById);
 
 /**
+ * @route   POST /api/works/bulk
+ * @desc    Массовое создание работ (импорт)
+ * @access  Private (требуется works.create)
+ * @body    { works: Array, mode: 'add' | 'replace', isGlobal: boolean }
+ */
+router.post('/bulk', authenticateToken, checkPermission('works', 'create'), bulkCreateWorks);
+
+/**
  * @route   POST /api/works
  * @desc    Создать новую работу
- * @access  Private (требуется авторизация)
+ * @access  Private (требуется works.create)
  * @body    { code, name, category, unit, basePrice }
  */
-router.post('/', authenticateToken, createWork);
+router.post('/', authenticateToken, checkPermission('works', 'create'), createWork);
 
 /**
  * @route   PUT /api/works/:id
  * @desc    Обновить работу
- * @access  Private (требуется авторизация)
+ * @access  Private (требуется works.update ИЛИ works.manage)
  * @body    { code?, name?, category?, unit?, basePrice? }
  */
-router.put('/:id', authenticateToken, updateWork);
+router.put('/:id', authenticateToken, checkAnyPermission(['works', 'update'], ['works', 'manage']), updateWork);
 
 /**
  * @route   DELETE /api/works/:id
- * @desc    Удалить работу
- * @access  Private (требуется авторизация)
+ * @desc    Удалить работу (КРИТИЧНО!)
+ * @access  Private (требуется works.delete ИЛИ works.manage)
  */
-router.delete('/:id', authenticateToken, deleteWork);
+router.delete('/:id', authenticateToken, checkAnyPermission(['works', 'delete'], ['works', 'manage']), deleteWork);
 
 export default router;

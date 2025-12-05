@@ -40,7 +40,7 @@ export default function AuthLogin() {
 
   const [email, setEmail] = useState(emailFromState || '');
   const [password, setPassword] = useState('');
-  const [checked, setChecked] = useState(true);
+  const [rememberMe, setRememberMe] = useState(true); // По умолчанию включено "Запомнить меня"
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(successMessage || '');
@@ -78,7 +78,8 @@ export default function AuthLogin() {
 
       const result = await authService.login({
         email,
-        password
+        password,
+        rememberMe
       });
 // Дополнительно сохраняем роли если они есть
       if (result.data?.roles) {
@@ -108,16 +109,26 @@ export default function AuthLogin() {
     }
   };
 
+  // Стили для иконки показа пароля
+  const passwordIconStyles = {
+    opacity: 0.5,
+    transition: 'opacity 0.2s ease',
+    '&:hover': {
+      opacity: 1,
+      backgroundColor: 'transparent'
+    }
+  };
+
   return (
     <form onSubmit={handleLogin}>
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
+        <Alert severity="success" sx={{ mb: 2, borderRadius: '10px' }}>
           {success}
         </Alert>
       )}
       
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2, borderRadius: '10px' }}>
           {error}
         </Alert>
       )}
@@ -156,30 +167,67 @@ export default function AuthLogin() {
                 onClick={handleClickShowPassword}
                 onMouseDown={handleMouseDownPassword}
                 edge="end"
-                size="large"
+                size="small"
                 disabled={loading}
+                sx={passwordIconStyles}
               >
-                {showPassword ? <Visibility /> : <VisibilityOff />}
+                {showPassword ? <Visibility fontSize="small" /> : <VisibilityOff fontSize="small" />}
               </IconButton>
             </InputAdornment>
           }
         />
       </FormControl>
 
-      <Grid container sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+      <Grid container sx={{ alignItems: 'center', justifyContent: 'space-between', mt: 0.5 }}>
         <Grid>
           <FormControlLabel
-            control={<Checkbox checked={checked} onChange={(event) => setChecked(event.target.checked)} name="checked" color="primary" disabled={loading} />}
-            label="Запомнить меня"
+            control={
+              <Checkbox 
+                checked={rememberMe} 
+                onChange={(event) => setRememberMe(event.target.checked)} 
+                name="rememberMe" 
+                color="primary" 
+                disabled={loading}
+                size="small"
+                sx={{
+                  '& .MuiSvgIcon-root': {
+                    fontSize: 18,
+                    strokeWidth: 0.5
+                  },
+                  padding: '4px',
+                  marginRight: '6px'
+                }}
+              />
+            }
+            label={
+              <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.875rem' }}>
+                Запомнить меня (48 часов)
+              </Typography>
+            }
+            sx={{ marginLeft: 0 }}
           />
         </Grid>
         <Grid>
-          <Typography variant="subtitle1" component={Link} to="/pages/forgot-password" color="secondary" sx={{ textDecoration: 'none' }}>
+          <Typography 
+            variant="body2" 
+            component={Link} 
+            to="/pages/forgot-password" 
+            sx={{ 
+              color: 'primary.main',
+              textDecoration: 'none',
+              fontWeight: 500,
+              fontSize: '0.875rem',
+              '&:hover': {
+                textDecoration: 'underline'
+              }
+            }}
+          >
             Забыли пароль?
           </Typography>
         </Grid>
       </Grid>
-      <Box sx={{ mt: 2 }}>
+      
+      <Box sx={{ mt: 3.5 }}>
         <AnimateButton>
           <Button 
             color="secondary" 
@@ -189,6 +237,22 @@ export default function AuthLogin() {
             variant="contained"
             disabled={loading || !email || !password}
             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
+            sx={{
+              height: 52,
+              borderRadius: '12px',
+              fontSize: '1rem',
+              fontWeight: 600,
+              textTransform: 'none',
+              boxShadow: '0 4px 14px rgba(103, 58, 183, 0.25)',
+              '&:hover': {
+                boxShadow: '0 6px 20px rgba(103, 58, 183, 0.35)'
+              },
+              '&.Mui-disabled': {
+                backgroundColor: 'rgba(103, 80, 164, 0.25)',
+                color: '#6F6F6F',
+                boxShadow: 'none'
+              }
+            }}
           >
             {loading ? 'Вход...' : 'Войти'}
           </Button>

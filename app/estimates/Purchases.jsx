@@ -1172,13 +1172,13 @@ const Purchases = ({ estimateId, projectId }) => {
         <Divider />
         
         <DialogActions sx={{ p: 2.5 }}>
-          <Button onClick={handleCloseExtraMaterialDialog} disabled={submitting} size="large">
+          <Button onClick={handleCloseExtraMaterialDialog} disabled={submitting} size="small">
             Отмена
           </Button>
           <Button
             variant="contained"
             color="warning"
-            size="large"
+            size="small"
             onClick={handleAddExtraMaterial}
             disabled={submitting || !extraMaterialForm.material || !extraMaterialForm.quantity || !extraMaterialForm.purchasePrice}
             startIcon={submitting ? <CircularProgress size={20} /> : <IconPlus />}

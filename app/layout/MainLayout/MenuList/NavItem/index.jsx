@@ -17,11 +17,21 @@ import Typography from '@mui/material/Typography';
 // project imports
 import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu';
 import useConfig from 'hooks/useConfig';
+import usePermissions from 'hooks/usePermissions';
 
 // assets
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 
 export default function NavItem({ item, level, isParents = false, setSelectedID }) {
+  const { checkVisibility } = usePermissions();
+  
+  // Проверка видимости по разрешениям
+  if (item.permission) {
+    const isVisible = checkVisibility(item.permission.resource, item.permission.action);
+    if (!isVisible) {
+      return null; // Скрываем элемент меню
+    }
+  }
   const theme = useTheme();
   const downMD = useMediaQuery(theme.breakpoints.down('md'));
   const ref = useRef(null);
@@ -66,7 +76,7 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
     }
   };
 
-  const iconSelectedColor = 'secondary.main';
+  const iconSelectedColor = 'primary.main';
 
   return (
     <>
@@ -78,21 +88,33 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
         disableRipple={!drawerOpen}
         sx={{
           zIndex: 1201,
-          borderRadius: `${borderRadius}px`,
-          mb: 0.5,
+          borderRadius: '6px',
+          mb: 0.25,
+          py: 0.75,
+          position: 'relative',
           ...(drawerOpen && level !== 1 && { ml: `${level * 18}px` }),
           ...(!drawerOpen && { pl: 1.25 }),
           ...(drawerOpen &&
             level === 1 && {
               '&:hover': {
-                bgcolor: 'secondary.light'
+                bgcolor: 'rgba(103, 80, 164, 0.04)'
               },
               '&.Mui-selected': {
-                bgcolor: 'secondary.light',
-                color: iconSelectedColor,
+                bgcolor: 'rgba(103, 80, 164, 0.08)',
+                // Вертикальная полоса слева
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  left: 0,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 3,
+                  height: '60%',
+                  bgcolor: 'primary.main',
+                  borderRadius: '0 2px 2px 0'
+                },
                 '&:hover': {
-                  color: iconSelectedColor,
-                  bgcolor: 'secondary.light'
+                  bgcolor: 'rgba(103, 80, 164, 0.12)'
                 }
               }
             }),
@@ -112,25 +134,28 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
         selected={isSelected}
         onClick={() => itemHandler()}
       >
-        <ButtonBase aria-label="theme-icon" sx={{ borderRadius: `${borderRadius}px` }} disableRipple={drawerOpen}>
+        <ButtonBase aria-label="theme-icon" sx={{ borderRadius: '6px' }} disableRipple={drawerOpen}>
           <ListItemIcon
             sx={{
-              minWidth: level === 1 ? 36 : 18,
-              color: isSelected ? iconSelectedColor : 'text.primary',
+              minWidth: 32,
+              mr: 1.25,
+              color: isSelected ? iconSelectedColor : 'text.secondary',
+              display: 'flex',
+              alignItems: 'center',
               ...(!drawerOpen &&
                 level === 1 && {
-                  borderRadius: `${borderRadius}px`,
-                  width: 46,
-                  height: 46,
+                  borderRadius: '8px',
+                  width: 40,
+                  height: 40,
                   alignItems: 'center',
                   justifyContent: 'center',
                   '&:hover': {
-                    bgcolor: 'secondary.light'
+                    bgcolor: 'rgba(103, 80, 164, 0.08)'
                   },
                   ...(isSelected && {
-                    bgcolor: 'secondary.light',
+                    bgcolor: 'rgba(103, 80, 164, 0.08)',
                     '&:hover': {
-                      bgcolor: 'secondary.light'
+                      bgcolor: 'rgba(103, 80, 164, 0.12)'
                     }
                   })
                 })
@@ -147,12 +172,13 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
                 <Typography
                   ref={ref}
                   noWrap
-                  variant={isSelected ? 'h5' : 'body1'}
-                  color="inherit"
+                  variant="body2"
                   sx={{
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    width: 102
+                    fontWeight: isSelected ? 600 : 400,
+                    color: isSelected ? 'primary.main' : 'text.primary',
+                    fontSize: '0.875rem'
                   }}
                 >
                   {item.title}

@@ -2,12 +2,17 @@
 
 const chartData = {
   type: 'area',
-  height: 95,
+  height: 80,
   options: {
     chart: {
       id: 'support-chart',
       sparkline: {
         enabled: true
+      },
+      animations: {
+        enabled: true,
+        easing: 'easeinout',
+        speed: 600
       }
     },
     dataLabels: {
@@ -15,7 +20,17 @@ const chartData = {
     },
     stroke: {
       curve: 'smooth',
-      width: 1
+      width: 1.5,
+      lineCap: 'round'
+    },
+    fill: {
+      type: 'gradient',
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: 0.12,
+        opacityTo: 0.02,
+        stops: [0, 90, 100]
+      }
     },
     tooltip: {
       fixed: {

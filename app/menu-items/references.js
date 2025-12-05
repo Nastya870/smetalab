@@ -17,7 +17,8 @@ const references = {
       type: 'item',
       url: '/app/references/works',
       icon: icons.IconTool,
-      breadcrumbs: false
+      breadcrumbs: false,
+      permission: { resource: 'works', action: 'view_menu' }
     },
     {
       id: 'materials-reference',
@@ -25,7 +26,8 @@ const references = {
       type: 'item',
       url: '/app/references/materials',
       icon: icons.IconBox,
-      breadcrumbs: false
+      breadcrumbs: false,
+      permission: { resource: 'materials', action: 'view_menu' }
     },
     {
       id: 'counterparties',
@@ -33,7 +35,8 @@ const references = {
       type: 'item',
       url: '/app/counterparties',
       icon: icons.IconUsers,
-      breadcrumbs: false
+      breadcrumbs: false,
+      permission: { resource: 'counterparties', action: 'view_menu' }
     }
   ]
 };

@@ -136,118 +136,134 @@ export const getAllWorks = async (req, res) => {
     // Кеш работал только для первых 50 записей, игнорируя параметры page/pageSize
     // Теперь все запросы используют стандартную логику с поддержкой pagination
     
-    // Стандартная логика с фильтрами
-    let query = 'SELECT * FROM works WHERE 1=1';
+    // ============================================
+    // ОПТИМИЗИРОВАННЫЕ ЗАПРОСЫ с использованием partial indexes
+    // Используем CTE (Common Table Expression) для подсчета и выборки в одном запросе
+    // ============================================
+    
     const params = [];
     let paramIndex = 1;
     
-    // Фильтр по типу (глобальный/тенантный)
-    // 🔍 DEBUG: Логирование для отладки tenant isolation
+    // 🔍 DEBUG: Логирование для отладки
     console.log('[WORKS DEBUG]', {
       isGlobal,
       hasUser: !!req.user,
       tenantId: req.user?.tenantId,
-      userId: req.user?.userId
+      userId: req.user?.userId,
+      search,
+      category,
+      pageSize: pageSizeNum
     });
 
+    // Построение WHERE условий
+    let whereConditions = [];
+    
+    // Фильтр по типу (оптимизированный для использования partial indexes)
     if (isGlobal === 'true') {
-      query += ' AND is_global = TRUE';
+      // Использует idx_works_global_only_covering
+      whereConditions.push('is_global = TRUE');
     } else if (isGlobal === 'false') {
-      // ВАЖНО: Для тенантных работ ВСЕГДА фильтруем по tenant_id
-      query += ' AND is_global = FALSE';
+      // Использует idx_works_tenant_only_covering
+      whereConditions.push('is_global = FALSE');
       if (req.user && req.user.tenantId) {
-        query += ` AND tenant_id = $${paramIndex}`;
+        whereConditions.push(`tenant_id = $${paramIndex}`);
         params.push(req.user.tenantId);
         paramIndex++;
       } else {
-        // Если нет tenantId, не показываем тенантные записи вообще
-        query += ' AND tenant_id IS NULL';
+        whereConditions.push('tenant_id IS NULL');
       }
     } else {
-      // Если isGlobal не указан, показываем глобальные + свои тенантные
+      // Смешанный режим: глобальные + тенантные
       if (req.user && req.user.tenantId) {
-        query += ` AND (is_global = TRUE OR tenant_id = $${paramIndex})`;
+        whereConditions.push(`(is_global = TRUE OR tenant_id = $${paramIndex})`);
         params.push(req.user.tenantId);
         paramIndex++;
       } else {
-        // Если нет tenantId, показываем только глобальные
-        query += ' AND is_global = TRUE';
+        whereConditions.push('is_global = TRUE');
       }
     }
     
     // Фильтр по категории
     if (category) {
-      query += ` AND category = $${paramIndex}`;
+      whereConditions.push(`category = $${paramIndex}`);
       params.push(category);
       paramIndex++;
     }
     
-    // Поиск по коду или названию
+    // Поиск по коду или названию (использует idx_works_code_trgm и idx_works_name_trgm)
     if (search) {
-      query += ` AND (code ILIKE $${paramIndex} OR name ILIKE $${paramIndex})`;
+      whereConditions.push(`(code ILIKE $${paramIndex} OR name ILIKE $${paramIndex})`);
       params.push(`%${search}%`);
       paramIndex++;
     }
     
-    // Получить total count (для pagination)
-    let countQuery = 'SELECT COUNT(*) as total FROM works WHERE 1=1';
-    const countParams = [];
-    let countParamIndex = 1;
+    const whereClause = whereConditions.length > 0 
+      ? 'WHERE ' + whereConditions.join(' AND ')
+      : '';
     
-    if (isGlobal === 'true') {
-      countQuery += ' AND is_global = TRUE';
-    } else if (isGlobal === 'false') {
-      countQuery += ' AND is_global = FALSE';
-      if (req.user && req.user.tenantId) {
-        countQuery += ` AND tenant_id = $${countParamIndex}`;
-        countParams.push(req.user.tenantId);
-        countParamIndex++;
-      } else {
-        countQuery += ' AND tenant_id IS NULL';
-      }
-    } else {
-      if (req.user && req.user.tenantId) {
-        countQuery += ` AND (is_global = TRUE OR tenant_id = $${countParamIndex})`;
-        countParams.push(req.user.tenantId);
-        countParamIndex++;
-      } else {
-        countQuery += ' AND is_global = TRUE';
-      }
-    }
-    if (category) {
-      countQuery += ` AND category = $${countParamIndex}`;
-      countParams.push(category);
-      countParamIndex++;
-    }
-    if (search) {
-      countQuery += ` AND (code ILIKE $${countParamIndex} OR name ILIKE $${countParamIndex})`;
-      countParams.push(`%${search}%`);
-      countParamIndex++;
-    }
-    
-    const countResult = await db.query(countQuery, countParams);
-    const total = parseInt(countResult.rows[0].total, 10);
-    
-    // Сортировка (глобальные сначала, затем по указанному полю)
+    // Сортировка
     const allowedSortFields = ['code', 'name', 'category', 'unit', 'base_price', 'created_at'];
     const sortField = allowedSortFields.includes(sort) ? sort : 'code';
     const sortOrder = order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
-    query += ` ORDER BY is_global DESC, ${sortField} ${sortOrder}`;
     
-    // Pagination
-    query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    // ============================================
+    // ОПТИМИЗИРОВАННЫЙ ЗАПРОС с CTE (COUNT + SELECT в одном запросе)
+    // ============================================
+    const query = `
+      WITH data_cte AS (
+        SELECT 
+          id, code, name, unit, base_price, 
+          phase, section, subsection, is_global,
+          created_at, updated_at,
+          COUNT(*) OVER() as total_count
+        FROM works
+        ${whereClause}
+        ORDER BY is_global DESC, ${sortField} ${sortOrder}
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      )
+      SELECT * FROM data_cte;
+    `;
+    
     params.push(pageSizeNum, offset);
     
+    console.log('[WORKS QUERY]', { query: query.trim(), params });
+    
+    // Выполнить оптимизированный запрос с CTE
+    const queryStart = Date.now();
     const result = await db.query(query, params);
+    const queryTime = Date.now() - queryStart;
+    
+    // Извлечь total из первой строки (если есть данные)
+    const total = result.rows.length > 0 ? parseInt(result.rows[0].total_count, 10) : 0;
+    
+    console.log(`[WORKS PERFORMANCE] Query: ${queryTime}ms, Rows: ${result.rows.length}, Total: ${total}`);
+    
+    // Преобразуем snake_case в camelCase для совместимости с фронтендом
+    const transformStart = Date.now();
+    const transformedData = result.rows.map(row => {
+      const { total_count, ...rest } = row; // Удаляем технический столбец
+      return {
+        ...rest,
+        basePrice: parseFloat(rest.base_price) || 0,
+        isGlobal: rest.is_global !== undefined ? rest.is_global : false,
+        tenantId: rest.tenant_id,
+        createdBy: rest.created_by,
+        createdAt: rest.created_at,
+        updatedAt: rest.updated_at
+      };
+    });
+    const transformTime = Date.now() - transformStart;
+    
+    console.log(`[WORKS PERFORMANCE] Transform: ${transformTime}ms, Total: ${queryTime + transformTime}ms`);
     
     res.status(200).json({
       success: true,
-      count: result.rows.length,
+      count: transformedData.length,
       total: total,
       page: pageNum,
       pageSize: pageSizeNum,
       totalPages: Math.ceil(total / pageSizeNum),
-      data: result.rows,
+      data: transformedData,
       cached: false
     });
   } catch (error) {
@@ -299,11 +315,20 @@ export const getAllWorks = async (req, res) => {
 export const getWorkById = async (req, res) => {
   try {
     const { id } = req.params;
+    const tenantId = req.user?.tenantId;
     
-    const result = await db.query(
-      'SELECT * FROM works WHERE id = $1',
-      [id]
-    );
+    // 🔒 Tenant Isolation: глобальные работы доступны всем, тенантные - только своей компании
+    let query, params;
+    if (tenantId) {
+      query = 'SELECT * FROM works WHERE id = $1 AND (is_global = TRUE OR tenant_id = $2)';
+      params = [id, tenantId];
+    } else {
+      // Неавторизованные видят только глобальные
+      query = 'SELECT * FROM works WHERE id = $1 AND is_global = TRUE';
+      params = [id];
+    }
+    
+    const result = await db.query(query, params);
     
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -419,13 +444,16 @@ export const getWorkById = async (req, res) => {
  */
 export const createWork = async (req, res) => {
   try {
-    const { code, name, category, unit, basePrice, isGlobal } = req.body;
+    const { code, name, category, phase, section, subsection, unit, basePrice, isGlobal } = req.body;
+    
+    // Поддержка обратной совместимости: category -> phase
+    const workPhase = phase || category || null;
     
     // Валидация
-    if (!code || !name || !category || !unit || basePrice === undefined) {
+    if (!code || !name || !unit || basePrice === undefined) {
       return res.status(400).json({
         success: false,
-        message: 'Все поля обязательны для заполнения'
+        message: 'Обязательные поля: code, name, unit, basePrice'
       });
     }
     
@@ -474,10 +502,10 @@ export const createWork = async (req, res) => {
     
     // Создание работы
     const result = await db.query(
-      `INSERT INTO works (code, name, category, unit, base_price, is_global, tenant_id, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO works (code, name, phase, section, subsection, unit, base_price, is_global, tenant_id, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
-      [code, name, category, unit, basePrice, isGlobal === true, tenant_id, created_by]
+      [code, name, workPhase, section || null, subsection || null, unit, basePrice, isGlobal === true, tenant_id, created_by]
     );
     
     // Инвалидация кеша после создания
@@ -563,25 +591,37 @@ export const createWork = async (req, res) => {
 export const updateWork = async (req, res) => {
   try {
     const { id } = req.params;
-    const { code, name, category, unit, basePrice } = req.body;
+    const tenantId = req.user?.tenantId;
+    // Поддержка обратной совместимости: category -> phase
+    const { code, name, category, phase, section, subsection, unit, basePrice } = req.body;
+    const workPhase = phase || category;
     
-    // Проверка существования работы и её типа
+    if (!tenantId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Требуется аутентификация для обновления работы'
+      });
+    }
+    
+    // 🔒 Tenant Isolation: проверка существования и прав доступа
     const existing = await db.query(
-      'SELECT id, is_global FROM works WHERE id = $1',
-      [id]
+      'SELECT id, is_global, tenant_id FROM works WHERE id = $1 AND (is_global = TRUE OR tenant_id = $2)',
+      [id, tenantId]
     );
     
     if (existing.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Работа не найдена'
+        message: 'Работа не найдена или у вас нет прав для её редактирования'
       });
     }
     
-    // Проверка прав для редактирования глобальных работ
-    // TODO: В будущем проверять роль пользователя (только админ может редактировать глобальные)
-    if (existing.rows[0].is_global) {
-      console.log('⚠️ Редактирование глобальной работы (в production только для админа)');
+    // Запрет редактирования глобальных работ обычными пользователями
+    if (existing.rows[0].is_global && req.user?.isSuperAdmin !== true) {
+      return res.status(403).json({
+        success: false,
+        message: 'Только суперадминистратор может редактировать глобальные работы'
+      });
     }
     
     // Проверка уникальности кода (если код изменился)
@@ -599,18 +639,20 @@ export const updateWork = async (req, res) => {
       }
     }
     
-    // Обновление работы
+    // Обновление работы (используем phase/section/subsection вместо category)
     const result = await db.query(
       `UPDATE works 
        SET code = COALESCE($1, code),
            name = COALESCE($2, name),
-           category = COALESCE($3, category),
-           unit = COALESCE($4, unit),
-           base_price = COALESCE($5, base_price),
+           phase = COALESCE($3, phase),
+           section = COALESCE($4, section),
+           subsection = COALESCE($5, subsection),
+           unit = COALESCE($6, unit),
+           base_price = COALESCE($7, base_price),
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $6
+       WHERE id = $8
        RETURNING *`,
-      [code, name, category, unit, basePrice, id]
+      [code, name, workPhase, section, subsection, unit, basePrice, id]
     );
     
     // Инвалидация кеша после обновления
@@ -677,24 +719,34 @@ export const updateWork = async (req, res) => {
 export const deleteWork = async (req, res) => {
   try {
     const { id } = req.params;
+    const tenantId = req.user?.tenantId;
     
-    // Проверка существования работы и её типа
+    if (!tenantId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Требуется аутентификация для удаления работы'
+      });
+    }
+    
+    // 🔒 Tenant Isolation: проверка существования работы и прав доступа
     const existing = await db.query(
-      'SELECT id, code, name, is_global FROM works WHERE id = $1',
-      [id]
+      'SELECT id, code, name, is_global, tenant_id FROM works WHERE id = $1 AND (is_global = TRUE OR tenant_id = $2)',
+      [id, tenantId]
     );
     
     if (existing.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Работа не найдена'
+        message: 'Работа не найдена или у вас нет прав для её удаления'
       });
     }
     
-    // Проверка прав для удаления глобальных работ
-    // TODO: В будущем проверять роль пользователя (только админ может удалять глобальные)
-    if (existing.rows[0].is_global) {
-      console.log('⚠️ Удаление глобальной работы (в production только для админа)');
+    // Запрет удаления глобальных работ обычными пользователями
+    if (existing.rows[0].is_global && req.user?.isSuperAdmin !== true) {
+      return res.status(403).json({
+        success: false,
+        message: 'Только суперадминистратор может удалять глобальные работы'
+      });
     }
     
     // Удаление работы

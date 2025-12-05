@@ -1,5 +1,4 @@
 import PropTypes from 'prop-types';
-import { useEffect, useState } from 'react';
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
@@ -10,14 +9,9 @@ import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
-import Chip from '@mui/material/Chip';
 
 // third party
 import Chart from 'react-apexcharts';
-
-// API
-import workCompletionActsAPI from 'api/workCompletionActs';
-import purchasesAPI from 'api/purchases';
 
 // icons
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
@@ -25,88 +19,39 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 
 // ==============================|| FINANCIAL SUMMARY CHART ||============================== //
 
-export default function FinancialSummaryChart({ projectId, estimates = [] }) {
-  const theme = useTheme();
-  
-  const [loading, setLoading] = useState(true);
-  const [financialData, setFinancialData] = useState({
+/**
+ * Финансовая сводка проекта
+ * 
+ * ОПТИМИЗАЦИЯ: Теперь принимает данные через props вместо загрузки через API.
+ * Данные загружаются один раз в родительском компоненте через useProjectDashboard hook.
+ * 
+ * Раньше: FinancialSummaryChart загружал N×2 запросов (акты + закупки для каждой сметы)
+ * Теперь: Данные приходят через financialSummary prop из единого endpoint
+ * 
+ * @param {Object} financialSummary - Данные финансовой сводки
+ * @param {number} financialSummary.incomeWorks - Доход по работам (акты заказчика)
+ * @param {number} financialSummary.expenseWorks - Расход по работам (акты специалистов)
+ * @param {number} financialSummary.incomeMaterials - Доход по материалам (план)
+ * @param {number} financialSummary.expenseMaterials - Расход по материалам (факт)
+ * @param {boolean} isLoading - Состояние загрузки
+ */
+export default function FinancialSummaryChart({ 
+  financialSummary = {
     incomeWorks: 0,
     expenseWorks: 0,
     incomeMaterials: 0,
     expenseMaterials: 0
-  });
+  },
+  isLoading = false
+}) {
+  const theme = useTheme();
 
-  // Загрузка данных
-  useEffect(() => {
-    const loadData = async () => {
-if (!projectId || !estimates || estimates.length === 0) {
-setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-let totalIncomeWorks = 0;
-        let totalExpenseWorks = 0;
-        let totalIncomeMaterials = 0;
-        let totalExpenseMaterials = 0;
-
-        for (const estimate of estimates) {
-          try {
-            // Получаем акты
-            const allActs = await workCompletionActsAPI.getActsByEstimate(estimate.id);
-            
-            if (allActs && allActs.length > 0) {
-              // Акты заказчика = Доход
-              const clientActs = allActs.filter(act => act.actType === 'client');
-              const clientTotal = clientActs.reduce((sum, act) => sum + (parseFloat(act.totalAmount) || 0), 0);
-              totalIncomeWorks += clientTotal;
-              
-              // Акты специалиста = Расход
-              const specialistActs = allActs.filter(act => act.actType === 'specialist');
-              const specialistTotal = specialistActs.reduce((sum, act) => sum + (parseFloat(act.totalAmount) || 0), 0);
-              totalExpenseWorks += specialistTotal;
-            }
-
-            // Получаем закупки (если не сформированы - пропускаем)
-            try {
-              const purchases = await purchasesAPI.getByEstimateId(estimate.id);
-              
-              if (purchases && purchases.purchases && purchases.purchases.length > 0) {
-                // План = Доход материалов
-                const plannedTotal = purchases.purchases.reduce((sum, p) => sum + (parseFloat(p.total) || 0), 0);
-                totalIncomeMaterials += plannedTotal;
-                
-                // Факт = Расход материалов
-                const actualTotal = purchases.purchases.reduce((sum, p) => sum + (parseFloat(p.actualTotalPrice) || 0), 0);
-                totalExpenseMaterials += actualTotal;
-              }
-            } catch (purchasesErr) {
-              // 404 - закупки не сформированы, это нормально
-              if (purchasesErr.response?.status !== 404) {
-                console.error(`Error loading purchases for estimate ${estimate.id}:`, purchasesErr);
-              }
-            }
-          } catch (err) {
-            console.error(`Error processing estimate ${estimate.id}:`, err);
-          }
-        }
-        
-        setFinancialData({
-          incomeWorks: totalIncomeWorks,
-          expenseWorks: totalExpenseWorks,
-          incomeMaterials: totalIncomeMaterials,
-          expenseMaterials: totalExpenseMaterials
-        });
-      } catch (error) {
-        console.error('Error loading financial data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [projectId, estimates]);
+  const financialData = {
+    incomeWorks: financialSummary?.incomeWorks || 0,
+    expenseWorks: financialSummary?.expenseWorks || 0,
+    incomeMaterials: financialSummary?.incomeMaterials || 0,
+    expenseMaterials: financialSummary?.expenseMaterials || 0
+  };
 
   // Настройки графика
   const chartOptions = {
@@ -221,7 +166,7 @@ let totalIncomeWorks = 0;
     }).format(value);
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Card>
         <CardContent sx={{ pb: 2 }}>
@@ -298,6 +243,11 @@ let totalIncomeWorks = 0;
 }
 
 FinancialSummaryChart.propTypes = {
-  projectId: PropTypes.string.isRequired,
-  estimates: PropTypes.array
+  financialSummary: PropTypes.shape({
+    incomeWorks: PropTypes.number,
+    expenseWorks: PropTypes.number,
+    incomeMaterials: PropTypes.number,
+    expenseMaterials: PropTypes.number
+  }),
+  isLoading: PropTypes.bool
 };

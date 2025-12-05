@@ -19,6 +19,9 @@ const EstimateView = Loadable(lazy(() => import('views/estimates/EstimateView'))
 const WorksReferencePage = Loadable(lazy(() => import('views/references/works')));
 const MaterialsReferencePage = Loadable(lazy(() => import('views/references/materials')));
 
+// estimate templates routing
+const EstimateTemplatesPage = Loadable(lazy(() => import('views/estimate-templates')));
+
 // counterparties routing
 const CounterpartiesPage = Loadable(lazy(() => import('views/counterparties/Counterparties')));
 
@@ -31,6 +34,7 @@ const SocialProfile = Loadable(lazy(() => import('views/pages/account/SocialProf
 
 // admin routing
 const UsersManagement = Loadable(lazy(() => import('views/admin/users')));
+const PermissionsManagement = Loadable(lazy(() => import('views/admin/permissions')));
 
 // utilities routing
 const UtilsTypography = Loadable(lazy(() => import('views/utilities/Typography')));
@@ -84,6 +88,10 @@ const MainRoutes = {
       element: <MaterialsReferencePage />
     },
     {
+      path: '/app/estimate-templates',
+      element: <EstimateTemplatesPage />
+    },
+    {
       path: '/app/counterparties',
       element: <CounterpartiesPage />
     },
@@ -102,6 +110,10 @@ const MainRoutes = {
     {
       path: '/app/admin/users',
       element: <UsersManagement />
+    },
+    {
+      path: '/app/admin/permissions',
+      element: <PermissionsManagement />
     },
     {
       path: '/app/typography',

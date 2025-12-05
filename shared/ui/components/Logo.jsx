@@ -20,9 +20,10 @@ export default function Logo() {
       alt={tenant?.name || "Smeta Lab"}
       sx={{
         height: 'auto',
-        width: '112px',
+        width: '95px',
         maxWidth: '100%',
-        objectFit: 'contain'
+        objectFit: 'contain',
+        mr: 2 // отступ справа для "дыхания"
       }}
     />
   );

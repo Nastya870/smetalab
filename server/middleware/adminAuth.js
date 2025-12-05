@@ -52,7 +52,7 @@ export const requireAdmin = async (req, res, next) => {
     const userId = req.user?.userId;
     const tenantId = req.user?.tenantId;
 
-    if (!userId || !tenantId) {
+    if (!userId) {
       return res.status(401).json({
         success: false,
         message: 'Требуется аутентификация'
@@ -60,6 +60,7 @@ export const requireAdmin = async (req, res, next) => {
     }
 
     // Проверяем роли admin или super_admin
+    // Super_admin может работать БЕЗ tenantId (глобально)
     const adminCheck = await db.query(
       `SELECT EXISTS(
         SELECT 1 FROM user_role_assignments ura

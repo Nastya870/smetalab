@@ -439,9 +439,9 @@ export const createUser = async (req, res) => {
     const emailVerified = !requireEmailVerification;
     
     const userResult = await db.query(
-      `INSERT INTO users (email, pass_hash, full_name, phone, status, email_verified)
-       VALUES ($1, $2, $3, $4, 'active', $5)
-       RETURNING id, email, full_name as "fullName", phone, status, email_verified as "emailVerified", created_at as "createdAt"`,
+      `INSERT INTO users (email, pass_hash, full_name, phone, status, email_verified, avatar_url)
+       VALUES ($1, $2, $3, $4, 'active', $5, '/favicon.png')
+       RETURNING id, email, full_name as "fullName", phone, avatar_url as "avatar", status, email_verified as "emailVerified", created_at as "createdAt"`,
       [email.toLowerCase(), passwordHash, fullName, phone || null, emailVerified]
     );
 
@@ -927,31 +927,62 @@ export const getAllRoles = async (req, res) => {
     const userRoles = userRolesResult.rows.map(row => row.key);
     const isSuperAdmin = userRoles.includes('super_admin');
 
-    // Если НЕ super_admin - исключаем роль super_admin из списка
-    let whereClause = '';
-    if (!isSuperAdmin) {
-      whereClause = "WHERE key != 'super_admin'";
-    }
+    console.log(`🔍 usersController.getAllRoles:`);
+    console.log(`   User: ${req.user?.email}`);
+    console.log(`   User ID: ${userId}`);
+    console.log(`   Tenant ID: ${tenantId}`);
+    console.log(`   User Roles: [${userRoles.join(', ')}]`);
+    console.log(`   Is Super Admin: ${isSuperAdmin ? 'YES ✅' : 'NO ❌'}`);
 
-    const result = await db.query(
-      `SELECT 
-        id,
-        key as "name",
-        name as "displayName",
-        description
-       FROM roles
-       ${whereClause}
-       ORDER BY 
-         CASE key
-           WHEN 'super_admin' THEN 1
-           WHEN 'admin' THEN 2
-           WHEN 'project_manager' THEN 3
-           WHEN 'estimator' THEN 4
-           WHEN 'supplier' THEN 5
-           WHEN 'viewer' THEN 6
-           ELSE 99
-         END`
-    );
+    let result;
+
+    if (isSuperAdmin) {
+      // Super admin видит только глобальные роли (tenant_id IS NULL)
+      result = await db.query(
+        `SELECT 
+          id,
+          key,
+          name,
+          description,
+          tenant_id
+         FROM roles
+         WHERE tenant_id IS NULL
+         ORDER BY 
+           CASE key
+             WHEN 'super_admin' THEN 1
+             WHEN 'admin' THEN 2
+             ELSE 99
+           END`
+      );
+      console.log(`✅ super_admin видит ${result.rows.length} глобальных ролей:`);
+      result.rows.forEach(r => {
+        console.log(`   - ${r.key}: ${r.name} (tenant_id: ${r.tenant_id || 'NULL'})`);
+      });
+    } else {
+      // Tenant admin видит ТОЛЬКО не-admin роли своего тенанта
+      result = await db.query(
+        `SELECT 
+          id,
+          key,
+          name,
+          description,
+          tenant_id
+         FROM roles
+         WHERE tenant_id = $1 AND key != 'admin'
+         ORDER BY 
+           CASE key
+             WHEN 'manager' THEN 1
+             WHEN 'estimator' THEN 2
+             WHEN 'supplier' THEN 3
+             ELSE 99
+           END`,
+        [tenantId]
+      );
+      console.log(`✅ tenant admin видит ${result.rows.length} редактируемых ролей (без admin):`);
+      result.rows.forEach(r => {
+        console.log(`   - ${r.key}: ${r.name} (tenant_id: ${r.tenant_id})`);
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -1028,6 +1059,21 @@ export const deactivateUser = async (req, res) => {
       });
     }
 
+    // 🔒 Tenant Isolation: проверяем что пользователь принадлежит к тому же tenant
+    const userCheck = await db.query(
+      `SELECT u.id FROM users u
+       JOIN user_tenants ut ON u.id = ut.user_id
+       WHERE u.id = $1 AND ut.tenant_id = $2`,
+      [id, tenantId]
+    );
+
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Пользователь не найден в вашей компании'
+      });
+    }
+
     await db.query(
       "UPDATE users SET status = 'inactive', updated_at = NOW() WHERE id = $1",
       [id]
@@ -1098,6 +1144,21 @@ export const activateUser = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: 'Доступ запрещен'
+      });
+    }
+
+    // 🔒 Tenant Isolation: проверяем что пользователь принадлежит к тому же tenant
+    const userCheck = await db.query(
+      `SELECT u.id FROM users u
+       JOIN user_tenants ut ON u.id = ut.user_id
+       WHERE u.id = $1 AND ut.tenant_id = $2`,
+      [id, tenantId]
+    );
+
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Пользователь не найден в вашей компании'
       });
     }
 

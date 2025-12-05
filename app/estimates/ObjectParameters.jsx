@@ -581,7 +581,7 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
           </Typography>
         </Box>
         <Stack direction="row" spacing={1.5}>
-          <Button variant="outlined" startIcon={<IconPlus />} onClick={handleAddRow} disabled={saving}>
+          <Button variant="outlined" startIcon={<IconPlus />} onClick={handleAddRow} disabled={saving} size="small">
             Добавить помещение
           </Button>
           <Button 
@@ -589,6 +589,7 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
             startIcon={saving ? <CircularProgress size={20} /> : <IconDeviceFloppy />} 
             onClick={handleSave}
             disabled={saving}
+            size="small"
           >
             {saving ? 'Сохранение...' : 'Сохранить'}
           </Button>

@@ -55,3 +55,7 @@ docs/
 
 # Node modules (already in .gitignore)
 node_modules/
+package-lock.json
+
+# Utility scripts and documentation
+utils-scripts/

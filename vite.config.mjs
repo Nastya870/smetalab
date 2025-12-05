@@ -28,8 +28,14 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false
         }
+      },
+      // Middleware for SPA routing - serve index.html for all routes
+      middlewareMode: false,
+      fs: {
+        strict: false
       }
     },
+    appType: 'spa',
     build: {
       chunkSizeWarningLimit: 1600
     },
@@ -66,11 +72,35 @@ export default defineConfig(({ mode }) => {
         '@tabler/icons-react': '@tabler/icons-react/dist/esm/icons/index.mjs'
       }
     },
-    // FIX: Use relative paths for Vercel deployment with Root Directory
-    base: './',
+    // FIX: Use absolute base path to prevent routing issues on page refresh
+    base: '/',
     plugins: [
-      react(), 
+      react(),
       jsconfigPaths(),
+      // Custom plugin for SPA routing fallback
+      {
+        name: 'spa-fallback',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            // Skip API requests and static assets
+            if (
+              req.url.startsWith('/api') ||
+              req.url.startsWith('/@') ||
+              req.url.startsWith('/node_modules') ||
+              req.url.includes('.') && !req.url.endsWith('.html')
+            ) {
+              return next();
+            }
+            
+            // For all other requests (app routes), serve index.html
+            if (req.url.startsWith('/app') || req.url.startsWith('/pages') || req.url.startsWith('/auth')) {
+              req.url = '/';
+            }
+            
+            next();
+          });
+        }
+      },
       // Bundle size analyzer (только в production build)
       mode === 'production' && visualizer({
         filename: './dist/stats.html',

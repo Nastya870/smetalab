@@ -44,9 +44,18 @@ export default function MainLayout() {
 
   return (
     <Box sx={{ display: 'flex' }}>
-      {/* header */}
-      <AppBar enableColorOnDark position="fixed" color="inherit" elevation={0} sx={{ bgcolor: 'background.default' }}>
-        <Toolbar sx={{ p: 2 }}>
+      {/* header - minimal SaaS style */}
+      <AppBar 
+        enableColorOnDark 
+        position="fixed" 
+        color="inherit" 
+        elevation={0} 
+        sx={{ 
+          bgcolor: 'background.default',
+          borderBottom: '1px solid #E8EBF1'
+        }}
+      >
+        <Toolbar sx={{ px: 2, py: 0, minHeight: '64px !important', height: 64 }}>
           <Header />
         </Toolbar>
       </AppBar>

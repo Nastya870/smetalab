@@ -4,6 +4,7 @@ import { generateTokens, getRefreshTokenExpiration } from '../utils/jwt.js';
 import emailService, { verifyEmailToken } from '../services/emailService.js';
 import { v4 as uuidv4 } from 'uuid';
 import { query } from '../config/database.js';
+import { createDefaultRolesForTenant } from '../utils/createDefaultRoles.js';
 
 /**
  * @swagger
@@ -117,10 +118,14 @@ import { query } from '../config/database.js';
  */
 export const register = async (req, res) => {
   try {
-    const { companyName, email, password, fullName, phone } = req.body;
+    const { companyName, email, password, fullName, phone, skipEmailVerification } = req.body;
+    
+    // E2E Test Mode: если передан skipEmailVerification=true и мы в dev окружении,
+    // пользователь создаётся с уже подтверждённым email
+    const isTestMode = skipEmailVerification === true && process.env.NODE_ENV !== 'production';
 
     // Валидация входных данных
-    if (!companyName || !email || !password || !fullName) {
+    if (!email || !password || !fullName) {
       return res.status(400).json({
         success: false,
         message: 'Заполните все обязательные поля'
@@ -157,36 +162,40 @@ export const register = async (req, res) => {
         throw new Error('EMAIL_EXISTS');
       }
 
-      // 2. Проверяем, что название компании не занято
+      // 2. Определяем название компании (если не указано, используем email + timestamp)
+      const finalCompanyName = companyName || `Company ${email.split('@')[0]}-${Date.now()}`;
+
+      // 3. Проверяем, что название компании не занято
       const existingTenant = await client.query(
         'SELECT id FROM tenants WHERE name = $1',
-        [companyName]
+        [finalCompanyName]
       );
 
       if (existingTenant.rows.length > 0) {
         throw new Error('COMPANY_EXISTS');
       }
 
-      // 3. Создаем компанию
+      // 4. Создаем компанию
       const tenantResult = await client.query(
         `INSERT INTO tenants (name, plan, status)
          VALUES ($1, 'free', 'active')
          RETURNING id, name, plan, company_full_name, inn, ogrn, kpp, legal_address, actual_address,
                    bank_account, correspondent_account, bank_bik, bank_name,
                    director_name, accountant_name, created_at`,
-        [companyName]
+        [finalCompanyName]
       );
       const tenant = tenantResult.rows[0];
 
-      // 4. Хэшируем пароль
+      // 5. Хэшируем пароль
       const passHash = await hashPassword(password);
 
-      // 5. Создаем пользователя
+      // 6. Создаем пользователя
+      // isTestMode передаётся из внешней области видимости (register функция)
       const userResult = await client.query(
-        `INSERT INTO users (email, pass_hash, full_name, phone, status, email_verified)
-         VALUES ($1, $2, $3, $4, 'active', false)
-         RETURNING id, email, full_name, phone, created_at`,
-        [email.toLowerCase(), passHash, fullName, phone || null]
+        `INSERT INTO users (email, pass_hash, full_name, phone, status, email_verified, avatar_url)
+         VALUES ($1, $2, $3, $4, 'active', $5, '/favicon.png')
+         RETURNING id, email, full_name, phone, avatar_url, created_at, email_verified`,
+        [email.toLowerCase(), passHash, fullName, phone || null, isTestMode]
       );
       const user = userResult.rows[0];
 
@@ -197,9 +206,14 @@ export const register = async (req, res) => {
         [tenant.id, user.id]
       );
 
-      // 7. Получаем роль admin
+      // 7. Создаём дефолтные роли для нового тенанта
+      const defaultRoles = await createDefaultRolesForTenant(client, tenant.id);
+      console.log(`✅ Создано ${defaultRoles.length} ролей для тенанта ${tenant.name}`);
+
+      // 8. Получаем роль admin для этого тенанта
       const roleResult = await client.query(
-        `SELECT id FROM roles WHERE key = 'admin'`
+        `SELECT id FROM roles WHERE key = 'admin' AND tenant_id = $1`,
+        [tenant.id]
       );
 
       if (roleResult.rows.length === 0) {
@@ -208,14 +222,14 @@ export const register = async (req, res) => {
 
       const adminRoleId = roleResult.rows[0].id;
 
-      // 8. Назначаем роль admin пользователю
+      // 9. Назначаем роль admin пользователю
       await client.query(
         `INSERT INTO user_role_assignments (tenant_id, user_id, role_id)
          VALUES ($1, $2, $3)`,
         [tenant.id, user.id, adminRoleId]
       );
 
-      // 9. НЕ создаем сессию и НЕ выдаем токены до подтверждения email
+      // 10. НЕ создаем сессию и НЕ выдаем токены до подтверждения email
       // Пользователь должен сначала подтвердить email, потом войти через /login
 
       return {
@@ -246,7 +260,34 @@ export const register = async (req, res) => {
       };
     });
 
-    // Отправка письма подтверждения email
+    // E2E Test Mode: если isTestMode, сразу возвращаем токены и пропускаем email
+    if (isTestMode) {
+      console.log(`🧪 [Auth] E2E Test Mode: создан пользователь ${email} с подтверждённым email`);
+      
+      // Генерируем токены для теста (generateTokens уже импортирован в начале файла)
+      // Сигнатура: generateTokens(userId, tenantId, email, roles = [], emailVerified = false, permissions = [])
+      const tokens = generateTokens(
+        result.user.id,
+        result.tenant.id,
+        result.user.email,
+        [], // roles - пустой массив для нового пользователя
+        true, // emailVerified = true
+        [] // permissions
+      );
+      
+      return res.status(201).json({
+        success: true,
+        message: 'Регистрация успешна! (Test Mode - email автоматически подтверждён)',
+        requiresEmailVerification: false,
+        data: {
+          user: result.user,
+          tenant: result.tenant,
+          tokens
+        }
+      });
+    }
+
+    // Отправка письма подтверждения email (обычный режим)
     // ВАЖНО: В serverless (Vercel) нужно ЖДАТЬ отправки, иначе функция завершится раньше
     try {
       // Создаем токен верификации
@@ -447,13 +488,22 @@ export const register = async (req, res) => {
  */
 export const login = async (req, res) => {
   try {
-    const { email, password, tenantId } = req.body;
+    const { email, password, tenantId, rememberMe } = req.body;
 
     // Валидация
     if (!email || !password) {
       return res.status(400).json({
         success: false,
         message: 'Email и пароль обязательны'
+      });
+    }
+
+    // Валидация формата email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Неверный формат email'
       });
     }
 
@@ -483,6 +533,18 @@ export const login = async (req, res) => {
         throw new Error('INVALID_PASSWORD');
       }
 
+      // 3.5. Проверяем является ли пользователь super_admin (может работать без tenant)
+      const allUserRolesResult = await client.query(
+        `SELECT DISTINCT r.key
+         FROM user_role_assignments ura
+         JOIN roles r ON r.id = ura.role_id
+         WHERE ura.user_id = $1`,
+        [user.id]
+      );
+      
+      const userRoleKeys = allUserRolesResult.rows.map(row => row.key);
+      const isSuperAdmin = userRoleKeys.includes('super_admin');
+
       // 4. Получаем компании пользователя
       const tenantsResult = await client.query(
         `SELECT t.id, t.name, t.plan, t.company_full_name, t.inn, t.ogrn, t.kpp,
@@ -497,39 +559,118 @@ export const login = async (req, res) => {
         [user.id]
       );
 
-      if (tenantsResult.rows.length === 0) {
+      // Для super_admin отсутствие tenant не является ошибкой
+      if (!isSuperAdmin && tenantsResult.rows.length === 0) {
         throw new Error('NO_TENANTS');
       }
 
       // 5. Выбираем тенант (указанный или дефолтный)
-      let selectedTenant;
-      if (tenantId) {
-        selectedTenant = tenantsResult.rows.find(t => t.id === tenantId);
-        if (!selectedTenant) {
-          throw new Error('TENANT_NOT_FOUND');
-        }
+      let selectedTenant = null;
+      let selectedTenantId = null;
+      
+      if (isSuperAdmin && tenantsResult.rows.length === 0) {
+        // Super admin может работать без tenant
+        selectedTenant = null;
+        selectedTenantId = null;
       } else {
-        selectedTenant = tenantsResult.rows[0]; // Первый (дефолтный)
+        // Для обычных пользователей и super_admin с tenants
+        if (tenantId) {
+          selectedTenant = tenantsResult.rows.find(t => t.id === tenantId);
+          if (!selectedTenant) {
+            throw new Error('TENANT_NOT_FOUND');
+          }
+        } else {
+          selectedTenant = tenantsResult.rows[0]; // Первый (дефолтный)
+        }
+        selectedTenantId = selectedTenant?.id || null;
       }
 
-      // 6. Получаем роли пользователя в этой компании
-      const rolesResult = await client.query(
-        `SELECT r.key, r.name
-         FROM user_role_assignments ura
-         JOIN roles r ON r.id = ura.role_id
-         WHERE ura.user_id = $1 AND ura.tenant_id = $2`,
-        [user.id, selectedTenant.id]
-      );
+      // 6. Получаем роли пользователя
+      let rolesResult;
+      if (isSuperAdmin && selectedTenantId === null) {
+        // Super admin без tenant - получаем global роли
+        rolesResult = await client.query(
+          `SELECT r.key, r.name
+           FROM user_role_assignments ura
+           JOIN roles r ON r.id = ura.role_id
+           WHERE ura.user_id = $1 AND ura.tenant_id IS NULL`,
+          [user.id]
+        );
+      } else {
+        // Обычный пользователь или super_admin с tenant
+        // Для super_admin включаем ВСЕ роли (и tenant-specific, и global)
+        if (isSuperAdmin) {
+          rolesResult = await client.query(
+            `SELECT r.key, r.name
+             FROM user_role_assignments ura
+             JOIN roles r ON r.id = ura.role_id
+             WHERE ura.user_id = $1 AND (ura.tenant_id = $2 OR ura.tenant_id IS NULL)`,
+            [user.id, selectedTenantId]
+          );
+        } else {
+          rolesResult = await client.query(
+            `SELECT r.key, r.name
+             FROM user_role_assignments ura
+             JOIN roles r ON r.id = ura.role_id
+             WHERE ura.user_id = $1 AND ura.tenant_id = $2`,
+            [user.id, selectedTenantId]
+          );
+        }
+      }
 
-      // 7. Генерируем токены (передаем роли для проверки super_admin и email_verified)
-      const tokens = generateTokens(user.id, selectedTenant.id, user.email, rolesResult.rows, user.email_verified);
+      // 6.5. Получаем ВСЕ разрешения пользователя (через все его роли)
+      let permissionsResult;
+      if (isSuperAdmin && selectedTenantId === null) {
+        // Super admin без tenant - получаем все разрешения
+        permissionsResult = await client.query(
+          `SELECT DISTINCT p.key, p.resource, p.action
+           FROM user_role_assignments ura
+           JOIN role_permissions rp ON ura.role_id = rp.role_id
+           JOIN permissions p ON rp.permission_id = p.id
+           WHERE ura.user_id = $1 AND ura.tenant_id IS NULL
+           AND rp.is_hidden = false
+           ORDER BY p.key`,
+          [user.id]
+        );
+      } else {
+        // Обычный пользователь или super_admin с tenant
+        // Для super_admin включаем разрешения из ВСЕХ ролей (tenant + global)
+        if (isSuperAdmin) {
+          permissionsResult = await client.query(
+            `SELECT DISTINCT p.key, p.resource, p.action
+             FROM user_role_assignments ura
+             JOIN role_permissions rp ON ura.role_id = rp.role_id
+             JOIN permissions p ON rp.permission_id = p.id
+             WHERE ura.user_id = $1 AND (ura.tenant_id = $2 OR ura.tenant_id IS NULL)
+             AND rp.is_hidden = false
+             ORDER BY p.key`,
+            [user.id, selectedTenantId]
+          );
+        } else {
+          permissionsResult = await client.query(
+            `SELECT DISTINCT p.key, p.resource, p.action
+             FROM user_role_assignments ura
+             JOIN role_permissions rp ON ura.role_id = rp.role_id
+             JOIN permissions p ON rp.permission_id = p.id
+             WHERE ura.user_id = $1 AND ura.tenant_id = $2
+             AND rp.is_hidden = false
+             ORDER BY p.key`,
+            [user.id, selectedTenantId]
+          );
+        }
+      }
 
-      // 8. Сохраняем refresh token
-      const expiresAt = getRefreshTokenExpiration();
+      console.log(`🔐 Login ${email}: найдено ${permissionsResult.rows.length} разрешений для JWT токена`);
+
+      // 7. Генерируем токены (передаем роли, разрешения и email_verified)
+      const tokens = generateTokens(user.id, selectedTenantId, user.email, rolesResult.rows, user.email_verified, permissionsResult.rows);
+
+      // 8. Сохраняем refresh token с учетом "запомнить меня" (48 часов вместо 30 дней)
+      const expiresAt = getRefreshTokenExpiration(rememberMe);
       await client.query(
         `INSERT INTO sessions (user_id, tenant_id, refresh_token, expires_at, device_info, ip_address)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        [user.id, selectedTenant.id, tokens.refreshToken, expiresAt, req.headers['user-agent'], req.ip]
+        [user.id, selectedTenantId, tokens.refreshToken, expiresAt, req.headers['user-agent'], req.ip]
       );
 
       // 9. Обновляем last_login_at
@@ -655,6 +796,14 @@ export const login = async (req, res) => {
  */
 export const logout = async (req, res) => {
   try {
+    // Проверяем наличие req.body перед деструктуризацией
+    if (!req.body) {
+      return res.status(401).json({
+        success: false,
+        message: 'Требуется авторизация'
+      });
+    }
+
     const { refreshToken } = req.body;
 
     if (!refreshToken) {
@@ -806,8 +955,18 @@ export const refresh = async (req, res) => {
         [session.user_id, session.tenant_id]
       );
 
-      // 3. Генерируем новые токены (с ролями и email_verified)
-      const tokens = generateTokens(session.user_id, session.tenant_id, session.email, rolesResult.rows, emailVerified);
+      // 2.7. Получаем разрешения пользователя
+      const permissionsResult = await client.query(
+        `SELECT DISTINCT p.key, p.resource, p.action
+         FROM user_role_assignments ura
+         JOIN role_permissions rp ON rp.role_id = ura.role_id
+         JOIN permissions p ON p.id = rp.permission_id
+         WHERE ura.user_id = $1 AND ura.tenant_id = $2`,
+        [session.user_id, session.tenant_id]
+      );
+
+      // 3. Генерируем новые токены (с ролями, email_verified и разрешениями)
+      const tokens = generateTokens(session.user_id, session.tenant_id, session.email, rolesResult.rows, emailVerified, permissionsResult.rows);
 
       // 4. Обновляем сессию с новым refresh token
       const newExpiresAt = getRefreshTokenExpiration();

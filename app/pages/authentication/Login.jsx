@@ -5,6 +5,7 @@ import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
 
 // project imports
 import AuthWrapper1 from './AuthWrapper1';
@@ -26,38 +27,81 @@ export default function Login() {
           <Grid container sx={{ justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 68px)' }}>
             <Grid sx={{ m: { xs: 1, sm: 3 }, mb: 0 }}>
               <AuthCardWrapper>
-                <Grid container spacing={2} sx={{ alignItems: 'center', justifyContent: 'center' }}>
-                  <Grid sx={{ mb: 3 }}>
-                    <Link to="#" aria-label="logo">
-                      <Logo />
+                <Grid container spacing={3} sx={{ alignItems: 'center', justifyContent: 'center' }}>
+                  {/* Логотип - увеличенный с отступом сверху */}
+                  <Grid sx={{ mb: 3.5, pt: 1 }}>
+                    <Link to="/" aria-label="logo">
+                      <Box sx={{ 
+                        transform: 'scale(1.25)', 
+                        transformOrigin: 'center',
+                        display: 'flex',
+                        justifyContent: 'center'
+                      }}>
+                        <Logo />
+                      </Box>
                     </Link>
                   </Grid>
+                  
+                  {/* Заголовок и подзаголовок */}
                   <Grid size={12}>
-                    <Grid container direction={{ xs: 'column-reverse', md: 'row' }} sx={{ alignItems: 'center', justifyContent: 'center' }}>
-                      <Grid>
-                        <Stack spacing={1} sx={{ alignItems: 'center', justifyContent: 'center' }}>
-                          <Typography gutterBottom variant={downMD ? 'h3' : 'h2'} sx={{ color: 'secondary.main' }}>
-                            Добро пожаловать!
-                          </Typography>
-                          <Typography variant="caption" sx={{ fontSize: '16px', textAlign: { xs: 'center', md: 'inherit' } }}>
-                            Введите ваши данные для входа
-                          </Typography>
-                        </Stack>
-                      </Grid>
-                    </Grid>
+                    <Stack spacing={1} sx={{ alignItems: 'center', justifyContent: 'center', mb: 0.5 }}>
+                      <Typography 
+                        variant={downMD ? 'h3' : 'h2'} 
+                        sx={{ 
+                          color: 'text.primary',
+                          fontWeight: 600,
+                          fontSize: downMD ? '1.5rem' : '1.75rem'
+                        }}
+                      >
+                        Добро пожаловать!
+                      </Typography>
+                      <Typography 
+                        variant="body1" 
+                        sx={{ 
+                          color: '#6B7280',
+                          textAlign: 'center',
+                          lineHeight: 1.6,
+                          fontSize: '0.95rem'
+                        }}
+                      >
+                        Введите ваши данные для входа
+                      </Typography>
+                    </Stack>
                   </Grid>
+                  
+                  {/* Форма входа */}
                   <Grid size={12}>
                     <AuthLogin />
                   </Grid>
-                  <Grid size={12}>
-                    <Divider />
+                  
+                  {/* Разделитель - очень светлый */}
+                  <Grid size={12} sx={{ pt: 1.5 }}>
+                    <Divider sx={{ borderColor: '#E8EBF1', opacity: 0.8 }} />
                   </Grid>
+                  
+                  {/* Ссылка на регистрацию */}
                   <Grid size={12}>
-                    <Grid container direction="column" sx={{ alignItems: 'center' }} size={12}>
-                      <Typography component={Link} to="/register" variant="subtitle1" sx={{ textDecoration: 'none' }}>
-                        Нет аккаунта? Зарегистрироваться
+                    <Stack direction="row" sx={{ justifyContent: 'center', gap: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '0.875rem' }}>
+                        Нет аккаунта?
                       </Typography>
-                    </Grid>
+                      <Typography 
+                        component={Link} 
+                        to="/auth/register" 
+                        variant="body2" 
+                        sx={{ 
+                          color: 'primary.main',
+                          fontWeight: 500,
+                          fontSize: '0.875rem',
+                          textDecoration: 'none',
+                          '&:hover': {
+                            textDecoration: 'underline'
+                          }
+                        }}
+                      >
+                        Зарегистрироваться
+                      </Typography>
+                    </Stack>
                   </Grid>
                 </Grid>
               </AuthCardWrapper>

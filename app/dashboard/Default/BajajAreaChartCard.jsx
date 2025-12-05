@@ -70,17 +70,52 @@ export default function BajajAreaChartCard({ projects = [] }) {
   }, [orangeDark, projects]);
 
   return (
-    <Card sx={{ bgcolor: 'secondary.light' }}>
-      <Grid container sx={{ p: 2, pb: 0, color: '#fff' }}>
+    <Card sx={{ 
+      bgcolor: 'secondary.light',
+      borderRadius: 3,
+      boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+    }}>
+      <Grid container sx={{ p: 2, pb: 0.5, color: '#fff' }}>
         <Grid size={12}>
           <Grid container sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
             <Grid>
-              <Typography variant="subtitle1" sx={{ color: 'secondary.dark' }}>
-                {projects && projects.length > 0 ? projects[0]?.name || 'Топ проект' : 'Прибыль проектов'}
+              <Typography 
+                variant="subtitle2" 
+                sx={{ 
+                  color: 'grey.600',
+                  fontSize: '0.75rem',
+                  fontWeight: 500,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}
+              >
+                {projects && projects.length > 0 ? 'Топ проект' : 'Прибыль проектов'}
+              </Typography>
+              <Typography 
+                variant="subtitle1" 
+                sx={{ 
+                  color: 'secondary.dark',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  mt: 0.25,
+                  maxWidth: 160,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {projects && projects.length > 0 ? projects[0]?.name || '—' : '—'}
               </Typography>
             </Grid>
             <Grid>
-              <Typography variant="h4" sx={{ color: 'grey.800' }}>
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  color: 'grey.800',
+                  fontWeight: 700,
+                  fontSize: '1.25rem'
+                }}
+              >
                 {projects && projects.length > 0 ? 
                   (() => {
                     const profit = projects[0]?.totalProfit || 0;
@@ -96,16 +131,23 @@ export default function BajajAreaChartCard({ projects = [] }) {
                   : '₽0'
                 }
               </Typography>
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  color: projects?.[0]?.isProfit ? 'success.main' : 'error.main',
+                  fontWeight: 600,
+                  fontSize: '0.7rem',
+                  display: 'block',
+                  textAlign: 'right'
+                }}
+              >
+                {projects && projects.length > 0 ? 
+                  `${projects[0]?.isProfit ? '+' : ''}${Math.abs(projects[0]?.profitPercentage || 0).toFixed(1)}%`
+                  : '—'
+                }
+              </Typography>
             </Grid>
           </Grid>
-        </Grid>
-        <Grid size={12}>
-          <Typography variant="subtitle2" sx={{ color: 'grey.800' }}>
-            {projects && projects.length > 0 ? 
-              `${Math.abs(projects[0]?.profitPercentage || 0).toFixed(1)}% ${projects[0]?.isProfit ? 'Прибыль' : 'убыток'}` 
-              : 'Нет данных'
-            }
-          </Typography>
         </Grid>
       </Grid>
       <Chart {...chartConfig} />

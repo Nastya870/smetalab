@@ -113,12 +113,17 @@ export default function ProfileSection() {
     <>
       <Chip
         sx={{
-          ml: 2,
-          height: '48px',
+          height: '40px',
           alignItems: 'center',
-          borderRadius: '27px',
+          borderRadius: '20px',
+          bgcolor: '#F2F4F7',
+          border: 'none',
           '& .MuiChip-label': {
-            lineHeight: 0
+            lineHeight: 0,
+            pl: 1
+          },
+          '&:hover': {
+            bgcolor: '#E8EBF0'
           }
         }}
         icon={
@@ -126,8 +131,9 @@ export default function ProfileSection() {
             src={avatarSrc}
             alt="user-images"
             sx={{
-              ...theme.typography.mediumAvatar,
-              margin: '8px 0 8px 8px !important',
+              width: 32,
+              height: 32,
+              margin: '4px 0 4px 4px !important',
               cursor: 'pointer'
             }}
             ref={anchorRef}
@@ -136,12 +142,12 @@ export default function ProfileSection() {
             color="inherit"
           />
         }
-        label={<IconSettings stroke={1.5} size="24px" />}
+        label={<IconSettings stroke={1.5} size="20px" color="#5E6278" />}
         ref={anchorRef}
         aria-controls={open ? 'menu-list-grow' : undefined}
         aria-haspopup="true"
         onClick={handleToggle}
-        color="primary"
+        variant="outlined"
         aria-label="user-account"
       />
       <Popper
