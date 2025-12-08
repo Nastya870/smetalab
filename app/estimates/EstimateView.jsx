@@ -235,35 +235,72 @@ const EstimateView = () => {
       <Dialog
         open={dialogOpen}
         onClose={handleCancelSwitch}
-        maxWidth="sm"
+        maxWidth="xs"
         fullWidth
+        PaperProps={{ sx: { borderRadius: '12px', maxWidth: 420 } }}
       >
-        <DialogTitle>Несохраненные изменения</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            В смете есть несохраненные изменения. Хотите сохранить их перед переключением?
+        <DialogTitle sx={{ fontSize: '1.125rem', fontWeight: 600, color: '#111827', pb: 0.5, pt: 2.5 }}>
+          Есть несохранённые изменения
+        </DialogTitle>
+        <DialogContent sx={{ pb: 2 }}>
+          <DialogContentText sx={{ color: '#6B7280', fontSize: '0.875rem', lineHeight: 1.5 }}>
+            У вас есть несохранённые изменения. Сохранить их перед переходом?
           </DialogContentText>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
+        <DialogActions sx={{ px: 3, pb: 3, pt: 0.5, gap: 2.5 }}>
           <Button
             onClick={handleCancelSwitch}
-            color="inherit"
-            startIcon={<IconX />}
+            sx={{ 
+              color: '#6B7280', 
+              bgcolor: 'transparent',
+              border: 'none',
+              textTransform: 'none', 
+              fontWeight: 500, 
+              px: 2,
+              py: '8px',
+              height: 40,
+              lineHeight: '20px',
+              minWidth: 'auto',
+              '&:hover': { bgcolor: '#F3F4F6' }
+            }}
           >
             Отмена
           </Button>
           <Button
             onClick={handleContinueWithoutSaving}
-            color="warning"
             variant="outlined"
+            sx={{ 
+              color: '#DC2626', 
+              borderColor: '#FCA5A5', 
+              borderWidth: '1px',
+              borderRadius: '8px',
+              textTransform: 'none', 
+              fontWeight: 500,
+              textAlign: 'center',
+              px: 2,
+              py: '6px',
+              height: 40,
+              lineHeight: 'normal',
+              '&:hover': { borderColor: '#F87171', bgcolor: '#FEF2F2', borderWidth: '1px' }
+            }}
           >
-            Продолжить без сохранения
+            Не сохранять
           </Button>
           <Button
             onClick={handleSaveAndSwitch}
-            color="primary"
             variant="contained"
-            startIcon={<IconDeviceFloppy />}
+            startIcon={<IconDeviceFloppy size={18} />}
+            sx={{ 
+              bgcolor: '#635BFF', 
+              textTransform: 'none', 
+              fontWeight: 500,
+              px: 2.5,
+              py: '8px',
+              height: 40,
+              lineHeight: '20px',
+              '&:hover': { bgcolor: '#564EE6' },
+              '&:active': { bgcolor: '#453DCC' }
+            }}
           >
             Сохранить
           </Button>
@@ -274,35 +311,72 @@ const EstimateView = () => {
       <Dialog
         open={navigationDialogOpen}
         onClose={handleCancelNavigation}
-        maxWidth="sm"
+        maxWidth="xs"
         fullWidth
+        PaperProps={{ sx: { borderRadius: '12px', maxWidth: 420 } }}
       >
-        <DialogTitle>Несохраненные изменения</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            В смете есть несохраненные изменения. Хотите сохранить их перед уходом со страницы?
+        <DialogTitle sx={{ fontSize: '1.125rem', fontWeight: 600, color: '#111827', pb: 0.5, pt: 2.5 }}>
+          Есть несохранённые изменения
+        </DialogTitle>
+        <DialogContent sx={{ pb: 2 }}>
+          <DialogContentText sx={{ color: '#6B7280', fontSize: '0.875rem', lineHeight: 1.5 }}>
+            У вас есть несохранённые изменения. Сохранить их перед переходом?
           </DialogContentText>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
+        <DialogActions sx={{ px: 3, pb: 3, pt: 0.5, gap: 2.5 }}>
           <Button
             onClick={handleCancelNavigation}
-            color="inherit"
-            startIcon={<IconX />}
+            sx={{ 
+              color: '#6B7280', 
+              bgcolor: 'transparent',
+              border: 'none',
+              textTransform: 'none', 
+              fontWeight: 500, 
+              px: 2,
+              py: '8px',
+              height: 40,
+              lineHeight: '20px',
+              minWidth: 'auto',
+              '&:hover': { bgcolor: '#F3F4F6' }
+            }}
           >
             Отмена
           </Button>
           <Button
             onClick={handleNavigateWithoutSaving}
-            color="warning"
             variant="outlined"
+            sx={{ 
+              color: '#DC2626', 
+              borderColor: '#FCA5A5', 
+              borderWidth: '1px',
+              borderRadius: '8px',
+              textTransform: 'none', 
+              fontWeight: 500,
+              textAlign: 'center',
+              px: 2,
+              py: '6px',
+              height: 40,
+              lineHeight: 'normal',
+              '&:hover': { borderColor: '#F87171', bgcolor: '#FEF2F2', borderWidth: '1px' }
+            }}
           >
-            Продолжить без сохранения
+            Не сохранять
           </Button>
           <Button
             onClick={handleSaveAndNavigate}
-            color="primary"
             variant="contained"
-            startIcon={<IconDeviceFloppy />}
+            startIcon={<IconDeviceFloppy size={18} />}
+            sx={{ 
+              bgcolor: '#635BFF', 
+              textTransform: 'none', 
+              fontWeight: 500,
+              px: 2.5,
+              py: '8px',
+              height: 40,
+              lineHeight: '20px',
+              '&:hover': { bgcolor: '#564EE6' },
+              '&:active': { bgcolor: '#453DCC' }
+            }}
           >
             Сохранить
           </Button>

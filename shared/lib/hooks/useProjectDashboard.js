@@ -28,11 +28,21 @@ const getProjectDashboardKey = (projectId) =>
   projectId ? `/api/projects/${projectId}/full-dashboard` : null;
 
 /**
- * Fetcher для SWR
+ * Fetcher для SWR с обработкой ошибок авторизации
  */
 const fetchProjectDashboard = async (projectId) => {
-  const response = await projectsAPI.getFullDashboard(projectId);
-  return response;
+  try {
+    const response = await projectsAPI.getFullDashboard(projectId);
+    return response;
+  } catch (error) {
+    // Если 401 - пользователь будет перенаправлен на логин через axiosInstance
+    // Не бросаем ошибку в SWR чтобы не показывать error state
+    if (error.response?.status === 401) {
+      console.log('useProjectDashboard: Auth error, redirecting to login...');
+      return null;
+    }
+    throw error;
+  }
 };
 
 /**
@@ -65,8 +75,19 @@ export function useProjectDashboard(projectId, options = {}) {
       refreshInterval: 0,
       // Показывать устаревшие данные пока загружаются новые
       keepPreviousData: true,
-      // Повторять при ошибке
-      errorRetryCount: 3,
+      // Повторять при ошибке (уменьшено для 401)
+      errorRetryCount: 1,
+      // Задержка между retry (не спамить при 401)
+      errorRetryInterval: 5000,
+      // Не retry для 401/403 ошибок
+      onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
+        // Не retry для ошибок авторизации
+        if (error?.response?.status === 401 || error?.response?.status === 403) return;
+        // Не retry больше 2 раз
+        if (retryCount >= 2) return;
+        // Retry через 5 секунд
+        setTimeout(() => revalidate({ retryCount }), 5000);
+      },
       // Дедупликация запросов в течение 2 секунд
       dedupingInterval: 2000,
       // Пользовательские опции

@@ -12,7 +12,16 @@
  */
 const normalizeText = (text) => {
   if (!text || typeof text !== 'string') return '';
-  return text.toLowerCase().trim();
+
+  return text
+    .toLowerCase()
+    // Приводим разные варианты разделителей размеров к точке
+    .replace(/,/g, '.')
+    // Убираем пробелы вокруг «x»/«х» и заменяем все варианты на латинскую x
+    .replace(/\s*[xх×\*]\s*/g, 'x')
+    // Сжимаем повторные пробелы
+    .replace(/\s+/g, ' ')
+    .trim();
 };
 
 /**
@@ -22,13 +31,15 @@ const normalizeText = (text) => {
  */
 const tokenizeQuery = (query) => {
   if (!query || typeof query !== 'string') return [];
-  
-  return query
-    .toLowerCase()
-    .trim()
-    .split(/\s+/) // Разбиваем по пробелам
-    .filter(word => word.length > 0) // Убираем пустые строки
-    .map(word => word.replace(/[^\wа-яёЁ]/g, '')); // Убираем спецсимволы, оставляем буквы и цифры
+
+  const normalized = normalizeText(query);
+
+  return normalized
+    .split(/\s+/)
+    .filter((word) => word.length > 0)
+    // Оставляем буквы (включая кириллицу), цифры, точки и дефисы
+    .map((word) => word.replace(/[^\wа-яёА-ЯЁ.\-]/g, ''))
+    .filter((word) => word.length > 0);
 };
 
 /**
@@ -43,7 +54,29 @@ const containsAllWords = (text, words) => {
   const normalizedText = normalizeText(text);
   
   // Проверяем, что текст содержит ВСЕ слова (логическое И)
-  return words.every(word => normalizedText.includes(word));
+  return words.every(word => {
+    // Для размеров типа "3x2" или "3x2.5" проверяем как отдельный токен
+    // чтобы "3x2" не находилось внутри "34x13x200"
+    if (/^\d+x[\d.]+$/.test(word)) {
+      // Это размер - ищем с границами (пробел, начало/конец, скобки и т.д.)
+      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Границы: начало строки, пробел, скобки ИЛИ конец строки, пробел, скобки, мм, м
+      const pattern = new RegExp(`(^|[\\s(\\[])${escaped}($|[\\s)\\]мmм])`, 'i');
+      return pattern.test(normalizedText);
+    }
+    
+    // Для отдельных чисел (например "3") ищем с границами,
+    // чтобы "3" не находилось внутри "300" или "13"
+    if (/^\d+$/.test(word)) {
+      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Границы: начало строки, пробел, x, скобки ИЛИ конец строки, пробел, x, скобки
+      const pattern = new RegExp(`(^|[\\s(\\[x])${escaped}($|[\\s)\\]xх×])`, 'i');
+      return pattern.test(normalizedText);
+    }
+    
+    // Обычное слово - просто includes
+    return normalizedText.includes(word);
+  });
 };
 
 /**
@@ -157,7 +190,8 @@ export const highlightMatches = (text, query) => {
   if (words.length === 0) return [{ text, match: false }];
 
   // Создаем регулярное выражение для поиска всех слов
-  const pattern = new RegExp(`(${words.join('|')})`, 'gi');
+  const escapedWords = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const pattern = new RegExp(`(${escapedWords.join('|')})`, 'gi');
   const parts = text.split(pattern);
 
   return parts.map(part => ({

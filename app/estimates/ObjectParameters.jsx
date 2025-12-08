@@ -569,31 +569,33 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
   }
 
   return (
-    <Box>
+    <Box sx={{ pb: 2 }}>
       {/* Заголовок и кнопки */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={500}>
+          <Typography sx={{ fontSize: '20px', fontWeight: 600, color: '#111827', mb: 0.5 }}>
             Параметры объекта
           </Typography>
           <Typography variant="caption" color="text.secondary">
             Заполните размеры помещений для расчета объемов работ
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1.5}>
-          <Button variant="outlined" startIcon={<IconPlus />} onClick={handleAddRow} disabled={saving} size="small">
+        <Box sx={{ display: 'flex', gap: 1.5, bgcolor: '#F9FAFB', borderRadius: '10px', p: 1, border: '1px solid #E5E7EB' }}>
+          <Button variant="outlined" startIcon={<IconPlus />} onClick={handleAddRow} disabled={saving} size="small"
+            sx={{ textTransform: 'none', borderColor: '#E5E7EB', color: '#374151', '&:hover': { borderColor: '#D1D5DB', bgcolor: '#FFFFFF' } }}>
             Добавить помещение
           </Button>
           <Button 
             variant="contained" 
-            startIcon={saving ? <CircularProgress size={20} /> : <IconDeviceFloppy />} 
+            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <IconDeviceFloppy size={16} />} 
             onClick={handleSave}
             disabled={saving}
             size="small"
+            sx={{ textTransform: 'none', bgcolor: '#4F46E5', '&:hover': { bgcolor: '#4338CA' } }}
           >
             {saving ? 'Сохранение...' : 'Сохранить'}
           </Button>
-        </Stack>
+        </Box>
       </Stack>
 
       {/* Сообщения об ошибках и успехе */}
@@ -626,19 +628,30 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
       </Snackbar>
 
       {/* Таблица */}
-      <Paper sx={{ overflow: 'auto' }}>
+      <Paper sx={{ 
+        overflow: 'auto', 
+        bgcolor: '#FFFFFF',
+        border: '1px solid #E5E7EB',
+        borderRadius: '12px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        p: 2,
+        '&::-webkit-scrollbar': { height: 6 },
+        '&::-webkit-scrollbar-track': { background: 'transparent' },
+        '&::-webkit-scrollbar-thumb': { background: '#CBD5E1', borderRadius: 3 },
+        scrollbarWidth: 'thin',
+        scrollbarColor: '#CBD5E1 transparent'
+      }}>
         <Table size="small" sx={{ minWidth: 1200 }}>
           <TableHead>
-            <TableRow sx={{ bgcolor: 'primary.light' }}>
+            <TableRow sx={{ bgcolor: 'rgba(99,102,241,0.05)' }}>
               <TableCell 
                 sx={{ 
                   width: 40, 
                   py: 1.5,
-                  borderRight: '1px dashed',
-                  borderColor: 'divider'
+                  borderBottom: '1px solid #E5E7EB'
                 }}
               >
-                <Typography variant="subtitle2" fontWeight={600} fontSize="0.8rem">
+                <Typography sx={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>
                   №
                 </Typography>
               </TableCell>
@@ -649,18 +662,12 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                     minWidth: col.id === 'room' ? 140 : 70,
                     py: 1.5,
                     px: 1,
-                    borderRight: '1px dashed',
-                    borderColor: 'divider'
+                    borderBottom: '1px solid #E5E7EB'
                   }}
                 >
-                  <Typography variant="subtitle2" fontWeight={600} fontSize="0.8rem" noWrap>
-                    {col.label}
+                  <Typography sx={{ fontSize: '14px', fontWeight: 500, color: '#374151' }} noWrap>
+                    {col.label}{col.unit ? ` (${col.unit})` : ''}
                   </Typography>
-                  {col.unit && (
-                    <Typography variant="caption" color="text.secondary" fontSize="0.7rem">
-                      ({col.unit})
-                    </Typography>
-                  )}
                 </TableCell>
               ))}
               {dimensionColumns.map((col) => (
@@ -672,20 +679,16 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                     minWidth: 100, 
                     py: 1.5, 
                     px: 1,
-                    borderRight: '1px dashed',
-                    borderColor: 'divider'
+                    borderBottom: '1px solid #E5E7EB'
                   }}
                 >
-                  <Typography variant="subtitle2" fontWeight={600} fontSize="0.8rem" noWrap>
-                    {col.label}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" fontSize="0.7rem">
-                    В×Ш (м)
+                  <Typography sx={{ fontSize: '14px', fontWeight: 500, color: '#374151' }} noWrap>
+                    {col.label} (В×Ш)
                   </Typography>
                 </TableCell>
               ))}
-              <TableCell sx={{ width: 60, py: 1.5, borderRight: 'none' }}>
-                <IconTrash size={16} />
+              <TableCell sx={{ width: 60, py: 1.5, borderBottom: '1px solid #E5E7EB' }}>
+                <IconTrash size={16} color="#9CA3AF" />
               </TableCell>
             </TableRow>
           </TableHead>
@@ -695,15 +698,12 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                 key={row.id} 
                 sx={{ 
                   '&:hover': { bgcolor: 'action.hover' },
-                  borderBottom: '1px dashed',
-                  borderColor: 'divider'
+                  borderBottom: '1px solid #E5E7EB'
                 }}
               >
                 <TableCell 
                   sx={{ 
-                    py: 0.5,
-                    borderRight: '1px dashed',
-                    borderColor: 'divider'
+                    py: 0.25
                   }}
                 >
                   <Typography variant="body2" color="text.secondary" fontSize="0.8rem" fontWeight={500}>
@@ -724,10 +724,8 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                     <TableCell 
                       key={col.id} 
                       sx={{ 
-                        py: 0.5, 
-                        px: 0.5,
-                        borderRight: '1px dashed',
-                        borderColor: 'divider'
+                        py: 0.25, 
+                        px: 0.5
                       }}
                     >
                       <TextField
@@ -748,25 +746,25 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                         }}
                       sx={{
                         '& input': {
-                          textAlign: col.type === 'number' ? 'center' : 'left',
+                          textAlign: 'center',
                           fontSize: '0.8rem',
                           py: 0.5,
                           px: 0.75,
-                          borderRadius: 0.75,
-                          bgcolor: isAutoCalculated ? 'action.hover' : 'background.paper',
+                          borderRadius: '6px',
+                          bgcolor: '#FFFFFF',
                           border: '1px solid',
-                          borderColor: isAutoCalculated ? 'action.disabled' : 'transparent',
-                          transition: 'all 0.2s',
+                          borderColor: isAutoCalculated ? '#E5E7EB' : '#F1F5F9',
+                          transition: 'all 0.15s',
                           cursor: isAutoCalculated ? 'not-allowed' : 'text',
-                          color: isAutoCalculated ? 'success.dark' : 'inherit',
+                          color: isAutoCalculated ? '#059669' : '#111827',
                           fontWeight: isAutoCalculated ? 600 : 400,
                           '&:hover': {
-                            borderColor: isAutoCalculated ? 'action.disabled' : 'primary.light',
-                            bgcolor: isAutoCalculated ? 'action.hover' : 'primary.lighter'
+                            borderColor: isAutoCalculated ? '#E5E7EB' : '#E2E8F0'
                           },
                           '&:focus': {
-                            bgcolor: isAutoCalculated ? 'action.hover' : 'background.paper',
-                            borderColor: isAutoCalculated ? 'action.disabled' : 'primary.main',
+                            bgcolor: '#FFFFFF',
+                            borderColor: '#6366F1',
+                            boxShadow: isAutoCalculated ? 'none' : '0 0 0 2px rgba(99,102,241,0.2)',
                             outline: 'none'
                           },
                           // Убираем стрелки для number input
@@ -795,10 +793,8 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                     <TableCell 
                       key={`${col.id}-h`} 
                       sx={{ 
-                        py: 0.5, 
-                        px: 0.25,
-                        borderRight: '1px dashed',
-                        borderColor: 'divider'
+                        py: 0.25, 
+                        px: 0.25
                       }}
                     >
                       <TextField
@@ -821,18 +817,18 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                             fontSize: '0.8rem',
                             py: 0.5,
                             px: 0.5,
-                            borderRadius: 0.75,
-                            bgcolor: 'background.paper',
+                            borderRadius: '6px',
+                            bgcolor: '#FFFFFF',
                             border: '1px solid',
-                            borderColor: 'transparent',
-                            transition: 'all 0.2s',
+                            borderColor: '#F1F5F9',
+                            transition: 'all 0.15s',
                             '&:hover': {
-                              borderColor: 'primary.light',
-                              bgcolor: 'primary.lighter'
+                              borderColor: '#E2E8F0'
                             },
                             '&:focus': {
-                              bgcolor: 'background.paper',
-                              borderColor: 'primary.main',
+                              bgcolor: '#FFFFFF',
+                              borderColor: '#6366F1',
+                              boxShadow: '0 0 0 2px rgba(99,102,241,0.2)',
                               outline: 'none'
                             },
                             // Убираем стрелки
@@ -850,10 +846,8 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                     <TableCell 
                       key={`${col.id}-w`} 
                       sx={{ 
-                        py: 0.5, 
-                        px: 0.25,
-                        borderRight: colIndex < dimensionColumns.length - 1 ? '1px dashed' : '1px dashed',
-                        borderColor: 'divider'
+                        py: 0.25, 
+                        px: 0.25
                       }}
                     >
                       <TextField
@@ -876,18 +870,18 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                             fontSize: '0.8rem',
                             py: 0.5,
                             px: 0.5,
-                            borderRadius: 0.75,
-                            bgcolor: 'background.paper',
+                            borderRadius: '6px',
+                            bgcolor: '#FFFFFF',
                             border: '1px solid',
-                            borderColor: 'transparent',
-                            transition: 'all 0.2s',
+                            borderColor: '#F1F5F9',
+                            transition: 'all 0.15s',
                             '&:hover': {
-                              borderColor: 'primary.light',
-                              bgcolor: 'primary.lighter'
+                              borderColor: '#E2E8F0'
                             },
                             '&:focus': {
-                              bgcolor: 'background.paper',
-                              borderColor: 'primary.main',
+                              bgcolor: '#FFFFFF',
+                              borderColor: '#6366F1',
+                              boxShadow: '0 0 0 2px rgba(99,102,241,0.2)',
                               outline: 'none'
                             },
                             // Убираем стрелки
@@ -910,8 +904,7 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                 <TableCell 
                   align="center" 
                   sx={{ 
-                    py: 0.5,
-                    borderRight: 'none'
+                    py: 0.25
                   }}
                 >
                   <IconButton 
@@ -934,10 +927,19 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
       </Paper>
 
       {/* Блок итогов */}
-      <Paper sx={{ mt: 3, p: 3 }}>
-        <Typography variant="h6" fontWeight={600} gutterBottom sx={{ mb: 3 }}>
-          Итоги по помещениям
-        </Typography>
+      <Paper sx={{ 
+        mt: 4, 
+        p: 3, 
+        bgcolor: '#FFFFFF',
+        border: '1px solid #E5E7EB',
+        borderRadius: '12px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
+          <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#1F2937' }}>
+            Итоги по помещениям
+          </Typography>
+        </Box>
         
         {/* Итоги для каждого помещения */}
         <Stack spacing={2} sx={{ mb: 4 }}>
@@ -949,53 +951,52 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
                 elevation={0} 
                 sx={{ 
                   p: 2, 
-                  bgcolor: 'grey.50',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 1
+                  bgcolor: '#F9FAFB',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '10px'
                 }}
               >
-                <Typography variant="subtitle1" fontWeight={600} gutterBottom sx={{ mb: 1.5 }}>
+                <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#111827', mb: 1.5 }}>
                   {index + 1}. {row.room || `Помещение ${index + 1}`}
                 </Typography>
-                <Stack direction="row" spacing={2} flexWrap="wrap">
-                  <Box sx={{ minWidth: 150 }}>
-                    <Typography variant="caption" color="text.secondary" display="block">
+                <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
+                  <Box sx={{ width: 160, textAlign: 'center' }}>
+                    <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
                       Площадь пола
                     </Typography>
-                    <Typography variant="h6" fontWeight={600} color="primary.main">
+                    <Typography sx={{ fontSize: '18px', fontWeight: 600, color: '#4754EB' }}>
                       {formatCommaFloat(roomTotals.floorArea, 2)} м²
                     </Typography>
                   </Box>
-                  <Box sx={{ minWidth: 150 }}>
-                    <Typography variant="caption" color="text.secondary" display="block">
+                  <Box sx={{ width: 160, textAlign: 'center' }}>
+                    <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
                       Площадь стен
                     </Typography>
-                    <Typography variant="h6" fontWeight={600} color="success.main">
+                    <Typography sx={{ fontSize: '18px', fontWeight: 600, color: '#00A86B' }}>
                       {formatCommaFloat(roomTotals.wallArea, 2)} м²
                     </Typography>
                   </Box>
-                  <Box sx={{ minWidth: 150 }}>
-                    <Typography variant="caption" color="text.secondary" display="block">
+                  <Box sx={{ width: 160, textAlign: 'center' }}>
+                    <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
                       Откосы
                     </Typography>
-                    <Typography variant="h6" fontWeight={600} color="warning.main">
+                    <Typography sx={{ fontSize: '18px', fontWeight: 600, color: '#F59E0B' }}>
                       {formatCommaFloat(roomTotals.windows, 2)} м
                     </Typography>
                   </Box>
-                  <Box sx={{ minWidth: 150 }}>
-                    <Typography variant="caption" color="text.secondary" display="block">
+                  <Box sx={{ width: 160, textAlign: 'center' }}>
+                    <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
                       Площадь потолка
                     </Typography>
-                    <Typography variant="h6" fontWeight={600} color="info.main">
+                    <Typography sx={{ fontSize: '18px', fontWeight: 600, color: '#0EA5E9' }}>
                       {formatCommaFloat(roomTotals.ceilingArea, 2)} м²
                     </Typography>
                   </Box>
-                  <Box sx={{ minWidth: 150 }}>
-                    <Typography variant="caption" color="text.secondary" display="block">
+                  <Box sx={{ width: 160, textAlign: 'center' }}>
+                    <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
                       Откосы потолок
                     </Typography>
-                    <Typography variant="h6" fontWeight={600} color="secondary.main">
+                    <Typography sx={{ fontSize: '18px', fontWeight: 600, color: '#8B5CF6' }}>
                       {formatCommaFloat(roomTotals.ceilingSlopes, 2)} м
                     </Typography>
                   </Box>
@@ -1006,48 +1007,48 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
         </Stack>
 
         {/* Общие итоги */}
-        <Box sx={{ pt: 3, borderTop: '2px solid', borderColor: 'divider' }}>
-          <Typography variant="h6" fontWeight={600} gutterBottom sx={{ mb: 2 }}>
+        <Box sx={{ pt: 3, borderTop: '1px solid #E5E7EB' }}>
+          <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#1F2937', mb: 2.5 }}>
             Общие итоги
           </Typography>
-          <Stack direction="row" spacing={3} flexWrap="wrap">
-            <Box sx={{ minWidth: 200 }}>
-              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+          <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+            <Box sx={{ width: 200, textAlign: 'center', p: 2, bgcolor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
+              <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
                 Площадь пола
               </Typography>
-              <Typography variant="h5" fontWeight={600} color="primary.main">
+              <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#4754EB' }}>
                 {formatCommaFloat(totals.floorArea, 2)} м²
               </Typography>
             </Box>
-            <Box sx={{ minWidth: 200 }}>
-              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+            <Box sx={{ width: 200, textAlign: 'center', p: 2, bgcolor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
+              <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
                 Площадь стен
               </Typography>
-              <Typography variant="h5" fontWeight={600} color="success.main">
+              <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#00A86B' }}>
                 {formatCommaFloat(totals.wallArea, 2)} м²
               </Typography>
             </Box>
-            <Box sx={{ minWidth: 200 }}>
-              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+            <Box sx={{ width: 200, textAlign: 'center', p: 2, bgcolor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
+              <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
                 Откосы
               </Typography>
-              <Typography variant="h5" fontWeight={600} color="warning.main">
+              <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#F59E0B' }}>
                 {formatCommaFloat(totals.windows, 2)} м
               </Typography>
             </Box>
-            <Box sx={{ minWidth: 200 }}>
-              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+            <Box sx={{ width: 200, textAlign: 'center', p: 2, bgcolor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
+              <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
                 Площадь потолка
               </Typography>
-              <Typography variant="h5" fontWeight={600} color="info.main">
+              <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#0EA5E9' }}>
                 {formatCommaFloat(totals.ceilingArea, 2)} м²
               </Typography>
             </Box>
-            <Box sx={{ minWidth: 200 }}>
-              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+            <Box sx={{ width: 200, textAlign: 'center', p: 2, bgcolor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
+              <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
                 Откосы потолок
               </Typography>
-              <Typography variant="h5" fontWeight={600} color="secondary.main">
+              <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#8B5CF6' }}>
                 {formatCommaFloat(totals.ceilingSlopes, 2)} м
               </Typography>
             </Box>

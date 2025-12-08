@@ -20,7 +20,7 @@ const admin = {
       type: 'item',
       url: '/app/admin/users',
       icon: icons.IconUsers,
-      breadcrumbs: true,
+      breadcrumbs: false,
       permission: { resource: 'users', action: 'view_menu' }
     },
     {
@@ -29,7 +29,7 @@ const admin = {
       type: 'item',
       url: '/app/admin/permissions',
       icon: icons.IconShield,
-      breadcrumbs: true,
+      breadcrumbs: false,
       permission: { resource: 'admin', action: 'view_menu' }
     }
   ]

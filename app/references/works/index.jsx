@@ -330,15 +330,26 @@ const WorksReferencePage = () => {
   };
 
   return (
-    <MainCard title="Справочник работ" data-testid="works-page">
+    <Box sx={{ bgcolor: '#F3F4F6', height: '100vh', p: 3, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <Paper 
+        elevation={0}
+        sx={{ 
+          bgcolor: '#FFFFFF',
+          borderRadius: '12px',
+          border: '1px solid #E5E7EB',
+          p: 4,
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          overflow: 'hidden'
+        }}
+      >
       {/* Шапка */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h3" color="textPrimary" data-testid="works-title">
+        <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: '#1F2937' }} data-testid="works-title">
           Виды работ
         </Typography>
       </Box>
-
-      <Divider sx={{ mb: 3 }} />
 
       {/* Ошибка загрузки */}
       {error && (
@@ -359,7 +370,7 @@ const WorksReferencePage = () => {
         <>
 
       {/* Поиск и фильтр */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 2 }}>
         <TextField
           fullWidth
           placeholder="Поиск по названию, коду или единице измерения..."
@@ -370,16 +381,32 @@ const WorksReferencePage = () => {
             debouncedSearch(value);
           }}
           data-testid="works-search"
+          size="small"
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              height: 44,
+              bgcolor: '#FFFFFF',
+              borderRadius: '8px',
+              fontSize: '0.875rem',
+              '& fieldset': { borderColor: '#E5E7EB' },
+              '&:hover fieldset': { borderColor: '#D1D5DB' },
+              '&.Mui-focused fieldset': { borderColor: '#6366F1' }
+            },
+            '& .MuiInputBase-input': {
+              color: '#374151',
+              '&::placeholder': { color: '#9CA3AF', opacity: 1 }
+            }
+          }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <IconSearch />
+                <IconSearch size={18} style={{ color: '#9CA3AF' }} />
               </InputAdornment>
             )
           }}
         />
         
-        {/* Фильтр по типу (глобальный/тенантный) */}
+        {/* Фильтр по типу (глобальный/тенантный) - отступ 16px */}
         <Stack 
           direction={{ xs: 'column', sm: 'row' }}
           spacing={{ xs: 2, sm: 2 }}
@@ -398,7 +425,7 @@ const WorksReferencePage = () => {
               width: { xs: '100%', sm: 'auto' }
             }}
           >
-            {/* iOS-style Toggle Switch - только иконки */}
+            {/* Toggle Switch - фиолетовый стиль, высота 36px */}
             <Tooltip 
               title={globalFilter === 'global' ? 'Глобальные работы' : 'Мои работы'}
               arrow
@@ -408,39 +435,33 @@ const WorksReferencePage = () => {
                 onClick={() => setGlobalFilter(globalFilter === 'global' ? 'tenant' : 'global')}
                 sx={{
                   position: 'relative',
-                  width: { xs: 80, sm: 90 },
+                  width: 80,
                   height: 36,
-                  bgcolor: 'rgba(33, 150, 243, 0.3)',
-                  borderRadius: '18px',
+                  bgcolor: '#F3E8FF',
+                  borderRadius: '6px',
                   cursor: 'pointer',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: 1,
+                  transition: 'all 0.2s ease',
                   '&:hover': {
-                    boxShadow: 3,
-                    transform: 'translateY(-1px)'
-                  },
-                  '&:active': {
-                    transform: 'translateY(0px)',
-                    boxShadow: 1
+                    bgcolor: '#EDE9FE'
                   }
                 }}
               >
-                {/* Белый круг-переключатель */}
+                {/* Переключатель - активный */}
                 <Box
                   sx={{
                     position: 'absolute',
-                    top: 3,
-                    left: globalFilter === 'global' ? 3 : 'calc(50% - 3px)',
-                    width: 'calc(50% - 3px)',
-                    height: 30,
-                    bgcolor: 'white',
-                    borderRadius: '15px',
-                    transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+                    top: 2,
+                    left: globalFilter === 'global' ? 2 : 'calc(50% - 2px)',
+                    width: 'calc(50% - 2px)',
+                    height: 32,
+                    bgcolor: '#EDE9FE',
+                    borderRadius: '4px',
+                    transition: 'left 0.2s ease',
+                    border: '1px solid #C4B5FD'
                   }}
                 />
                 
-                {/* Иконки на фоне */}
+                {/* Иконки */}
                 <Box
                   sx={{
                     position: 'absolute',
@@ -451,12 +472,16 @@ const WorksReferencePage = () => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    opacity: globalFilter === 'global' ? 0 : 1,
-                    transition: 'opacity 0.3s ease',
-                    pointerEvents: 'none'
+                    zIndex: 1
                   }}
                 >
-                  <IconWorld size={18} color="#000" />
+                  <IconWorld 
+                    size={16} 
+                    style={{ 
+                      color: globalFilter === 'global' ? '#5B21B6' : '#6B7280',
+                      fontWeight: globalFilter === 'global' ? 500 : 400
+                    }} 
+                  />
                 </Box>
                 
                 <Box
@@ -469,12 +494,16 @@ const WorksReferencePage = () => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    opacity: globalFilter === 'tenant' ? 0 : 1,
-                    transition: 'opacity 0.3s ease',
-                    pointerEvents: 'none'
+                    zIndex: 1
                   }}
                 >
-                  <IconBuilding size={18} color="#000" />
+                  <IconBuilding 
+                    size={16} 
+                    style={{ 
+                      color: globalFilter === 'tenant' ? '#5B21B6' : '#6B7280',
+                      fontWeight: globalFilter === 'tenant' ? 500 : 400
+                    }} 
+                  />
                 </Box>
               </Box>
             </Tooltip>
@@ -488,15 +517,27 @@ const WorksReferencePage = () => {
                 size="small"
                 startIcon={<IconUpload size={16} />} 
                 onClick={handleOpenImport}
+                sx={{
+                  textTransform: 'none',
+                  height: 36,
+                  borderColor: '#E5E7EB',
+                  color: '#4B5563',
+                  '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
+                }}
               >
                 Импорт
               </Button>
               <Button 
                 variant="contained" 
-                color="primary" 
                 size="small"
                 startIcon={<IconPlus size={16} />} 
                 onClick={handleOpenCreate}
+                sx={{
+                  textTransform: 'none',
+                  height: 36,
+                  bgcolor: '#6366F1',
+                  '&:hover': { bgcolor: '#4F46E5' }
+                }}
               >
                 Добавить
               </Button>
@@ -505,22 +546,20 @@ const WorksReferencePage = () => {
         </Stack>
       </Box>
 
-      {/* Статистика */}
-      <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'primary.main', flexShrink: 0 }} />
-          <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.primary' }}>
-            Всего работ — <strong>{works.length}</strong>
-          </Typography>
-        </Box>
+      {/* Статистика - отступ 16px сверху, 24px снизу до таблицы */}
+      <Box sx={{ mt: 2, mb: 2 }}>
+        <Typography sx={{ fontSize: '0.875rem', color: '#6B7280' }}>
+          Найдено: {filteredWorks.length}
+        </Typography>
       </Box>
 
-      {/* Таблица работ или карточки */}
+      {/* Таблица работ или карточки - занимает оставшееся пространство */}
+      <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
       {filteredWorks.length > 0 ? (
         isMobile ? (
           // Виртуализированный карточный вид для мобильных
           <Virtuoso
-            style={{ height: '600px' }}
+            style={{ height: '100%' }}
             data={filteredWorks}
             itemContent={(index, work) => {
               const hierarchyParts = [work.phase, work.section, work.subsection].filter(Boolean);
@@ -528,32 +567,26 @@ const WorksReferencePage = () => {
               
               return (
                 <Box sx={{ mb: 2 }}>
-                  <Card sx={{ width: '100%' }}>
+                  <Card sx={{ width: '100%', border: '1px solid #E5E7EB', boxShadow: 'none' }}>
                     <CardContent sx={{ pb: 1 }}>
                       <Stack spacing={1.5}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
                           <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 0.5, wordBreak: 'break-word' }}>
+                            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 0.5, wordBreak: 'break-word', color: '#374151' }}>
                               {work.name}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{ color: '#6B7280' }}>
                               Код: {work.code}
                             </Typography>
                           </Box>
                           {work.isGlobal && (
-                            <Chip 
-                              icon={<IconWorld size={14} />} 
-                              label="Общая" 
-                              size="small" 
-                              color="primary" 
-                              variant="outlined"
-                            />
+                            <IconWorld size={14} style={{ color: '#9CA3AF' }} />
                           )}
                         </Box>
                         
                         {hierarchyText && (
-                          <Box sx={{ bgcolor: 'action.hover', px: 1.5, py: 0.75, borderRadius: 1 }}>
-                            <Typography variant="caption" color="text.secondary">
+                          <Box sx={{ bgcolor: '#F9FAFB', px: 1.5, py: 0.75, borderRadius: 1 }}>
+                            <Typography sx={{ fontSize: '0.75rem', color: '#6B7280' }}>
                               {hierarchyText}
                             </Typography>
                           </Box>
@@ -561,18 +594,18 @@ const WorksReferencePage = () => {
                         
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: 0.5 }}>
                           <Box>
-                            <Typography variant="caption" color="text.secondary" display="block">
+                            <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }} display="block">
                               Ед. изм.
                             </Typography>
-                            <Typography variant="body2" fontWeight={500}>
+                            <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: '#374151' }}>
                               {work.unit}
                             </Typography>
                           </Box>
                           <Box sx={{ textAlign: 'right' }}>
-                            <Typography variant="caption" color="text.secondary" display="block">
+                            <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }} display="block">
                               Базовая цена
                             </Typography>
-                            <Typography variant="h6" color="primary.main" fontWeight={600}>
+                            <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#374151' }}>
                               {work.basePrice != null && !isNaN(Number(work.basePrice))
                                 ? formatPrice(Number(work.basePrice))
                                 : '—'}
@@ -584,15 +617,15 @@ const WorksReferencePage = () => {
                         <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end', mt: 1 }}>
                           <IconButton 
                             size="small" 
-                            color="primary"
                             onClick={() => handleOpenEdit(work)}
+                            sx={{ color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
                           >
                             <IconEdit size={16} />
                           </IconButton>
                           <IconButton 
                             size="small" 
-                            color="error"
                             onClick={() => handleDeleteWork(work.id)}
+                            sx={{ color: '#EF4444', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
                           >
                             <IconTrash size={16} />
                           </IconButton>
@@ -606,45 +639,35 @@ const WorksReferencePage = () => {
           />
         ) : (
           // Таблица для десктопа
-          <Paper>
+          <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden', height: '100%' }}>
           <TableVirtuoso
             data={filteredWorks}
-            style={{ height: 600 }}
+            style={{ height: '100%' }}
             components={{
               Scroller: React.forwardRef((props, ref) => (
                 <TableContainer {...props} ref={ref} sx={{ overflowX: 'auto', maxWidth: '100%' }} />
               )),
               Table: (props) => <Table {...props} sx={{ tableLayout: 'fixed' }} />,
               TableHead: TableHead,
-              TableRow: TableRow,
+              TableRow: (props) => <TableRow {...props} sx={{ '&:hover': { bgcolor: '#F3F4F6' } }} />,
               TableBody: TableBody,
             }}
             fixedHeaderContent={() => (
-            <TableRow sx={{ bgcolor: 'primary.light' }}>
-              <TableCell sx={{ width: '120px' }}>
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Код
-                </Typography>
+            <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+              <TableCell sx={{ width: '120px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, pl: 2.5, borderBottom: '1px solid #E5E7EB' }}>
+                Код
               </TableCell>
-              <TableCell sx={{ width: 'auto', minWidth: '300px' }}>
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Наименование
-                </Typography>
+              <TableCell sx={{ width: 'auto', minWidth: '300px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
+                Наименование
               </TableCell>
-              <TableCell align="center" sx={{ width: '100px' }}>
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Ед. изм.
-                </Typography>
+              <TableCell align="center" sx={{ width: '100px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
+                Ед. изм.
               </TableCell>
-              <TableCell align="right" sx={{ width: '150px' }}>
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Базовая цена
-                </Typography>
+              <TableCell align="right" sx={{ width: '150px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
+                Базовая цена
               </TableCell>
-              <TableCell align="center" sx={{ width: '120px' }}>
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Действия
-                </Typography>
+              <TableCell align="center" sx={{ width: '100px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, pr: 2.5, borderBottom: '1px solid #E5E7EB' }}>
+                Действия
               </TableCell>
             </TableRow>
           )}
@@ -655,29 +678,27 @@ const WorksReferencePage = () => {
             
             return (
               <>
-                <TableCell sx={{ width: '120px' }}>
-                  <Typography variant="body2" fontWeight={500}>
+                <TableCell sx={{ width: '120px', py: 1.25, pl: 2.5, borderBottom: '1px solid #F3F4F6' }}>
+                  <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
                     {work.code}
                   </Typography>
                 </TableCell>
-                <TableCell sx={{ width: 'auto', minWidth: '300px' }}>
+                <TableCell sx={{ width: 'auto', minWidth: '300px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <Tooltip title={work.is_global ? 'Глобальная работа' : 'Работа компании'}>
                       {work.is_global ? (
-                        <IconWorld size={16} style={{ color: '#1976d2', flexShrink: 0 }} />
+                        <IconWorld size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
                       ) : (
-                        <IconBuilding size={16} style={{ color: '#757575', flexShrink: 0 }} />
+                        <IconBuilding size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
                       )}
                     </Tooltip>
                     <Box sx={{ overflow: 'hidden' }}>
-                      <Typography variant="body1" sx={{ wordBreak: 'break-word' }}>{work.name}</Typography>
+                      <Typography sx={{ fontSize: '0.8125rem', color: '#374151', wordBreak: 'break-word' }}>{work.name}</Typography>
                       {hierarchyText && (
                         <Typography 
-                          variant="caption" 
                           sx={{ 
-                            color: 'success.main',
-                            fontSize: '0.7rem',
-                            fontStyle: 'italic',
+                            color: '#6B7280',
+                            fontSize: '0.75rem',
                             display: 'block',
                             mt: 0.25
                           }}
@@ -696,21 +717,31 @@ const WorksReferencePage = () => {
                     </Box>
                   </Stack>
                 </TableCell>
-                <TableCell align="center" sx={{ width: '100px' }}>
-                  <Typography variant="body2">{work.unit}</Typography>
+                <TableCell align="center" sx={{ width: '100px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
+                  <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>{work.unit}</Typography>
                 </TableCell>
-                <TableCell align="right" sx={{ width: '150px' }}>
-                  <Typography variant="body1" fontWeight={500}>
+                <TableCell align="right" sx={{ width: '150px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
+                  <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
                     {formatPrice(work.base_price || work.basePrice)}
                   </Typography>
                 </TableCell>
-                <TableCell align="center" sx={{ width: '120px' }}>
-                  <IconButton size="small" color="primary" onClick={() => handleOpenEdit(work)}>
-                    <IconEdit size={18} />
-                  </IconButton>
-                  <IconButton size="small" color="error" onClick={() => handleDeleteWork(work.id)}>
-                    <IconTrash size={18} />
-                  </IconButton>
+                <TableCell align="center" sx={{ width: '100px', py: 1.25, pr: 2.5, borderBottom: '1px solid #F3F4F6' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleOpenEdit(work)}
+                      sx={{ width: 28, height: 28, color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
+                    >
+                      <IconEdit size={16} />
+                    </IconButton>
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleDeleteWork(work.id)}
+                      sx={{ width: 28, height: 28, color: '#EF4444', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
+                    >
+                      <IconTrash size={16} />
+                    </IconButton>
+                  </Box>
                 </TableCell>
               </>
             );
@@ -722,14 +753,15 @@ const WorksReferencePage = () => {
         <EmptyState onCreateClick={handleOpenCreate} />
       ) : (
         <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Typography variant="h4" color="text.secondary">
+          <Typography sx={{ fontSize: '1rem', fontWeight: 500, color: '#6B7280' }}>
             Ничего не найдено
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography sx={{ fontSize: '0.875rem', color: '#9CA3AF', mt: 0.5 }}>
             Попробуйте изменить критерии поиска
           </Typography>
         </Box>
       )}
+      </Box>
 
       {/* Модальное окно создания/редактирования работы (Code Splitting) */}
       {openDialog && (
@@ -767,7 +799,8 @@ const WorksReferencePage = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </MainCard>
+      </Paper>
+    </Box>
   );
 };
 

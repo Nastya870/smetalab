@@ -26,6 +26,7 @@ import {
   Tabs,
   Tab
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import {
   IconFileCheck,
   IconFileInvoice,
@@ -36,7 +37,17 @@ import {
   IconUser,
   IconBuilding,
   IconPrinter,
-  IconFileText
+  IconFileText,
+  IconHash,
+  IconCalendar,
+  IconListNumbers,
+  IconCurrencyRubel,
+  IconTag,
+  IconDotsVertical,
+  IconFilePlus,
+  IconCopy,
+  IconPencil,
+  IconFileOff
 } from '@tabler/icons-react';
 
 // API
@@ -47,6 +58,27 @@ import FormKS2View from 'shared/ui/forms/FormKS2View';
 import FormKS3View from 'shared/ui/forms/FormKS3View';
 
 // ==============================|| WORK COMPLETION ACTS (АКТЫ ВЫПОЛНЕННЫХ РАБОТ) ||============================== //
+
+// Цветовая палитра
+const colors = {
+  primary: '#4F46E5',
+  primaryLight: '#EEF2FF',
+  primaryDark: '#3730A3',
+  green: '#10B981',
+  greenLight: '#D1FAE5',
+  greenDark: '#059669',
+  headerBg: '#F3F4F6',
+  cardBg: '#F9FAFB',
+  border: '#E5E7EB',
+  textPrimary: '#111827',
+  textSecondary: '#6B7280',
+  warning: '#F59E0B',
+  warningLight: '#FEF3C7',
+  error: '#EF4444',
+  errorLight: '#FEE2E2',
+  purple: '#8B5CF6',
+  purpleLight: '#EDE9FE',
+};
 
 const WorkCompletionActs = ({ estimateId, projectId }) => {
   const [loading, setLoading] = useState(false);
@@ -302,11 +334,22 @@ setError('Форма КС-3 не содержит данных');
   };
 
   const getActTypeIcon = (actType) => {
-    return actType === 'client' ? <IconBuilding size={16} /> : <IconUser size={16} />;
+    return actType === 'client' ? <IconBuilding size={14} /> : <IconUser size={14} />;
   };
 
-  const getActTypeColor = (actType) => {
-    return actType === 'client' ? 'primary' : 'secondary';
+  const getActTypeStyles = (actType) => {
+    if (actType === 'client') {
+      return {
+        bgcolor: colors.primaryLight,
+        color: colors.primary,
+        borderColor: colors.primary
+      };
+    }
+    return {
+      bgcolor: colors.purpleLight,
+      color: colors.purple,
+      borderColor: colors.purple
+    };
   };
 
   // Функции для работы со статусами
@@ -320,224 +363,613 @@ setError('Форма КС-3 не содержит данных');
     return statusLabels[status] || status;
   };
 
-  const getStatusColor = (status) => {
-    const statusColors = {
-      draft: 'default',      // Серый
-      pending: 'warning',    // Оранжевый
-      approved: 'success',   // Зеленый
-      paid: 'info'          // Синий
+  const getStatusStyles = (status) => {
+    const styles = {
+      draft: { bgcolor: '#F3F4F6', color: '#6B7280', icon: <IconPencil size={14} /> },
+      pending: { bgcolor: colors.warningLight, color: '#92400E', icon: <IconRefresh size={14} /> },
+      approved: { bgcolor: colors.greenLight, color: colors.greenDark, icon: <IconFileCheck size={14} /> },
+      paid: { bgcolor: colors.primaryLight, color: colors.primary, icon: <IconCurrencyRubel size={14} /> }
     };
-    return statusColors[status] || 'default';
+    return styles[status] || styles.draft;
   };
+
+  // Вычисление итогов
+  const totalActsCount = acts.length;
+  const totalAmount = acts.reduce((sum, act) => sum + (parseFloat(act.totalAmount) || 0), 0);
 
   return (
     <Box>
-      {/* Заголовок и кнопки генерации */}
-      <Paper sx={{ p: 2, mb: 2, border: '1px solid', borderColor: 'divider' }}>
-        <Stack spacing={2}>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Box display="flex" alignItems="center" gap={1}>
-              <IconFileCheck size={24} />
-              <Typography variant="h5">Акты выполненных работ</Typography>
-            </Box>
-            
-            <Button
-              variant="outlined"
-              startIcon={<IconRefresh size={18} />}
-              onClick={loadActs}
-              disabled={loading}
-              size="small"
-            >
-              Обновить
-            </Button>
+      {/* ═══════════════════════════════════════════════════════════════════
+          ШАПКА СТРАНИЦЫ
+      ═══════════════════════════════════════════════════════════════════ */}
+      <Stack 
+        direction={{ xs: 'column', md: 'row' }} 
+        justifyContent="space-between" 
+        alignItems={{ xs: 'flex-start', md: 'center' }}
+        spacing={2}
+        sx={{ mb: 3 }}
+      >
+        <Stack direction="row" alignItems="center" spacing={2}>
+          <Box
+            sx={{
+              width: 48,
+              height: 48,
+              borderRadius: '12px',
+              bgcolor: colors.primaryLight,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <IconFileCheck size={26} color={colors.primary} />
           </Box>
-
-          <Divider />
-
-          <Stack direction="row" spacing={2}>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<IconBuilding size={18} />}
-              onClick={() => handleGenerateAct('client')}
-              disabled={generating || loading}
+          <Box>
+            <Typography 
+              variant="h4" 
+              component="h1"
+              sx={{ 
+                fontWeight: 700, 
+                color: colors.textPrimary,
+                fontSize: { xs: '1.5rem', sm: '1.75rem' }
+              }}
             >
-              Сформировать акт для Заказчика
-            </Button>
-
-            <Button
-              variant="contained"
-              color="secondary"
-              startIcon={<IconUser size={18} />}
-              onClick={() => handleGenerateAct('specialist')}
-              disabled={generating || loading}
+              Акты выполненных работ
+            </Typography>
+            <Typography 
+              variant="body2" 
+              sx={{ color: colors.textSecondary, mt: 0.5 }}
             >
-              Сформировать акт для Специалиста
-            </Button>
-
-            <Button
-              variant="outlined"
-              startIcon={<IconFileInvoice size={18} />}
-              onClick={() => handleGenerateAct('both')}
-              disabled={generating || loading}
-            >
-              Сформировать оба акта
-            </Button>
-          </Stack>
-
-          {generating && (
-            <Alert severity="info" icon={<CircularProgress size={20} />}>
-              Формирование акта...
-            </Alert>
-          )}
-
-          {error && (
-            <Alert severity="error" onClose={() => setError(null)}>
-              {error}
-            </Alert>
-          )}
-        </Stack>
-      </Paper>
-
-      {/* Таблица актов */}
-      <Paper sx={{ border: '1px solid', borderColor: 'divider' }}>
-        {loading && acts.length === 0 ? (
-          <Box display="flex" justifyContent="center" alignItems="center" p={4}>
-            <CircularProgress />
-          </Box>
-        ) : acts.length === 0 ? (
-          <Box p={4} textAlign="center">
-            <Typography variant="body1" color="text.secondary">
-              Акты еще не сформированы. Нажмите кнопку выше для генерации.
+              Сформированные акты заказчика и специалиста
             </Typography>
           </Box>
-        ) : (
-          <Box sx={{ overflowX: 'auto', maxWidth: '100%' }}>
-            <Table sx={{ minWidth: 650 }}>
-            <TableHead>
-              <TableRow sx={{ bgcolor: 'action.hover' }}>
-                <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider', fontWeight: 'bold' }}>
-                  Номер акта
-                </TableCell>
-                <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider', fontWeight: 'bold' }}>
-                  Тип
-                </TableCell>
-                <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider', fontWeight: 'bold' }}>
-                  Дата
-                </TableCell>
-                <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider', fontWeight: 'bold' }} align="right">
-                  Кол-во работ
-                </TableCell>
-                <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider', fontWeight: 'bold' }} align="right">
-                  Сумма
-                </TableCell>
-                <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider', fontWeight: 'bold' }}>
-                  Статус
-                </TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }} align="center">
-                  Действия
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {acts.map((act) => (
-                <TableRow key={act.id} hover>
-                  <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider' }}>
-                    <Typography variant="body2" fontFamily="monospace">
-                      {act.actNumber}
-                    </Typography>
-                  </TableCell>
-                  <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider' }}>
-                    <Chip
-                      icon={getActTypeIcon(act.actType)}
-                      label={getActTypeLabel(act.actType)}
-                      color={getActTypeColor(act.actType)}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider' }}>
-                    {formatDate(act.actDate)}
-                  </TableCell>
-                  <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider' }} align="right">
-                    {act.workCount || 0}
-                  </TableCell>
-                  <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider' }} align="right">
-                    <Typography variant="body2" fontWeight={600}>
-                      {formatCurrency(act.totalAmount)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider' }}>
-                    <Chip
-                      label={getStatusLabel(act.status)}
-                      color={getStatusColor(act.status)}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <Stack direction="row" spacing={0.5} justifyContent="center">
-                      <Tooltip title="Просмотр деталей">
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => handleViewDetails(act.id)}
-                        >
-                          <IconEye size={18} />
-                        </IconButton>
-                      </Tooltip>
-                      
-                      <Tooltip title="Скачать PDF">
-                        <IconButton size="small" color="info">
-                          <IconDownload size={18} />
-                        </IconButton>
-                      </Tooltip>
-                      
-                      <Tooltip title="Удалить">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDeleteAct(act.id)}
-                        >
-                          <IconTrash size={18} />
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          </Box>
+        </Stack>
+        
+        {/* Кнопка обновления */}
+        <Button
+          variant="outlined"
+          startIcon={<IconRefresh size={18} />}
+          onClick={loadActs}
+          disabled={loading}
+          sx={{
+            borderColor: colors.border,
+            color: colors.textSecondary,
+            fontWeight: 500,
+            px: 2.5,
+            py: 1,
+            borderRadius: '10px',
+            textTransform: 'none',
+            '&:hover': {
+              borderColor: colors.primary,
+              color: colors.primary,
+              bgcolor: colors.primaryLight,
+            }
+          }}
+        >
+          Обновить
+        </Button>
+      </Stack>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          ПАНЕЛЬ ДЕЙСТВИЙ
+      ═══════════════════════════════════════════════════════════════════ */}
+      <Paper 
+        sx={{ 
+          p: 2.5, 
+          mb: 3, 
+          borderRadius: '12px',
+          border: `1px solid ${colors.border}`,
+          bgcolor: '#fff'
+        }}
+      >
+        <Stack 
+          direction={{ xs: 'column', sm: 'row' }} 
+          spacing={2}
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+        >
+          {/* Кнопка: Акт для Заказчика */}
+          <Button
+            variant="contained"
+            startIcon={<IconBuilding size={20} />}
+            onClick={() => handleGenerateAct('client')}
+            disabled={generating || loading}
+            sx={{
+              bgcolor: colors.primary,
+              color: '#fff',
+              fontWeight: 600,
+              px: 3,
+              py: 1.25,
+              height: 48,
+              borderRadius: '10px',
+              textTransform: 'none',
+              boxShadow: '0 4px 14px 0 rgba(79, 70, 229, 0.39)',
+              '&:hover': {
+                bgcolor: colors.primaryDark,
+                boxShadow: '0 6px 20px rgba(79, 70, 229, 0.45)',
+              },
+              '&:disabled': { bgcolor: '#C7D2FE' }
+            }}
+          >
+            Акт для заказчика
+          </Button>
+
+          {/* Кнопка: Акт для Специалиста */}
+          <Button
+            variant="contained"
+            startIcon={<IconUser size={20} />}
+            onClick={() => handleGenerateAct('specialist')}
+            disabled={generating || loading}
+            sx={{
+              bgcolor: colors.purple,
+              color: '#fff',
+              fontWeight: 600,
+              px: 3,
+              py: 1.25,
+              height: 48,
+              borderRadius: '10px',
+              textTransform: 'none',
+              boxShadow: '0 4px 14px 0 rgba(139, 92, 246, 0.39)',
+              '&:hover': {
+                bgcolor: '#7C3AED',
+                boxShadow: '0 6px 20px rgba(139, 92, 246, 0.45)',
+              },
+              '&:disabled': { bgcolor: '#DDD6FE' }
+            }}
+          >
+            Акт для специалиста
+          </Button>
+
+          {/* Кнопка: Оба акта */}
+          <Button
+            variant="outlined"
+            startIcon={<IconCopy size={20} />}
+            onClick={() => handleGenerateAct('both')}
+            disabled={generating || loading}
+            sx={{
+              borderColor: colors.primary,
+              color: colors.primary,
+              fontWeight: 600,
+              px: 3,
+              py: 1.25,
+              height: 48,
+              borderRadius: '10px',
+              textTransform: 'none',
+              '&:hover': {
+                borderColor: colors.primaryDark,
+                bgcolor: colors.primaryLight,
+              }
+            }}
+          >
+            Сформировать оба
+          </Button>
+        </Stack>
+
+        {generating && (
+          <Alert 
+            severity="info" 
+            icon={<CircularProgress size={18} sx={{ color: colors.primary }} />}
+            sx={{ mt: 2, borderRadius: '10px' }}
+          >
+            Формирование акта...
+          </Alert>
+        )}
+
+        {error && (
+          <Alert 
+            severity="error" 
+            onClose={() => setError(null)}
+            sx={{ mt: 2, borderRadius: '10px' }}
+          >
+            {error}
+          </Alert>
         )}
       </Paper>
 
-      {/* Модальное окно с деталями акта */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          ТАБЛИЦА АКТОВ
+      ═══════════════════════════════════════════════════════════════════ */}
+      <Paper 
+        sx={{ 
+          borderRadius: '16px',
+          border: `1px solid ${colors.border}`,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.04)',
+          overflow: 'hidden'
+        }}
+      >
+        {loading && acts.length === 0 ? (
+          <Box display="flex" justifyContent="center" alignItems="center" p={6}>
+            <CircularProgress sx={{ color: colors.primary }} />
+          </Box>
+        ) : acts.length === 0 ? (
+          /* Пустое состояние */
+          <Box p={6} textAlign="center">
+            <Box
+              sx={{
+                width: 80,
+                height: 80,
+                borderRadius: '20px',
+                bgcolor: colors.headerBg,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                mx: 'auto',
+                mb: 3
+              }}
+            >
+              <IconFileOff size={40} color="#9CA3AF" />
+            </Box>
+            <Typography 
+              variant="h6" 
+              sx={{ fontWeight: 600, color: '#374151', mb: 1 }}
+            >
+              Пока нет сформированных актов
+            </Typography>
+            <Typography 
+              variant="body2" 
+              sx={{ color: colors.textSecondary, maxWidth: 400, mx: 'auto' }}
+            >
+              Нажмите кнопку выше, чтобы создать первый акт выполненных работ
+            </Typography>
+          </Box>
+        ) : (
+          <>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table sx={{ minWidth: 900 }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell 
+                      sx={{ 
+                        fontWeight: 700, 
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.5,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      <Stack direction="row" alignItems="center" spacing={0.75}>
+                        <IconHash size={16} color="#9CA3AF" />
+                        <span>Номер акта</span>
+                      </Stack>
+                    </TableCell>
+                    <TableCell 
+                      sx={{ 
+                        fontWeight: 700, 
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.5,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      <Stack direction="row" alignItems="center" spacing={0.75}>
+                        <IconUser size={16} color="#9CA3AF" />
+                        <span>Тип</span>
+                      </Stack>
+                    </TableCell>
+                    <TableCell 
+                      sx={{ 
+                        fontWeight: 700, 
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.5,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      <Stack direction="row" alignItems="center" spacing={0.75}>
+                        <IconCalendar size={16} color="#9CA3AF" />
+                        <span>Дата</span>
+                      </Stack>
+                    </TableCell>
+                    <TableCell 
+                      align="right"
+                      sx={{ 
+                        fontWeight: 700, 
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.5,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.75}>
+                        <IconListNumbers size={16} color="#9CA3AF" />
+                        <span>Работ</span>
+                      </Stack>
+                    </TableCell>
+                    <TableCell 
+                      align="right"
+                      sx={{ 
+                        fontWeight: 700, 
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.5,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.75}>
+                        <IconCurrencyRubel size={16} color="#9CA3AF" />
+                        <span>Сумма</span>
+                      </Stack>
+                    </TableCell>
+                    <TableCell 
+                      sx={{ 
+                        fontWeight: 700, 
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.5,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      <Stack direction="row" alignItems="center" spacing={0.75}>
+                        <IconTag size={16} color="#9CA3AF" />
+                        <span>Статус</span>
+                      </Stack>
+                    </TableCell>
+                    <TableCell 
+                      align="center"
+                      sx={{ 
+                        fontWeight: 700, 
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.5,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem',
+                        width: 130
+                      }}
+                    >
+                      Действия
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {acts.map((act, index) => {
+                    const typeStyles = getActTypeStyles(act.actType);
+                    const statusStyles = getStatusStyles(act.status);
+                    
+                    return (
+                      <TableRow 
+                        key={act.id} 
+                        sx={{
+                          bgcolor: index % 2 === 0 ? '#fff' : '#FAFAFA',
+                          '&:hover': { bgcolor: colors.cardBg },
+                          transition: 'background-color 0.15s',
+                          '& td': {
+                            py: 1.5,
+                            borderBottom: `1px solid ${colors.border}`
+                          }
+                        }}
+                      >
+                        {/* Номер акта */}
+                        <TableCell>
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              fontWeight: 600, 
+                              color: colors.primary,
+                              fontFamily: 'monospace'
+                            }}
+                          >
+                            {act.actNumber}
+                          </Typography>
+                        </TableCell>
+                        
+                        {/* Тип */}
+                        <TableCell>
+                          <Chip
+                            icon={getActTypeIcon(act.actType)}
+                            label={getActTypeLabel(act.actType)}
+                            size="small"
+                            sx={{
+                              ...typeStyles,
+                              fontWeight: 500,
+                              height: 28,
+                              '& .MuiChip-icon': { 
+                                color: typeStyles.color,
+                                ml: 0.5
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        
+                        {/* Дата */}
+                        <TableCell>
+                          <Typography variant="body2" sx={{ color: '#374151' }}>
+                            {formatDate(act.actDate)}
+                          </Typography>
+                        </TableCell>
+                        
+                        {/* Кол-во работ */}
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ fontWeight: 500, color: '#374151' }}>
+                            {act.workCount || 0}
+                          </Typography>
+                        </TableCell>
+                        
+                        {/* Сумма */}
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: colors.green }}>
+                            {formatCurrency(act.totalAmount)}
+                          </Typography>
+                        </TableCell>
+                        
+                        {/* Статус */}
+                        <TableCell>
+                          <Chip
+                            icon={statusStyles.icon}
+                            label={getStatusLabel(act.status)}
+                            size="small"
+                            sx={{
+                              bgcolor: statusStyles.bgcolor,
+                              color: statusStyles.color,
+                              fontWeight: 500,
+                              height: 28,
+                              '& .MuiChip-icon': { 
+                                color: statusStyles.color,
+                                ml: 0.5
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        
+                        {/* Действия */}
+                        <TableCell align="center">
+                          <Stack direction="row" spacing={0.5} justifyContent="center">
+                            <Tooltip title="Просмотр">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleViewDetails(act.id)}
+                                sx={{ 
+                                  color: colors.textSecondary,
+                                  transition: 'all 0.2s',
+                                  '&:hover': { 
+                                    color: colors.primary,
+                                    bgcolor: colors.primaryLight
+                                  }
+                                }}
+                              >
+                                <IconEye size={20} />
+                              </IconButton>
+                            </Tooltip>
+                            
+                            <Tooltip title="Скачать PDF">
+                              <IconButton 
+                                size="small"
+                                sx={{ 
+                                  color: colors.textSecondary,
+                                  transition: 'all 0.2s',
+                                  '&:hover': { 
+                                    color: colors.green,
+                                    bgcolor: colors.greenLight
+                                  }
+                                }}
+                              >
+                                <IconDownload size={20} />
+                              </IconButton>
+                            </Tooltip>
+                            
+                            <Tooltip title="Удалить">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDeleteAct(act.id)}
+                                sx={{ 
+                                  color: colors.textSecondary,
+                                  transition: 'all 0.2s',
+                                  '&:hover': { 
+                                    color: colors.error,
+                                    bgcolor: colors.errorLight
+                                  }
+                                }}
+                              >
+                                <IconTrash size={20} />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </Box>
+            
+            {/* Итоговая строка */}
+            <Box 
+              sx={{ 
+                px: 2.5, 
+                py: 2, 
+                bgcolor: colors.cardBg,
+                borderTop: `1px solid ${colors.border}`,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+            >
+              <Typography variant="body2" sx={{ color: colors.textSecondary }}>
+                Всего актов: <strong style={{ color: colors.textPrimary }}>{totalActsCount} шт.</strong>
+              </Typography>
+              <Typography variant="body2" sx={{ color: colors.textSecondary }}>
+                Общая сумма: <strong style={{ color: colors.green, fontSize: '1rem' }}>{formatCurrency(totalAmount)}</strong>
+              </Typography>
+            </Box>
+          </>
+        )}
+      </Paper>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          МОДАЛЬНОЕ ОКНО С ДЕТАЛЯМИ АКТА
+      ═══════════════════════════════════════════════════════════════════ */}
       <Dialog
         open={detailModalOpen}
         onClose={handleCloseDetailModal}
         maxWidth="lg"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            boxShadow: '0 8px 28px rgba(0,0,0,0.12)'
+          }
+        }}
       >
-        <DialogTitle>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Box display="flex" alignItems="center" gap={1}>
-              <IconFileCheck size={24} />
-              <Typography variant="h6">
+        <DialogTitle sx={{ px: 3, pt: 3, pb: 0 }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Stack direction="row" alignItems="center" spacing={1.5}>
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '10px',
+                  bgcolor: colors.primaryLight,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <IconFileCheck size={22} color={colors.primary} />
+              </Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: '#1F2937' }}>
                 Акт выполненных работ
               </Typography>
-            </Box>
+            </Stack>
             {selectedAct && (
               <Chip
                 icon={getActTypeIcon(selectedAct.actType)}
                 label={getActTypeLabel(selectedAct.actType)}
-                color={getActTypeColor(selectedAct.actType)}
+                size="small"
+                sx={{
+                  ...getActTypeStyles(selectedAct.actType),
+                  fontWeight: 500,
+                  height: 28,
+                  '& .MuiChip-icon': { 
+                    color: getActTypeStyles(selectedAct.actType).color,
+                    ml: 0.5
+                  }
+                }}
               />
             )}
-          </Box>
+          </Stack>
           
           {/* Вкладки */}
           <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 2 }}>
-            <Tabs value={currentTab} onChange={handleTabChange}>
+            <Tabs 
+              value={currentTab} 
+              onChange={handleTabChange}
+              sx={{
+                '& .MuiTab-root': {
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  minHeight: 48
+                },
+                '& .Mui-selected': {
+                  color: colors.primary
+                },
+                '& .MuiTabs-indicator': {
+                  backgroundColor: colors.primary
+                }
+              }}
+            >
               <Tab label="Детали акта" icon={<IconFileCheck size={18} />} iconPosition="start" />
               <Tab label="КС-2" icon={<IconFileText size={18} />} iconPosition="start" />
               <Tab label="КС-3" icon={<IconFileInvoice size={18} />} iconPosition="start" />
@@ -545,139 +977,182 @@ setError('Форма КС-3 не содержит данных');
           </Box>
         </DialogTitle>
         
-        <DialogContent dividers>
+        <DialogContent sx={{ p: 0 }}>
           {detailLoading ? (
-            <Box display="flex" justifyContent="center" p={4}>
-              <CircularProgress />
+            <Box display="flex" justifyContent="center" p={6}>
+              <CircularProgress sx={{ color: colors.primary }} />
             </Box>
           ) : selectedAct ? (
             <>
               {/* Вкладка 0: Детали акта */}
               {currentTab === 0 && (
-                <Stack spacing={3}>
-                  {/* Шапка акта */}
-                  <Paper sx={{ p: 2, bgcolor: 'action.hover' }}>
-                    <Stack spacing={1}>
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">
-                          Номер акта:
-                        </Typography>
-                        <Typography variant="body2" fontWeight={600} fontFamily="monospace">
-                          {selectedAct.actNumber}
-                        </Typography>
-                      </Box>
-                      
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">
-                          Дата:
-                        </Typography>
-                        <Typography variant="body2" fontWeight={600}>
-                          {formatDate(selectedAct.actDate)}
-                        </Typography>
-                      </Box>
-                      
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">
-                          Статус:
-                        </Typography>
-                        <Chip
-                          label={getStatusLabel(selectedAct.status)}
-                          color={getStatusColor(selectedAct.status)}
-                          size="small"
-                          variant="outlined"
-                        />
-                      </Box>
-                    </Stack>
-                  </Paper>
-
-                  {/* Таблица работ (сгруппированная по разделам) */}
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow sx={{ bgcolor: 'action.hover' }}>
-                        <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider', fontWeight: 'bold', width: '60px' }}>
-                          Код
-                        </TableCell>
-                        <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider', fontWeight: 'bold' }}>
-                          Наименование работы
-                        </TableCell>
-                        <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider', fontWeight: 'bold', width: '80px' }}>
-                          Ед. изм.
-                        </TableCell>
-                        <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider', fontWeight: 'bold', width: '100px' }} align="right">
-                          Кол-во
-                        </TableCell>
-                        <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider', fontWeight: 'bold', width: '120px' }} align="right">
-                          Цена
-                        </TableCell>
-                        <TableCell sx={{ fontWeight: 'bold', width: '140px' }} align="right">
-                          Стоимость
-                        </TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {selectedAct.items && Array.isArray(selectedAct.items) && selectedAct.items.map((item, index) => (
-                        <React.Fragment key={item.id || index}>
-                          {/* Строка раздела (если есть) */}
-                          {item.isSection && (
-                            <TableRow sx={{ bgcolor: 'action.selected' }}>
-                              <TableCell colSpan={6} sx={{ fontWeight: 'bold', py: 1 }}>
-                                {item.sectionName}
-                              </TableCell>
-                            </TableRow>
-                          )}
-                          
-                          {/* Строка работы */}
-                          {!item.isSection && (
-                            <TableRow hover>
-                              <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider' }}>
-                                <Typography variant="body2" fontFamily="monospace">
-                                  {item.workCode}
-                                </Typography>
-                              </TableCell>
-                              <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider' }}>
-                                {item.workName}
-                              </TableCell>
-                              <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider' }}>
-                                {item.unit}
-                              </TableCell>
-                              <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider' }} align="right">
-                                {item.actualQuantity ? parseFloat(item.actualQuantity).toFixed(2) : '0.00'}
-                              </TableCell>
-                              <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider' }} align="right">
-                                {formatCurrency(item.unitPrice)}
-                              </TableCell>
-                              <TableCell align="right">
-                                <Typography variant="body2" fontWeight={600}>
-                                  {formatCurrency(item.totalPrice)}
-                                </Typography>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </React.Fragment>
-                      ))}
-                      
-                      {/* Итоговая строка */}
-                      <TableRow sx={{ bgcolor: 'primary.lighter' }}>
-                        <TableCell colSpan={5} align="right" sx={{ fontWeight: 'bold', fontSize: '1rem' }}>
-                          ИТОГО:
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography variant="h6" color="primary">
-                            {formatCurrency(selectedAct.totalAmount)}
+                <Box sx={{ p: 3 }}>
+                  <Stack spacing={3}>
+                    {/* Шапка акта */}
+                    <Box 
+                      sx={{ 
+                        p: 2.5, 
+                        bgcolor: colors.cardBg, 
+                        borderRadius: '12px',
+                        border: `1px solid ${colors.border}`
+                      }}
+                    >
+                      <Stack 
+                        direction={{ xs: 'column', sm: 'row' }} 
+                        spacing={3}
+                        divider={<Divider orientation="vertical" flexItem />}
+                      >
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="caption" sx={{ color: colors.textSecondary }}>
+                            Номер акта
                           </Typography>
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </Stack>
+                          <Typography variant="body1" sx={{ fontWeight: 600, fontFamily: 'monospace', color: colors.primary }}>
+                            {selectedAct.actNumber}
+                          </Typography>
+                        </Box>
+                        
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="caption" sx={{ color: colors.textSecondary }}>
+                            Дата
+                          </Typography>
+                          <Typography variant="body1" sx={{ fontWeight: 600, color: '#374151' }}>
+                            {formatDate(selectedAct.actDate)}
+                          </Typography>
+                        </Box>
+                        
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="caption" sx={{ color: colors.textSecondary }}>
+                            Статус
+                          </Typography>
+                          <Box sx={{ mt: 0.5 }}>
+                            <Chip
+                              icon={getStatusStyles(selectedAct.status).icon}
+                              label={getStatusLabel(selectedAct.status)}
+                              size="small"
+                              sx={{
+                                bgcolor: getStatusStyles(selectedAct.status).bgcolor,
+                                color: getStatusStyles(selectedAct.status).color,
+                                fontWeight: 500,
+                                '& .MuiChip-icon': { 
+                                  color: getStatusStyles(selectedAct.status).color
+                                }
+                              }}
+                            />
+                          </Box>
+                        </Box>
+                      </Stack>
+                    </Box>
+
+                    {/* Таблица работ */}
+                    <Paper 
+                      sx={{ 
+                        borderRadius: '12px', 
+                        border: `1px solid ${colors.border}`,
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 700, bgcolor: colors.headerBg, color: '#4B5563', width: 80 }}>
+                              Код
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: 700, bgcolor: colors.headerBg, color: '#4B5563' }}>
+                              Наименование работы
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: 700, bgcolor: colors.headerBg, color: '#4B5563', width: 80 }}>
+                              Ед. изм.
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: 700, bgcolor: colors.headerBg, color: '#4B5563', width: 100 }} align="right">
+                              Кол-во
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: 700, bgcolor: colors.headerBg, color: '#4B5563', width: 120 }} align="right">
+                              Цена
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: 700, bgcolor: colors.headerBg, color: '#4B5563', width: 140 }} align="right">
+                              Стоимость
+                            </TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {selectedAct.items && Array.isArray(selectedAct.items) && selectedAct.items.map((item, index) => (
+                            <React.Fragment key={item.id || index}>
+                              {/* Строка раздела */}
+                              {item.isSection && (
+                                <TableRow sx={{ bgcolor: colors.primaryLight }}>
+                                  <TableCell colSpan={6} sx={{ fontWeight: 600, py: 1, color: colors.primary }}>
+                                    {item.sectionName}
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                              
+                              {/* Строка работы */}
+                              {!item.isSection && (
+                                <TableRow 
+                                  sx={{
+                                    '&:hover': { bgcolor: colors.cardBg },
+                                    '& td': { borderBottom: `1px solid ${colors.border}` }
+                                  }}
+                                >
+                                  <TableCell>
+                                    <Typography variant="body2" sx={{ fontFamily: 'monospace', color: colors.textSecondary }}>
+                                      {item.workCode}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography variant="body2" sx={{ color: '#374151' }}>
+                                      {item.workName}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography variant="body2" sx={{ color: colors.textSecondary }}>
+                                      {item.unit}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell align="right">
+                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                      {item.actualQuantity ? parseFloat(item.actualQuantity).toFixed(2) : '0.00'}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell align="right">
+                                    <Typography variant="body2" sx={{ color: '#374151' }}>
+                                      {formatCurrency(item.unitPrice)}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell align="right">
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: colors.green }}>
+                                      {formatCurrency(item.totalPrice)}
+                                    </Typography>
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </React.Fragment>
+                          ))}
+                          
+                          {/* Итоговая строка */}
+                          <TableRow sx={{ bgcolor: colors.greenLight }}>
+                            <TableCell colSpan={5} align="right" sx={{ fontWeight: 700, fontSize: '0.9375rem', color: colors.greenDark }}>
+                              ИТОГО:
+                            </TableCell>
+                            <TableCell align="right">
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: colors.green }}>
+                                {formatCurrency(selectedAct.totalAmount)}
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </Paper>
+                  </Stack>
+                </Box>
               )}
               
               {/* Вкладка 1: КС-2 */}
               {currentTab === 1 && (
-                <Box>
+                <Box sx={{ p: 3 }}>
                   {ks2Loading ? (
                     <Box display="flex" justifyContent="center" p={4}>
-                      <CircularProgress />
+                      <CircularProgress sx={{ color: colors.primary }} />
                     </Box>
                   ) : (
                     <FormKS2View data={ks2Data} />
@@ -687,10 +1162,10 @@ setError('Форма КС-3 не содержит данных');
               
               {/* Вкладка 2: КС-3 */}
               {currentTab === 2 && (
-                <Box>
+                <Box sx={{ p: 3 }}>
                   {ks3Loading ? (
                     <Box display="flex" justifyContent="center" p={4}>
-                      <CircularProgress />
+                      <CircularProgress sx={{ color: colors.primary }} />
                     </Box>
                   ) : (
                     <FormKS3View data={ks3Data} />
@@ -701,23 +1176,35 @@ setError('Форма КС-3 не содержит данных');
           ) : null}
         </DialogContent>
         
-        <DialogActions sx={{ justifyContent: 'space-between', px: 3, py: 2 }}>
-          <Box>
-            <Button onClick={handleCloseDetailModal} variant="outlined">
-              Закрыть
-            </Button>
-          </Box>
+        <DialogActions sx={{ justifyContent: 'space-between', px: 3, py: 2.5, borderTop: `1px solid ${colors.border}` }}>
+          <Button 
+            onClick={handleCloseDetailModal} 
+            sx={{ 
+              color: '#7B8794',
+              fontWeight: 500,
+              textTransform: 'none',
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.04)' }
+            }}
+          >
+            Закрыть
+          </Button>
           
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1.5}>
             {/* Кнопки смены статуса */}
             {selectedAct && selectedAct.status === 'draft' && (
               <Button
                 variant="contained"
-                color="warning"
                 size="small"
                 onClick={() => handleChangeStatus('pending')}
+                sx={{
+                  bgcolor: colors.warning,
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  borderRadius: '8px',
+                  '&:hover': { bgcolor: '#D97706' }
+                }}
               >
-                Отправить на согласование
+                На согласование
               </Button>
             )}
             
@@ -725,17 +1212,30 @@ setError('Форма КС-3 не содержит данных');
               <>
                 <Button
                   variant="outlined"
-                  color="error"
                   size="small"
                   onClick={() => handleChangeStatus('draft')}
+                  sx={{
+                    borderColor: colors.error,
+                    color: colors.error,
+                    fontWeight: 500,
+                    textTransform: 'none',
+                    borderRadius: '8px',
+                    '&:hover': { bgcolor: colors.errorLight }
+                  }}
                 >
-                  Вернуть в черновик
+                  В черновик
                 </Button>
                 <Button
                   variant="contained"
-                  color="success"
                   size="small"
                   onClick={() => handleChangeStatus('approved')}
+                  sx={{
+                    bgcolor: colors.green,
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    borderRadius: '8px',
+                    '&:hover': { bgcolor: colors.greenDark }
+                  }}
                 >
                   Согласовать
                 </Button>
@@ -745,9 +1245,15 @@ setError('Форма КС-3 не содержит данных');
             {selectedAct && selectedAct.status === 'approved' && (
               <Button
                 variant="contained"
-                color="info"
                 size="small"
                 onClick={() => handleChangeStatus('paid')}
+                sx={{
+                  bgcolor: colors.primary,
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  borderRadius: '8px',
+                  '&:hover': { bgcolor: colors.primaryDark }
+                }}
               >
                 Отметить оплаченным
               </Button>
@@ -761,16 +1267,32 @@ setError('Форма КС-3 не содержит данных');
                   startIcon={<IconPrinter size={18} />}
                   disabled={!ks2Data}
                   onClick={() => window.print()}
+                  sx={{
+                    borderColor: colors.border,
+                    color: colors.textSecondary,
+                    fontWeight: 500,
+                    textTransform: 'none',
+                    borderRadius: '8px',
+                    '&:hover': { borderColor: colors.primary, color: colors.primary }
+                  }}
                 >
-                  Печать КС-2
+                  Печать
                 </Button>
                 <Button
                   variant="contained"
                   startIcon={<IconDownload size={18} />}
                   disabled={!ks2Data}
                   onClick={handleDownloadKS2PDF}
+                  sx={{
+                    bgcolor: colors.primary,
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 14px 0 rgba(79, 70, 229, 0.39)',
+                    '&:hover': { bgcolor: colors.primaryDark }
+                  }}
                 >
-                  Скачать КС-2 PDF
+                  Скачать КС-2
                 </Button>
               </>
             )}
@@ -782,16 +1304,32 @@ setError('Форма КС-3 не содержит данных');
                   startIcon={<IconPrinter size={18} />}
                   disabled={!ks3Data}
                   onClick={() => window.print()}
+                  sx={{
+                    borderColor: colors.border,
+                    color: colors.textSecondary,
+                    fontWeight: 500,
+                    textTransform: 'none',
+                    borderRadius: '8px',
+                    '&:hover': { borderColor: colors.primary, color: colors.primary }
+                  }}
                 >
-                  Печать КС-3
+                  Печать
                 </Button>
                 <Button
                   variant="contained"
                   startIcon={<IconDownload size={18} />}
                   disabled={!ks3Data}
                   onClick={handleDownloadKS3PDF}
+                  sx={{
+                    bgcolor: colors.primary,
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 14px 0 rgba(79, 70, 229, 0.39)',
+                    '&:hover': { bgcolor: colors.primaryDark }
+                  }}
                 >
-                  Скачать КС-3 PDF
+                  Скачать КС-3
                 </Button>
               </>
             )}
@@ -801,6 +1339,14 @@ setError('Форма КС-3 не содержит данных');
                 variant="contained"
                 startIcon={<IconDownload size={18} />}
                 disabled={!selectedAct}
+                sx={{
+                  bgcolor: colors.primary,
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 14px 0 rgba(79, 70, 229, 0.39)',
+                  '&:hover': { bgcolor: colors.primaryDark }
+                }}
               >
                 Скачать PDF
               </Button>

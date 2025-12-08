@@ -26,17 +26,53 @@ import {
   Tooltip,
   Autocomplete,
   Chip,
-  Grid
+  Collapse
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
-import { IconShoppingCart, IconDeviceFloppy, IconRefresh, IconPhoto, IconShoppingCartPlus, IconPlus } from '@tabler/icons-react';
+import { 
+  IconShoppingCart, 
+  IconDeviceFloppy, 
+  IconRefresh, 
+  IconPhoto, 
+  IconShoppingCartPlus, 
+  IconPlus,
+  IconCheck,
+  IconAlertTriangle,
+  IconChevronDown,
+  IconChevronRight,
+  IconPackage,
+  IconEdit,
+  IconTrash,
+  IconSearch
+} from '@tabler/icons-react';
 
 // API
 import * as purchasesAPI from 'api/purchases';
 import * as globalPurchasesAPI from 'api/globalPurchases';
-import materialsAPI from 'api/materials'; // Default export
+import materialsAPI from 'api/materials';
 
 // ==============================|| PURCHASES (ЗАКУПКИ) ||============================== //
+
+// Цветовая палитра
+const colors = {
+  primary: '#4F46E5',
+  primaryLight: '#EEF2FF',
+  primaryDark: '#3730A3',
+  green: '#10B981',
+  greenLight: '#D1FAE5',
+  greenDark: '#059669',
+  headerBg: '#F3F4F6',
+  cardBg: '#F9FAFB',
+  totalBg: '#EEF2FF',
+  summaryBg: '#F5F3FF',
+  border: '#E5E7EB',
+  textPrimary: '#111827',
+  textSecondary: '#6B7280',
+  warning: '#F59E0B',
+  warningLight: '#FEF3C7',
+  error: '#EF4444',
+  errorLight: '#FEE2E2',
+};
 
 const Purchases = ({ estimateId, projectId }) => {
   const theme = useTheme();
@@ -67,6 +103,19 @@ const Purchases = ({ estimateId, projectId }) => {
 
   const totalAmount = purchasesData.reduce((sum, material) => sum + material.total, 0);
   const totalActualAmount = purchasesData.reduce((sum, material) => sum + (material.actualTotalPrice || 0), 0);
+  
+  // Статистика по материалам
+  const regularMaterials = purchasesData.filter(m => !m.isExtraCharge);
+  const extraMaterials = purchasesData.filter(m => m.isExtraCharge);
+  
+  // Получить статус закупки материала
+  const getPurchaseStatus = (material) => {
+    const remainder = material.quantity - (material.purchasedQuantity || 0);
+    if (remainder === 0) return 'complete';
+    if (remainder < 0) return 'over';
+    if (material.purchasedQuantity > 0) return 'partial';
+    return 'none';
+  };
 
   // Загрузка существующих закупок при монтировании
   useEffect(() => {
@@ -297,45 +346,123 @@ const Purchases = ({ estimateId, projectId }) => {
 
   return (
     <Box>
-      {/* Шапка */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Box>
-          <Typography variant="h5" fontWeight={500}>
-            Список материалов для закупки
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Материалы сгруппированы и суммированы по всей смете
-          </Typography>
-        </Box>
+      {/* ═══════════════════════════════════════════════════════════════════
+          ШАПКА СТРАНИЦЫ
+      ═══════════════════════════════════════════════════════════════════ */}
+      <Stack 
+        direction={{ xs: 'column', sm: 'row' }} 
+        justifyContent="space-between" 
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        spacing={2}
+        sx={{ mb: 3 }}
+      >
+        <Stack direction="row" alignItems="center" spacing={2}>
+          <Box
+            sx={{
+              width: 48,
+              height: 48,
+              borderRadius: '12px',
+              bgcolor: colors.primaryLight,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <IconPackage size={26} color={colors.primary} />
+          </Box>
+          <Box>
+            <Typography 
+              variant="h4" 
+              component="h1"
+              sx={{ 
+                fontWeight: 700, 
+                color: colors.textPrimary,
+                fontSize: { xs: '1.5rem', sm: '1.75rem' }
+              }}
+            >
+              Закупки
+            </Typography>
+            <Typography 
+              variant="body2" 
+              sx={{ color: colors.textSecondary, mt: 0.5 }}
+            >
+              Материалы, сгруппированные и суммированные по всей смете
+            </Typography>
+          </Box>
+        </Stack>
         
         <Stack direction="row" spacing={2}>
           {purchasesGenerated && (
             <>
               <Button
-                variant="outlined"
-                color="secondary"
-                startIcon={<IconPlus />}
+                variant="contained"
+                size="medium"
+                startIcon={<IconPlus size={20} />}
                 onClick={handleOpenExtraMaterialDialog}
+                sx={{
+                  bgcolor: colors.primary,
+                  color: '#fff',
+                  fontWeight: 600,
+                  px: 2.5,
+                  py: 1,
+                  borderRadius: '10px',
+                  textTransform: 'none',
+                  boxShadow: '0 4px 14px 0 rgba(79, 70, 229, 0.39)',
+                  '&:hover': {
+                    bgcolor: colors.primaryDark,
+                    boxShadow: '0 6px 20px rgba(79, 70, 229, 0.45)',
+                  }
+                }}
               >
                 Добавить материал (О/Ч)
               </Button>
               <Button
                 variant="outlined"
-                startIcon={<IconRefresh />}
+                size="medium"
+                startIcon={<IconRefresh size={20} />}
                 onClick={handleRefreshPurchases}
                 disabled={loading}
+                sx={{
+                  borderColor: colors.primary,
+                  color: colors.primary,
+                  fontWeight: 600,
+                  px: 2.5,
+                  py: 1,
+                  borderRadius: '10px',
+                  textTransform: 'none',
+                  '&:hover': {
+                    borderColor: colors.primaryDark,
+                    bgcolor: colors.primaryLight,
+                  }
+                }}
               >
                 Обновить закупки
               </Button>
             </>
           )}
           
-          {!purchasesGenerated && (
+          {!purchasesGenerated && !loading && (
             <Button
               variant="contained"
-              startIcon={<IconDeviceFloppy />}
+              size="medium"
+              startIcon={<IconDeviceFloppy size={20} />}
               onClick={handleGeneratePurchases}
               disabled={loading || !estimateId || !projectId}
+              sx={{
+                bgcolor: colors.primary,
+                color: '#fff',
+                fontWeight: 600,
+                px: 3,
+                py: 1,
+                borderRadius: '10px',
+                textTransform: 'none',
+                boxShadow: '0 4px 14px 0 rgba(79, 70, 229, 0.39)',
+                '&:hover': {
+                  bgcolor: colors.primaryDark,
+                  boxShadow: '0 6px 20px rgba(79, 70, 229, 0.45)',
+                },
+                '&:disabled': { bgcolor: '#C7D2FE' }
+              }}
             >
               Сформировать закупки
             </Button>
@@ -343,481 +470,1014 @@ const Purchases = ({ estimateId, projectId }) => {
         </Stack>
       </Stack>
 
-      {/* Индикатор загрузки */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          ИНДИКАТОР ЗАГРУЗКИ
+      ═══════════════════════════════════════════════════════════════════ */}
       {loading && (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <CircularProgress />
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+        <Paper 
+          sx={{ 
+            p: 6, 
+            textAlign: 'center',
+            borderRadius: '16px',
+            border: `1px solid ${colors.border}`
+          }}
+        >
+          <CircularProgress sx={{ color: colors.primary }} />
+          <Typography variant="body1" sx={{ color: colors.textSecondary, mt: 2 }}>
             Формирование закупок...
           </Typography>
         </Paper>
       )}
 
-      {/* Ошибка */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          ОШИБКА
+      ═══════════════════════════════════════════════════════════════════ */}
       {error && !loading && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert 
+          severity="error" 
+          sx={{ 
+            mb: 3, 
+            borderRadius: '12px',
+            '& .MuiAlert-icon': { alignItems: 'center' }
+          }}
+        >
           {error}
         </Alert>
       )}
 
-      {!loading && !purchasesGenerated ? (
-        // Заглушка до формирования закупок
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <IconShoppingCart size={64} style={{ opacity: 0.2 }} />
-          <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-            Закупки еще не сформированы
+      {/* ═══════════════════════════════════════════════════════════════════
+          ЗАГЛУШКА (НЕ СФОРМИРОВАНО)
+      ═══════════════════════════════════════════════════════════════════ */}
+      {!loading && !purchasesGenerated && (
+        <Paper 
+          sx={{ 
+            p: 6, 
+            textAlign: 'center',
+            borderRadius: '16px',
+            border: `1px solid ${colors.border}`,
+            bgcolor: '#FAFAFA'
+          }}
+        >
+          <Box
+            sx={{
+              width: 80,
+              height: 80,
+              borderRadius: '20px',
+              bgcolor: colors.primaryLight,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mx: 'auto',
+              mb: 3
+            }}
+          >
+            <IconShoppingCart size={40} color={colors.primary} style={{ opacity: 0.7 }} />
+          </Box>
+          <Typography 
+            variant="h5" 
+            sx={{ fontWeight: 600, color: '#374151', mb: 1 }}
+          >
+            Закупки ещё не сформированы
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Нажмите кнопку "Сформировать закупки" для создания списка материалов на основе сметы
+          <Typography 
+            variant="body1" 
+            sx={{ color: colors.textSecondary, mb: 4, maxWidth: 400, mx: 'auto' }}
+          >
+            Нажмите кнопку «Сформировать закупки» для создания списка материалов на основе сметы
           </Typography>
           <Button
             variant="contained"
-            startIcon={<IconDeviceFloppy />}
+            size="large"
+            startIcon={<IconDeviceFloppy size={22} />}
             onClick={handleGeneratePurchases}
             disabled={loading || !estimateId || !projectId}
+            sx={{
+              bgcolor: colors.primary,
+              color: '#fff',
+              fontWeight: 600,
+              px: 4,
+              py: 1.5,
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontSize: '1rem',
+              boxShadow: '0 4px 14px 0 rgba(79, 70, 229, 0.39)',
+              '&:hover': {
+                bgcolor: colors.primaryDark,
+                boxShadow: '0 6px 20px rgba(79, 70, 229, 0.45)',
+              }
+            }}
           >
             Сформировать закупки
           </Button>
         </Paper>
-      ) : (
-        // Сформированные закупки
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          СФОРМИРОВАННЫЕ ЗАКУПКИ
+      ═══════════════════════════════════════════════════════════════════ */}
+      {!loading && purchasesGenerated && (
         <>
-          <Paper sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+          <Paper 
+            sx={{ 
+              overflow: 'hidden',
+              borderRadius: '12px',
+              border: `1px solid ${colors.border}`,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+            }}
+          >
             {/* Таблица материалов */}
-            <Table size="small" sx={{ tableLayout: 'fixed', minWidth: 800 }}>
-              <TableHead>
-                {/* Первый уровень шапки */}
-                <TableRow>
-                  <TableCell rowSpan={2} sx={{ width: '100px', fontWeight: 600 }}>
-                    Артикул
-                  </TableCell>
-                  <TableCell rowSpan={2} sx={{ width: 'auto', minWidth: '200px', fontWeight: 600 }}>
-                    Наименование материала
-                  </TableCell>
-                  <TableCell rowSpan={2} align="center" sx={{ width: '80px', fontWeight: 600 }}>
-                    Изобр.
-                  </TableCell>
-                  <TableCell rowSpan={2} align="center" sx={{ width: '80px', fontWeight: 600 }}>
-                    Ед. изм.
-                  </TableCell>
-                  <TableCell rowSpan={2} align="right" sx={{ width: '90px', fontWeight: 600 }}>
-                    Нужно
-                  </TableCell>
-                  <TableCell rowSpan={2} align="right" sx={{ width: '90px', fontWeight: 600 }}>
-                    Закуплено
-                  </TableCell>
-                  <TableCell rowSpan={2} align="right" sx={{ width: '90px', fontWeight: 600 }}>
-                    Остаток
-                  </TableCell>
-                  <TableCell 
-                    colSpan={2} 
-                    align="center" 
-                    sx={{ 
-                      width: '220px',
-                      fontWeight: 600, 
-                      bgcolor: 'primary.lighter'
-                    }}
-                  >
-                    ПЛАН (смета)
-                  </TableCell>
-                  <TableCell 
-                    colSpan={2} 
-                    align="center" 
-                    sx={{ 
-                      width: '220px',
-                      fontWeight: 600, 
-                      bgcolor: 'success.lighter'
-                    }}
-                  >
-                    ФАКТ (закупки)
-                  </TableCell>
-                  <TableCell rowSpan={2} align="center" sx={{ width: '80px', fontWeight: 600 }}>
-                    Действия
-                  </TableCell>
-                </TableRow>
-                
-                {/* Второй уровень шапки */}
-                <TableRow>
-                  <TableCell align="right" sx={{ width: '110px', fontWeight: 600, bgcolor: 'primary.lighter' }}>
-                    Цена ₽/ед
-                  </TableCell>
-                  <TableCell 
-                    align="right" 
-                    sx={{ 
-                      width: '110px', 
-                      fontWeight: 600, 
-                      bgcolor: 'primary.lighter'
-                    }}
-                  >
-                    Сумма
-                  </TableCell>
-                  <TableCell align="right" sx={{ width: '110px', fontWeight: 600, bgcolor: 'success.lighter' }}>
-                    Цена ₽/ед
-                  </TableCell>
-                  <TableCell 
-                    align="right" 
-                    sx={{ 
-                      width: '110px', 
-                      fontWeight: 600, 
-                      bgcolor: 'success.lighter'
-                    }}
-                  >
-                    Сумма
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {/* Основные материалы */}
-                {purchasesData.filter(m => !m.isExtraCharge).map((material, index) => (
-                  <TableRow
-                    key={`regular-${index}`}
-                    sx={{
-                      '&:hover': { bgcolor: 'action.hover' },
-                      transition: 'background-color 0.2s'
-                    }}
-                  >
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={500} color="primary">
-                        {material.sku || '-'}
-                      </Typography>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="medium" sx={{ minWidth: 1100 }}>
+                <TableHead>
+                  {/* Первый уровень шапки */}
+                  <TableRow>
+                    <TableCell 
+                      rowSpan={2} 
+                      sx={{ 
+                        width: 100, 
+                        fontWeight: 700,
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.5,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      Артикул
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{material.name}</Typography>
+                    <TableCell 
+                      rowSpan={2} 
+                      sx={{ 
+                        minWidth: 200, 
+                        fontWeight: 700,
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.5,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      Наименование материала
                     </TableCell>
-                    <TableCell align="center">
-                      {material.image ? (
-                        <Avatar
-                          src={material.image}
-                          alt={material.name}
-                          variant="rounded"
-                          sx={{ 
-                            width: 28, 
-                            height: 28,
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            margin: '0 auto'
-                          }}
-                        />
-                      ) : (
-                        <Avatar
-                          variant="rounded"
-                          sx={{ 
-                            width: 28, 
-                            height: 28,
-                            bgcolor: 'action.selected',
-                            margin: '0 auto'
-                          }}
-                        >
-                          <IconPhoto size={14} style={{ opacity: 0.3 }} />
-                        </Avatar>
-                      )}
+                    <TableCell 
+                      rowSpan={2} 
+                      align="center" 
+                      sx={{ 
+                        width: 60, 
+                        fontWeight: 700,
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.5,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      Фото
                     </TableCell>
-                    <TableCell align="center">
-                      <Typography variant="body2" color="text.secondary">
-                        {material.unit}
-                      </Typography>
+                    <TableCell 
+                      rowSpan={2} 
+                      align="center" 
+                      sx={{ 
+                        width: 70, 
+                        fontWeight: 700,
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.5,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      Ед.
                     </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" fontWeight={600}>
-                        {material.quantity.toLocaleString('ru-RU', {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 2
-                        })}
-                      </Typography>
+                    <TableCell 
+                      rowSpan={2} 
+                      align="right" 
+                      sx={{ 
+                        width: 80, 
+                        fontWeight: 700,
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.5,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      Нужно
                     </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" fontWeight={600} color="info.main">
-                        {(material.purchasedQuantity || 0).toLocaleString('ru-RU', {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 2
-                        })}
-                      </Typography>
+                    <TableCell 
+                      rowSpan={2} 
+                      align="right" 
+                      sx={{ 
+                        width: 90, 
+                        fontWeight: 700,
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.5,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      Закуплено
                     </TableCell>
-                    <TableCell align="right">
-                      {(() => {
-                        const remainder = material.quantity - (material.purchasedQuantity || 0);
-                        const isOverspent = remainder < 0; // Перерасход (ушли в минус)
-                        const isPending = remainder > 0;   // Еще нужно закупить
-                        const isComplete = remainder === 0; // Закуплено точно
-                        
-                        return (
-                          <Typography 
-                            variant="body2" 
-                            fontWeight={600} 
-                            color={isOverspent ? 'error.main' : (isPending ? 'warning.main' : 'success.main')}
-                          >
-                            {isOverspent && '⚠️ '}
-                            {remainder.toLocaleString('ru-RU', {
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 2
-                            })}
-                          </Typography>
-                        );
-                      })()}
-                    </TableCell>
-                    {/* ПЛАН: Цена за ед. */}
-                    <TableCell align="right" sx={{ bgcolor: 'primary.lighter' }}>
-                      <Typography variant="body2">
-                        {formatCurrency(material.price)}
-                      </Typography>
-                    </TableCell>
-                    {/* ПЛАН: Сумма */}
-                    <TableCell align="right" sx={{ bgcolor: 'primary.lighter' }}>
-                      <Typography variant="body2" fontWeight={600}>
-                        {formatCurrency(material.total)}
-                      </Typography>
-                    </TableCell>
-                    {/* ФАКТ: Цена за ед. */}
-                    <TableCell align="right" sx={{ bgcolor: 'success.lighter' }}>
-                      {material.avgPurchasePrice ? (
-                        <Typography 
-                          variant="body2"
-                          color={material.avgPurchasePrice < material.price ? 'success.dark' : material.avgPurchasePrice > material.price ? 'error.main' : 'text.primary'}
-                          fontWeight={material.avgPurchasePrice !== material.price ? 600 : 400}
-                        >
-                          {formatCurrency(material.avgPurchasePrice)}
-                          {material.avgPurchasePrice < material.price && ' ✓'}
-                          {material.avgPurchasePrice > material.price && ' ⚠'}
-                        </Typography>
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">
-                          -
-                        </Typography>
-                      )}
-                    </TableCell>
-                    {/* ФАКТ: Сумма */}
-                    <TableCell align="right" sx={{ bgcolor: 'success.lighter' }}>
-                      {material.actualTotalPrice > 0 ? (
-                        <Typography 
-                          variant="body2" 
-                          fontWeight={600}
-                          color={material.actualTotalPrice < material.total ? 'success.dark' : material.actualTotalPrice > material.total ? 'error.main' : 'text.primary'}
-                        >
-                          {formatCurrency(material.actualTotalPrice)}
-                          {material.actualTotalPrice < material.total && ' ✓'}
-                          {material.actualTotalPrice > material.total && ' ⚠'}
-                        </Typography>
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">
-                          -
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Добавить в общие закупки">
-                        <span>
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => handleOpenAddDialog(material)}
-                          >
-                            <IconShoppingCartPlus size={20} />
-                          </IconButton>
+                    <TableCell 
+                      rowSpan={2} 
+                      align="right" 
+                      sx={{ 
+                        width: 90, 
+                        fontWeight: 700,
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.5,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      <Tooltip title="Остаток = Нужно − Закуплено" arrow>
+                        <span style={{ cursor: 'help', borderBottom: '1px dashed #9CA3AF' }}>
+                          Остаток
                         </span>
                       </Tooltip>
                     </TableCell>
+                    
+                    {/* Секция «ПЛАН (СМЕТА)» */}
+                    <TableCell 
+                      colSpan={2} 
+                      align="center"
+                      sx={{ 
+                        fontWeight: 700, 
+                        fontSize: '0.875rem',
+                        bgcolor: colors.headerBg,
+                        color: colors.textPrimary,
+                        py: 1,
+                        borderBottom: `1px solid ${colors.border}`,
+                        borderLeft: `2px solid ${colors.border}`
+                      }}
+                    >
+                      ПЛАН (смета)
+                    </TableCell>
+                    
+                    {/* Секция «ФАКТ (ЗАКУПКИ)» */}
+                    <TableCell 
+                      colSpan={2} 
+                      align="center"
+                      sx={{ 
+                        fontWeight: 700, 
+                        fontSize: '0.875rem',
+                        bgcolor: colors.greenLight,
+                        color: colors.greenDark,
+                        py: 1,
+                        borderBottom: `1px solid ${colors.border}`,
+                        borderLeft: `2px solid ${colors.green}`
+                      }}
+                    >
+                      ФАКТ (закупки)
+                    </TableCell>
+                    
+                    <TableCell 
+                      rowSpan={2} 
+                      align="center" 
+                      sx={{ 
+                        width: 80, 
+                        fontWeight: 700,
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.5,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      Действия
+                    </TableCell>
                   </TableRow>
-                ))}
-
-                {/* Разделитель для О/Ч материалов */}
-                {purchasesData.filter(m => m.isExtraCharge).length > 0 && (
-                  <>
-                    <TableRow>
-                      <TableCell colSpan={13} sx={{ bgcolor: 'warning.lighter', borderTop: '2px solid', borderColor: 'warning.main', py: 1 }}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <Chip label="О/Ч" color="warning" size="small" />
-                          <Typography variant="subtitle2" fontWeight={600} color="warning.dark">
-                            Отдельные чеки (не учтены в смете)
-                          </Typography>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-
-                    {/* О/Ч материалы */}
-                    {purchasesData.filter(m => m.isExtraCharge).map((material, index) => (
+                  
+                  {/* Второй уровень шапки */}
+                  <TableRow>
+                    <TableCell 
+                      align="right" 
+                      sx={{ 
+                        width: 120, 
+                        fontWeight: 700, 
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.25,
+                        borderBottom: `1px solid ${colors.border}`,
+                        borderLeft: `2px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      Цена ₽/ед
+                    </TableCell>
+                    <TableCell 
+                      align="right" 
+                      sx={{ 
+                        width: 120, 
+                        fontWeight: 700, 
+                        bgcolor: colors.headerBg,
+                        color: '#4B5563',
+                        py: 1.25,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      Сумма
+                    </TableCell>
+                    <TableCell 
+                      align="right" 
+                      sx={{ 
+                        width: 120, 
+                        fontWeight: 700, 
+                        bgcolor: colors.greenLight,
+                        color: colors.greenDark,
+                        py: 1.25,
+                        borderBottom: `1px solid ${colors.border}`,
+                        borderLeft: `2px solid ${colors.green}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      Цена ₽/ед
+                    </TableCell>
+                    <TableCell 
+                      align="right" 
+                      sx={{ 
+                        width: 120, 
+                        fontWeight: 700, 
+                        bgcolor: colors.greenLight,
+                        color: colors.greenDark,
+                        py: 1.25,
+                        borderBottom: `1px solid ${colors.border}`,
+                        fontSize: '0.8125rem'
+                      }}
+                    >
+                      Сумма
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {/* Основные материалы */}
+                  {regularMaterials.map((material, index) => {
+                    const status = getPurchaseStatus(material);
+                    const remainder = material.quantity - (material.purchasedQuantity || 0);
+                    
+                    return (
                       <TableRow
-                        key={`extra-${index}`}
+                        key={`regular-${index}`}
                         sx={{
-                          bgcolor: 'warning.lighter',
-                          '&:hover': { bgcolor: 'warning.light' },
-                          transition: 'background-color 0.2s'
+                          bgcolor: index % 2 === 0 ? '#fff' : '#FAFAFA',
+                          '&:hover': { bgcolor: colors.cardBg },
+                          transition: 'background-color 0.15s',
+                          '& td': {
+                            py: 1.5,
+                            borderBottom: `1px solid ${colors.border}`
+                          },
+                          ...(status === 'over' && {
+                            borderLeft: `3px solid ${colors.error}`
+                          })
                         }}
                       >
+                        {/* Артикул */}
+                        <TableCell>
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              fontWeight: 500, 
+                              color: colors.primary,
+                              fontFamily: 'monospace'
+                            }}
+                          >
+                            {material.sku || '-'}
+                          </Typography>
+                        </TableCell>
+                        
+                        {/* Наименование */}
                         <TableCell>
                           <Stack direction="row" alignItems="center" spacing={1}>
-                            <Chip label="О/Ч" color="warning" size="small" sx={{ fontSize: '0.65rem', height: 18 }} />
-                            <Typography variant="body2" fontWeight={500} color="primary">
-                              {material.sku || '-'}
+                            {status === 'complete' && (
+                              <IconCheck size={16} color={colors.green} />
+                            )}
+                            {status === 'partial' && (
+                              <IconAlertTriangle size={16} color={colors.warning} />
+                            )}
+                            {status === 'over' && (
+                              <IconAlertTriangle size={16} color={colors.error} />
+                            )}
+                            <Typography variant="body2" sx={{ color: '#374151' }}>
+                              {material.name}
                             </Typography>
                           </Stack>
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight={500}>{material.name}</Typography>
-                        </TableCell>
+                        
+                        {/* Фото */}
                         <TableCell align="center">
                           {material.image ? (
-                            <Avatar
-                              src={material.image}
-                              alt={material.name}
-                              variant="rounded"
-                              sx={{ 
-                                width: 28, 
-                                height: 28,
-                                border: '1px solid',
-                                borderColor: 'warning.main',
-                                margin: '0 auto'
-                              }}
-                            />
+                            <Tooltip title="Нажмите для увеличения">
+                              <Avatar
+                                src={material.image}
+                                alt={material.name}
+                                variant="rounded"
+                                sx={{ 
+                                  width: 36, 
+                                  height: 36,
+                                  border: `1px solid ${colors.border}`,
+                                  margin: '0 auto',
+                                  cursor: 'pointer',
+                                  '&:hover': { opacity: 0.8 }
+                                }}
+                              />
+                            </Tooltip>
                           ) : (
                             <Avatar
                               variant="rounded"
                               sx={{ 
-                                width: 28, 
-                                height: 28,
-                                bgcolor: 'warning.main',
-                                color: 'white',
+                                width: 36, 
+                                height: 36,
+                                bgcolor: '#F3F4F6',
                                 margin: '0 auto'
                               }}
                             >
-                              <IconPhoto size={14} />
+                              <IconPhoto size={16} color="#9CA3AF" />
                             </Avatar>
                           )}
                         </TableCell>
+                        
+                        {/* Ед. изм. */}
                         <TableCell align="center">
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" sx={{ color: colors.textSecondary }}>
                             {material.unit}
                           </Typography>
                         </TableCell>
+                        
+                        {/* Нужно */}
                         <TableCell align="right">
-                          <Typography variant="body2" fontWeight={600}>
+                          <Typography variant="body2" sx={{ fontWeight: 500, color: '#374151' }}>
                             {material.quantity.toLocaleString('ru-RU', {
                               minimumFractionDigits: 0,
                               maximumFractionDigits: 2
                             })}
                           </Typography>
                         </TableCell>
+                        
+                        {/* Закуплено */}
                         <TableCell align="right">
-                          <Typography variant="body2" fontWeight={600} color="info.main">
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              fontWeight: 600, 
+                              color: material.purchasedQuantity > 0 ? colors.green : colors.textSecondary
+                            }}
+                          >
                             {(material.purchasedQuantity || 0).toLocaleString('ru-RU', {
                               minimumFractionDigits: 0,
                               maximumFractionDigits: 2
                             })}
                           </Typography>
                         </TableCell>
-                        <TableCell align="right">
-                          {(() => {
-                            const remainder = material.quantity - (material.purchasedQuantity || 0);
-                            const isOverspent = remainder < 0; // Перерасход (ушли в минус)
-                            const isPending = remainder > 0;   // Еще нужно закупить
-                            const isComplete = remainder === 0; // Закуплено точно
-                            
-                            return (
+                        
+                        {/* Остаток */}
+                        <TableCell 
+                          align="right"
+                          sx={{
+                            bgcolor: status === 'complete' ? colors.greenLight : 
+                                    status === 'over' ? colors.errorLight : 
+                                    status === 'partial' ? colors.warningLight : 'transparent'
+                          }}
+                        >
+                          {status === 'complete' ? (
+                            <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.5}>
+                              <IconCheck size={16} color={colors.green} />
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: colors.green }}>
+                                Закуплено
+                              </Typography>
+                            </Stack>
+                          ) : status === 'none' ? (
+                            <Typography variant="body2" sx={{ color: '#9CA3AF', textAlign: 'right' }}>
+                              —
+                            </Typography>
+                          ) : (
+                            <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.5}>
+                              <IconAlertTriangle 
+                                size={16} 
+                                color={status === 'over' ? colors.error : colors.warning} 
+                              />
                               <Typography 
                                 variant="body2" 
-                                fontWeight={600} 
-                                color={isOverspent ? 'error.main' : (isPending ? 'warning.dark' : 'success.main')}
+                                sx={{ 
+                                  fontWeight: 600, 
+                                  color: status === 'over' ? colors.error : colors.warning
+                                }}
                               >
-                                {isOverspent && '⚠️ '}
                                 {remainder.toLocaleString('ru-RU', {
                                   minimumFractionDigits: 0,
                                   maximumFractionDigits: 2
                                 })}
                               </Typography>
-                            );
-                          })()}
-                        </TableCell>
-
-                        {/* ПЛАН: Цена за ед. */}
-                        <TableCell align="right" sx={{ bgcolor: alpha(theme.palette.warning.lighter, 0.3) }}>
-                          <Typography variant="body2" fontWeight={600}>
-                            {formatCurrency(material.price)}
-                          </Typography>
-                        </TableCell>
-
-                        {/* ПЛАН: Сумма */}
-                        <TableCell align="right" sx={{ bgcolor: alpha(theme.palette.warning.lighter, 0.3) }}>
-                          <Typography variant="body2" fontWeight={700} color="warning.dark">
-                            {formatCurrency(material.total)}
-                          </Typography>
-                        </TableCell>
-
-                        {/* ФАКТ: Цена за ед. */}
-                        <TableCell align="right" sx={{ bgcolor: alpha(theme.palette.warning.lighter, 0.2) }}>
-                          {material.avgPurchasePrice ? (
-                            <Typography 
-                              variant="body2"
-                              color={material.avgPurchasePrice < material.price ? 'success.dark' : 
-                                     material.avgPurchasePrice > material.price ? 'error.main' : 'warning.dark'}
-                              fontWeight={material.avgPurchasePrice !== material.price ? 600 : 400}
-                            >
-                              {formatCurrency(material.avgPurchasePrice)}
-                              {material.avgPurchasePrice < material.price && ' ✓'}
-                              {material.avgPurchasePrice > material.price && ' ⚠'}
-                            </Typography>
-                          ) : (
-                            <Typography variant="body2" color="text.secondary">-</Typography>
-                          )}
-                        </TableCell>
-
-                        {/* ФАКТ: Сумма */}
-                        <TableCell align="right" sx={{ bgcolor: alpha(theme.palette.warning.lighter, 0.2) }}>
-                          {material.actualTotalPrice > 0 ? (
-                            <Typography 
-                              variant="body2" fontWeight={700}
-                              color={material.actualTotalPrice < material.total ? 'success.dark' : 
-                                     material.actualTotalPrice > material.total ? 'error.main' : 'warning.dark'}
-                            >
-                              {formatCurrency(material.actualTotalPrice)}
-                              {material.actualTotalPrice < material.total && ' ✓'}
-                              {material.actualTotalPrice > material.total && ' ⚠'}
-                            </Typography>
-                          ) : (
-                            <Typography variant="body2" color="text.secondary">-</Typography>
+                            </Stack>
                           )}
                         </TableCell>
                         
-                        <TableCell align="center">
+                        {/* ПЛАН: Цена */}
+                        <TableCell 
+                          align="right"
+                          sx={{ borderLeft: `2px solid ${colors.border}` }}
+                        >
+                          <Typography variant="body2" sx={{ color: '#374151' }}>
+                            {formatCurrency(material.price)}
+                          </Typography>
+                        </TableCell>
+                        
+                        {/* ПЛАН: Сумма */}
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: '#1F2937' }}>
+                            {formatCurrency(material.total)}
+                          </Typography>
+                        </TableCell>
+                        
+                        {/* ФАКТ: Цена */}
+                        <TableCell 
+                          align="right"
+                          sx={{ borderLeft: `2px solid ${colors.green}` }}
+                        >
+                          {material.avgPurchasePrice ? (
+                            <Typography 
+                              variant="body2"
+                              sx={{ 
+                                fontWeight: 500, 
+                                color: colors.green
+                              }}
+                            >
+                              {formatCurrency(material.avgPurchasePrice)}
+                            </Typography>
+                          ) : (
+                            <Typography variant="body2" sx={{ color: '#D1D5DB' }}>
+                              —
+                            </Typography>
+                          )}
+                        </TableCell>
+                        
+                        {/* ФАКТ: Сумма */}
+                        <TableCell align="right">
+                          {material.actualTotalPrice > 0 ? (
+                            <Typography 
+                              variant="body2" 
+                              sx={{ fontWeight: 700, color: colors.green }}
+                            >
+                              {formatCurrency(material.actualTotalPrice)}
+                            </Typography>
+                          ) : (
+                            <Typography variant="body2" sx={{ color: '#D1D5DB' }}>
+                              —
+                            </Typography>
+                          )}
+                        </TableCell>
+                        
+                        {/* Действия */}
+                        <TableCell 
+                          align="center"
+                          sx={{
+                            '&:hover': { bgcolor: 'rgba(79, 70, 229, 0.04)' }
+                          }}
+                        >
                           <Tooltip title="Добавить в общие закупки">
-                            <span>
-                              <IconButton
-                                size="small"
-                                color="warning"
-                                onClick={() => handleOpenAddDialog(material)}
-                              >
-                                <IconShoppingCartPlus size={20} />
-                              </IconButton>
-                            </span>
+                            <IconButton
+                              size="medium"
+                              onClick={() => handleOpenAddDialog(material)}
+                              sx={{ 
+                                color: colors.textSecondary,
+                                transition: 'all 0.2s ease',
+                                '&:hover': { 
+                                  color: colors.primary,
+                                  bgcolor: alpha(colors.primary, 0.12),
+                                  transform: 'scale(1.05)'
+                                }
+                              }}
+                            >
+                              <IconShoppingCartPlus size={24} />
+                            </IconButton>
                           </Tooltip>
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </>
-                )}
-              </TableBody>
-            </Table>
+                    );
+                  })}
 
-            {/* Итого */}
-            <Box sx={{ px: 2, py: 1.5, bgcolor: 'success.lighter', borderTop: '2px solid', borderColor: 'success.main' }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="body2" fontWeight={600}>
-                  ИТОГО ПО СМЕТЕ
-                </Typography>
-                <Typography variant="h6" fontWeight={600} color="success.dark">
-                  {formatCurrency(totalAmount)}
-                </Typography>
-              </Stack>
+                  {/* Разделитель для О/Ч материалов */}
+                  {extraMaterials.length > 0 && (
+                    <>
+                      <TableRow>
+                        <TableCell 
+                          colSpan={13} 
+                          sx={{ 
+                            bgcolor: colors.warningLight, 
+                            borderTop: `2px solid ${colors.warning}`,
+                            py: 1.5 
+                          }}
+                        >
+                          <Stack direction="row" alignItems="center" spacing={1.5}>
+                            <Chip 
+                              label="О/Ч" 
+                              size="small" 
+                              sx={{ 
+                                bgcolor: colors.warning, 
+                                color: '#fff',
+                                fontWeight: 600
+                              }} 
+                            />
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#92400E' }}>
+                              Отдельные чеки (не учтены в смете) — {extraMaterials.length} позиций
+                            </Typography>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+
+                      {/* О/Ч материалы */}
+                      {extraMaterials.map((material, index) => {
+                        const status = getPurchaseStatus(material);
+                        const remainder = material.quantity - (material.purchasedQuantity || 0);
+                        
+                        return (
+                          <TableRow
+                            key={`extra-${index}`}
+                            sx={{
+                              bgcolor: alpha(colors.warning, 0.08),
+                              '&:hover': { bgcolor: alpha(colors.warning, 0.15) },
+                              transition: 'background-color 0.15s',
+                              '& td': {
+                                py: 1.5,
+                                borderBottom: `1px solid ${colors.border}`
+                              }
+                            }}
+                          >
+                            {/* Артикул */}
+                            <TableCell>
+                              <Stack direction="row" alignItems="center" spacing={1}>
+                                <Chip 
+                                  label="О/Ч" 
+                                  size="small" 
+                                  sx={{ 
+                                    bgcolor: colors.warning, 
+                                    color: '#fff',
+                                    fontSize: '0.65rem',
+                                    height: 18,
+                                    fontWeight: 600
+                                  }} 
+                                />
+                                <Typography 
+                                  variant="body2" 
+                                  sx={{ 
+                                    fontWeight: 500, 
+                                    color: colors.primary,
+                                    fontFamily: 'monospace'
+                                  }}
+                                >
+                                  {material.sku || '-'}
+                                </Typography>
+                              </Stack>
+                            </TableCell>
+                            
+                            {/* Наименование */}
+                            <TableCell>
+                              <Typography variant="body2" sx={{ fontWeight: 500, color: '#374151' }}>
+                                {material.name}
+                              </Typography>
+                            </TableCell>
+                            
+                            {/* Фото */}
+                            <TableCell align="center">
+                              {material.image ? (
+                                <Avatar
+                                  src={material.image}
+                                  alt={material.name}
+                                  variant="rounded"
+                                  sx={{ 
+                                    width: 36, 
+                                    height: 36,
+                                    border: `2px solid ${colors.warning}`,
+                                    margin: '0 auto'
+                                  }}
+                                />
+                              ) : (
+                                <Avatar
+                                  variant="rounded"
+                                  sx={{ 
+                                    width: 36, 
+                                    height: 36,
+                                    bgcolor: colors.warning,
+                                    color: '#fff',
+                                    margin: '0 auto'
+                                  }}
+                                >
+                                  <IconPhoto size={16} />
+                                </Avatar>
+                              )}
+                            </TableCell>
+                            
+                            {/* Ед. изм. */}
+                            <TableCell align="center">
+                              <Typography variant="body2" sx={{ color: colors.textSecondary }}>
+                                {material.unit}
+                              </Typography>
+                            </TableCell>
+                            
+                            {/* Нужно */}
+                            <TableCell align="right">
+                              <Typography variant="body2" sx={{ fontWeight: 500, color: '#374151' }}>
+                                {material.quantity.toLocaleString('ru-RU', {
+                                  minimumFractionDigits: 0,
+                                  maximumFractionDigits: 2
+                                })}
+                              </Typography>
+                            </TableCell>
+                            
+                            {/* Закуплено */}
+                            <TableCell align="right">
+                              <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                  fontWeight: 600, 
+                                  color: material.purchasedQuantity > 0 ? colors.green : colors.textSecondary
+                                }}
+                              >
+                                {(material.purchasedQuantity || 0).toLocaleString('ru-RU', {
+                                  minimumFractionDigits: 0,
+                                  maximumFractionDigits: 2
+                                })}
+                              </Typography>
+                            </TableCell>
+                            
+                            {/* Остаток */}
+                            <TableCell 
+                              align="right"
+                              sx={{
+                                bgcolor: status === 'complete' ? colors.greenLight : 
+                                        status === 'over' ? colors.errorLight : 
+                                        alpha(colors.warning, 0.2)
+                              }}
+                            >
+                              {status === 'complete' ? (
+                                <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.5}>
+                                  <IconCheck size={16} color={colors.green} />
+                                  <Typography variant="body2" sx={{ fontWeight: 600, color: colors.green }}>
+                                    Закуплено
+                                  </Typography>
+                                </Stack>
+                              ) : status === 'none' ? (
+                                <Typography variant="body2" sx={{ color: '#9CA3AF', textAlign: 'right' }}>
+                                  —
+                                </Typography>
+                              ) : (
+                                <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.5}>
+                                  <IconAlertTriangle 
+                                    size={16} 
+                                    color={status === 'over' ? colors.error : '#92400E'} 
+                                  />
+                                  <Typography 
+                                    variant="body2" 
+                                    sx={{ 
+                                      fontWeight: 600, 
+                                      color: status === 'over' ? colors.error : '#92400E'
+                                    }}
+                                  >
+                                    {remainder.toLocaleString('ru-RU', {
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 2
+                                    })}
+                                  </Typography>
+                                </Stack>
+                              )}
+                            </TableCell>
+                            
+                            {/* ПЛАН: Цена */}
+                            <TableCell 
+                              align="right"
+                              sx={{ 
+                                borderLeft: `2px solid ${colors.border}`,
+                                bgcolor: alpha(colors.warning, 0.05)
+                              }}
+                            >
+                              <Typography variant="body2" sx={{ fontWeight: 500, color: '#92400E' }}>
+                                {formatCurrency(material.price)}
+                              </Typography>
+                            </TableCell>
+                            
+                            {/* ПЛАН: Сумма */}
+                            <TableCell 
+                              align="right"
+                              sx={{ bgcolor: alpha(colors.warning, 0.05) }}
+                            >
+                              <Typography variant="body2" sx={{ fontWeight: 700, color: '#92400E' }}>
+                                {formatCurrency(material.total)}
+                              </Typography>
+                            </TableCell>
+                            
+                            {/* ФАКТ: Цена */}
+                            <TableCell 
+                              align="right"
+                              sx={{ 
+                                borderLeft: `2px solid ${colors.green}`,
+                                bgcolor: alpha(colors.warning, 0.05)
+                              }}
+                            >
+                              {material.avgPurchasePrice ? (
+                                <Typography 
+                                  variant="body2"
+                                  sx={{ fontWeight: 500, color: colors.green }}
+                                >
+                                  {formatCurrency(material.avgPurchasePrice)}
+                                </Typography>
+                              ) : (
+                                <Typography variant="body2" sx={{ color: '#D1D5DB' }}>
+                                  —
+                                </Typography>
+                              )}
+                            </TableCell>
+                            
+                            {/* ФАКТ: Сумма */}
+                            <TableCell 
+                              align="right"
+                              sx={{ bgcolor: alpha(colors.warning, 0.05) }}
+                            >
+                              {material.actualTotalPrice > 0 ? (
+                                <Typography 
+                                  variant="body2" 
+                                  sx={{ fontWeight: 700, color: colors.green }}
+                                >
+                                  {formatCurrency(material.actualTotalPrice)}
+                                </Typography>
+                              ) : (
+                                <Typography variant="body2" sx={{ color: '#D1D5DB' }}>
+                                  —
+                                </Typography>
+                              )}
+                            </TableCell>
+                            
+                            {/* Действия */}
+                            <TableCell 
+                              align="center"
+                              sx={{
+                                '&:hover': { bgcolor: 'rgba(245, 158, 11, 0.06)' }
+                              }}
+                            >
+                              <Tooltip title="Добавить в общие закупки">
+                                <IconButton
+                                  size="medium"
+                                  onClick={() => handleOpenAddDialog(material)}
+                                  sx={{ 
+                                    color: colors.textSecondary,
+                                    transition: 'all 0.2s ease',
+                                    '&:hover': { 
+                                      color: colors.warning,
+                                      bgcolor: alpha(colors.warning, 0.15),
+                                      transform: 'scale(1.05)'
+                                    }
+                                  }}
+                                >
+                                  <IconShoppingCartPlus size={24} />
+                                </IconButton>
+                              </Tooltip>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </>
+                  )}
+                </TableBody>
+              </Table>
             </Box>
           </Paper>
 
-          {/* Итоговая сумма закупок */}
-          <Paper sx={{ p: 3, mt: 3 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="h6" fontWeight={600}>
-                ИТОГО ЗАКУПЛЕННО
-              </Typography>
-              <Typography variant="h5" fontWeight={700} color="primary">
-                {formatCurrency(totalActualAmount)}
-              </Typography>
+          {/* ─────────────────────────────────────────────────────────────────
+              КОМПАКТНЫЙ БЛОК ИТОГОВ
+          ───────────────────────────────────────────────────────────────── */}
+          <Paper 
+            sx={{ 
+              p: 2, 
+              mt: 2,
+              borderRadius: '10px',
+              border: `1px solid ${colors.border}`,
+              bgcolor: '#FAFAFA'
+            }}
+          >
+            {/* Заголовок и статусы в одной строке */}
+            <Stack 
+              direction={{ xs: 'column', md: 'row' }} 
+              justifyContent="space-between" 
+              alignItems={{ xs: 'flex-start', md: 'center' }}
+              spacing={1.5}
+              sx={{ mb: 1.5 }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <IconPackage size={18} color={colors.primary} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#374151' }}>
+                  Итоги закупок
+                </Typography>
+              </Stack>
+              
+              {/* Статусы компактно */}
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Chip 
+                  icon={<IconCheck size={14} />}
+                  label={`${regularMaterials.filter(m => getPurchaseStatus(m) === 'complete').length}`}
+                  size="small"
+                  sx={{ 
+                    bgcolor: colors.greenLight, 
+                    color: colors.greenDark,
+                    height: 26,
+                    fontSize: '0.75rem',
+                    '& .MuiChip-icon': { color: colors.green }
+                  }}
+                />
+                <Chip 
+                  icon={<IconAlertTriangle size={14} />}
+                  label={`${regularMaterials.filter(m => getPurchaseStatus(m) === 'partial').length}`}
+                  size="small"
+                  sx={{ 
+                    bgcolor: colors.warningLight, 
+                    color: '#92400E',
+                    height: 26,
+                    fontSize: '0.75rem',
+                    '& .MuiChip-icon': { color: colors.warning }
+                  }}
+                />
+                <Chip 
+                  label={`${regularMaterials.filter(m => getPurchaseStatus(m) === 'none').length}`}
+                  size="small"
+                  sx={{ 
+                    bgcolor: '#E5E7EB', 
+                    color: '#6B7280',
+                    height: 26,
+                    fontSize: '0.75rem'
+                  }}
+                />
+                {extraMaterials.length > 0 && (
+                  <Chip 
+                    label={`О/Ч: ${extraMaterials.length}`}
+                    size="small"
+                    sx={{ 
+                      bgcolor: colors.warningLight, 
+                      color: '#92400E',
+                      height: 26,
+                      fontSize: '0.75rem'
+                    }}
+                  />
+                )}
+              </Stack>
+            </Stack>
+            
+            {/* 3 суммы в одну строку */}
+            <Stack 
+              direction={{ xs: 'column', sm: 'row' }} 
+              spacing={1.5}
+              divider={<Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />}
+            >
+              {/* План */}
+              <Box sx={{ flex: 1, textAlign: { xs: 'left', sm: 'center' }, py: 1 }}>
+                <Typography variant="caption" sx={{ color: colors.textSecondary }}>
+                  План (смета)
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: colors.textPrimary }}>
+                  {formatCurrency(totalAmount)}
+                </Typography>
+              </Box>
+              
+              {/* Осталось */}
+              <Box 
+                sx={{ 
+                  flex: 1, 
+                  textAlign: { xs: 'left', sm: 'center' }, 
+                  py: 1,
+                  px: 2,
+                  bgcolor: totalAmount - totalActualAmount >= 0 ? '#FEF3C7' : '#FEE2E2',
+                  borderRadius: '8px',
+                  border: `1px solid ${totalAmount - totalActualAmount >= 0 ? '#F59E0B' : colors.error}`
+                }}
+              >
+                <Typography variant="caption" sx={{ color: totalAmount - totalActualAmount >= 0 ? '#92400E' : '#991B1B' }}>
+                  {totalAmount - totalActualAmount >= 0 ? 'Осталось' : 'Перерасход'}
+                </Typography>
+                <Typography 
+                  variant="h6" 
+                  sx={{ fontWeight: 700, color: totalAmount - totalActualAmount >= 0 ? '#D97706' : '#DC2626' }}
+                >
+                  {formatCurrency(Math.abs(totalAmount - totalActualAmount))}
+                </Typography>
+              </Box>
+              
+              {/* Факт */}
+              <Box 
+                sx={{ 
+                  flex: 1, 
+                  textAlign: { xs: 'left', sm: 'center' }, 
+                  py: 1,
+                  px: 2,
+                  bgcolor: colors.greenLight,
+                  borderRadius: '8px'
+                }}
+              >
+                <Typography variant="caption" sx={{ color: colors.greenDark }}>
+                  Закуплено (факт)
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: colors.green }}>
+                  {formatCurrency(totalActualAmount)}
+                </Typography>
+              </Box>
             </Stack>
           </Paper>
         </>
@@ -975,30 +1635,57 @@ const Purchases = ({ estimateId, projectId }) => {
       </Dialog>
 
       {/* Диалог добавления материала "Отдельный чек" */}
-      <Dialog open={addExtraMaterialDialogOpen} onClose={handleCloseExtraMaterialDialog} maxWidth="md" fullWidth>
-        <DialogTitle>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <IconPlus size={24} />
-            <Typography variant="h5">Добавить материал (Отдельный чек)</Typography>
-          </Stack>
+      <Dialog 
+        open={addExtraMaterialDialogOpen} 
+        onClose={handleCloseExtraMaterialDialog} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            boxShadow: '0 8px 28px rgba(0,0,0,0.12)'
+          }
+        }}
+      >
+        <DialogTitle sx={{ px: 4, pt: 3.5, pb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, fontSize: '1.25rem', color: '#1F2937' }}>
+            Добавить материал (отдельный чек)
+          </Typography>
         </DialogTitle>
         
-        <Divider />
-        
-        <DialogContent>
-          <Stack spacing={3} sx={{ mt: 2 }}>
-            <Alert severity="info" icon={<Chip label="О/Ч" color="warning" size="small" />}>
-              <strong>Отдельный чек</strong> — материал, не учтенный в смете. Клиент будет доплачивать отдельно.
-            </Alert>
+        <DialogContent sx={{ px: 4, pb: 3 }}>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            {/* 1️⃣ Современный информер */}
+            <Box 
+              sx={{ 
+                p: 2, 
+                bgcolor: 'rgba(79, 70, 229, 0.06)', 
+                borderRadius: '10px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 1.5
+              }}
+            >
+              <Box sx={{ color: colors.primary, mt: 0.25 }}>💡</Box>
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#374151' }}>
+                  Отдельный чек
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#6B7280', mt: 0.25 }}>
+                  Материал не учтён в смете. Оплачивается клиентом отдельно.
+                </Typography>
+              </Box>
+            </Box>
 
             {loadingMaterials ? (
               <Box sx={{ p: 4, textAlign: 'center' }}>
-                <CircularProgress />
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                <CircularProgress sx={{ color: colors.primary }} size={32} />
+                <Typography variant="body2" sx={{ color: colors.textSecondary, mt: 2 }}>
                   Загрузка материалов...
                 </Typography>
               </Box>
             ) : (
+              /* 3️⃣ Обновлённое поле поиска */
               <Autocomplete
                 options={materials}
                 getOptionLabel={(option) => option.name}
@@ -1011,7 +1698,7 @@ const Purchases = ({ estimateId, projectId }) => {
                   });
                 }}
                 filterOptions={(options, { inputValue }) => {
-                  if (!inputValue) return options.slice(0, 100); // Показываем первые 100 без поиска
+                  if (!inputValue) return options.slice(0, 100);
                   
                   const searchLower = inputValue.toLowerCase();
                   const filtered = options.filter(option => 
@@ -1020,16 +1707,50 @@ const Purchases = ({ estimateId, projectId }) => {
                     (option.category && option.category.toLowerCase().includes(searchLower))
                   );
                   
-                  // Ограничиваем результаты для производительности
                   return filtered.slice(0, 100);
                 }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="🔍 Поиск материала"
-                    placeholder="Введите название, артикул или категорию"
+                    placeholder="Поиск по названию, артикулу или категории..."
                     required
-                    helperText={`Начните вводить для поиска. Доступно материалов: ${materials.length}`}
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <>
+                          <Box sx={{ color: colors.primary, display: 'flex', ml: 0.5, mr: 1 }}>
+                            <IconSearch size={20} />
+                          </Box>
+                          {params.InputProps.startAdornment}
+                        </>
+                      ),
+                      sx: {
+                        height: 48,
+                        borderRadius: '10px',
+                        bgcolor: '#fff',
+                        '& fieldset': {
+                          borderColor: '#D8DFE8'
+                        },
+                        '&:hover fieldset': {
+                          borderColor: '#B0BAC9 !important'
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: `${colors.primary} !important`,
+                          borderWidth: '2px'
+                        }
+                      }
+                    }}
+                    sx={{
+                      '& .MuiInputBase-input::placeholder': {
+                        color: '#9CA3AF',
+                        opacity: 1
+                      }
+                    }}
+                    helperText={
+                      <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
+                        Доступно материалов: {materials.length}
+                      </Typography>
+                    }
                   />
                 )}
                 renderOption={(props, option) => (
@@ -1040,34 +1761,30 @@ const Purchases = ({ estimateId, projectId }) => {
                           src={option.image}
                           alt={option.name}
                           variant="rounded"
-                          sx={{ width: 48, height: 48, border: '1px solid #e0e0e0' }}
+                          sx={{ width: 44, height: 44, border: '1px solid #E5E7EB' }}
                         />
                       ) : (
                         <Avatar
                           variant="rounded"
-                          sx={{ width: 48, height: 48, bgcolor: 'action.selected' }}
+                          sx={{ width: 44, height: 44, bgcolor: '#F3F4F6' }}
                         >
-                          <IconPhoto size={20} style={{ opacity: 0.3 }} />
+                          <IconPhoto size={18} color="#9CA3AF" />
                         </Avatar>
                       )}
                       <Box flex={1}>
-                        <Typography variant="body1" fontWeight={500}>
+                        <Typography variant="body2" sx={{ fontWeight: 500, color: '#374151' }}>
                           {option.name}
                         </Typography>
                         <Stack direction="row" spacing={1} alignItems="center">
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
                             {option.sku || 'Без артикула'}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            •
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{ color: '#D1D5DB' }}>•</Typography>
+                          <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
                             {option.category}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            •
-                          </Typography>
-                          <Typography variant="caption" color="primary.main" fontWeight={600}>
+                          <Typography variant="caption" sx={{ color: '#D1D5DB' }}>•</Typography>
+                          <Typography variant="caption" sx={{ color: colors.primary, fontWeight: 600 }}>
                             {formatCurrency(option.price)} / {option.unit}
                           </Typography>
                         </Stack>
@@ -1075,7 +1792,7 @@ const Purchases = ({ estimateId, projectId }) => {
                     </Stack>
                   </li>
                 )}
-                noOptionsText="Материалы не найдены. Попробуйте изменить запрос."
+                noOptionsText="Материалы не найдены"
                 loading={loadingMaterials}
                 disabled={loadingMaterials}
               />
@@ -1083,48 +1800,51 @@ const Purchases = ({ estimateId, projectId }) => {
 
             {extraMaterialForm.material && (
               <>
-                <Divider />
-                
                 {/* Карточка выбранного материала */}
-                <Paper sx={{ p: 2, bgcolor: 'grey.50', border: '1px solid', borderColor: 'divider' }}>
+                <Box 
+                  sx={{ 
+                    p: 2, 
+                    bgcolor: '#F9FAFB', 
+                    borderRadius: '10px',
+                    border: '1px solid #E5E7EB'
+                  }}
+                >
                   <Stack direction="row" spacing={2} alignItems="center">
                     {extraMaterialForm.material.image ? (
                       <Avatar
                         src={extraMaterialForm.material.image}
                         alt={extraMaterialForm.material.name}
                         variant="rounded"
-                        sx={{ width: 64, height: 64, border: '1px solid #e0e0e0' }}
+                        sx={{ width: 56, height: 56, border: '1px solid #E5E7EB' }}
                       />
                     ) : (
                       <Avatar
                         variant="rounded"
-                        sx={{ width: 64, height: 64, bgcolor: 'action.selected' }}
+                        sx={{ width: 56, height: 56, bgcolor: '#F3F4F6' }}
                       >
-                        <IconPhoto size={24} style={{ opacity: 0.3 }} />
+                        <IconPhoto size={22} color="#9CA3AF" />
                       </Avatar>
                     )}
                     <Box flex={1}>
-                      <Typography variant="h6" fontWeight={600}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1F2937' }}>
                         {extraMaterialForm.material.name}
                       </Typography>
-                      <Stack direction="row" spacing={2} mt={0.5}>
-                        <Chip label={extraMaterialForm.material.sku || 'Без артикула'} size="small" variant="outlined" />
-                        <Chip label={extraMaterialForm.material.category} size="small" color="primary" variant="outlined" />
-                        <Chip label={`${formatCurrency(extraMaterialForm.material.price)} / ${extraMaterialForm.material.unit}`} size="small" color="success" />
+                      <Stack direction="row" spacing={1} mt={0.5} flexWrap="wrap" useFlexGap>
+                        <Typography variant="caption" sx={{ color: '#6B7280', bgcolor: '#F3F4F6', px: 1, py: 0.25, borderRadius: '4px' }}>
+                          {extraMaterialForm.material.sku || 'Без артикула'}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: colors.primary, bgcolor: colors.primaryLight, px: 1, py: 0.25, borderRadius: '4px' }}>
+                          {extraMaterialForm.material.category}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: colors.green, bgcolor: colors.greenLight, px: 1, py: 0.25, borderRadius: '4px', fontWeight: 600 }}>
+                          {formatCurrency(extraMaterialForm.material.price)} / {extraMaterialForm.material.unit}
+                        </Typography>
                       </Stack>
                     </Box>
                   </Stack>
-                </Paper>
-
-                <Box sx={{ p: 2, bgcolor: 'warning.lighter', borderRadius: 1, border: '2px solid', borderColor: 'warning.main' }}>
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <Chip label="О/Ч" color="warning" size="small" />
-                    <Typography variant="body2" fontWeight={500}>
-                      Материал не учтен в смете — требуется доплата от клиента
-                    </Typography>
-                  </Stack>
                 </Box>
 
+                {/* Поля ввода со стилизацией */}
                 <TextField
                   label="Количество"
                   type="number"
@@ -1132,8 +1852,20 @@ const Purchases = ({ estimateId, projectId }) => {
                   value={extraMaterialForm.quantity}
                   onChange={(e) => setExtraMaterialForm({ ...extraMaterialForm, quantity: e.target.value })}
                   inputProps={{ min: 0, step: 0.01 }}
-                  helperText={`Единица измерения: ${extraMaterialForm.material.unit}`}
+                  helperText={
+                    <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
+                      Единица измерения: {extraMaterialForm.material.unit}
+                    </Typography>
+                  }
                   required
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '10px',
+                      '& fieldset': { borderColor: '#D8DFE8' },
+                      '&:hover fieldset': { borderColor: '#B0BAC9' },
+                      '&.Mui-focused fieldset': { borderColor: colors.primary, borderWidth: '2px' }
+                    }
+                  }}
                 />
 
                 <TextField
@@ -1143,47 +1875,90 @@ const Purchases = ({ estimateId, projectId }) => {
                   value={extraMaterialForm.purchasePrice}
                   onChange={(e) => setExtraMaterialForm({ ...extraMaterialForm, purchasePrice: e.target.value })}
                   inputProps={{ min: 0, step: 0.01 }}
-                  helperText={`Базовая цена: ${formatCurrency(extraMaterialForm.material.price)} за ${extraMaterialForm.material.unit}`}
+                  helperText={
+                    <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
+                      Базовая цена: {formatCurrency(extraMaterialForm.material.price)} за {extraMaterialForm.material.unit}
+                    </Typography>
+                  }
                   required
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '10px',
+                      '& fieldset': { borderColor: '#D8DFE8' },
+                      '&:hover fieldset': { borderColor: '#B0BAC9' },
+                      '&.Mui-focused fieldset': { borderColor: colors.primary, borderWidth: '2px' }
+                    }
+                  }}
                 />
 
                 {/* Итоговая сумма */}
                 {extraMaterialForm.quantity && extraMaterialForm.purchasePrice && (
-                  <Paper sx={{ p: 2, bgcolor: 'success.lighter', border: '1px solid', borderColor: 'success.main' }}>
+                  <Box 
+                    sx={{ 
+                      p: 2, 
+                      bgcolor: colors.greenLight, 
+                      borderRadius: '10px',
+                      border: `1px solid ${colors.green}`
+                    }}
+                  >
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Typography variant="body1" fontWeight={600}>
-                        Итоговая сумма закупки:
+                      <Typography variant="body2" sx={{ fontWeight: 500, color: colors.greenDark }}>
+                        Итоговая сумма:
                       </Typography>
-                      <Typography variant="h5" fontWeight={700} color="success.dark">
+                      <Typography variant="h6" sx={{ fontWeight: 700, color: colors.green }}>
                         {formatCurrency(parseFloat(extraMaterialForm.quantity) * parseFloat(extraMaterialForm.purchasePrice))}
                       </Typography>
                     </Stack>
-                  </Paper>
+                  </Box>
                 )}
               </>
             )}
 
             {error && (
-              <Alert severity="error">{error}</Alert>
+              <Alert severity="error" sx={{ borderRadius: '10px' }}>{error}</Alert>
             )}
           </Stack>
         </DialogContent>
         
-        <Divider />
-        
-        <DialogActions sx={{ p: 2.5 }}>
-          <Button onClick={handleCloseExtraMaterialDialog} disabled={submitting} size="small">
+        {/* 4️⃣ 5️⃣ 6️⃣ Обновлённые кнопки */}
+        <DialogActions sx={{ px: 4, py: 2.5, gap: 1.5 }}>
+          <Button 
+            onClick={handleCloseExtraMaterialDialog} 
+            disabled={submitting}
+            sx={{ 
+              color: '#7B8794',
+              fontWeight: 500,
+              textTransform: 'none',
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.04)' }
+            }}
+          >
             Отмена
           </Button>
           <Button
             variant="contained"
-            color="warning"
-            size="small"
             onClick={handleAddExtraMaterial}
             disabled={submitting || !extraMaterialForm.material || !extraMaterialForm.quantity || !extraMaterialForm.purchasePrice}
-            startIcon={submitting ? <CircularProgress size={20} /> : <IconPlus />}
+            startIcon={submitting ? <CircularProgress size={18} color="inherit" /> : <IconPlus size={18} />}
+            sx={{
+              bgcolor: colors.primary,
+              color: '#fff',
+              fontWeight: 600,
+              textTransform: 'none',
+              px: 3,
+              py: 1,
+              borderRadius: '10px',
+              boxShadow: '0 4px 14px 0 rgba(79, 70, 229, 0.39)',
+              '&:hover': {
+                bgcolor: colors.primaryDark,
+                boxShadow: '0 6px 20px rgba(79, 70, 229, 0.45)',
+              },
+              '&:disabled': {
+                bgcolor: '#C7D2FE',
+                color: '#fff'
+              }
+            }}
           >
-            {submitting ? 'Добавление...' : 'Добавить в закупки (О/Ч)'}
+            {submitting ? 'Добавление...' : 'Добавить материал'}
           </Button>
         </DialogActions>
       </Dialog>

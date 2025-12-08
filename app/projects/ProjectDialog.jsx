@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react';
 // material-ui
 import { 
   Dialog, DialogTitle, DialogContent, DialogActions, 
-  Divider, Button, TextField, Stack, Box, Typography, 
+  Button, TextField, Stack, Box, Typography, 
   Autocomplete, CircularProgress,
   useMediaQuery, useTheme
 } from '@mui/material';
-import { IconBriefcase, IconTrash } from '@tabler/icons-react';
+import { IconFolderPlus, IconTrash, IconInfoCircle, IconBuilding } from '@tabler/icons-react';
 
 // project imports
 import { getStatusText } from './utils';
@@ -65,36 +65,41 @@ setCounterparties(data || []);
   // Название нашей компании (подрядчик)
   const contractorName = tenant?.name || '';
   
-  // DEBUG: Логирование состояния
+  // Автоматически устанавливаем подрядчика при открытии
   useEffect(() => {
-}, [counterparties, loadingCounterparties, contractorName, tenant]);
+    if (open && contractorName && !project.contractor) {
+      onChange('contractor', contractorName);
+    }
+  }, [open, contractorName, project.contractor, onChange]);
   
   const isFormValid =
-    project.client && project.contractor && project.address && project.objectName;
+    project.client && project.address && project.objectName;
 
   return (
     <Dialog 
       open={open} 
       onClose={onClose} 
-      maxWidth="md" 
+      maxWidth="sm" 
       fullWidth
       fullScreen={isMobile}
       sx={{
         '& .MuiDialog-paper': {
           m: isMobile ? 0 : 2,
-          maxHeight: isMobile ? '100%' : 'calc(100% - 64px)'
+          maxHeight: isMobile ? '100%' : 'calc(100% - 64px)',
+          borderRadius: isMobile ? 0 : '12px'
         }
       }}
     >
-      <DialogTitle>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <IconBriefcase size={24} />
-          <Typography variant="h3">{editMode ? 'Редактировать проект' : 'Создать новый проект'}</Typography>
+      <DialogTitle sx={{ px: 3, pt: 2.5, pb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <IconFolderPlus size={20} stroke={1.5} color="#6B7280" />
+          <Typography sx={{ fontSize: '1.125rem', fontWeight: 600, color: '#1F2937' }}>
+            {editMode ? 'Редактировать проект' : 'Создать новый проект'}
+          </Typography>
         </Box>
       </DialogTitle>
-      <Divider />
-      <DialogContent>
-        <Stack spacing={3} sx={{ mt: 2 }}>
+      <DialogContent sx={{ px: 3, py: 2 }}>
+        <Stack spacing={2}>
           {/* Заказчик - Autocomplete с возможностью ручного ввода */}
           <Autocomplete
             freeSolo
@@ -134,12 +139,13 @@ setCounterparties(data || []);
                 {...params}
                 label="Заказчик"
                 required
-                helperText="Выберите из списка контрагентов или введите вручную"
+                placeholder="Поиск или ввод контрагента..."
+                size="small"
                 InputProps={{
                   ...params.InputProps,
                   endAdornment: (
                     <>
-                      {loadingCounterparties ? <CircularProgress color="inherit" size={20} /> : null}
+                      {loadingCounterparties ? <CircularProgress color="inherit" size={18} /> : null}
                       {params.InputProps.endAdornment}
                     </>
                   )
@@ -148,26 +154,28 @@ setCounterparties(data || []);
             )}
           />
 
-          {/* Подрядчик - Autocomplete с автозаполнением нашей компании */}
-          <Autocomplete
-            freeSolo
-            options={contractorName ? [contractorName] : []} // Наша компания в списке (только если есть)
-            value={project.contractor}
-            onChange={(event, newValue) => {
-              onChange('contractor', newValue || '');
-            }}
-            onInputChange={(event, newInputValue) => {
-              onChange('contractor', newInputValue);
-            }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Подрядчик"
-                required
-                helperText={contractorName ? `По умолчанию: ${contractorName}` : 'Название организации-подрядчика'}
-              />
-            )}
-          />
+          {/* Подрядчик - компактное отображение */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1,
+            py: 1,
+            px: 1.5,
+            bgcolor: '#F9FAFB',
+            borderRadius: '8px',
+            border: '1px solid #E5E7EB'
+          }}>
+            <IconBuilding size={16} stroke={1.5} color="#6B7280" />
+            <Typography sx={{ fontSize: '0.875rem', color: '#6B7280' }}>
+              Подрядчик:
+            </Typography>
+            <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: '#374151' }}>
+              {contractorName || 'Не определён'}
+            </Typography>
+            <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF', ml: 'auto' }}>
+              назначается автоматически
+            </Typography>
+          </Box>
 
           <TextField
             label="Адрес объекта"
@@ -176,9 +184,10 @@ setCounterparties(data || []);
             value={project.address}
             onChange={(e) => onChange('address', e.target.value)}
             variant="outlined"
+            size="small"
             multiline
             rows={2}
-            helperText="Полный адрес строительного объекта"
+            placeholder="Полный адрес строительного объекта"
           />
 
           <TextField
@@ -188,46 +197,51 @@ setCounterparties(data || []);
             value={project.objectName}
             onChange={(e) => onChange('objectName', e.target.value)}
             variant="outlined"
-            helperText="Название строительного объекта"
+            size="small"
+            placeholder="Название строительного объекта"
           />
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
             <TextField
-              label="Дата начала работ"
+              label="Дата начала"
               type="date"
-              fullWidth
               value={project.startDate}
               onChange={(e) => onChange('startDate', e.target.value)}
               InputLabelProps={{ shrink: true }}
               variant="outlined"
-              helperText="Необязательное поле"
+              size="small"
+              sx={{ flex: 1 }}
             />
 
             <TextField
-              label="Дата окончания работ"
+              label="Дата окончания"
               type="date"
-              fullWidth
               value={project.endDate}
               onChange={(e) => onChange('endDate', e.target.value)}
               InputLabelProps={{ shrink: true }}
               variant="outlined"
-              helperText="Необязательное поле"
+              size="small"
+              sx={{ flex: 1 }}
             />
           </Box>
 
           {editMode && (
             <Box
               sx={{
-                p: 2,
-                bgcolor: 'info.light',
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'info.main'
+                p: 1.5,
+                bgcolor: '#F9FAFB',
+                borderRadius: '8px',
+                border: '1px solid #E5E7EB',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
               }}
             >
-              <Typography variant="body2" color="info.dark">
-                <strong>Номер договора:</strong> {project.contractNumber || 'Генерируется автоматически'} |{' '}
-                <strong>Статус:</strong> {getStatusText(project.status)} | <strong>Прогресс:</strong> {project.progress}%
+              <IconInfoCircle size={16} stroke={1.5} color="#6B7280" />
+              <Typography sx={{ fontSize: '0.8125rem', color: '#4B5563' }}>
+                <strong>Договор:</strong> {project.contractNumber || 'Генерируется'} &nbsp;•&nbsp;
+                <strong>Статус:</strong> {getStatusText(project.status)} &nbsp;•&nbsp;
+                <strong>Прогресс:</strong> {project.progress}%
               </Typography>
             </Box>
           )}
@@ -235,33 +249,68 @@ setCounterparties(data || []);
           {!editMode && (
             <Box
               sx={{
-                p: 2,
-                bgcolor: 'success.lighter',
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'success.main'
+                p: 1.5,
+                bgcolor: '#F9FAFB',
+                borderRadius: '8px',
+                border: '1px solid #E5E7EB',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
               }}
             >
-              <Typography variant="body2" color="success.dark">
-                💡 Номер договора будет сгенерирован автоматически при создании проекта
+              <IconInfoCircle size={16} stroke={1.5} color="#6B7280" />
+              <Typography sx={{ fontSize: '0.8125rem', color: '#4B5563' }}>
+                Номер договора будет сгенерирован автоматически
               </Typography>
             </Box>
           )}
         </Stack>
       </DialogContent>
-      <Divider />
-      <DialogActions sx={{ p: 2.5, justifyContent: 'space-between' }}>
-        <Box>{editMode && <Button onClick={onDelete} color="error" variant="outlined" startIcon={<IconTrash />} size="small">
-            Удалить проект
-          </Button>}</Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button onClick={onClose} color="secondary" variant="outlined" size="small">
-            Отмена
+      <DialogActions sx={{ px: 3, py: 2, justifyContent: 'flex-end', gap: 1 }}>
+        {editMode && (
+          <Button 
+            onClick={onDelete} 
+            startIcon={<IconTrash size={16} />}
+            sx={{ 
+              mr: 'auto',
+              color: '#DC2626',
+              fontSize: '0.875rem',
+              textTransform: 'none',
+              '&:hover': { bgcolor: '#FEF2F2' }
+            }}
+          >
+            Удалить
           </Button>
-          <Button onClick={onSave} color="primary" variant="contained" disabled={!isFormValid} size="small">
-            {editMode ? 'Сохранить изменения' : 'Создать проект'}
-          </Button>
-        </Box>
+        )}
+        <Button 
+          onClick={onClose}
+          sx={{ 
+            color: '#6B7280',
+            fontSize: '0.875rem',
+            textTransform: 'none',
+            '&:hover': { bgcolor: '#F3F4F6' }
+          }}
+        >
+          Отмена
+        </Button>
+        <Button 
+          onClick={onSave} 
+          variant="contained" 
+          disabled={!isFormValid}
+          sx={{ 
+            bgcolor: '#4F46E5',
+            fontSize: '0.875rem',
+            fontWeight: 500,
+            textTransform: 'none',
+            px: 2.5,
+            borderRadius: '8px',
+            boxShadow: '0 1px 3px rgba(79,70,229,0.2)',
+            '&:hover': { bgcolor: '#4338CA', boxShadow: '0 4px 6px rgba(79,70,229,0.25)' },
+            '&:disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' }
+          }}
+        >
+          {editMode ? 'Сохранить' : 'Создать проект'}
+        </Button>
       </DialogActions>
     </Dialog>
   );

@@ -55,7 +55,7 @@ const EstimateNavBar = ({ activeTab, onTabChange }) => {
   };
 
   return (
-    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3, '& .MuiTabs-indicator': { backgroundColor: '#4F46E5', height: 2 } }}>
       {isMobile ? (
         <FormControl fullWidth sx={{ mb: 2 }}>
           <Select

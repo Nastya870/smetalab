@@ -4,12 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
+import Paper from '@mui/material/Paper';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
-import OutlinedInput from '@mui/material/OutlinedInput';
+import TextField from '@mui/material/TextField';
 import Stack from '@mui/material/Stack';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -28,7 +27,6 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 
 // project imports
-import MainCard from 'ui-component/cards/MainCard';
 import { getAllUsers, deleteUser } from 'api/users';
 import UserDialog from './UserDialog';
 import RolesDialog from './RolesDialog';
@@ -41,7 +39,8 @@ import {
   IconTrash,
   IconShield,
   IconCircleCheck,
-  IconCircleX
+  IconCircleX,
+  IconUsers
 } from '@tabler/icons-react';
 
 // ==============================|| USERS MANAGEMENT ||============================== //
@@ -166,163 +165,296 @@ const UsersManagement = () => {
     return roles.map((role) => roleMap[role.name] || role.name).join(', ');
   };
 
-  // Get role chip color
-  const getRoleColor = (roles) => {
-    if (!roles || roles.length === 0) return 'default';
-    if (roles.some((r) => r.name === 'super_admin')) return 'error';
-    if (roles.some((r) => r.name === 'admin')) return 'warning';
-    if (roles.some((r) => r.name === 'manager')) return 'primary';
-    if (roles.some((r) => r.name === 'estimator')) return 'info';
-    if (roles.some((r) => r.name === 'supplier')) return 'success';
-    return 'secondary';
+  // Get role badge styles - единый стиль фиолетовый
+  const getRoleBadgeStyle = (roles) => {
+    return { bgcolor: '#F3E8FF', color: '#6D28D9' };
   };
 
   return (
-    <MainCard
-      title="Управление пользователями"
-      secondary={
-        <Button
-          variant="contained"
-          startIcon={<IconUserPlus />}
-          onClick={handleCreateUser}
-          disabled={loading}
-        >
-          Добавить пользователя
-        </Button>
-      }
-    >
-      {/* Search */}
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <OutlinedInput
-            fullWidth
-            value={search}
-            onChange={handleSearchChange}
-            placeholder="Поиск по имени или email..."
-            startAdornment={
-              <InputAdornment position="start">
-                <IconSearch stroke={1.5} size="20px" />
-              </InputAdornment>
+    <Box sx={{ bgcolor: '#F3F4F6', height: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <Paper 
+        elevation={0}
+        sx={{ 
+          bgcolor: '#FFFFFF',
+          borderRadius: '12px',
+          border: '1px solid #E5E7EB',
+          pt: 2.5,
+          px: 3,
+          pb: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          overflow: 'hidden',
+          minHeight: 0
+        }}
+      >
+        {/* Заголовок */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: '16px' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconUsers size={20} style={{ color: '#6B7280' }} />
+            <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: '#1F2937' }}>
+              Управление пользователями
+            </Typography>
+          </Box>
+          <Button 
+            variant="contained" 
+            startIcon={<IconUserPlus size={16} />} 
+            onClick={handleCreateUser}
+            disabled={loading}
+            sx={{
+              textTransform: 'none',
+              bgcolor: '#4F46E5',
+              height: 40,
+              px: 2,
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              borderRadius: '8px',
+              boxShadow: '0 1px 3px rgba(79,70,229,0.2)',
+              '&:hover': { 
+                bgcolor: '#4338CA',
+                boxShadow: '0 4px 6px rgba(79,70,229,0.25)'
+              }
+            }}
+          >
+            Добавить пользователя
+          </Button>
+        </Box>
+
+        {/* Поиск */}
+        <TextField
+          fullWidth
+          value={search}
+          onChange={handleSearchChange}
+          placeholder="Поиск по имени или email..."
+          size="small"
+          sx={{
+            mb: '16px',
+            flexShrink: 0,
+            '& .MuiOutlinedInput-root': {
+              height: 44,
+              bgcolor: '#FFFFFF',
+              borderRadius: '10px',
+              fontSize: '0.875rem',
+              '& fieldset': { borderColor: '#E5E7EB' },
+              '&:hover fieldset': { borderColor: '#D1D5DB' },
+              '&.Mui-focused fieldset': { borderColor: '#6366F1' }
+            },
+            '& .MuiInputBase-input': {
+              color: '#374151',
+              '&::placeholder': { color: '#9CA3AF', opacity: 1 }
             }
-          />
-        </CardContent>
-      </Card>
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <IconSearch size={18} style={{ color: '#9CA3AF' }} />
+              </InputAdornment>
+            )
+          }}
+        />
 
-      {/* Error Alert */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
+        {/* Error Alert */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
-      {/* Users Table */}
-      <TableContainer>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Имя</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Телефон</TableCell>
-              <TableCell>Роли</TableCell>
-              <TableCell>Статус</TableCell>
-              <TableCell align="right">Действия</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                  <CircularProgress />
-                </TableCell>
-              </TableRow>
-            ) : users.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Пользователи не найдены
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              users.map((user) => (
-                <TableRow key={user.id} hover>
-                  <TableCell>{user.fullName || 'Не указано'}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.phone || '—'}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={getRoleNames(user.roles)}
-                      size="small"
-                      color={getRoleColor(user.roles)}
-                    />
+        {/* Users Table */}
+        <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+            <Table stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1, borderBottom: '1px solid #E5E7EB' }}>
+                    Имя
                   </TableCell>
-                  <TableCell>
-                    {user.isActive ? (
-                      <Chip
-                        icon={<IconCircleCheck size={16} />}
-                        label="Активен"
-                        size="small"
-                        color="success"
-                      />
-                    ) : (
-                      <Chip
-                        icon={<IconCircleX size={16} />}
-                        label="Неактивен"
-                        size="small"
-                        color="default"
-                      />
-                    )}
+                  <TableCell sx={{ bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1, borderBottom: '1px solid #E5E7EB' }}>
+                    Email
                   </TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                      <Tooltip title="Управление ролями">
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => handleManageRoles(user)}
-                        >
-                          <IconShield size={18} />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Редактировать">
-                        <IconButton
-                          size="small"
-                          color="info"
-                          onClick={() => handleEditUser(user)}
-                        >
-                          <IconEdit size={18} />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Удалить">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDeleteClick(user)}
-                        >
-                          <IconTrash size={18} />
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
+                  <TableCell sx={{ bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1, borderBottom: '1px solid #E5E7EB' }}>
+                    Телефон
+                  </TableCell>
+                  <TableCell sx={{ bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1, borderBottom: '1px solid #E5E7EB' }}>
+                    Роли
+                  </TableCell>
+                  <TableCell sx={{ bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1, borderBottom: '1px solid #E5E7EB' }}>
+                    Статус
+                  </TableCell>
+                  <TableCell align="right" sx={{ bgcolor: '#F9FAFB', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1, pr: 2, borderBottom: '1px solid #E5E7EB' }}>
+                    Действия
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+              </TableHead>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 4, borderBottom: 'none' }}>
+                      <CircularProgress size={32} />
+                    </TableCell>
+                  </TableRow>
+                ) : users.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 4, borderBottom: 'none' }}>
+                      <Typography sx={{ color: '#6B7280', fontSize: '0.875rem' }}>
+                        Пользователи не найдены
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  users.map((user, index) => (
+                    <TableRow 
+                      key={user.id} 
+                      sx={{ 
+                        height: '52px',
+                        bgcolor: index % 2 === 1 ? '#FAF9FF' : 'transparent',
+                        transition: 'background-color 0.15s ease',
+                        '&:hover': { bgcolor: '#F3F4F6' }
+                      }}
+                    >
+                      <TableCell sx={{ py: '10px', borderBottom: '1px solid #F3F4F6' }}>
+                        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
+                          {user.fullName || 'Не указано'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ py: '10px', borderBottom: '1px solid #F3F4F6' }}>
+                        <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>
+                          {user.email}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ py: '10px', borderBottom: '1px solid #F3F4F6' }}>
+                        <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>
+                          {user.phone || '—'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ py: '10px', borderBottom: '1px solid #F3F4F6' }}>
+                        <Box
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            borderRadius: '6px',
+                            px: '8px',
+                            py: '3px',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            ...getRoleBadgeStyle(user.roles)
+                          }}
+                        >
+                          {getRoleNames(user.roles)}
+                        </Box>
+                      </TableCell>
+                      <TableCell sx={{ py: '10px', borderBottom: '1px solid #F3F4F6' }}>
+                        {user.isActive ? (
+                          <Box
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              bgcolor: '#DCFCE7',
+                              color: '#15803D',
+                              borderRadius: '6px',
+                              px: '8px',
+                              py: '3px',
+                              fontSize: '12px',
+                              fontWeight: 500
+                            }}
+                          >
+                            <IconCircleCheck size={14} style={{ color: '#15803D' }} />
+                            Активен
+                          </Box>
+                        ) : (
+                          <Box
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              bgcolor: '#F3F4F6',
+                              color: '#6B7280',
+                              borderRadius: '6px',
+                              px: '8px',
+                              py: '3px',
+                              fontSize: '12px',
+                              fontWeight: 500
+                            }}
+                          >
+                            <IconCircleX size={14} />
+                            Неактивен
+                          </Box>
+                        )}
+                      </TableCell>
+                      <TableCell align="right" sx={{ py: '10px', pr: 2, borderBottom: '1px solid #F3F4F6' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
+                          <Tooltip title="Управление ролями">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleManageRoles(user)}
+                              sx={{ width: 30, height: 30, color: '#6D28D9', '&:hover': { color: '#5B21B6', bgcolor: '#F3E8FF' } }}
+                            >
+                              <IconShield size={18} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Редактировать">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleEditUser(user)}
+                              sx={{ width: 30, height: 30, color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
+                            >
+                              <IconEdit size={18} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Удалить">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteClick(user)}
+                              sx={{ width: 30, height: 30, color: '#EF4444', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
+                            >
+                              <IconTrash size={18} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
 
-      {/* Pagination */}
-      <TablePagination
-        component="div"
-        count={totalUsers}
-        page={page}
-        onPageChange={handleChangePage}
-        rowsPerPage={rowsPerPage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-        rowsPerPageOptions={[10, 25, 50, 100]}
-        labelRowsPerPage="Строк на странице:"
-        labelDisplayedRows={({ from, to, count }) => `${from}-${to} из ${count}`}
-      />
+          {/* Pagination */}
+          <TablePagination
+            component="div"
+            count={totalUsers}
+            page={page}
+            onPageChange={handleChangePage}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            rowsPerPageOptions={[10, 25, 50, 100]}
+            labelRowsPerPage="Строк на странице:"
+            labelDisplayedRows={({ from, to, count }) => `${from}-${to} из ${count}`}
+            sx={{
+              borderTop: '1px solid #E5E7EB',
+              flexShrink: 0,
+              py: 0.5,
+              '& .MuiTablePagination-toolbar': {
+                minHeight: 48
+              },
+              '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                fontSize: '0.75rem',
+                color: '#6B7280'
+              },
+              '& .MuiTablePagination-select': {
+                fontSize: '0.75rem'
+              },
+              '& .MuiTablePagination-actions': {
+                '& .MuiIconButton-root': {
+                  padding: '4px',
+                  color: '#6B7280'
+                }
+              }
+            }}
+          />
+        </Paper>
+      </Paper>
 
       {/* User Create/Edit Dialog */}
       <UserDialog
@@ -341,25 +473,60 @@ const UsersManagement = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Подтверждение удаления</DialogTitle>
-        <DialogContent>
-          <Typography>
+      <Dialog 
+        open={deleteDialogOpen} 
+        onClose={() => setDeleteDialogOpen(false)}
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '420px'
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.125rem', color: '#111827', pb: 1 }}>
+          Подтверждение удаления
+        </DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Typography sx={{ color: '#374151', fontSize: '0.875rem' }}>
             Вы уверены, что хотите удалить пользователя{' '}
             <strong>{selectedUser?.fullName || selectedUser?.email}</strong>?
           </Typography>
-          <Typography variant="body2" color="error" sx={{ mt: 2 }}>
+          <Typography sx={{ color: '#DC2626', fontSize: '0.8125rem', mt: 2 }}>
             Это действие необратимо!
           </Typography>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Отмена</Button>
-          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
+        <DialogActions sx={{ px: 3, pb: 3, pt: 2, justifyContent: 'flex-end', gap: 1 }}>
+          <Button 
+            onClick={() => setDeleteDialogOpen(false)}
+            sx={{ 
+              textTransform: 'none', 
+              color: '#6B7280',
+              fontSize: '0.875rem',
+              '&:hover': { bgcolor: '#F3F4F6' }
+            }}
+          >
+            Отмена
+          </Button>
+          <Button 
+            onClick={handleDeleteConfirm} 
+            variant="contained"
+            sx={{
+              textTransform: 'none',
+              bgcolor: '#EF4444',
+              height: 40,
+              px: 2,
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              borderRadius: '8px',
+              '&:hover': { bgcolor: '#DC2626' }
+            }}
+          >
             Удалить
           </Button>
         </DialogActions>
       </Dialog>
-    </MainCard>
+    </Box>
   );
 };
 

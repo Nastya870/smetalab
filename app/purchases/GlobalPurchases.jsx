@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import dayjs from 'dayjs';
 
 // material-ui
 import {
@@ -28,6 +29,7 @@ import {
   Grid,
   Menu
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { 
   IconRefresh, 
   IconPlus, 
@@ -38,7 +40,9 @@ import {
   IconFileTypeCsv,
   IconFileTypeXls,
   IconFileTypePdf,
-  IconFilter
+  IconFilter,
+  IconChevronLeft,
+  IconChevronRight
 } from '@tabler/icons-react';
 
 // API
@@ -48,6 +52,104 @@ import projectsAPI from 'api/projects';
 // utils
 import { formatCurrency } from 'utils/formatters';
 import { exportToCSV, exportToExcel, exportToPDF } from 'utils/purchasesExport';
+
+// Стили для кастомного DatePicker
+const datePickerSlotProps = {
+  textField: {
+    size: 'small',
+    fullWidth: true,
+    sx: {
+      '& .MuiOutlinedInput-root': {
+        height: 38,
+        bgcolor: '#F9FAFB',
+        borderRadius: '6px',
+        '& fieldset': { borderColor: '#E5E7EB' },
+        '&:hover fieldset': { borderColor: '#D1D5DB' }
+      },
+      '& .MuiInputLabel-root': { fontSize: '0.8125rem' }
+    }
+  },
+  popper: {
+    sx: {
+      '& .MuiPaper-root': {
+        border: '1px solid rgba(0,0,0,0.08)',
+        borderRadius: '8px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+        mt: 0.5
+      },
+      '& .MuiPickersCalendarHeader-root': {
+        py: 1,
+        px: 1.5,
+        '& .MuiPickersCalendarHeader-label': {
+          fontSize: '0.875rem',
+          fontWeight: 600,
+          color: '#374151'
+        }
+      },
+      '& .MuiPickersArrowSwitcher-root': {
+        gap: '8px',
+        '& .MuiIconButton-root': {
+          width: 28,
+          height: 28,
+          color: '#6B7280',
+          '&:hover': { 
+            bgcolor: '#F3F4F6',
+            color: '#4B5563'
+          }
+        },
+        '& .MuiSvgIcon-root': {
+          fontSize: '1rem'
+        }
+      },
+      '& .MuiDayCalendar-weekDayLabel': {
+        fontSize: '0.6875rem',
+        color: '#9CA3AF',
+        fontWeight: 500
+      },
+      '& .MuiPickersDay-root': {
+        fontSize: '0.8125rem',
+        color: '#374151',
+        '&.Mui-selected': {
+          bgcolor: '#4F46E5',
+          color: '#fff',
+          borderRadius: '6px',
+          '&:hover': {
+            bgcolor: '#4338CA'
+          }
+        },
+        '&:hover': {
+          bgcolor: '#F3F4F6'
+        }
+      },
+      '& .MuiPickersDay-today': {
+        border: '1px solid #E5E7EB',
+        borderRadius: '6px'
+      },
+      '& .MuiPickersCalendarHeader-switchViewButton': {
+        color: '#6B7280',
+        '&:hover': { bgcolor: '#F3F4F6' }
+      },
+      '& .MuiDialogActions-root': {
+        p: 1,
+        '& .MuiButton-root': {
+          bgcolor: '#F3F4F6',
+          color: '#4B5563',
+          px: 1,
+          py: 0.5,
+          borderRadius: '6px',
+          fontSize: '0.75rem',
+          textTransform: 'none',
+          '&:hover': {
+            bgcolor: '#E5E7EB'
+          }
+        }
+      }
+    }
+  },
+  actionBar: {
+    actions: ['clear', 'today']
+  }
+};
 
 // ==============================|| GLOBAL PURCHASES ||============================== //
 
@@ -361,7 +463,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
             )}
           </Stack>
           
-          <Grid container spacing={2.5}>
+          <Grid container spacing={3} columnSpacing={3}>
             <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 select
@@ -396,45 +498,29 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
             </Grid>
             
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField
-                type="date"
-                fullWidth
+              <DatePicker
                 label="Период с"
-                value={filters.dateFrom}
-                onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                size="small"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    height: 38,
-                    bgcolor: '#F9FAFB',
-                    borderRadius: '6px',
-                    '& fieldset': { borderColor: '#E5E7EB' },
-                    '&:hover fieldset': { borderColor: '#D1D5DB' }
-                  },
-                  '& .MuiInputLabel-root': { fontSize: '0.8125rem' }
+                value={filters.dateFrom ? dayjs(filters.dateFrom) : null}
+                onChange={(newValue) => handleFilterChange('dateFrom', newValue ? newValue.format('YYYY-MM-DD') : '')}
+                format="DD.MM.YYYY"
+                slotProps={datePickerSlotProps}
+                localeText={{
+                  clearButtonLabel: 'Удалить',
+                  todayButtonLabel: 'Сегодня'
                 }}
               />
             </Grid>
             
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField
-                type="date"
-                fullWidth
+              <DatePicker
                 label="Период по"
-                value={filters.dateTo}
-                onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                size="small"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    height: 38,
-                    bgcolor: '#F9FAFB',
-                    borderRadius: '6px',
-                    '& fieldset': { borderColor: '#E5E7EB' },
-                    '&:hover fieldset': { borderColor: '#D1D5DB' }
-                  },
-                  '& .MuiInputLabel-root': { fontSize: '0.8125rem' }
+                value={filters.dateTo ? dayjs(filters.dateTo) : null}
+                onChange={(newValue) => handleFilterChange('dateTo', newValue ? newValue.format('YYYY-MM-DD') : '')}
+                format="DD.MM.YYYY"
+                slotProps={datePickerSlotProps}
+                localeText={{
+                  clearButtonLabel: 'Удалить',
+                  todayButtonLabel: 'Сегодня'
                 }}
               />
             </Grid>
@@ -490,7 +576,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
         </Box>
 
         {/* Разделитель */}
-        <Divider sx={{ mb: 2.5 }} />
+        <Divider sx={{ mt: 4, mb: 4, borderColor: 'rgba(0, 0, 0, 0.08)' }} />
 
         {/* 3. Подзаголовок списка */}
         <Box sx={{ mb: 2 }}>
@@ -588,7 +674,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                                 <Chip 
                                   label={`${data.purchases.length} поз.`} 
                                   size="small" 
-                                  sx={{ height: 16, fontSize: '0.5625rem', bgcolor: '#F5F3FF', color: '#7C3AED', fontWeight: 500 }}
+                                  sx={{ height: 18, fontSize: '0.75rem', bgcolor: '#F3F4F6', color: '#6B7280', fontWeight: 500, border: '1px solid #E5E7EB' }}
                                 />
                               </Stack>
                             </Stack>
@@ -599,7 +685,10 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                           <TableRow 
                             key={purchase.id} 
                             hover
-                            sx={{ '&:hover': { bgcolor: '#FAFAFA' } }}
+                            sx={{ 
+                              '&:hover': { bgcolor: '#FAFAFA' },
+                              '& .MuiTableCell-root': { verticalAlign: 'middle' }
+                            }}
                           >
                             <TableCell sx={{ py: 1, maxWidth: 160, borderBottom: '1px solid #F3F4F6' }}>
                               <Typography noWrap sx={{ fontSize: '0.8125rem', color: '#4B5563' }}>
@@ -686,7 +775,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                                   size="small"
                                   onClick={() => handleDelete(purchase.id)}
                                   title="Удалить"
-                                  sx={{ width: 28, height: 28, color: '#F87171', '&:hover': { bgcolor: '#FEF2F2' } }}
+                                  sx={{ width: 28, height: 28, color: '#EF4444', '&:hover': { bgcolor: '#FEF2F2', color: '#DC2626' } }}
                                 >
                                   <IconTrash size={16} />
                                 </IconButton>
@@ -706,7 +795,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                       <TableCell 
                         colSpan={6} 
                         align="right"
-                        sx={{ bgcolor: '#F9FAFB', borderTop: '2px solid rgba(0,0,0,0.07)', py: 2 }}
+                        sx={{ bgcolor: '#F9FAFB', borderTop: '2px solid rgba(0,0,0,0.07)', pt: 2.5, pb: 2 }}
                       >
                         <Typography sx={{ fontWeight: 600, color: '#374151', fontSize: '0.875rem' }}>
                           Итого по всем проектам:
@@ -714,13 +803,13 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                       </TableCell>
                       <TableCell 
                         align="right"
-                        sx={{ bgcolor: '#F9FAFB', borderTop: '2px solid rgba(0,0,0,0.07)', py: 2 }}
+                        sx={{ bgcolor: '#F9FAFB', borderTop: '2px solid rgba(0,0,0,0.07)', pt: 2.5, pb: 2 }}
                       >
                         <Typography sx={{ fontWeight: 700, color: '#059669', fontSize: '1rem' }}>
                           {formatCurrency(totalSpent)}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ bgcolor: '#F9FAFB', borderTop: '2px solid rgba(0,0,0,0.07)', py: 2 }} />
+                      <TableCell sx={{ bgcolor: '#F9FAFB', borderTop: '2px solid rgba(0,0,0,0.07)', pt: 2.5, pb: 2 }} />
                     </TableRow>
                   </TableFooter>
                 )}

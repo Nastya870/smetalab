@@ -14,13 +14,24 @@ import {
   Button,
   Stack,
   Chip,
-  Divider,
+  Collapse,
   CircularProgress,
   Alert,
   Checkbox,
-  TextField
+  TextField,
+  IconButton
 } from '@mui/material';
-import { IconFileInvoice, IconDeviceFloppy, IconRefresh, IconDownload, IconCheck } from '@tabler/icons-react';
+import { 
+  IconClipboardCheck, 
+  IconDeviceFloppy, 
+  IconRefresh, 
+  IconChevronDown, 
+  IconChevronRight,
+  IconFileInvoice,
+  IconAlertTriangle,
+  IconTrendingUp,
+  IconTrendingDown
+} from '@tabler/icons-react';
 
 // API
 import estimatesAPI from 'api/estimates';
@@ -28,6 +39,27 @@ import worksAPI from 'api/works';
 import { projectsAPI } from 'api/projects';
 
 // ==============================|| SPECIALIST ESTIMATE (ВЫПОЛНЕНИЕ) ||============================== //
+
+// Цветовая палитра
+const colors = {
+  primary: '#4F46E5',
+  primaryLight: '#EEF2FF',
+  primaryDark: '#3730A3',
+  green: '#10B981',
+  greenLight: '#D1FAE5',
+  greenDark: '#059669',
+  headerBg: '#F3F4F6',
+  cardBg: '#F9FAFB',
+  totalBg: '#EEF2FF',
+  summaryBg: '#F5F3FF',
+  border: '#E5E7EB',
+  textPrimary: '#111827',
+  textSecondary: '#6B7280',
+  warning: '#F59E0B',
+  warningLight: '#FEF3C7',
+  error: '#EF4444',
+  errorLight: '#FEE2E2',
+};
 
 const SpecialistEstimate = ({ estimateId, projectId }) => {
   const [loading, setLoading] = useState(false);
@@ -37,6 +69,7 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
   const [estimateGenerated, setEstimateGenerated] = useState(false);
   const [estimateMetadata, setEstimateMetadata] = useState(null);
   const [saveTimeout, setSaveTimeout] = useState(null);
+  const [expandedSections, setExpandedSections] = useState({});
 
   // Итоги: План vs Факт
   const totalPlanAmount = specialistData.reduce((sum, section) => 
@@ -45,10 +78,49 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
   const totalActualAmount = specialistData.reduce((sum, section) => 
     sum + section.works.reduce((workSum, work) => workSum + work.actualTotal, 0), 0
   );
-  const difference = totalPlanAmount - totalActualAmount; // Экономия или перерасход
+  const difference = totalPlanAmount - totalActualAmount;
+
+  // Инициализация развёрнутых секций при загрузке
+  useEffect(() => {
+    if (specialistData.length > 0) {
+      const initialExpanded = {};
+      specialistData.forEach((_, index) => {
+        initialExpanded[index] = true;
+      });
+      setExpandedSections(initialExpanded);
+    }
+  }, [specialistData.length]);
+
+  // Переключение сворачивания секции
+  const toggleSection = (sectionIndex) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionIndex]: !prev[sectionIndex]
+    }));
+  };
+
+  // Получить склонение слова "работа"
+  const getWorksLabel = (count) => {
+    const lastDigit = count % 10;
+    const lastTwoDigits = count % 100;
+    if (lastTwoDigits >= 11 && lastTwoDigits <= 19) return `${count} работ`;
+    if (lastDigit === 1) return `${count} работа`;
+    if (lastDigit >= 2 && lastDigit <= 4) return `${count} работы`;
+    return `${count} работ`;
+  };
+
+  // Определить, есть ли отклонение факта от плана
+  const getVarianceType = (plan, fact) => {
+    if (fact === 0) return 'none';
+    const ratio = fact / plan;
+    if (ratio > 1.1) return 'over'; // Перерасход более 10%
+    if (ratio < 0.9) return 'under'; // Выполнено менее 90%
+    return 'normal';
+  };
 
   // Функция для сохранения изменений в БД (с debounce)
-  const saveWorkCompletions = async (data) => {try {
+  const saveWorkCompletions = async (data) => {
+try {
       setSaving(true);
       
       // Собираем все записи о выполнении работ
@@ -69,13 +141,17 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
       });
 
       if (completions.length > 0) {
-        await estimatesAPI.batchSaveWorkCompletions(estimateId, completions);// Автоматически рассчитываем прогресс проекта после сохранения
+        await estimatesAPI.batchSaveWorkCompletions(estimateId, completions);
+// Автоматически рассчитываем прогресс проекта после сохранения
         if (projectId) {
-          try {const progressData = await projectsAPI.calculateProgress(projectId);} catch (progressError) {
+          try {
+const progressData = await projectsAPI.calculateProgress(projectId);
+} catch (progressError) {
             console.error('⚠️ Error calculating progress:', progressError);
             // Не показываем ошибку пользователю, это второстепенная операция
           }
-        } else {}
+        } else {
+}
       }
     } catch (err) {
       console.error('❌ Error saving work completions:', err);
@@ -159,8 +235,10 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
           if (completionsResponse.success && completionsResponse.data) {
             completionsResponse.data.forEach(completion => {
               completionsMap.set(completion.estimate_item_id, completion);
-            });}
-        } catch (err) {}
+            });
+}
+        } catch (err) {
+}
         
         if (estimate && estimate.items && estimate.items.length > 0) {
           // Сохраняем метаданные
@@ -174,7 +252,8 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
           // Получаем workIds всех работ в смете
           const workIds = estimate.items
             .filter(item => item.work_id)
-            .map(item => item.work_id);// Загружаем базовые цены работ из справочника
+            .map(item => item.work_id);
+// Загружаем базовые цены работ из справочника
           const basePricesMap = new Map();
           
           if (workIds.length > 0) {
@@ -186,7 +265,9 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
               // Создаем Map для быстрого поиска
               works.forEach(work => {
                 basePricesMap.set(work.id.toString(), work.base_price || 0);
-              });} catch (err) {}
+              });
+} catch (err) {
+}
           }
 
           // Группируем по фазам/разделам (используем phase или section)
@@ -208,7 +289,8 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
               : item.unit_price;
 
             // Цена клиента - из сметы (с учетом коэффициента)
-            const clientPrice = item.unit_price;// Получаем сохраненные данные о выполнении для этой работы
+            const clientPrice = item.unit_price;
+// Получаем сохраненные данные о выполнении для этой работы
             const completion = completionsMap.get(item.id);
 
             // Добавляем работу с полными данными (план + факт)
@@ -281,8 +363,10 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
         if (completionsResponse.success && completionsResponse.data) {
           completionsResponse.data.forEach(completion => {
             completionsMap.set(completion.estimate_item_id, completion);
-          });}
-      } catch (err) {}
+          });
+}
+      } catch (err) {
+}
       
       if (estimate && estimate.items && estimate.items.length > 0) {
         // Сохраняем метаданные
@@ -296,7 +380,8 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
         // Получаем workIds всех работ в смете
         const workIds = estimate.items
           .filter(item => item.work_id)
-          .map(item => item.work_id);// Загружаем базовые цены работ из справочника
+          .map(item => item.work_id);
+// Загружаем базовые цены работ из справочника
         const basePricesMap = new Map();
         
         if (workIds.length > 0) {
@@ -308,7 +393,9 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
             // Создаем Map для быстрого поиска
             works.forEach(work => {
               basePricesMap.set(work.id.toString(), work.base_price || 0);
-            });} catch (err) {}
+            });
+} catch (err) {
+}
         }
 
         // Группируем по фазам/разделам
@@ -393,116 +480,271 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
 
   return (
     <Box>
-      {/* Шапка */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Box>
-          <Typography variant="h5" fontWeight={500}>
-            Выполнение (Заказчик vs Специалист)
-          </Typography>
-        </Box>
+      {/* ═══════════════════════════════════════════════════════════════════
+          ШАПКА СТРАНИЦЫ
+      ═══════════════════════════════════════════════════════════════════ */}
+      <Stack 
+        direction={{ xs: 'column', sm: 'row' }} 
+        justifyContent="space-between" 
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        spacing={2}
+        sx={{ mb: 4 }}
+      >
+        <Stack direction="row" alignItems="center" spacing={2}>
+          <Box
+            sx={{
+              width: 48,
+              height: 48,
+              borderRadius: '12px',
+              bgcolor: colors.primaryLight,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <IconClipboardCheck size={26} color={colors.primary} />
+          </Box>
+          <Box>
+            <Typography 
+              variant="h4" 
+              component="h1"
+              sx={{ 
+                fontWeight: 700, 
+                color: colors.textPrimary,
+                fontSize: { xs: '1.5rem', sm: '1.75rem' }
+              }}
+            >
+              Выполнение работ
+            </Typography>
+            <Typography 
+              variant="body2" 
+              sx={{ color: colors.textSecondary, mt: 0.5 }}
+            >
+              Сравнение плановых и фактических объёмов
+            </Typography>
+          </Box>
+        </Stack>
         
         <Stack direction="row" spacing={2} alignItems="center">
           {/* Индикатор автосохранения */}
           {saving && (
             <Chip
-              icon={<CircularProgress size={16} />}
+              icon={<CircularProgress size={14} sx={{ color: colors.primary }} />}
               label="Сохранение..."
               size="small"
-              color="primary"
-              variant="outlined"
+              sx={{
+                bgcolor: colors.primaryLight,
+                color: colors.primary,
+                fontWeight: 500,
+                '& .MuiChip-icon': { color: colors.primary }
+              }}
             />
           )}
           
           {estimateGenerated && (
             <Button
-              variant="outlined"
-              startIcon={<IconRefresh />}
+              variant="contained"
+              size="medium"
+              startIcon={<IconRefresh size={20} />}
               onClick={handleRefreshEstimate}
               disabled={loading}
+              sx={{
+                bgcolor: colors.primary,
+                color: '#fff',
+                fontWeight: 600,
+                px: 3,
+                py: 1,
+                borderRadius: '10px',
+                textTransform: 'none',
+                boxShadow: '0 4px 14px 0 rgba(79, 70, 229, 0.39)',
+                '&:hover': {
+                  bgcolor: colors.primaryDark,
+                  boxShadow: '0 6px 20px rgba(79, 70, 229, 0.45)',
+                },
+                '&:disabled': { bgcolor: '#C7D2FE' }
+              }}
             >
-              Обновить смету
+              Обновить выполнение
             </Button>
           )}
           
-          {!estimateGenerated && (
+          {!estimateGenerated && !loading && (
             <Button
               variant="contained"
-              startIcon={<IconDeviceFloppy />}
+              size="medium"
+              startIcon={<IconDeviceFloppy size={20} />}
               onClick={handleGenerateEstimate}
               disabled={loading || !estimateId}
+              sx={{
+                bgcolor: colors.primary,
+                color: '#fff',
+                fontWeight: 600,
+                px: 3,
+                py: 1,
+                borderRadius: '10px',
+                textTransform: 'none',
+                boxShadow: '0 4px 14px 0 rgba(79, 70, 229, 0.39)',
+                '&:hover': {
+                  bgcolor: colors.primaryDark,
+                  boxShadow: '0 6px 20px rgba(79, 70, 229, 0.45)',
+                },
+                '&:disabled': { bgcolor: '#C7D2FE' }
+              }}
             >
-              Сформировать смету
+              Сформировать выполнение
             </Button>
           )}
         </Stack>
       </Stack>
 
-      {/* Индикатор загрузки */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          ИНДИКАТОР ЗАГРУЗКИ
+      ═══════════════════════════════════════════════════════════════════ */}
       {loading && (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <CircularProgress />
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            Формирование сметы...
+        <Paper 
+          sx={{ 
+            p: 6, 
+            textAlign: 'center',
+            borderRadius: '16px',
+            border: `1px solid ${colors.border}`
+          }}
+        >
+          <CircularProgress sx={{ color: colors.primary }} />
+          <Typography variant="body1" sx={{ color: colors.textSecondary, mt: 2 }}>
+            Загрузка данных о выполнении...
           </Typography>
         </Paper>
       )}
 
-      {/* Ошибка */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          ОШИБКА
+      ═══════════════════════════════════════════════════════════════════ */}
       {error && !loading && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert 
+          severity="error" 
+          sx={{ 
+            mb: 3, 
+            borderRadius: '12px',
+            '& .MuiAlert-icon': { alignItems: 'center' }
+          }}
+        >
           {error}
         </Alert>
       )}
 
-      {!loading && !estimateGenerated ? (
-        // Заглушка до формирования сметы
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <IconFileInvoice size={64} style={{ opacity: 0.2 }} />
-          <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-            Выполнение еще не сформировано
+      {/* ═══════════════════════════════════════════════════════════════════
+          ЗАГЛУШКА (НЕ СФОРМИРОВАНО)
+      ═══════════════════════════════════════════════════════════════════ */}
+      {!loading && !estimateGenerated && (
+        <Paper 
+          sx={{ 
+            p: 6, 
+            textAlign: 'center',
+            borderRadius: '16px',
+            border: `1px solid ${colors.border}`,
+            bgcolor: '#FAFAFA'
+          }}
+        >
+          <Box
+            sx={{
+              width: 80,
+              height: 80,
+              borderRadius: '20px',
+              bgcolor: colors.primaryLight,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mx: 'auto',
+              mb: 3
+            }}
+          >
+            <IconFileInvoice size={40} color={colors.primary} style={{ opacity: 0.7 }} />
+          </Box>
+          <Typography 
+            variant="h5" 
+            sx={{ fontWeight: 600, color: '#374151', mb: 1 }}
+          >
+            Выполнение ещё не сформировано
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Нажмите кнопку "Сформировать смету" для создания сметы с базовыми ценами
+          <Typography 
+            variant="body1" 
+            sx={{ color: colors.textSecondary, mb: 4, maxWidth: 400, mx: 'auto' }}
+          >
+            Нажмите кнопку «Сформировать выполнение» для создания таблицы с плановыми и фактическими данными
           </Typography>
           <Button
             variant="contained"
-            startIcon={<IconDeviceFloppy />}
+            size="large"
+            startIcon={<IconDeviceFloppy size={22} />}
             onClick={handleGenerateEstimate}
             disabled={loading || !estimateId}
+            sx={{
+              bgcolor: colors.primary,
+              color: '#fff',
+              fontWeight: 600,
+              px: 4,
+              py: 1.5,
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontSize: '1rem',
+              boxShadow: '0 4px 14px 0 rgba(79, 70, 229, 0.39)',
+              '&:hover': {
+                bgcolor: colors.primaryDark,
+                boxShadow: '0 6px 20px rgba(79, 70, 229, 0.45)',
+              }
+            }}
           >
-            Сформировать смету
+            Сформировать выполнение
           </Button>
         </Paper>
-      ) : (
-        // Сформированная смета
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          СФОРМИРОВАННОЕ ВЫПОЛНЕНИЕ
+      ═══════════════════════════════════════════════════════════════════ */}
+      {!loading && estimateGenerated && (
         <>
-          {/* Информация о смете */}
+          {/* ─────────────────────────────────────────────────────────────────
+              КАРТОЧКА С ИНФОРМАЦИЕЙ О СМЕТЕ
+          ───────────────────────────────────────────────────────────────── */}
           {estimateMetadata && (
-            <Paper sx={{ p: 2, mb: 3, bgcolor: 'primary.lighter' }}>
-              <Stack direction="row" spacing={4} alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Название
+            <Paper 
+              sx={{ 
+                p: 2.5, 
+                mb: 3, 
+                bgcolor: colors.cardBg,
+                borderRadius: '12px',
+                border: `1px solid ${colors.border}`
+              }}
+            >
+              <Stack 
+                direction={{ xs: 'column', sm: 'row' }} 
+                spacing={3} 
+                alignItems={{ xs: 'flex-start', sm: 'center' }}
+              >
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="caption" sx={{ color: colors.textSecondary }}>
+                    Название проекта
                   </Typography>
-                  <Typography variant="body1" fontWeight={600}>
+                  <Typography variant="body1" sx={{ fontWeight: 600, color: colors.textPrimary }}>
                     {estimateMetadata.name}
                   </Typography>
                 </Box>
                 {estimateMetadata.estimateNumber && (
                   <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Номер
+                    <Typography variant="caption" sx={{ color: colors.textSecondary }}>
+                      Номер сметы
                     </Typography>
-                    <Typography variant="body1" fontWeight={600}>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: colors.textPrimary }}>
                       {estimateMetadata.estimateNumber}
                     </Typography>
                   </Box>
                 )}
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: colors.textSecondary }}>
                     Дата
                   </Typography>
-                  <Typography variant="body1" fontWeight={600}>
+                  <Typography variant="body1" sx={{ fontWeight: 600, color: colors.textPrimary }}>
                     {formatDate(estimateMetadata.estimateDate)}
                   </Typography>
                 </Box>
@@ -510,336 +752,676 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
             </Paper>
           )}
 
+          {/* ─────────────────────────────────────────────────────────────────
+              РАЗДЕЛЫ ВЫПОЛНЕНИЯ
+          ───────────────────────────────────────────────────────────────── */}
           {specialistData.map((sectionData, sectionIndex) => (
-            <Paper key={sectionIndex} sx={{ mb: 3, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
-              {/* Заголовок раздела */}
-              <Box sx={{ px: 2, py: 1.5, bgcolor: 'secondary.lighter', borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Paper 
+              key={sectionIndex} 
+              sx={{ 
+                mb: 3, 
+                overflow: 'hidden',
+                borderRadius: '12px',
+                border: `1px solid ${colors.border}`,
+                bgcolor: colors.cardBg,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+              }}
+            >
+              {/* ═══ Заголовок раздела (кликабельный) ═══ */}
+              <Box 
+                onClick={() => toggleSection(sectionIndex)}
+                sx={{ 
+                  px: 2.5, 
+                  py: 2, 
+                  bgcolor: '#fff',
+                  borderBottom: expandedSections[sectionIndex] ? `1px solid ${colors.border}` : 'none',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s',
+                  '&:hover': { bgcolor: '#FAFAFA' }
+                }}
+              >
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="subtitle1" fontWeight={600} color="secondary.dark">
-                    Раздел: {sectionData.section}
-                  </Typography>
+                  <Stack direction="row" alignItems="center" spacing={1.5}>
+                    <IconButton size="small" sx={{ p: 0.5, color: colors.textSecondary }}>
+                      {expandedSections[sectionIndex] ? (
+                        <IconChevronDown size={20} />
+                      ) : (
+                        <IconChevronRight size={20} />
+                      )}
+                    </IconButton>
+                    <Typography 
+                      variant="subtitle1" 
+                      sx={{ fontWeight: 700, color: '#1F2937', fontSize: '1rem' }}
+                    >
+                      Раздел: {sectionData.section}
+                    </Typography>
+                  </Stack>
                   <Chip
-                    label={`${sectionData.works.length} работ`}
+                    label={getWorksLabel(sectionData.works.length)}
                     size="small"
-                    color="secondary"
-                    variant="outlined"
+                    sx={{
+                      bgcolor: colors.primaryLight,
+                      color: colors.primary,
+                      fontWeight: 600,
+                      fontSize: '0.75rem',
+                      height: 26,
+                      '& .MuiChip-label': { px: 1.5 }
+                    }}
                   />
                 </Stack>
               </Box>
 
-              {/* Таблица работ */}
-              <Table size="small">
-                <TableHead>
-                  {/* Первый уровень - секции */}
-                  <TableRow>
-                    {/* Чекбокс выполнения */}
-                    <TableCell align="center" rowSpan={2} sx={{ width: 60, fontWeight: 600, borderRight: '2px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
-                      <IconCheck size={18} />
-                    </TableCell>
-                    
-                    {/* ⭐ НОВАЯ колонка "В акте" - ВТОРОЕ МЕСТО */}
-                    <TableCell 
-                      align="center" 
-                      rowSpan={2}
-                      sx={{ 
-                        width: 90,
-                        fontWeight: 600, 
-                        bgcolor: 'action.hover',
-                        borderRight: '2px solid',
-                        borderColor: 'divider'
-                      }}
-                    >
-                      В акте
-                    </TableCell>
-                    
-                    <TableCell rowSpan={2} sx={{ width: 80, fontWeight: 600, borderRight: '2px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
-                      Код
-                    </TableCell>
-                    <TableCell rowSpan={2} sx={{ fontWeight: 600, borderRight: '2px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
-                      Наименование работы
-                    </TableCell>
-                    <TableCell rowSpan={2} align="center" sx={{ width: 80, fontWeight: 600, borderRight: '2px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
-                      Ед. изм.
-                    </TableCell>
-                    
-                    {/* Секция "Заказчик" */}
-                    <TableCell 
-                      align="center" 
-                      colSpan={3} 
-                      sx={{ 
-                        fontWeight: 700, 
-                        fontSize: '0.95rem',
-                        bgcolor: 'action.hover',
-                        color: 'text.primary',
-                        borderRight: '3px solid',
-                        borderColor: 'divider'
-                      }}
-                    >
-                      Заказчик
-                    </TableCell>
-                    
-                    {/* Секция "Специалист" */}
-                    <TableCell 
-                      align="center" 
-                      colSpan={3}
-                      sx={{ 
-                        fontWeight: 700, 
-                        fontSize: '0.95rem',
-                        bgcolor: 'action.hover',
-                        color: 'text.primary'
-                      }}
-                    >
-                      Специалист
-                    </TableCell>
-                  </TableRow>
-                  
-                  {/* Второй уровень - колонки */}
-                  <TableRow>
-                    {/* Заказчик */}
-                    <TableCell align="right" sx={{ width: 100, fontWeight: 600, bgcolor: 'action.hover' }}>Кол-во</TableCell>
-                    <TableCell align="right" sx={{ width: 120, fontWeight: 600, bgcolor: 'action.hover' }}>Цена</TableCell>
-                    <TableCell align="right" sx={{ width: 120, fontWeight: 600, borderRight: '3px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
-                      Сумма
-                    </TableCell>
-                    
-                    {/* Специалист */}
-                    <TableCell align="right" sx={{ width: 120, fontWeight: 600, bgcolor: 'action.hover' }}>Баз.цена</TableCell>
-                    <TableCell align="right" sx={{ width: 120, fontWeight: 600, bgcolor: 'action.hover' }}>Факт. Кол-во</TableCell>
-                    <TableCell align="right" sx={{ width: 140, fontWeight: 600, borderRight: '3px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>Сумма</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sectionData.works.map((work, workIndex) => (
-                    <TableRow
-                      key={work.id || workIndex}
-                      sx={{
-                        bgcolor: work.completed ? 'success.lighter' : 'transparent',
-                        '&:hover': { bgcolor: work.completed ? 'success.light' : 'action.hover' },
-                        transition: 'background-color 0.2s'
-                      }}
-                    >
-                      {/* Чекбокс выполнения */}
-                      <TableCell align="center" sx={{ borderRight: '2px solid', borderColor: 'divider' }}>
-                        <Checkbox
-                          checked={work.completed}
-                          onChange={(e) => handleCompletedChange(sectionIndex, workIndex, e.target.checked)}
-                          color="success"
-                          size="small"
-                        />
-                      </TableCell>
-                      
-                      {/* ⭐ КОЛОНКА "В акте" - ВТОРОЕ МЕСТО */}
-                      <TableCell align="center" sx={{ bgcolor: work.actNumber ? 'info.lighter' : 'transparent', borderRight: '2px solid', borderColor: 'divider' }}>
-                        {work.actNumber ? (
-                          <Typography variant="caption" fontWeight={600} color="info.dark">
-                            {work.actNumber}
-                          </Typography>
-                        ) : (
-                          <Typography variant="caption" color="text.disabled">
-                            -
-                          </Typography>
-                        )}
-                      </TableCell>
-                      
-                      <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider' }}>
-                        <Typography variant="body2" fontWeight={500} color="secondary">
-                          {work.code}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ borderRight: '2px solid', borderColor: 'divider' }}>
-                        <Typography variant="body2">{work.name}</Typography>
-                      </TableCell>
-                      <TableCell align="center" sx={{ borderRight: '2px solid', borderColor: 'divider' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          {work.unit}
-                        </Typography>
-                      </TableCell>
-                      
-                      {/* СЕКЦИЯ ЗАКАЗЧИК */}
-                      <TableCell align="right">
-                        <Typography variant="body2" fontWeight={500}>
-                          {work.planQuantity.toLocaleString('ru-RU', {
-                            minimumFractionDigits: 0,
-                            maximumFractionDigits: 3
+              {/* ═══ Содержимое раздела (сворачиваемое) ═══ */}
+              <Collapse in={expandedSections[sectionIndex]}>
+                {sectionData.works.length === 0 ? (
+                  <Box sx={{ p: 4, textAlign: 'center', bgcolor: '#fff' }}>
+                    <IconFileInvoice size={32} color={colors.textSecondary} style={{ opacity: 0.4 }} />
+                    <Typography variant="body2" sx={{ color: colors.textSecondary, mt: 1 }}>
+                      Нет работ в этом разделе
+                    </Typography>
+                  </Box>
+                ) : (
+                  <>
+                    {/* ═══ Таблица работ ═══ */}
+                    <Box sx={{ overflowX: 'auto', bgcolor: '#fff' }}>
+                      <Table size="medium" sx={{ minWidth: 1000 }}>
+                        <TableHead>
+                          {/* Первый уровень — секции */}
+                          <TableRow>
+                            <TableCell 
+                              align="center" 
+                              rowSpan={2} 
+                              sx={{ 
+                                width: 56, 
+                                fontWeight: 600, 
+                                bgcolor: colors.headerBg,
+                                color: '#374151',
+                                py: 1.5,
+                                borderBottom: `1px solid ${colors.border}`
+                              }}
+                            >
+                              ✓
+                            </TableCell>
+                            <TableCell 
+                              align="center" 
+                              rowSpan={2}
+                              sx={{ 
+                                width: 80,
+                                fontWeight: 600, 
+                                bgcolor: colors.headerBg,
+                                color: '#374151',
+                                py: 1.5,
+                                borderBottom: `1px solid ${colors.border}`
+                              }}
+                            >
+                              В акте
+                            </TableCell>
+                            <TableCell 
+                              rowSpan={2} 
+                              sx={{ 
+                                width: 90, 
+                                fontWeight: 600, 
+                                bgcolor: colors.headerBg,
+                                color: '#374151',
+                                py: 1.5,
+                                borderBottom: `1px solid ${colors.border}`
+                              }}
+                            >
+                              Код
+                            </TableCell>
+                            <TableCell 
+                              rowSpan={2} 
+                              sx={{ 
+                                fontWeight: 600, 
+                                bgcolor: colors.headerBg,
+                                color: '#374151',
+                                py: 1.5,
+                                borderBottom: `1px solid ${colors.border}`
+                              }}
+                            >
+                              Наименование работы
+                            </TableCell>
+                            <TableCell 
+                              rowSpan={2} 
+                              align="center" 
+                              sx={{ 
+                                width: 70, 
+                                fontWeight: 600, 
+                                bgcolor: colors.headerBg,
+                                color: '#374151',
+                                py: 1.5,
+                                borderBottom: `1px solid ${colors.border}`
+                              }}
+                            >
+                              Ед.
+                            </TableCell>
+                            
+                            {/* Секция «План (Заказчик)» */}
+                            <TableCell 
+                              align="center" 
+                              colSpan={3}
+                              sx={{ 
+                                fontWeight: 700, 
+                                fontSize: '0.875rem',
+                                bgcolor: colors.headerBg,
+                                color: colors.textPrimary,
+                                py: 1,
+                                borderBottom: `1px solid ${colors.border}`,
+                                borderLeft: `2px solid ${colors.border}`
+                              }}
+                            >
+                              План (Заказчик)
+                            </TableCell>
+                            
+                            {/* Секция «Факт (Специалист)» */}
+                            <TableCell 
+                              align="center" 
+                              colSpan={3}
+                              sx={{ 
+                                fontWeight: 700, 
+                                fontSize: '0.875rem',
+                                bgcolor: colors.greenLight,
+                                color: colors.greenDark,
+                                py: 1,
+                                borderBottom: `1px solid ${colors.border}`,
+                                borderLeft: `2px solid ${colors.green}`
+                              }}
+                            >
+                              Факт (Специалист)
+                            </TableCell>
+                          </TableRow>
+                          
+                          {/* Второй уровень — колонки */}
+                          <TableRow>
+                            {/* План */}
+                            <TableCell 
+                              align="right" 
+                              sx={{ 
+                                width: 90, 
+                                fontWeight: 600, 
+                                bgcolor: colors.headerBg,
+                                color: '#374151',
+                                py: 1,
+                                borderBottom: `1px solid ${colors.border}`,
+                                borderLeft: `2px solid ${colors.border}`
+                              }}
+                            >
+                              Кол-во
+                            </TableCell>
+                            <TableCell 
+                              align="right" 
+                              sx={{ 
+                                width: 100, 
+                                fontWeight: 600, 
+                                bgcolor: colors.headerBg,
+                                color: '#374151',
+                                py: 1,
+                                borderBottom: `1px solid ${colors.border}`
+                              }}
+                            >
+                              Цена
+                            </TableCell>
+                            <TableCell 
+                              align="right" 
+                              sx={{ 
+                                width: 120, 
+                                fontWeight: 600, 
+                                bgcolor: colors.headerBg,
+                                color: '#374151',
+                                py: 1,
+                                borderBottom: `1px solid ${colors.border}`
+                              }}
+                            >
+                              Сумма
+                            </TableCell>
+                            
+                            {/* Факт */}
+                            <TableCell 
+                              align="right" 
+                              sx={{ 
+                                width: 100, 
+                                fontWeight: 600, 
+                                bgcolor: colors.greenLight,
+                                color: colors.greenDark,
+                                py: 1,
+                                borderBottom: `1px solid ${colors.border}`,
+                                borderLeft: `2px solid ${colors.green}`
+                              }}
+                            >
+                              Баз.цена
+                            </TableCell>
+                            <TableCell 
+                              align="right" 
+                              sx={{ 
+                                width: 100, 
+                                fontWeight: 600, 
+                                bgcolor: colors.greenLight,
+                                color: colors.greenDark,
+                                py: 1,
+                                borderBottom: `1px solid ${colors.border}`
+                              }}
+                            >
+                              Факт.кол-во
+                            </TableCell>
+                            <TableCell 
+                              align="right" 
+                              sx={{ 
+                                width: 120, 
+                                fontWeight: 600, 
+                                bgcolor: colors.greenLight,
+                                color: colors.greenDark,
+                                py: 1,
+                                borderBottom: `1px solid ${colors.border}`
+                              }}
+                            >
+                              Факт.сумма
+                            </TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {sectionData.works.map((work, workIndex) => {
+                            const varianceType = getVarianceType(work.planTotal, work.actualTotal);
+                            const isHighlighted = varianceType === 'over' || varianceType === 'under';
+                            
+                            return (
+                              <TableRow
+                                key={work.id || workIndex}
+                                sx={{
+                                  bgcolor: work.completed 
+                                    ? colors.greenLight 
+                                    : (workIndex % 2 === 0 ? '#fff' : '#FAFAFA'),
+                                  '&:hover': { 
+                                    bgcolor: work.completed ? '#A7F3D0' : colors.cardBg 
+                                  },
+                                  transition: 'background-color 0.15s',
+                                  '& td': {
+                                    py: 1.5,
+                                    borderBottom: `1px solid ${colors.border}`
+                                  },
+                                  ...(isHighlighted && work.actualTotal > 0 && {
+                                    borderLeft: `3px solid ${varianceType === 'over' ? colors.error : colors.warning}`
+                                  })
+                                }}
+                              >
+                                {/* Чекбокс выполнения */}
+                                <TableCell align="center">
+                                  <Checkbox
+                                    checked={work.completed}
+                                    onChange={(e) => handleCompletedChange(sectionIndex, workIndex, e.target.checked)}
+                                    sx={{
+                                      color: colors.green,
+                                      '&.Mui-checked': { color: colors.green },
+                                      p: 0.5
+                                    }}
+                                    size="small"
+                                  />
+                                </TableCell>
+                                
+                                {/* В акте */}
+                                <TableCell align="center">
+                                  {work.actNumber ? (
+                                    <Chip
+                                      label={work.actNumber}
+                                      size="small"
+                                      sx={{
+                                        bgcolor: colors.primaryLight,
+                                        color: colors.primary,
+                                        fontWeight: 600,
+                                        fontSize: '0.7rem',
+                                        height: 22
+                                      }}
+                                    />
+                                  ) : (
+                                    <Typography variant="caption" sx={{ color: '#D1D5DB' }}>
+                                      —
+                                    </Typography>
+                                  )}
+                                </TableCell>
+                                
+                                {/* Код */}
+                                <TableCell>
+                                  <Typography 
+                                    variant="body2" 
+                                    sx={{ 
+                                      fontWeight: 500, 
+                                      color: colors.primary,
+                                      fontFamily: 'monospace'
+                                    }}
+                                  >
+                                    {work.code}
+                                  </Typography>
+                                </TableCell>
+                                
+                                {/* Наименование */}
+                                <TableCell>
+                                  <Typography variant="body2" sx={{ color: '#374151' }}>
+                                    {work.name}
+                                  </Typography>
+                                </TableCell>
+                                
+                                {/* Ед. изм. */}
+                                <TableCell align="center">
+                                  <Typography variant="body2" sx={{ color: colors.textSecondary }}>
+                                    {work.unit}
+                                  </Typography>
+                                </TableCell>
+                                
+                                {/* ═══ ПЛАН (ЗАКАЗЧИК) ═══ */}
+                                <TableCell 
+                                  align="right"
+                                  sx={{ borderLeft: `2px solid ${colors.border}` }}
+                                >
+                                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#374151' }}>
+                                    {work.planQuantity.toLocaleString('ru-RU', {
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 3
+                                    })}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography variant="body2" sx={{ color: '#374151' }}>
+                                    {formatCurrency(work.clientPrice)}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#1F2937' }}>
+                                    {formatCurrency(work.planTotal)}
+                                  </Typography>
+                                </TableCell>
+                                
+                                {/* ═══ ФАКТ (СПЕЦИАЛИСТ) ═══ */}
+                                <TableCell 
+                                  align="right"
+                                  sx={{ borderLeft: `2px solid ${colors.green}` }}
+                                >
+                                  <Typography 
+                                    variant="body2" 
+                                    sx={{ fontWeight: 500, color: colors.green }}
+                                  >
+                                    {formatCurrency(work.basePrice)}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="right" sx={{ p: 0.5 }}>
+                                  <TextField
+                                    type="number"
+                                    value={work.actualQuantity || ''}
+                                    onChange={(e) => handleActualQuantityChange(sectionIndex, workIndex, e.target.value)}
+                                    size="small"
+                                    inputProps={{ 
+                                      min: 0,
+                                      step: 0.01,
+                                      style: { 
+                                        textAlign: 'right', 
+                                        fontSize: '0.875rem', 
+                                        padding: '6px 8px',
+                                        color: colors.green
+                                      }
+                                    }}
+                                    sx={{
+                                      width: '90px',
+                                      '& .MuiOutlinedInput-root': {
+                                        bgcolor: '#fff',
+                                        borderRadius: '8px',
+                                        '& fieldset': {
+                                          borderColor: colors.border
+                                        },
+                                        '&:hover fieldset': {
+                                          borderColor: colors.green
+                                        },
+                                        '&.Mui-focused fieldset': {
+                                          borderColor: colors.green
+                                        }
+                                      }
+                                    }}
+                                  />
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography 
+                                    variant="body2" 
+                                    sx={{ 
+                                      fontWeight: 700,
+                                      color: colors.green,
+                                      bgcolor: work.actualTotal > 0 ? colors.greenLight : 'transparent',
+                                      px: 1,
+                                      py: 0.5,
+                                      borderRadius: '6px',
+                                      display: 'inline-block'
+                                    }}
+                                  >
+                                    {formatCurrency(work.actualTotal)}
+                                  </Typography>
+                                </TableCell>
+                              </TableRow>
+                            );
                           })}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2">
-                          {formatCurrency(work.clientPrice)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right" sx={{ borderRight: '3px solid', borderColor: 'divider' }}>
-                        <Typography variant="body2" fontWeight={600} color="secondary.dark">
-                          {formatCurrency(work.planTotal)}
-                        </Typography>
-                      </TableCell>
-                      
-                      {/* СЕКЦИЯ СПЕЦИАЛИСТ */}
-                      <TableCell align="right">
-                        <Typography variant="body2" color="success.dark" fontWeight={500}>
-                          {formatCurrency(work.basePrice)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right" sx={{ p: 0.25 }}>
-                        <TextField
-                          type="number"
-                          value={work.actualQuantity || ''}
-                          onChange={(e) => handleActualQuantityChange(sectionIndex, workIndex, e.target.value)}
-                          size="small"
-                          inputProps={{ 
-                            min: 0,
-                            step: 0.01,
-                            style: { textAlign: 'right', fontSize: '0.875rem', padding: '4px 8px' }
-                          }}
-                          sx={{
-                            width: '100px',
-                            '& .MuiOutlinedInput-root': {
-                              bgcolor: 'background.paper'
-                            },
-                            '& .MuiOutlinedInput-input': {
-                              padding: '4px 8px'
-                            }
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography 
-                          variant="body2" 
-                          fontWeight={600}
-                          color={work.completed ? 'success.dark' : 'text.primary'}
-                          sx={{
-                            bgcolor: work.completed ? 'success.lighter' : 'transparent',
-                            px: 1,
-                            py: 0.5,
-                            borderRadius: 1,
-                            display: 'inline-block'
-                          }}
-                        >
-                          {formatCurrency(work.actualTotal)}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                        </TableBody>
+                      </Table>
+                    </Box>
 
-              {/* Итого по разделу */}
-              <Box sx={{ px: 2, py: 1.5, bgcolor: 'warning.lighter', borderTop: '2px solid', borderColor: 'warning.main' }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="body2" fontWeight={600}>
-                    Итого по разделу "{sectionData.section}"
-                  </Typography>
-                  <Stack direction="row" spacing={4} alignItems="center">
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        План
-                      </Typography>
-                      <Typography variant="h6" fontWeight={600} color="warning.dark">
-                        {formatCurrency(sectionData.sectionPlanTotal)}
-                      </Typography>
+                    {/* ═══ Итого по разделу ═══ */}
+                    <Box 
+                      sx={{ 
+                        px: 2.5, 
+                        py: 2, 
+                        bgcolor: colors.totalBg,
+                        borderTop: `1px solid ${colors.border}`
+                      }}
+                    >
+                      <Stack 
+                        direction={{ xs: 'column', sm: 'row' }} 
+                        justifyContent="space-between" 
+                        alignItems={{ xs: 'flex-start', sm: 'center' }}
+                        spacing={2}
+                      >
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#374151' }}>
+                          Итого по разделу «{sectionData.section}»
+                        </Typography>
+                        <Stack direction="row" spacing={4} alignItems="center">
+                          <Box sx={{ textAlign: 'right' }}>
+                            <Typography variant="caption" sx={{ color: colors.textSecondary }}>
+                              План
+                            </Typography>
+                            <Typography 
+                              variant="subtitle1" 
+                              sx={{ fontWeight: 700, color: '#1F2937' }}
+                            >
+                              {formatCurrency(sectionData.sectionPlanTotal)}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ textAlign: 'right' }}>
+                            <Typography variant="caption" sx={{ color: colors.textSecondary }}>
+                              Факт
+                            </Typography>
+                            <Typography 
+                              variant="subtitle1" 
+                              sx={{ fontWeight: 700, color: colors.green }}
+                            >
+                              {formatCurrency(sectionData.sectionActualTotal)}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                      </Stack>
                     </Box>
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        Факт
-                      </Typography>
-                      <Typography variant="h6" fontWeight={600} color="success.dark">
-                        {formatCurrency(sectionData.sectionActualTotal)}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Stack>
-              </Box>
+                  </>
+                )}
+              </Collapse>
             </Paper>
           ))}
 
-          {/* Общие итоги */}
-          <Paper sx={{ p: 3, mt: 3 }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>
-              Итоговая информация по смете специалиста
-            </Typography>
+          {/* ─────────────────────────────────────────────────────────────────
+              ИТОГИ ВЫПОЛНЕНИЯ
+          ───────────────────────────────────────────────────────────────── */}
+          <Paper 
+            sx={{ 
+              p: 3, 
+              mt: 4,
+              borderRadius: '12px',
+              border: `1px solid ${colors.border}`,
+              bgcolor: colors.summaryBg,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+            }}
+          >
+            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2.5 }}>
+              <Box
+                sx={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '10px',
+                  bgcolor: colors.primaryLight,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <IconClipboardCheck size={20} color={colors.primary} />
+              </Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: '#1F2937' }}>
+                Итоги выполнения
+              </Typography>
+            </Stack>
             
-            <Divider sx={{ my: 2 }} />
-            
-            <Stack spacing={1.5}>
-              {specialistData.map((section, index) => {
-                return (
-                  <Stack key={index} direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography variant="body2" color="text.secondary">
+            {/* Итоги по разделам */}
+            <Box 
+              sx={{ 
+                bgcolor: '#fff', 
+                borderRadius: '10px', 
+                p: 2,
+                border: `1px solid ${colors.border}`,
+                mb: 2
+              }}
+            >
+              <Stack spacing={1.5}>
+                {specialistData.map((section, index) => (
+                  <Stack 
+                    key={index} 
+                    direction="row" 
+                    justifyContent="space-between" 
+                    alignItems="center"
+                    sx={{ 
+                      py: 1,
+                      borderBottom: index < specialistData.length - 1 ? `1px dashed ${colors.border}` : 'none'
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ color: colors.textSecondary }}>
                       Раздел: {section.section}
                     </Typography>
                     <Stack direction="row" spacing={3}>
-                      <Box sx={{ textAlign: 'right' }}>
-                        <Typography variant="caption" color="text.secondary">
+                      <Box sx={{ textAlign: 'right', minWidth: 100 }}>
+                        <Typography variant="caption" sx={{ color: colors.textSecondary }}>
                           План
                         </Typography>
-                        <Typography variant="body1" fontWeight={500}>
+                        <Typography variant="body1" sx={{ fontWeight: 500, color: '#374151' }}>
                           {formatCurrency(section.sectionPlanTotal)}
                         </Typography>
                       </Box>
-                      <Box sx={{ textAlign: 'right' }}>
-                        <Typography variant="caption" color="text.secondary">
+                      <Box sx={{ textAlign: 'right', minWidth: 100 }}>
+                        <Typography variant="caption" sx={{ color: colors.textSecondary }}>
                           Факт
                         </Typography>
-                        <Typography variant="body1" fontWeight={600} color="success.dark">
+                        <Typography variant="body1" sx={{ fontWeight: 600, color: colors.green }}>
                           {formatCurrency(section.sectionActualTotal)}
                         </Typography>
                       </Box>
                     </Stack>
                   </Stack>
-                );
-              })}
-              
-              <Divider sx={{ my: 1.5 }} />
-              
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6" fontWeight={600}>
+                ))}
+              </Stack>
+            </Box>
+            
+            {/* Общий итог */}
+            <Box 
+              sx={{ 
+                bgcolor: '#fff',
+                borderRadius: '10px', 
+                p: 2,
+                border: `2px solid ${colors.primary}`
+              }}
+            >
+              <Stack 
+                direction={{ xs: 'column', sm: 'row' }} 
+                justifyContent="space-between" 
+                alignItems={{ xs: 'flex-start', sm: 'center' }}
+                spacing={2}
+              >
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#1F2937' }}>
                   ИТОГО ПО СМЕТЕ
                 </Typography>
                 <Stack direction="row" spacing={4}>
                   <Box sx={{ textAlign: 'right' }}>
-                    <Typography variant="caption" color="text.secondary" display="block">
+                    <Typography variant="caption" sx={{ color: colors.textSecondary }}>
                       План (клиент)
                     </Typography>
-                    <Typography variant="h5" fontWeight={700} color="secondary">
+                    <Typography 
+                      variant="h5" 
+                      sx={{ fontWeight: 700, color: colors.textPrimary }}
+                    >
                       {formatCurrency(totalPlanAmount)}
                     </Typography>
                   </Box>
                   <Box sx={{ textAlign: 'right' }}>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Факт (базовые цены)
+                    <Typography variant="caption" sx={{ color: colors.textSecondary }}>
+                      Факт (базовые)
                     </Typography>
-                    <Typography variant="h5" fontWeight={700} color="success.dark">
+                    <Typography 
+                      variant="h5" 
+                      sx={{ fontWeight: 700, color: colors.green }}
+                    >
                       {formatCurrency(totalActualAmount)}
                     </Typography>
                   </Box>
                 </Stack>
               </Stack>
-              
-              {/* Экономия/Перерасход */}
-              <Box sx={{ mt: 2, p: 2, bgcolor: difference >= 0 ? 'success.lighter' : 'error.lighter', borderRadius: 1 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="body2" fontWeight={600}>
+            </Box>
+            
+            {/* Экономия / Перерасход */}
+            <Box 
+              sx={{ 
+                mt: 2, 
+                p: 2, 
+                bgcolor: difference >= 0 ? colors.greenLight : colors.errorLight, 
+                borderRadius: '10px',
+                border: `1px solid ${difference >= 0 ? colors.green : colors.error}`
+              }}
+            >
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  {difference >= 0 ? (
+                    <IconTrendingUp size={20} color={colors.green} />
+                  ) : (
+                    <IconTrendingDown size={20} color={colors.error} />
+                  )}
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: difference >= 0 ? colors.greenDark : colors.error }}>
                     {difference >= 0 ? 'Экономия (прибыль)' : 'Перерасход'}
                   </Typography>
-                  <Typography variant="h6" fontWeight={700} color={difference >= 0 ? 'success.dark' : 'error.dark'}>
-                    {formatCurrency(Math.abs(difference))}
-                  </Typography>
                 </Stack>
-              </Box>
-              
-              {/* Процент выполнения */}
-              <Box sx={{ mt: 1, p: 2, bgcolor: 'info.lighter', borderRadius: 1 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="body2" fontWeight={600}>
-                    Процент выполнения работ
-                  </Typography>
-                  <Typography variant="h6" fontWeight={700} color="info.dark">
-                    {totalPlanAmount > 0 ? ((totalActualAmount / totalPlanAmount) * 100).toFixed(1) : 0}%
-                  </Typography>
-                </Stack>
-              </Box>
-            </Stack>
+                <Typography 
+                  variant="h6" 
+                  sx={{ fontWeight: 700, color: difference >= 0 ? colors.green : colors.error }}
+                >
+                  {formatCurrency(Math.abs(difference))}
+                </Typography>
+              </Stack>
+            </Box>
+            
+            {/* Процент выполнения */}
+            <Box 
+              sx={{ 
+                mt: 2, 
+                p: 2, 
+                bgcolor: colors.primaryLight, 
+                borderRadius: '10px',
+                border: `1px solid ${colors.primary}`
+              }}
+            >
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Typography variant="body2" sx={{ fontWeight: 600, color: colors.primary }}>
+                  Процент выполнения работ
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: colors.primary }}>
+                  {totalPlanAmount > 0 ? ((totalActualAmount / totalPlanAmount) * 100).toFixed(1) : 0}%
+                </Typography>
+              </Stack>
+            </Box>
           </Paper>
         </>
       )}

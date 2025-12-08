@@ -2,21 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // material-ui
-import { useTheme } from '@mui/material/styles';
 import Avatar from '@mui/material/Avatar';
 import Chip from '@mui/material/Chip';
 import ClickAwayListener from '@mui/material/ClickAwayListener';
-import Divider from '@mui/material/Divider';
-import Grid from '@mui/material/Grid';
-import InputAdornment from '@mui/material/InputAdornment';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import OutlinedInput from '@mui/material/OutlinedInput';
 import Paper from '@mui/material/Paper';
 import Popper from '@mui/material/Popper';
-import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Dialog from '@mui/material/Dialog';
@@ -27,33 +21,23 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Button from '@mui/material/Button';
 
 // project imports
-import UpgradePlanCard from './UpgradePlanCard';
-import MainCard from 'ui-component/cards/MainCard';
 import Transitions from 'ui-component/extended/Transitions';
-import useConfig from 'hooks/useConfig';
 import useAuth from 'hooks/useAuth';
 import { logout } from 'services/authService';
 
 // assets
 import User1 from 'assets/images/users/user-round.svg';
-import { IconLogout, IconSearch, IconSettings, IconUser } from '@tabler/icons-react';
+import { IconLogout, IconSettings, IconUser } from '@tabler/icons-react';
 
 // ==============================|| PROFILE MENU ||============================== //
 
 export default function ProfileSection() {
-  const theme = useTheme();
   const navigate = useNavigate();
-  const { borderRadius } = useConfig();
-  const { user, tenant, getGreeting, getRoleDisplayName, loading } = useAuth();
+  const { user } = useAuth();
   
-  const [value, setValue] = useState('');
-  const [selectedIndex] = useState(-1);
   const [open, setOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
-  /**
-   * anchorRef is used on different components and specifying one type leads to other components throwing an error
-   * */
   const anchorRef = useRef(null);
 
   const handleToggle = () => {
@@ -94,10 +78,7 @@ export default function ProfileSection() {
     navigate('/app/account/profile');
   };
 
-  // Получаем имя пользователя и аватар
-  const userName = user?.fullName || user?.email || 'Пользователь';
-  const userRole = getRoleDisplayName();
-  const greeting = getGreeting();
+  // Получаем аватар пользователя
   const avatarSrc = user?.avatar_url || User1;
 
   const prevOpen = useRef(open);
@@ -151,7 +132,7 @@ export default function ProfileSection() {
         aria-label="user-account"
       />
       <Popper
-        placement="bottom"
+        placement="bottom-end"
         open={open}
         anchorEl={anchorRef.current}
         role={undefined}
@@ -161,7 +142,7 @@ export default function ProfileSection() {
           {
             name: 'offset',
             options: {
-              offset: [0, 14]
+              offset: [0, 8]
             }
           }
         ]}
@@ -169,97 +150,56 @@ export default function ProfileSection() {
         {({ TransitionProps }) => (
           <ClickAwayListener onClickAway={handleClose}>
             <Transitions in={open} {...TransitionProps}>
-              <Paper>
+              <Paper
+                elevation={0}
+                sx={{
+                  width: 200,
+                  borderRadius: '8px',
+                  border: '1px solid #E5E7EB',
+                  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
+                  overflow: 'hidden'
+                }}
+              >
                 {open && (
-                  <MainCard border={false} elevation={16} content={false} boxShadow shadow={theme.shadows[16]}>
-                    <Box sx={{ p: 2, pb: 0 }}>
-                      <Stack>
-                        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                          <Typography variant="h4">{greeting},</Typography>
-                          <Typography component="span" variant="h4" sx={{ fontWeight: 400 }}>
-                            {userName}
-                          </Typography>
-                        </Stack>
-                        <Typography variant="subtitle2">{userRole}</Typography>
-                      </Stack>
-                      <OutlinedInput
-                        sx={{ width: '100%', pr: 1, pl: 2, my: 2 }}
-                        id="input-search-profile"
-                        value={value}
-                        onChange={(e) => setValue(e.target.value)}
-                        placeholder="Search profile options"
-                        startAdornment={
-                          <InputAdornment position="start">
-                            <IconSearch stroke={1.5} size="16px" />
-                          </InputAdornment>
+                  <List
+                    component="nav"
+                    sx={{
+                      p: 0.5,
+                      '& .MuiListItemButton-root': {
+                        borderRadius: '6px',
+                        py: 1,
+                        px: 1.5,
+                        '&:hover': {
+                          bgcolor: '#F3F4F6'
                         }
-                        aria-describedby="search-helper-text"
-                        slotProps={{ input: { 'aria-label': 'weight' } }}
+                      }
+                    }}
+                  >
+                    <ListItemButton onClick={handleSocialProfile}>
+                      <ListItemIcon sx={{ minWidth: 32 }}>
+                        <IconUser size={16} stroke={1.5} color="#6B7280" />
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary={
+                          <Typography sx={{ fontSize: '0.875rem', color: '#111827' }}>
+                            Профиль
+                          </Typography>
+                        }
                       />
-                      <Divider />
-                    </Box>
-                    <Box
-                      sx={{
-                        p: 2,
-                        py: 0,
-                        height: '100%',
-                        maxHeight: 'calc(100vh - 250px)',
-                        overflowX: 'hidden',
-                        '&::-webkit-scrollbar': { width: 5 }
-                      }}
-                    >
-                      <UpgradePlanCard />
-                      <Divider />
-                      <List
-                        component="nav"
-                        sx={{
-                          width: '100%',
-                          maxWidth: 350,
-                          minWidth: 300,
-                          borderRadius: `${borderRadius}px`,
-                          '& .MuiListItemButton-root': { mt: 0.5 }
-                        }}
-                      >
-                        <ListItemButton
-                          sx={{ borderRadius: `${borderRadius}px` }}
-                          selected={selectedIndex === 0}
-                          onClick={handleSocialProfile}
-                        >
-                          <ListItemIcon>
-                            <IconUser stroke={1.5} size="20px" />
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={
-                              <Grid container spacing={1} sx={{ justifyContent: 'space-between' }}>
-                                <Grid>
-                                  <Typography variant="body2">Профиль</Typography>
-                                </Grid>
-                                <Grid>
-                                  <Chip
-                                    label="02"
-                                    variant="filled"
-                                    size="small"
-                                    color="warning"
-                                    sx={{ '& .MuiChip-label': { mt: 0.25 } }}
-                                  />
-                                </Grid>
-                              </Grid>
-                            }
-                          />
-                        </ListItemButton>
-                        <ListItemButton
-                          sx={{ borderRadius: `${borderRadius}px` }}
-                          selected={selectedIndex === 1}
-                          onClick={handleLogoutClick}
-                        >
-                          <ListItemIcon>
-                            <IconLogout stroke={1.5} size="20px" />
-                          </ListItemIcon>
-                          <ListItemText primary={<Typography variant="body2">Выйти</Typography>} />
-                        </ListItemButton>
-                      </List>
-                    </Box>
-                  </MainCard>
+                    </ListItemButton>
+                    <ListItemButton onClick={handleLogoutClick}>
+                      <ListItemIcon sx={{ minWidth: 32 }}>
+                        <IconLogout size={16} stroke={1.5} color="#6B7280" />
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary={
+                          <Typography sx={{ fontSize: '0.875rem', color: '#111827' }}>
+                            Выйти
+                          </Typography>
+                        }
+                      />
+                    </ListItemButton>
+                  </List>
                 )}
               </Paper>
             </Transitions>
@@ -275,21 +215,43 @@ export default function ProfileSection() {
         aria-describedby="logout-dialog-description"
         maxWidth="xs"
         fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            borderRadius: '12px'
+          }
+        }}
       >
-        <DialogTitle id="logout-dialog-title">
+        <DialogTitle id="logout-dialog-title" sx={{ pb: 1, fontSize: '1rem', fontWeight: 600 }}>
           Подтверждение выхода
         </DialogTitle>
         <DialogContent>
-          <DialogContentText id="logout-dialog-description">
+          <DialogContentText id="logout-dialog-description" sx={{ color: '#4B5563' }}>
             Вы точно хотите выйти из системы?
           </DialogContentText>
         </DialogContent>
-        <DialogActions sx={{ p: 2, pt: 1 }}>
-          <Button onClick={handleLogoutCancel} color="primary" variant="outlined">
-            Нет
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1, gap: 1 }}>
+          <Button 
+            onClick={handleLogoutCancel}
+            sx={{ 
+              color: '#6B7280',
+              textTransform: 'none',
+              '&:hover': { bgcolor: '#F3F4F6' }
+            }}
+          >
+            Отмена
           </Button>
-          <Button onClick={handleLogoutConfirm} color="error" variant="contained" autoFocus>
-            Да
+          <Button 
+            onClick={handleLogoutConfirm} 
+            variant="contained" 
+            autoFocus
+            sx={{
+              bgcolor: '#DC2626',
+              textTransform: 'none',
+              borderRadius: '8px',
+              '&:hover': { bgcolor: '#B91C1C' }
+            }}
+          >
+            Выйти
           </Button>
         </DialogActions>
       </Dialog>

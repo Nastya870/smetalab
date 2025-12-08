@@ -14,7 +14,9 @@ import {
   Typography,
   MenuItem,
   FormControlLabel,
-  Switch
+  Switch,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import { IconBox, IconTrash } from '@tabler/icons-react';
 

@@ -17,7 +17,7 @@ import { getAllWorkMaterials, getMaterialsByWork, getWorksByMaterial, createWork
 import { generateSchedule, getScheduleByEstimate, deleteSchedule } from '../server/controllers/schedulesController.js';
 import { generatePurchases, getPurchasesByEstimate, deletePurchases, createExtraCharge } from '../server/controllers/purchasesController.js';
 import { createGlobalPurchase, getAllGlobalPurchases, getGlobalPurchaseById, updateGlobalPurchase, deleteGlobalPurchase, getCalendarDates, getStatistics as getGlobalPurchasesStatistics } from '../server/controllers/globalPurchasesController.js';
-import { getAllProjects, getProjectStats, getTotalProfit, getTotalIncomeWorks, getTotalIncomeMaterials, getProjectsProfitData, getMonthlyGrowthData, getProjectsChartData, getProjectById, createProject, updateProject, updateProjectStatus, deleteProject, getProjectTeam, addTeamMember, updateTeamMember, removeTeamMember, calculateProjectProgress, getDashboardSummary } from '../server/controllers/projectsController.js';
+import { getAllProjects, getProjectStats, getTotalProfit, getTotalIncomeWorks, getTotalIncomeMaterials, getProjectsProfitData, getMonthlyGrowthData, getProjectsChartData, getProjectById, createProject, updateProject, updateProjectStatus, deleteProject, getProjectTeam, addTeamMember, updateTeamMember, removeTeamMember, calculateProjectProgress, getDashboardSummary, getProjectFullDashboard } from '../server/controllers/projectsController.js';
 import { getAllUsers, getUserById, createUser, updateUser, deleteUser, assignRoles, deactivateUser, activateUser, uploadAvatar, getAllRoles } from '../server/controllers/usersController.js';
 import { getAllPermissions, getRolePermissions, updateRolePermissions, getUserPermissions, checkUIVisibility } from '../server/controllers/permissionsController.js';
 import { getAllRoles as getRoles, getRoleById, createRole, updateRole, deleteRole } from '../server/controllers/rolesController.js';
@@ -589,6 +589,7 @@ app.post('/api/projects/:id/team', authenticateToken, addTeamMember);
 app.put('/api/projects/:id/team/:memberId', authenticateToken, updateTeamMember);
 app.delete('/api/projects/:id/team/:memberId', authenticateToken, removeTeamMember);
 app.post('/api/projects/:id/calculate-progress', authenticateToken, calculateProjectProgress);
+app.get('/api/projects/:id/full-dashboard', authenticateToken, getProjectFullDashboard);
 app.get('/api/projects/:id', optionalAuth, getProjectById);
 app.get('/api/projects', optionalAuth, getAllProjects);
 app.post('/api/projects', authenticateToken, createProject);

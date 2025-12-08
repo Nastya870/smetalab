@@ -1,5 +1,10 @@
 import { RouterProvider } from 'react-router-dom';
 
+// MUI Date Pickers
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import 'dayjs/locale/ru';
+
 // routing
 import router from 'routes';
 
@@ -17,13 +22,15 @@ import { PermissionsProvider } from 'shared/lib/contexts/PermissionsContext';
 export default function App() {
   return (
     <ThemeCustomization>
-      <NavigationScroll>
-        <AuthProvider>
-          <PermissionsProvider>
-            <RouterProvider router={router} />
-          </PermissionsProvider>
-        </AuthProvider>
-      </NavigationScroll>
+      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="ru">
+        <NavigationScroll>
+          <AuthProvider>
+            <PermissionsProvider>
+              <RouterProvider router={router} />
+            </PermissionsProvider>
+          </AuthProvider>
+        </NavigationScroll>
+      </LocalizationProvider>
     </ThemeCustomization>
   );
 }

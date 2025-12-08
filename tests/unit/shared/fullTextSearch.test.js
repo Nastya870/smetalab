@@ -82,6 +82,43 @@ describe('Full Text Search', () => {
       expect(results.length).toBeGreaterThan(0);
     });
 
+    test('should find cable by size with comma and cyrillic x', () => {
+      const materials = [
+        ...testWorks,
+        { id: 100, name: 'Кабель Конкорд ВВГПнг(А)-LS 3х2,5 (100 м)', code: 'CBL-01' }
+      ];
+
+      const results = fullTextSearch(materials, 'кабель 3х2,5', ['name']);
+      const ids = results.map((r) => r.id);
+      expect(ids).toContain(100);
+    });
+
+    test('should find cable by size with latin x and dot', () => {
+      const materials = [
+        ...testWorks,
+        { id: 101, name: 'Кабель Конкорд ВВГПнг(А)-LS 3x2.5 (100 м)', code: 'CBL-02' }
+      ];
+
+      const results = fullTextSearch(materials, 'кабель 3х2,5', ['name']);
+      const ids = results.map((r) => r.id);
+      expect(ids).toContain(101);
+    });
+
+    test('should NOT find "кабель 3" in "300 мм" - number boundary check', () => {
+      const materials = [
+        { id: 200, name: 'Лента сигнальная Осторожно кабель 300 мм 100 м красная', code: 'TAPE-01' },
+        { id: 201, name: 'Кабель ВВГПнг 3x2.5 (100 м)', code: 'CBL-03' },
+        { id: 202, name: 'Кабель NYM 3x1.5 (50 м)', code: 'CBL-04' }
+      ];
+
+      const results = fullTextSearch(materials, 'кабель 3', ['name']);
+      const ids = results.map((r) => r.id);
+      // Должен найти кабели с "3x..." но НЕ ленту с "300"
+      expect(ids).toContain(201);
+      expect(ids).toContain(202);
+      expect(ids).not.toContain(200); // Лента с "300 мм" не должна найтись
+    });
+
     test('should return empty for non-existent combination', () => {
       const results = fullTextSearch(testWorks, 'несуществующая комбинация', ['name']);
       expect(results.length).toBe(0);
@@ -104,15 +141,15 @@ describe('Full Text Search', () => {
       const results = fullTextSearchWithScore(testWorks, 'демонтаж стяжки', ['name']);
       expect(results.length).toBeGreaterThan(0);
       results.forEach(r => {
-        expect(r).toHaveProperty('score');
-        expect(typeof r.score).toBe('number');
+        expect(r).toHaveProperty('_matchScore');
+        expect(typeof r._matchScore).toBe('number');
       });
     });
 
     test('should sort results by score descending', () => {
       const results = fullTextSearchWithScore(testWorks, 'демонтаж стяжки', ['name']);
       for (let i = 1; i < results.length; i++) {
-        expect(results[i - 1].score).toBeGreaterThanOrEqual(results[i].score);
+        expect(results[i - 1]._matchScore).toBeGreaterThanOrEqual(results[i]._matchScore);
       }
     });
   });

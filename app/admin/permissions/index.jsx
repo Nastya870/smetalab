@@ -3,21 +3,18 @@ import { useState, useEffect } from 'react';
 // Material-UI
 import {
   Box,
-  Card,
-  CardContent,
+  Paper,
   Typography,
   FormControl,
-  InputLabel,
   Select,
   MenuItem,
   Button,
   Alert,
   CircularProgress
 } from '@mui/material';
-import { IconDeviceFloppy, IconRefresh } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconRefresh, IconShieldLock, IconChevronDown } from '@tabler/icons-react';
 
 // Project imports
-import MainCard from 'ui-component/cards/MainCard';
 import PermissionsMatrixSimple from './PermissionsMatrixSimple';
 
 // API
@@ -34,9 +31,8 @@ const PermissionsManagement = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [permissionsData, setPermissionsData] = useState({ permissions: [], hidden: new Set() });
-  const [matrixKey, setMatrixKey] = useState(0); // ✨ Ключ для перезагрузки матрицы
+  const [matrixKey, setMatrixKey] = useState(0);
 
-  // Загрузка ролей
   useEffect(() => {
     loadRoles();
   }, []);
@@ -48,8 +44,6 @@ const PermissionsManagement = () => {
       const response = await rolesAPI.getAllRoles();
       if (response.success) {
         setRoles(response.data || []);
-        
-        // Автоматически выбираем первую роль (не super_admin)
         const firstRole = (response.data || []).find(r => r.key !== 'super_admin') || response.data[0];
         if (firstRole) {
           setSelectedRole(firstRole);
@@ -63,13 +57,11 @@ const PermissionsManagement = () => {
     }
   };
 
-  // Обработчик изменения разрешений
   const handlePermissionsChange = (permissions, hidden) => {
     setPermissionsData({ permissions, hidden });
-    setSuccess(null); // Сбрасываем сообщение об успехе при изменении
+    setSuccess(null);
   };
 
-  // Сохранение разрешений
   const handleSave = async () => {
     if (!selectedRole) return;
     
@@ -78,18 +70,10 @@ const PermissionsManagement = () => {
     setSuccess(null);
     
     try {
-      // Формируем массив разрешений с флагами is_hidden
       const permissionsArray = permissionsData.permissions.map(permId => ({
         permissionId: permId,
         isHidden: permissionsData.hidden.has(permId)
       }));
-      
-      console.log('💾 Сохраняем разрешения:', {
-        roleId: selectedRole.id,
-        roleName: selectedRole.name,
-        permissionsCount: permissionsArray.length,
-        permissions: permissionsArray
-      });
       
       const response = await permissionsAPI.updateRolePermissions(
         selectedRole.id,
@@ -97,28 +81,20 @@ const PermissionsManagement = () => {
       );
       
       if (response.success) {
-        console.log('✅ Разрешения успешно сохранены:', response);
-        setSuccess(`Разрешения для роли "${selectedRole.name}" успешно сохранены!`);
-        
-        // ✨ Обновляем ключ для перезагрузки компонента матрицы
+        setSuccess(`Разрешения для роли "${selectedRole.name}" сохранены`);
         setMatrixKey(prev => prev + 1);
-        
-        // Очищаем сообщение через 5 секунд
-        setTimeout(() => {
-          setSuccess(null);
-        }, 5000);
+        setTimeout(() => setSuccess(null), 4000);
       } else {
         setError(response.message || 'Ошибка сохранения');
       }
     } catch (err) {
-      console.error('❌ Error saving permissions:', err);
+      console.error('Error saving permissions:', err);
       setError(err.message || 'Ошибка сохранения разрешений');
     } finally {
       setSaving(false);
     }
   };
 
-  // Обработчик изменения роли
   const handleRoleChange = (event) => {
     const roleId = event.target.value;
     const role = roles.find(r => r.id === roleId);
@@ -129,133 +105,143 @@ const PermissionsManagement = () => {
 
   if (loading) {
     return (
-      <MainCard title="Управление разрешениями">
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
-          <CircularProgress />
-        </Box>
-      </MainCard>
+      <Box sx={{ 
+        bgcolor: '#F3F4F6', 
+        height: 'calc(100vh - 160px)', 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center' 
+      }}>
+        <CircularProgress size={28} sx={{ color: '#6B7280' }} />
+      </Box>
     );
   }
 
   return (
-    <MainCard 
-      title={
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <span>🔐</span>
-          <span>Управление правами доступа</span>
-        </Box>
-      }
-      sx={{ 
-        maxWidth: '100%',
-        width: '100%'
-      }}
-      secondary={
-        <Box sx={{ display: 'flex', gap: 1.5 }}>
-          <Button
-            variant="outlined"
-            size="medium"
-            startIcon={<IconRefresh size={18} />}
-            onClick={loadRoles}
-            disabled={saving}
-            sx={{ fontWeight: 500 }}
-          >
-            Обновить
-          </Button>
-          <Button
-            variant="contained"
-            size="medium"
-            startIcon={<IconDeviceFloppy size={18} />}
-            onClick={handleSave}
-            disabled={!selectedRole || saving}
-            sx={{ 
-              fontWeight: 600,
-              minWidth: 160,
-              bgcolor: 'success.main',
-              '&:hover': {
-                bgcolor: 'success.dark'
-              }
-            }}
-          >
-            {saving ? '💾 Сохранение...' : '💾 Сохранить изменения'}
-          </Button>
-        </Box>
-      }
-    >
-      <Box sx={{ width: '100%' }}>
-        {/* Информационный блок */}
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <Typography variant="body2" sx={{ mb: 1 }}>
-            <strong>💡 Что такое права доступа?</strong>
-          </Typography>
-          <Typography variant="body2">
-            Здесь вы управляете тем, что может делать каждая роль в системе. 
-            Поставьте галочки в нужных столбцах, чтобы разрешить действия, 
-            или снимите их, чтобы запретить.
-          </Typography>
-        </Alert>
-
-        {/* Выбор роли */}
-        <Card sx={{ mb: 3, boxShadow: 3 }}>
-          <CardContent>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
-              1️⃣ Выберите роль пользователя
+    <Box sx={{ bgcolor: '#F3F4F6', height: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <Paper 
+        elevation={0}
+        sx={{ 
+          bgcolor: '#FFFFFF',
+          borderRadius: '12px',
+          border: '1px solid #E5E7EB',
+          pt: 2.5,
+          px: 3,
+          pb: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          overflow: 'hidden',
+          minHeight: 0
+        }}
+      >
+        {/* Header row */}
+        <Box sx={{ 
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          mb: 2,
+          flexShrink: 0
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <IconShieldLock size={20} color="#6B7280" />
+            <Typography sx={{ fontSize: '1.25rem', fontWeight: 700, color: '#1F2937' }}>
+              Управление разрешениями
             </Typography>
-            
-            <FormControl fullWidth>
-              <InputLabel sx={{ fontWeight: 500 }}>Роль</InputLabel>
-              <Select
-                value={selectedRole?.id || ''}
-                label="Роль"
-                onChange={handleRoleChange}
-              >
-                {roles.map((role) => (
-                  <MenuItem key={role.id} value={role.id}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
-                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {role.name}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        ({role.key})
-                      </Typography>
-                      {role.key === 'super_admin' && (
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            ml: 'auto', 
-                            color: 'error.main',
-                            fontWeight: 'bold',
-                            px: 1,
-                            py: 0.5,
-                            bgcolor: 'error.lighter',
-                            borderRadius: 1
-                          }}
-                        >
-                          ⚠️ АДМИНИСТРАТОР
-                        </Typography>
-                      )}
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+          </Box>
+          
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<IconRefresh size={16} />}
+              onClick={loadRoles}
+              disabled={saving}
+              sx={{ 
+                textTransform: 'none',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                color: '#6B7280',
+                borderColor: '#E5E7EB',
+                height: 40,
+                px: 2,
+                borderRadius: '8px',
+                '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
+              }}
+            >
+              Обновить
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<IconDeviceFloppy size={16} />}
+              onClick={handleSave}
+              disabled={!selectedRole || saving}
+              sx={{ 
+                textTransform: 'none',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                height: 40,
+                px: 2,
+                borderRadius: '8px',
+                bgcolor: '#4F46E5',
+                boxShadow: '0 1px 3px rgba(79,70,229,0.2)',
+                '&:hover': { bgcolor: '#4338CA', boxShadow: '0 4px 6px rgba(79,70,229,0.25)' },
+                '&:disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' }
+              }}
+            >
+              {saving ? 'Сохранение...' : 'Сохранить'}
+            </Button>
+          </Box>
+        </Box>
 
-            {selectedRole && (
-              <Box sx={{ mt: 2, p: 2, bgcolor: 'primary.lighter', borderRadius: 1 }}>
-                <Typography variant="body2" color="text.primary">
-                  <strong>Описание:</strong> {selectedRole.description || 'Стандартная роль системы'}
-                </Typography>
-              </Box>
-            )}
-          </CardContent>
-        </Card>
+        {/* Role selector row */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5, flexShrink: 0 }}>
+          <Typography sx={{ fontSize: '0.875rem', color: '#6B7280', flexShrink: 0 }}>
+            Роль:
+          </Typography>
+          <FormControl size="small" sx={{ minWidth: 280 }}>
+            <Select
+              value={selectedRole?.id || ''}
+              onChange={handleRoleChange}
+              IconComponent={(props) => <IconChevronDown size={16} {...props} style={{ color: '#9CA3AF', right: 10 }} />}
+              sx={{
+                fontSize: '0.875rem',
+                bgcolor: '#FFFFFF',
+                borderRadius: '8px',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E5E7EB' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#D1D5DB' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4F46E5' },
+                '& .MuiSelect-select': { py: 1 }
+              }}
+            >
+              {roles.map((role) => (
+                <MenuItem key={role.id} value={role.id} sx={{ fontSize: '0.875rem' }}>
+                  {role.name}
+                  {role.key === 'super_admin' && (
+                    <Typography component="span" sx={{ ml: 1, fontSize: '0.7rem', color: '#DC2626', fontWeight: 600 }}>
+                      ADMIN
+                    </Typography>
+                  )}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
 
-        {/* Сообщения об успехе/ошибке */}
+        {/* Hierarchy description */}
+        <Typography sx={{ fontSize: '0.75rem', color: '#6B7280', mb: 2, lineHeight: 1.5, flexShrink: 0 }}>
+          <strong style={{ color: '#374151' }}>Admin</strong> → Users, Roles, Tenants &nbsp;•&nbsp; 
+          <strong style={{ color: '#374151' }}>References</strong> → Materials, Works, Counterparties &nbsp;•&nbsp; 
+          <strong style={{ color: '#374151' }}>Projects</strong> → Estimates, Purchases, Reports
+        </Typography>
+
+        {/* Alerts */}
         {success && (
           <Alert 
             severity="success" 
             onClose={() => setSuccess(null)} 
-            sx={{ mb: 3, fontWeight: 500 }}
-            icon={<span style={{ fontSize: '1.5rem' }}>✅</span>}
+            sx={{ mb: 2, flexShrink: 0 }}
           >
             {success}
           </Alert>
@@ -265,35 +251,26 @@ const PermissionsManagement = () => {
           <Alert 
             severity="error" 
             onClose={() => setError(null)} 
-            sx={{ mb: 3, fontWeight: 500 }}
-            icon={<span style={{ fontSize: '1.5rem' }}>❌</span>}
+            sx={{ mb: 2, flexShrink: 0 }}
           >
             {error}
           </Alert>
         )}
 
-        {/* Матрица разрешений */}
+        {/* Permissions Matrix */}
         {selectedRole && (
-          <Box sx={{ width: '100%' }}>
-            <Card sx={{ boxShadow: 3 }}>
-              <CardContent>
-                <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
-                  2️⃣ Настройте права доступа
-                </Typography>
-                
-                <PermissionsMatrixSimple
-                  key={`${selectedRole.id}-${matrixKey}`}
-                  roleId={selectedRole.id}
-                  roleName={selectedRole.name}
-                  roleKey={selectedRole.key}
-                  onPermissionsChange={handlePermissionsChange}
-                />
-              </CardContent>
-            </Card>
+          <Box sx={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+            <PermissionsMatrixSimple
+              key={`${selectedRole.id}-${matrixKey}`}
+              roleId={selectedRole.id}
+              roleName={selectedRole.name}
+              roleKey={selectedRole.key}
+              onPermissionsChange={handlePermissionsChange}
+            />
           </Box>
         )}
-      </Box>
-    </MainCard>
+      </Paper>
+    </Box>
   );
 };
 

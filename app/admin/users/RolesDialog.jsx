@@ -6,15 +6,13 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import FormControl from '@mui/material/FormControl';
-import FormGroup from '@mui/material/FormGroup';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Checkbox from '@mui/material/Checkbox';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import Chip from '@mui/material/Chip';
+
+// assets
+import { IconShield, IconCheck } from '@tabler/icons-react';
 
 // project imports
 import { getAllRoles, assignRoles } from 'api/users';
@@ -107,17 +105,46 @@ const RolesDialog = ({ open, user, onClose, onSave }) => {
     supplier: 'Управление закупками и материалами'
   };
 
+  // Role badge colors
+  const getRoleBadgeStyle = (roleName) => {
+    switch (roleName) {
+      case 'super_admin': return { bgcolor: '#FEE2E2', color: '#DC2626' };
+      case 'admin': return { bgcolor: '#FEF3C7', color: '#D97706' };
+      case 'manager': return { bgcolor: '#EDE9FE', color: '#7C3AED' };
+      case 'estimator': return { bgcolor: '#DBEAFE', color: '#2563EB' };
+      case 'supplier': return { bgcolor: '#D1FAE5', color: '#059669' };
+      default: return { bgcolor: '#F3F4F6', color: '#6B7280' };
+    }
+  };
+
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        Управление ролями
+    <Dialog 
+      open={open} 
+      onClose={handleClose} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: '16px',
+          width: '100%',
+          maxWidth: '520px'
+        }
+      }}
+    >
+      <DialogTitle sx={{ pb: 1, pt: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconShield size={20} style={{ color: '#7C3AED' }} />
+          <Typography sx={{ fontWeight: 700, fontSize: '1.125rem', color: '#111827' }}>
+            Управление ролями
+          </Typography>
+        </Box>
         {user && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography sx={{ fontSize: '0.8125rem', color: '#6B7280', mt: 0.5 }}>
             {user.fullName || user.email}
           </Typography>
         )}
       </DialogTitle>
-      <DialogContent>
+      <DialogContent sx={{ px: 3, pb: 2 }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
@@ -126,60 +153,86 @@ const RolesDialog = ({ open, user, onClose, onSave }) => {
 
         {loadingRoles ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
+            <CircularProgress size={32} />
           </Box>
         ) : (
-          <FormControl component="fieldset" fullWidth>
-            <FormGroup>
-              {availableRoles.map((role) => {
-                const isChecked = selectedRoles.includes(role.id);
-                const roleName = role.name;
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {availableRoles.map((role) => {
+              const isChecked = selectedRoles.includes(role.id);
+              const roleName = role.name;
+              const badgeStyle = getRoleBadgeStyle(roleName);
 
-                return (
+              return (
+                <Box
+                  key={role.id}
+                  onClick={() => !loading && handleRoleToggle(role.id)}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: isChecked ? '#7C3AED' : '#E5E7EB',
+                    borderRadius: '10px',
+                    p: 2,
+                    bgcolor: isChecked ? '#F5F3FF' : '#FFFFFF',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.15s ease',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 1.5,
+                    '&:hover': {
+                      borderColor: isChecked ? '#7C3AED' : '#D1D5DB',
+                      bgcolor: isChecked ? '#F5F3FF' : '#F9FAFB'
+                    }
+                  }}
+                >
+                  {/* Checkbox */}
                   <Box
-                    key={role.id}
                     sx={{
-                      border: '1px solid',
-                      borderColor: isChecked ? 'primary.main' : 'divider',
-                      borderRadius: 1,
-                      p: 2,
-                      mb: 1.5,
-                      bgcolor: isChecked ? 'primary.lighter' : 'background.paper',
-                      transition: 'all 0.3s'
+                      width: 20,
+                      height: 20,
+                      borderRadius: '4px',
+                      border: '2px solid',
+                      borderColor: isChecked ? '#7C3AED' : '#D1D5DB',
+                      bgcolor: isChecked ? '#7C3AED' : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                      mt: '2px'
                     }}
                   >
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={isChecked}
-                          onChange={() => handleRoleToggle(role.id)}
-                          disabled={loading}
-                        />
-                      }
-                      label={
-                        <Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="subtitle1">
-                              {roleDisplayNames[roleName] || roleName}
-                            </Typography>
-                            {roleName === 'super_admin' && (
-                              <Chip label="Высший уровень" size="small" color="error" />
-                            )}
-                            {roleName === 'admin' && (
-                              <Chip label="Администратор" size="small" color="warning" />
-                            )}
-                          </Box>
-                          <Typography variant="body2" color="text.secondary">
-                            {roleDescriptions[roleName] || 'Описание отсутствует'}
-                          </Typography>
-                        </Box>
-                      }
-                    />
+                    {isChecked && <IconCheck size={14} style={{ color: '#FFFFFF' }} />}
                   </Box>
-                );
-              })}
-            </FormGroup>
-          </FormControl>
+
+                  {/* Content */}
+                  <Box sx={{ flex: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.875rem', color: '#374151' }}>
+                        {roleDisplayNames[roleName] || roleName}
+                      </Typography>
+                      {(roleName === 'super_admin' || roleName === 'admin') && (
+                        <Box
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            borderRadius: '4px',
+                            px: '6px',
+                            py: '2px',
+                            fontSize: '11px',
+                            fontWeight: 500,
+                            ...badgeStyle
+                          }}
+                        >
+                          {roleName === 'super_admin' ? 'Высший уровень' : 'Администратор'}
+                        </Box>
+                      )}
+                    </Box>
+                    <Typography sx={{ fontSize: '0.8125rem', color: '#6B7280', lineHeight: 1.4 }}>
+                      {roleDescriptions[roleName] || 'Описание отсутствует'}
+                    </Typography>
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
         )}
 
         {selectedRoles.length === 0 && !loadingRoles && (
@@ -188,16 +241,38 @@ const RolesDialog = ({ open, user, onClose, onSave }) => {
           </Alert>
         )}
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} disabled={loading} size="small">
+      <DialogActions sx={{ px: 3, pb: 3, pt: 2, justifyContent: 'flex-end', gap: 1 }}>
+        <Button 
+          onClick={handleClose} 
+          disabled={loading}
+          sx={{ 
+            textTransform: 'none', 
+            color: '#6B7280',
+            fontSize: '0.875rem',
+            '&:hover': { bgcolor: '#F3F4F6' }
+          }}
+        >
           Отмена
         </Button>
         <Button
           onClick={handleSave}
           variant="contained"
           disabled={loading || selectedRoles.length === 0}
-          startIcon={loading && <CircularProgress size={16} />}
-          size="small"
+          startIcon={loading && <CircularProgress size={16} sx={{ color: '#FFFFFF' }} />}
+          sx={{
+            textTransform: 'none',
+            bgcolor: '#4F46E5',
+            height: 40,
+            px: 2,
+            fontSize: '0.875rem',
+            fontWeight: 500,
+            borderRadius: '8px',
+            boxShadow: '0 1px 3px rgba(79,70,229,0.2)',
+            '&:hover': { 
+              bgcolor: '#4338CA',
+              boxShadow: '0 4px 6px rgba(79,70,229,0.25)'
+            }
+          }}
         >
           Сохранить
         </Button>

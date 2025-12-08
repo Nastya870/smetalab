@@ -13,6 +13,7 @@ import Grid from '@mui/material/Grid';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 
@@ -20,6 +21,35 @@ import { useTheme } from '@mui/material/styles';
 import { createUser, updateUser } from 'api/users';
 
 // ==============================|| USER CREATE/EDIT DIALOG ||============================== //
+
+// Стили для инпутов
+const inputSx = {
+  '& .MuiOutlinedInput-root': {
+    height: 44,
+    borderRadius: '8px',
+    fontSize: '0.875rem',
+    '& fieldset': { borderColor: '#E5E7EB' },
+    '&:hover fieldset': { borderColor: '#D1D5DB' },
+    '&.Mui-focused fieldset': { borderColor: '#7C3AED', borderWidth: '1.5px' }
+  },
+  '& .MuiInputBase-input': {
+    color: '#374151',
+    '&::placeholder': { color: '#9CA3AF', opacity: 1 }
+  },
+  '& .MuiInputLabel-root': {
+    fontSize: '0.875rem',
+    color: '#6B7280',
+    '&.Mui-focused': { color: '#7C3AED' }
+  }
+};
+
+// Компонент лейбла
+const FieldLabel = ({ children, required }) => (
+  <Typography sx={{ fontSize: '13px', color: '#6B7280', mb: '4px', fontWeight: 500 }}>
+    {children}
+    {required && <span style={{ color: '#EF4444', marginLeft: '2px' }}>*</span>}
+  </Typography>
+);
 
 const UserDialog = ({ open, user, onClose, onSave }) => {
   const theme = useTheme();
@@ -115,56 +145,64 @@ const UserDialog = ({ open, user, onClose, onSave }) => {
       maxWidth="sm" 
       fullWidth
       fullScreen={isMobile}
-      sx={{
-        '& .MuiDialog-paper': {
-          m: isMobile ? 0 : 2,
-          maxHeight: isMobile ? '100%' : 'calc(100% - 64px)'
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : '16px',
+          width: '100%',
+          maxWidth: '560px',
+          m: isMobile ? 0 : 2
         }
       }}
     >
       <form onSubmit={formik.handleSubmit}>
-        <DialogTitle>{isEdit ? 'Редактирование пользователя' : 'Создание пользователя'}</DialogTitle>
-        <DialogContent>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.125rem', color: '#111827', pb: '16px', pt: 3 }}>
+          {isEdit ? 'Редактирование пользователя' : 'Создание пользователя'}
+        </DialogTitle>
+        <DialogContent sx={{ px: 3, pb: 2 }}>
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ mb: 2.5 }}>
               {error}
             </Alert>
           )}
 
-          <Grid container spacing={2} sx={{ mt: 0.5 }}>
-            <Grid size={12}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <Box>
+              <FieldLabel required>Полное имя</FieldLabel>
               <TextField
                 fullWidth
-                label="Полное имя *"
                 name="fullName"
+                placeholder="Иван Иванов"
                 value={formik.values.fullName}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
                 error={formik.touched.fullName && Boolean(formik.errors.fullName)}
                 helperText={formik.touched.fullName && formik.errors.fullName}
                 disabled={loading}
+                sx={inputSx}
               />
-            </Grid>
+            </Box>
 
-            <Grid size={12}>
+            <Box>
+              <FieldLabel required>Email</FieldLabel>
               <TextField
                 fullWidth
-                label="Email *"
                 name="email"
                 type="email"
+                placeholder="user@example.com"
                 value={formik.values.email}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
                 error={formik.touched.email && Boolean(formik.errors.email)}
                 helperText={formik.touched.email && formik.errors.email}
                 disabled={loading}
+                sx={inputSx}
               />
-            </Grid>
+            </Box>
 
-            <Grid size={12}>
+            <Box>
+              <FieldLabel>Телефон</FieldLabel>
               <TextField
                 fullWidth
-                label="Телефон"
                 name="phone"
                 value={formik.values.phone}
                 onChange={formik.handleChange}
@@ -173,50 +211,82 @@ const UserDialog = ({ open, user, onClose, onSave }) => {
                 helperText={formik.touched.phone && formik.errors.phone}
                 disabled={loading}
                 placeholder="+7 (999) 123-45-67"
+                sx={inputSx}
               />
-            </Grid>
+            </Box>
 
-            <Grid size={12}>
+            <Box>
+              <FieldLabel required={!isEdit}>{isEdit ? 'Новый пароль' : 'Пароль'}</FieldLabel>
               <TextField
                 fullWidth
-                label={isEdit ? 'Новый пароль (оставьте пустым, если не меняете)' : 'Пароль *'}
                 name="password"
                 type="password"
+                placeholder="••••••••"
                 value={formik.values.password}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
                 error={formik.touched.password && Boolean(formik.errors.password)}
                 helperText={formik.touched.password && formik.errors.password}
                 disabled={loading}
+                sx={inputSx}
               />
-            </Grid>
+              {isEdit && (
+                <Typography sx={{ fontSize: '12px', color: '#6B7280', mt: '4px' }}>
+                  Оставьте пустым, если не хотите менять пароль
+                </Typography>
+              )}
+            </Box>
 
-            <Grid size={12}>
+            <Box>
+              <FieldLabel>Подтверждение пароля</FieldLabel>
               <TextField
                 fullWidth
-                label="Подтверждение пароля"
                 name="confirmPassword"
                 type="password"
+                placeholder="••••••••"
                 value={formik.values.confirmPassword}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
                 error={formik.touched.confirmPassword && Boolean(formik.errors.confirmPassword)}
                 helperText={formik.touched.confirmPassword && formik.errors.confirmPassword}
                 disabled={loading}
+                sx={inputSx}
               />
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose} disabled={loading} size="small">
+        <DialogActions sx={{ px: 3, pb: 3, pt: 2, justifyContent: 'flex-end', gap: 1 }}>
+          <Button 
+            onClick={handleClose} 
+            disabled={loading}
+            sx={{ 
+              textTransform: 'none', 
+              color: '#6B7280',
+              fontSize: '0.875rem',
+              '&:hover': { bgcolor: '#F3F4F6' }
+            }}
+          >
             Отмена
           </Button>
           <Button
             type="submit"
             variant="contained"
             disabled={loading}
-            startIcon={loading && <CircularProgress size={16} />}
-            size="small"
+            startIcon={loading && <CircularProgress size={16} sx={{ color: '#FFFFFF' }} />}
+            sx={{
+              textTransform: 'none',
+              bgcolor: '#4F46E5',
+              height: 40,
+              px: 2,
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              borderRadius: '8px',
+              boxShadow: '0 1px 3px rgba(79,70,229,0.2)',
+              '&:hover': { 
+                bgcolor: '#4338CA',
+                boxShadow: '0 4px 6px rgba(79,70,229,0.25)'
+              }
+            }}
           >
             {isEdit ? 'Сохранить' : 'Создать'}
           </Button>

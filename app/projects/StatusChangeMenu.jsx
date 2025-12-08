@@ -31,6 +31,7 @@ import { getStatusText, getStatusColor } from './utils';
  */
 const StatusChangeMenu = ({ currentStatus, onStatusChange, loading = false }) => {
   const [anchorEl, setAnchorEl] = useState(null);
+  const buttonRef = useState(null);
   const open = Boolean(anchorEl);
 
   // Список доступных статусов
@@ -51,35 +52,52 @@ const StatusChangeMenu = ({ currentStatus, onStatusChange, loading = false }) =>
   };
 
   const handleStatusSelect = async (newStatus) => {
-    handleClose();
-    
     if (newStatus !== currentStatus) {
       await onStatusChange(newStatus);
     }
+    handleClose();
   };
 
   return (
     <>
       <Button
         variant="outlined"
-        endIcon={loading ? <CircularProgress size={16} /> : <IconChevronDown size={18} />}
+        endIcon={loading ? <CircularProgress size={14} sx={{ color: '#6B7280' }} /> : <IconChevronDown size={16} />}
         onClick={handleClick}
         disabled={loading}
         sx={{
-          minWidth: 200, // Уменьшенная ширина
+          minWidth: 160,
+          height: 36,
           justifyContent: 'space-between',
-          borderColor: `${getStatusColor(currentStatus)}.main`,
-          color: `${getStatusColor(currentStatus)}.main`,
+          border: '1px solid #E5E7EB',
+          borderRadius: '8px',
+          color: '#374151',
+          bgcolor: '#FFFFFF',
+          textTransform: 'none',
+          fontSize: '0.875rem',
+          fontWeight: 500,
+          px: 1.5,
           '&:hover': {
-            borderColor: `${getStatusColor(currentStatus)}.dark`,
-            bgcolor: `${getStatusColor(currentStatus)}.lighter`
+            borderColor: '#D1D5DB',
+            bgcolor: '#F9FAFB'
+          },
+          '&:focus': {
+            borderColor: '#6366F1',
+            borderWidth: '2px'
           }
         }}
       >
         <Chip 
           label={getStatusText(currentStatus)} 
-          color={getStatusColor(currentStatus)} 
           size="small"
+          sx={{
+            height: 24,
+            fontSize: '0.75rem',
+            fontWeight: 500,
+            bgcolor: `${getStatusColor(currentStatus)}.lighter`,
+            color: `${getStatusColor(currentStatus)}.dark`,
+            '& .MuiChip-label': { px: 1 }
+          }}
         />
       </Button>
       
@@ -87,12 +105,16 @@ const StatusChangeMenu = ({ currentStatus, onStatusChange, loading = false }) =>
         anchorEl={anchorEl}
         open={open}
         onClose={handleClose}
+        disableRestoreFocus
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
         PaperProps={{
           sx: {
-            mt: 1,
-            minWidth: 220
+            mt: 0.5,
+            minWidth: 180,
+            borderRadius: '8px',
+            border: '1px solid #E5E7EB',
+            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
           }
         }}
       >
@@ -106,26 +128,24 @@ const StatusChangeMenu = ({ currentStatus, onStatusChange, loading = false }) =>
               onClick={() => handleStatusSelect(status.value)}
               selected={isActive}
               sx={{
-                py: 1.5,
+                py: 1,
+                fontSize: '0.875rem',
                 ...(isActive && {
-                  bgcolor: `${status.color}.lighter`,
-                  '&:hover': {
-                    bgcolor: `${status.color}.lighter`
-                  }
+                  bgcolor: '#F3F4F6',
+                  '&:hover': { bgcolor: '#F3F4F6' }
                 })
               }}
             >
-              <ListItemIcon>
-                <StatusIcon size={20} />
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                <StatusIcon size={18} color="#6B7280" />
               </ListItemIcon>
-              <ListItemText>
+              <ListItemText sx={{ '& .MuiTypography-root': { fontSize: '0.875rem' } }}>
                 {status.label}
                 {isActive && (
                   <Chip 
                     label="Текущий" 
                     size="small" 
-                    color={status.color}
-                    sx={{ ml: 1, height: 20, fontSize: '0.75rem' }}
+                    sx={{ ml: 1, height: 18, fontSize: '0.625rem', bgcolor: '#E5E7EB', color: '#6B7280' }}
                   />
                 )}
               </ListItemText>

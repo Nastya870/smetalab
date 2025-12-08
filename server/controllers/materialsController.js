@@ -6,6 +6,24 @@ import {
 } from '../cache/referencesCache.js';
 
 /**
+ * Нормализует поисковый запрос для унифицированного поиска
+ * - Приводит запятые к точкам (2,5 → 2.5)
+ * - Нормализует x/х/×/* к латинской x (3х2,5 → 3x2.5)
+ * - Сжимает пробелы
+ * @param {string} query - исходный поисковый запрос
+ * @returns {string} нормализованный запрос
+ */
+const normalizeSearchQuery = (query) => {
+  if (!query || typeof query !== 'string') return '';
+  return query
+    .toLowerCase()
+    .replace(/,/g, '.')           // запятые → точки
+    .replace(/\s*[xх×\*]\s*/gi, 'x') // все варианты x → латинская x
+    .replace(/\s+/g, ' ')         // сжимаем пробелы
+    .trim();
+};
+
+/**
  * Контроллер для работы со справочником Материалов
  */
 
@@ -245,10 +263,25 @@ export const getAllMaterials = async (req, res) => {
     }
     
     // Поиск по SKU или названию (использует idx_materials_sku_trgm и idx_materials_name_trgm)
+    // Поддержка умного поиска: "кабель 3х2,5" найдёт "Кабель ВВГПнг 3x2.5"
     if (search) {
-      whereConditions.push(`(sku ILIKE $${paramIndex} OR name ILIKE $${paramIndex})`);
-      params.push(`%${search}%`);
-      paramIndex++;
+      const normalizedSearch = normalizeSearchQuery(search);
+      const originalSearch = search.toLowerCase().trim();
+      
+      // Если нормализация дала другой результат, ищем по обоим вариантам
+      if (normalizedSearch !== originalSearch) {
+        whereConditions.push(`(
+          sku ILIKE $${paramIndex} OR name ILIKE $${paramIndex} OR
+          LOWER(REPLACE(REPLACE(REPLACE(name, ',', '.'), 'х', 'x'), '×', 'x')) ILIKE $${paramIndex + 1} OR
+          LOWER(REPLACE(REPLACE(REPLACE(sku, ',', '.'), 'х', 'x'), '×', 'x')) ILIKE $${paramIndex + 1}
+        )`);
+        params.push(`%${originalSearch}%`, `%${normalizedSearch}%`);
+        paramIndex += 2;
+      } else {
+        whereConditions.push(`(sku ILIKE $${paramIndex} OR name ILIKE $${paramIndex})`);
+        params.push(`%${search}%`);
+        paramIndex++;
+      }
     }
     
     const whereClause = whereConditions.length > 0 

@@ -6,7 +6,6 @@ import { TableVirtuoso, Virtuoso } from 'react-virtuoso';
 import {
   Grid,
   Typography,
-  Divider,
   Button,
   Box,
   Table,
@@ -37,15 +36,46 @@ import {
 import { IconPlus, IconEdit, IconTrash, IconSearch, IconExternalLink, IconWorld, IconBuilding, IconUpload } from '@tabler/icons-react';
 
 // project imports
-import MainCard from 'ui-component/cards/MainCard';
 import EmptyState from './EmptyState';
 import { emptyMaterial } from './mockData';
 import materialsAPI from 'api/materials';
 import ImportDialog from './ImportDialog';
-import { fullTextSearch } from 'shared/lib/utils/fullTextSearch';
+import { fullTextSearch, highlightMatches } from 'shared/lib/utils/fullTextSearch';
 
 // Code Splitting: Lazy load MaterialDialog (загружается только при открытии)
 const MaterialDialog = lazy(() => import('./MaterialDialog'));
+
+// Компонент подсветки совпадений в тексте
+const HighlightText = ({ text, query }) => {
+  if (!query || query.trim().length === 0) {
+    return <>{text}</>;
+  }
+  
+  const parts = highlightMatches(text, query);
+  
+  return (
+    <>
+      {parts.map((part, index) => (
+        part.match ? (
+          <Box 
+            key={index} 
+            component="span" 
+            sx={{ 
+              bgcolor: '#FEF3C7', 
+              color: '#92400E',
+              borderRadius: '2px',
+              px: 0.25
+            }}
+          >
+            {part.text}
+          </Box>
+        ) : (
+          <span key={index}>{part.text}</span>
+        )
+      ))}
+    </>
+  );
+};
 
 // ==============================|| MATERIALS REFERENCE PAGE ||============================== //
 
@@ -326,41 +356,56 @@ const MaterialsReferencePage = () => {
   // Loading state
   if (loading) {
     return (
-      <MainCard title="Справочник материалов">
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-          <CircularProgress />
-        </Box>
-      </MainCard>
+      <Box sx={{ bgcolor: '#F3F4F6', minHeight: '100vh', p: 3 }}>
+        <Paper elevation={0} sx={{ bgcolor: '#FFFFFF', borderRadius: '12px', border: '1px solid #E5E7EB', p: 4 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+            <CircularProgress />
+          </Box>
+        </Paper>
+      </Box>
     );
   }
 
   // Error state
   if (error) {
     return (
-      <MainCard title="Справочник материалов">
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-        <Button variant="contained" onClick={fetchMaterials} size="small">
-          Повторить попытку
-        </Button>
-      </MainCard>
+      <Box sx={{ bgcolor: '#F3F4F6', minHeight: '100vh', p: 3 }}>
+        <Paper elevation={0} sx={{ bgcolor: '#FFFFFF', borderRadius: '12px', border: '1px solid #E5E7EB', p: 4 }}>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+          <Button variant="contained" onClick={fetchMaterials} size="small">
+            Повторить попытку
+          </Button>
+        </Paper>
+      </Box>
     );
   }
 
   return (
-    <MainCard title="Справочник материалов" data-testid="materials-page">
+    <Box sx={{ bgcolor: '#F3F4F6', height: '100vh', p: 3, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <Paper 
+        elevation={0}
+        sx={{ 
+          bgcolor: '#FFFFFF',
+          borderRadius: '12px',
+          border: '1px solid #E5E7EB',
+          p: 4,
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          overflow: 'hidden'
+        }}
+      >
       {/* Шапка */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h3" color="textPrimary" data-testid="materials-title">
+        <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: '#1F2937' }} data-testid="materials-title">
           Строительные материалы
         </Typography>
       </Box>
 
-      <Divider sx={{ mb: 3 }} />
-
       {/* Поиск и фильтр */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 2 }}>
         <TextField
           fullWidth
           placeholder="Поиск по названию, коду, поставщику или единице измерения..."
@@ -371,16 +416,32 @@ const MaterialsReferencePage = () => {
             debouncedSearch(value);
           }}
           data-testid="materials-search"
+          size="small"
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              height: 44,
+              bgcolor: '#FFFFFF',
+              borderRadius: '8px',
+              fontSize: '0.875rem',
+              '& fieldset': { borderColor: '#E5E7EB' },
+              '&:hover fieldset': { borderColor: '#D1D5DB' },
+              '&.Mui-focused fieldset': { borderColor: '#6366F1' }
+            },
+            '& .MuiInputBase-input': {
+              color: '#374151',
+              '&::placeholder': { color: '#9CA3AF', opacity: 1 }
+            }
+          }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <IconSearch />
+                <IconSearch size={18} style={{ color: '#9CA3AF' }} />
               </InputAdornment>
             )
           }}
         />
         
-        {/* Фильтр по типу (глобальный/тенантный) */}
+        {/* Фильтр по типу (глобальный/тенантный) - отступ 16px */}
         <Stack 
           direction={{ xs: 'column', sm: 'row' }}
           spacing={{ xs: 2, sm: 2 }}
@@ -399,7 +460,7 @@ const MaterialsReferencePage = () => {
               width: { xs: '100%', sm: 'auto' }
             }}
           >
-            {/* iOS-style Toggle Switch - только иконки */}
+            {/* Toggle Switch - фиолетовый стиль, высота 36px */}
             <Tooltip 
               title={globalFilter === 'global' ? 'Глобальные материалы' : 'Мои материалы'}
               arrow
@@ -409,39 +470,33 @@ const MaterialsReferencePage = () => {
                 onClick={() => setGlobalFilter(globalFilter === 'global' ? 'tenant' : 'global')}
                 sx={{
                   position: 'relative',
-                  width: { xs: 80, sm: 90 },
+                  width: 80,
                   height: 36,
-                  bgcolor: 'rgba(33, 150, 243, 0.3)',
-                  borderRadius: '18px',
+                  bgcolor: '#F3E8FF',
+                  borderRadius: '6px',
                   cursor: 'pointer',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: 1,
+                  transition: 'all 0.2s ease',
                   '&:hover': {
-                    boxShadow: 3,
-                    transform: 'translateY(-1px)'
-                  },
-                  '&:active': {
-                    transform: 'translateY(0px)',
-                    boxShadow: 1
+                    bgcolor: '#EDE9FE'
                   }
                 }}
               >
-                {/* Белый круг-переключатель */}
+                {/* Переключатель - активный */}
                 <Box
                   sx={{
                     position: 'absolute',
-                    top: 3,
-                    left: globalFilter === 'global' ? 3 : 'calc(50% - 3px)',
-                    width: 'calc(50% - 3px)',
-                    height: 30,
-                    bgcolor: 'white',
-                    borderRadius: '15px',
-                    transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+                    top: 2,
+                    left: globalFilter === 'global' ? 2 : 'calc(50% - 2px)',
+                    width: 'calc(50% - 2px)',
+                    height: 32,
+                    bgcolor: '#EDE9FE',
+                    borderRadius: '4px',
+                    transition: 'left 0.2s ease',
+                    border: '1px solid #C4B5FD'
                   }}
                 />
                 
-                {/* Иконки на фоне */}
+                {/* Иконки */}
                 <Box
                   sx={{
                     position: 'absolute',
@@ -452,12 +507,16 @@ const MaterialsReferencePage = () => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    opacity: globalFilter === 'global' ? 0 : 1,
-                    transition: 'opacity 0.3s ease',
-                    pointerEvents: 'none'
+                    zIndex: 1
                   }}
                 >
-                  <IconWorld size={18} color="#000" />
+                  <IconWorld 
+                    size={16} 
+                    style={{ 
+                      color: globalFilter === 'global' ? '#5B21B6' : '#6B7280',
+                      fontWeight: globalFilter === 'global' ? 500 : 400
+                    }} 
+                  />
                 </Box>
                 
                 <Box
@@ -470,12 +529,16 @@ const MaterialsReferencePage = () => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    opacity: globalFilter === 'tenant' ? 0 : 1,
-                    transition: 'opacity 0.3s ease',
-                    pointerEvents: 'none'
+                    zIndex: 1
                   }}
                 >
-                  <IconBuilding size={18} color="#000" />
+                  <IconBuilding 
+                    size={16} 
+                    style={{ 
+                      color: globalFilter === 'tenant' ? '#5B21B6' : '#6B7280',
+                      fontWeight: globalFilter === 'tenant' ? 500 : 400
+                    }} 
+                  />
                 </Box>
               </Box>
             </Tooltip>
@@ -490,16 +553,28 @@ const MaterialsReferencePage = () => {
                 startIcon={<IconUpload size={16} />} 
                 onClick={handleOpenImport}
                 data-testid="materials-import-btn"
+                sx={{
+                  textTransform: 'none',
+                  height: 36,
+                  borderColor: '#E5E7EB',
+                  color: '#4B5563',
+                  '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
+                }}
               >
                 Импорт
               </Button>
               <Button 
                 variant="contained" 
-                color="primary" 
                 size="small"
                 startIcon={<IconPlus size={16} />} 
                 onClick={handleOpenCreate}
                 data-testid="materials-add-btn"
+                sx={{
+                  textTransform: 'none',
+                  height: 36,
+                  bgcolor: '#6366F1',
+                  '&:hover': { bgcolor: '#4F46E5' }
+                }}
               >
                 Добавить
               </Button>
@@ -514,50 +589,50 @@ const MaterialsReferencePage = () => {
               <Switch
                 checked={showImageColumn}
                 onChange={(e) => setShowImageColumn(e.target.checked)}
-                color="primary"
+                size="small"
+                sx={{
+                  '& .MuiSwitch-switchBase.Mui-checked': { color: '#6366F1' },
+                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#6366F1' }
+                }}
               />
             }
-            label="Показывать изображения"
+            label={<Typography sx={{ fontSize: '0.8125rem', color: '#6B7280' }}>Показывать изображения</Typography>}
           />
           <FormControlLabel
             control={
               <Switch
                 checked={showSupplierColumn}
                 onChange={(e) => setShowSupplierColumn(e.target.checked)}
-                color="primary"
+                size="small"
+                sx={{
+                  '& .MuiSwitch-switchBase.Mui-checked': { color: '#6366F1' },
+                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#6366F1' }
+                }}
               />
             }
-            label="Показывать поставщика"
+            label={<Typography sx={{ fontSize: '0.8125rem', color: '#6B7280' }}>Показывать поставщика</Typography>}
           />
         </Stack>
       </Box>
 
-      {/* Статистика */}
-      <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'primary.main', flexShrink: 0 }} />
-          <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.primary' }}>
-            Всего материалов — <strong>{materials.length}</strong>
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'success.main', flexShrink: 0 }} />
-          <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.primary' }}>
-            Категорий — <strong>{new Set(materials.map((m) => m.category)).size}</strong>
-          </Typography>
-        </Box>
+      {/* Статистика - отступ 16px сверху, 24px снизу до таблицы */}
+      <Box sx={{ mt: 2, mb: 2 }}>
+        <Typography sx={{ fontSize: '0.875rem', color: '#6B7280' }}>
+          Найдено: {filteredMaterials.length} • Категорий: {new Set(materials.map((m) => m.category)).size}
+        </Typography>
       </Box>
 
-      {/* Таблица материалов или карточки */}
+      {/* Таблица материалов или карточки - занимает оставшееся пространство */}
+      <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
       {filteredMaterials.length > 0 ? (
         isMobile ? (
           // Виртуализированный карточный вид для мобильных
           <Virtuoso
-            style={{ height: '600px' }}
+            style={{ height: '100%' }}
             data={filteredMaterials}
             itemContent={(index, material) => (
               <Box sx={{ mb: 1.5 }}>
-                <Card sx={{ width: '100%' }}>
+                <Card sx={{ width: '100%', border: '1px solid #E5E7EB', boxShadow: 'none' }}>
                   <CardContent sx={{ p: 2, pb: 1, '&:last-child': { pb: 1 } }}>
                     <Box sx={{ display: 'flex', gap: 2 }}>
                       {/* Изображение слева */}
@@ -568,7 +643,7 @@ const MaterialsReferencePage = () => {
                           flexShrink: 0,
                           borderRadius: 1,
                           overflow: 'hidden',
-                          bgcolor: 'grey.100',
+                          bgcolor: '#F9FAFB',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center'
@@ -586,7 +661,7 @@ const MaterialsReferencePage = () => {
                             }}
                           />
                         ) : (
-                          <Typography variant="caption" color="text.disabled">
+                          <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>
                             Нет фото
                           </Typography>
                         )}
@@ -597,41 +672,34 @@ const MaterialsReferencePage = () => {
                         {/* Заголовок с бейджем */}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 0.5 }}>
                           <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.25, wordBreak: 'break-word', lineHeight: 1.3 }}>
-                              {material.name}
+                            <Typography sx={{ fontWeight: 600, fontSize: '0.875rem', color: '#374151', mb: 0.25, wordBreak: 'break-word', lineHeight: 1.3 }}>
+                              <HighlightText text={material.name} query={searchTerm} />
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {material.sku}
+                            <Typography sx={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                              <HighlightText text={material.sku} query={searchTerm} />
                             </Typography>
                           </Box>
                           {material.isGlobal && (
-                            <Chip 
-                              icon={<IconWorld size={12} />} 
-                              label="Общий" 
-                              size="small" 
-                              color="primary" 
-                              variant="outlined"
-                              sx={{ height: 20, fontSize: '0.7rem' }}
-                            />
+                            <IconWorld size={14} style={{ color: '#9CA3AF' }} />
                           )}
                         </Box>
                         
                         {/* Компактная сетка параметров */}
                         <Box sx={{ display: 'grid', gridTemplateColumns: 'auto auto 1fr', gap: 1.5, alignItems: 'center', mt: 'auto' }}>
                           <Box>
-                            <Typography variant="caption" color="text.secondary">Ед. изм:</Typography>
-                            <Typography variant="body2" fontWeight={500} sx={{ ml: 0.5, display: 'inline' }}>
+                            <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>Ед. изм:</Typography>
+                            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151', ml: 0.5, display: 'inline' }}>
                               {material.unit}
                             </Typography>
                           </Box>
                           <Box>
-                            <Typography variant="caption" color="text.secondary">Вес:</Typography>
-                            <Typography variant="body2" fontWeight={500} sx={{ ml: 0.5, display: 'inline' }}>
+                            <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>Вес:</Typography>
+                            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151', ml: 0.5, display: 'inline' }}>
                               {material.weight} кг
                             </Typography>
                           </Box>
                           <Box sx={{ textAlign: 'right' }}>
-                            <Typography variant="h6" color="primary.main" fontWeight={600}>
+                            <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#374151' }}>
                               {material.price != null && !isNaN(Number(material.price)) 
                                 ? formatPrice(Number(material.price)) 
                                 : '—'}
@@ -642,8 +710,8 @@ const MaterialsReferencePage = () => {
                         {/* Поставщик (если есть) */}
                         {showSupplierColumn && material.supplier && (
                           <Box sx={{ mt: 0.5 }}>
-                            <Typography variant="caption" color="text.secondary">
-                              Поставщик: <Typography component="span" variant="caption" fontWeight={500}>{material.supplier}</Typography>
+                            <Typography sx={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                              Поставщик: <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 500, color: '#374151' }}>{material.supplier}</Typography>
                             </Typography>
                           </Box>
                         )}
@@ -653,23 +721,23 @@ const MaterialsReferencePage = () => {
                           {material.productUrl && (
                             <IconButton 
                               size="small" 
-                              color="info"
                               onClick={() => window.open(material.productUrl, '_blank')}
+                              sx={{ color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
                             >
                               <IconExternalLink size={16} />
                             </IconButton>
                           )}
                           <IconButton 
                             size="small" 
-                            color="primary"
                             onClick={() => handleOpenEdit(material)}
+                            sx={{ color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
                           >
                             <IconEdit size={16} />
                           </IconButton>
                           <IconButton 
                             size="small" 
-                            color="error"
                             onClick={() => handleDeleteMaterial(material.id)}
+                            sx={{ color: '#EF4444', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
                           >
                             <IconTrash size={16} />
                           </IconButton>
@@ -683,94 +751,73 @@ const MaterialsReferencePage = () => {
           />
         ) : (
           // Таблица для десктопа
-          <Paper>
+          <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden', height: '100%' }}>
           <TableVirtuoso
             data={filteredMaterials}
-            style={{ height: 600 }}
+            style={{ height: '100%' }}
             components={{
               Scroller: React.forwardRef((props, ref) => (
-                <TableContainer {...props} ref={ref} sx={{ overflowX: 'auto', maxWidth: '100%' }} />
+                <TableContainer {...props} ref={ref} sx={{ overflowX: 'hidden' }} />
               )),
-              Table: (props) => <Table {...props} sx={{ tableLayout: 'fixed' }} />,
+              Table: (props) => <Table {...props} sx={{ tableLayout: 'fixed', width: '100%' }} />,
               TableHead: TableHead,
-              TableRow: TableRow,
+              TableRow: (props) => <TableRow {...props} sx={{ '&:hover': { bgcolor: '#F3F4F6' } }} />,
               TableBody: TableBody,
             }}
             fixedHeaderContent={() => (
-            <TableRow sx={{ bgcolor: 'primary.light' }}>
-              <TableCell sx={{ width: '130px' }}>
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Артикул (SKU)
-                </Typography>
+            <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+              <TableCell sx={{ width: '100px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, pl: 2, borderBottom: '1px solid #E5E7EB' }}>
+                Артикул
               </TableCell>
-              <TableCell sx={{ width: 'auto', minWidth: '400px' }}>
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Наименование
-                </Typography>
+              <TableCell sx={{ fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
+                Наименование
               </TableCell>
               {showImageColumn && (
-                <TableCell align="center" sx={{ width: '100px' }}>
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    Изображение
-                  </Typography>
+                <TableCell align="center" sx={{ width: '60px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
+                  Фото
                 </TableCell>
               )}
-              <TableCell align="center" sx={{ width: '100px' }}>
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Ед. изм.
-                </Typography>
+              <TableCell align="center" sx={{ width: '60px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
+                Ед.
               </TableCell>
-              <TableCell align="right" sx={{ width: '130px' }}>
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Цена
-                </Typography>
+              <TableCell align="right" sx={{ width: '90px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
+                Цена
               </TableCell>
               {showSupplierColumn && (
-                <TableCell sx={{ width: '150px' }}>
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    Поставщик
-                  </Typography>
+                <TableCell sx={{ width: '100px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
+                  Поставщик
                 </TableCell>
               )}
-              <TableCell align="center" sx={{ width: '100px' }}>
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Вес/ед.
-                </Typography>
+              <TableCell align="center" sx={{ width: '70px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
+                Вес
               </TableCell>
-              <TableCell sx={{ width: '150px' }}>
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Категория
-                </Typography>
+              <TableCell sx={{ width: '100px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
+                Категория
               </TableCell>
-              <TableCell align="center" sx={{ width: '60px' }}>
-                <Typography variant="subtitle1" fontWeight={600}>
-                  URL
-                </Typography>
-              </TableCell>
-              <TableCell align="center" sx={{ width: '100px' }}>
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Действия
-                </Typography>
+              <TableCell align="center" sx={{ width: '90px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, pr: 2, borderBottom: '1px solid #E5E7EB' }}>
+                Действия
               </TableCell>
             </TableRow>
           )}
           itemContent={(index, material) => (
                 <>
-                  <TableCell sx={{ width: '130px' }}>
-                    <Typography variant="body2" fontWeight={500}>
-                      {material.sku}
+                  <TableCell sx={{ width: '100px', py: 1.25, pl: 2, borderBottom: '1px solid #F3F4F6' }}>
+                    <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <HighlightText text={material.sku} query={searchTerm} />
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ width: 'auto', minWidth: '400px' }}>
+                  <TableCell sx={{ py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
                     <Stack direction="row" alignItems="center" spacing={1}>
                       <Tooltip title={material.isGlobal ? 'Глобальный материал' : 'Материал компании'}>
                         {material.isGlobal ? (
-                          <IconWorld size={16} style={{ color: '#1976d2', flexShrink: 0 }} />
+                          <IconWorld size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
                         ) : (
-                          <IconBuilding size={16} style={{ color: '#757575', flexShrink: 0 }} />
+                          <IconBuilding size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
                         )}
                       </Tooltip>
-                      <Typography variant="body1" sx={{ wordBreak: 'break-word' }}>{material.name}</Typography>
+                      <Typography sx={{ fontSize: '0.8125rem', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <HighlightText text={material.name} query={searchTerm} />
+                      </Typography>
                       {material._optimistic && (
                         <Chip
                           label="Сохраняется..."
@@ -782,7 +829,7 @@ const MaterialsReferencePage = () => {
                     </Stack>
                   </TableCell>
                   {showImageColumn && (
-                    <TableCell align="center" sx={{ width: '100px' }}>
+                    <TableCell align="center" sx={{ width: '60px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
                       {material.showImage && material.image ? (
                         <Box
                           component="img"
@@ -792,61 +839,76 @@ const MaterialsReferencePage = () => {
                             width: 35,
                             height: 35,
                             objectFit: 'cover',
-                            borderRadius: 1,
-                            border: '1px solid',
-                            borderColor: 'divider'
+                            borderRadius: '4px',
+                            border: '1px solid #E5E7EB'
                           }}
                         />
                       ) : (
-                        <Typography variant="caption" color="text.secondary">
-                          Нет фото
+                        <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>
+                          —
                         </Typography>
                       )}
                     </TableCell>
                   )}
-                  <TableCell align="center" sx={{ width: '100px' }}>
-                    <Typography variant="body2">{material.unit}</Typography>
+                  <TableCell align="center" sx={{ width: '60px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
+                    <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>{material.unit}</Typography>
                   </TableCell>
-                  <TableCell align="right" sx={{ width: '130px' }}>
-                    <Typography variant="body1" fontWeight={500}>
+                  <TableCell align="right" sx={{ width: '90px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
+                    <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
                       {formatPrice(material.price)}
                     </Typography>
                   </TableCell>
                   {showSupplierColumn && (
-                    <TableCell sx={{ width: '150px' }}>
-                      <Typography variant="body2">{material.supplier}</Typography>
+                    <TableCell sx={{ width: '100px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
+                      <Typography sx={{ fontSize: '0.8125rem', color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{material.supplier}</Typography>
                     </TableCell>
                   )}
-                  <TableCell align="center" sx={{ width: '100px' }}>
-                    <Typography variant="body2">{material.weight} кг</Typography>
+                  <TableCell align="center" sx={{ width: '70px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
+                    <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>{material.weight}</Typography>
                   </TableCell>
-                  <TableCell sx={{ width: '150px' }}>
-                    <Chip label={material.category} size="small" color="primary" variant="outlined" />
+                  <TableCell sx={{ width: '100px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
+                    <Chip 
+                      label={material.category} 
+                      size="small" 
+                      sx={{ 
+                        height: 22, 
+                        fontSize: '0.625rem', 
+                        bgcolor: '#F3F4F6', 
+                        color: '#6B7280',
+                        border: '1px solid #E5E7EB',
+                        maxWidth: '100%',
+                        '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' }
+                      }} 
+                    />
                   </TableCell>
-                  <TableCell align="center" sx={{ width: '60px' }}>
-                    {material.productUrl ? (
-                      <IconButton
-                        size="small"
-                        color="info"
-                        href={material.productUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                  <TableCell align="center" sx={{ width: '90px', py: 1.25, pr: 2, borderBottom: '1px solid #F3F4F6' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                      {material.productUrl && (
+                        <IconButton
+                          size="small"
+                          href={material.productUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          sx={{ width: 26, height: 26, color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
+                        >
+                          <IconExternalLink size={14} />
+                        </IconButton>
+                      )}
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleOpenEdit(material)}
+                        sx={{ width: 26, height: 26, color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
                       >
-                        <IconExternalLink size={18} />
+                        <IconEdit size={14} />
                       </IconButton>
-                    ) : (
-                      <Typography variant="caption" color="text.secondary">
-                        —
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell align="center" sx={{ width: '100px' }}>
-                    <IconButton size="small" color="primary" onClick={() => handleOpenEdit(material)}>
-                      <IconEdit size={18} />
-                    </IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDeleteMaterial(material.id)}>
-                      <IconTrash size={18} />
-                    </IconButton>
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleDeleteMaterial(material.id)}
+                        sx={{ width: 26, height: 26, color: '#EF4444', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
+                      >
+                        <IconTrash size={14} />
+                      </IconButton>
+                    </Box>
                   </TableCell>
                 </>
               )}
@@ -857,14 +919,15 @@ const MaterialsReferencePage = () => {
         <EmptyState onCreateClick={handleOpenCreate} />
       ) : (
         <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Typography variant="h4" color="text.secondary">
+          <Typography sx={{ fontSize: '1rem', fontWeight: 500, color: '#6B7280' }}>
             Ничего не найдено
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography sx={{ fontSize: '0.875rem', color: '#9CA3AF', mt: 0.5 }}>
             Попробуйте изменить критерии поиска
           </Typography>
         </Box>
       )}
+      </Box>
 
       {/* Модальное окно создания/редактирования материала (Code Splitting) */}
       {openDialog && (
@@ -900,7 +963,8 @@ const MaterialsReferencePage = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </MainCard>
+      </Paper>
+    </Box>
   );
 };
 

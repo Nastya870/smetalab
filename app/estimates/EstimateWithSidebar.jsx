@@ -230,20 +230,20 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     []
   );
 
-  // ✅ Debounced автосохранение (через 3 секунды после последнего изменения)
+  // ✅ Debounced автосохранение (через 5 секунд после последнего изменения)
   const debouncedAutoSave = useCallback(
     debounce(async (dataToSave) => {
       if (!estimateId) return; // Автосохранение только для существующих смет
       
       try {
         console.log('🔄 Автосохранение...');
-        await handleSaveToDatabase();
+        await handleSaveToDatabase(true); // true = isAutoSave (тихое сохранение)
         console.log('✅ Автосохранение выполнено');
       } catch (error) {
         console.error('❌ Ошибка автосохранения:', error);
         // Не показываем snackbar при ошибке автосохранения (не мешаем пользователю)
       }
-    }, 3000), // 3 секунды
+    }, 5000), // 5 секунд - даёт время на несколько изменений подряд
     [estimateId]
   );
 
@@ -377,7 +377,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     save: handleSaveToDatabase
   }));
 
-  // ✅ Отслеживание изменений estimateData + автосохранение
+  // ✅ Отслеживание изменений estimateData + автосохранение (ОПТИМИЗИРОВАНО)
   useEffect(() => {
     // Игнорируем первый рендер (когда savedEstimateDataRef еще не установлен)
     if (savedEstimateDataRef.current === null) {
@@ -391,20 +391,32 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       return;
     }
 
-    // Сравниваем текущее состояние с сохраненным
-    const currentData = JSON.stringify(estimateData);
-    const hasChanges = currentData !== savedEstimateDataRef.current;
-    
-    setHasUnsavedChanges(hasChanges);
-    
-    // Уведомляем родительский компонент через ref (стабильная ссылка)
-    if (onUnsavedChangesRef.current) {
-      onUnsavedChangesRef.current(hasChanges);
-    }
-    
-    // ✅ Запускаем автосохранение при наличии изменений
-    if (hasChanges && estimateData.sections.length > 0) {
-      debouncedAutoSave(estimateData);
+    // ✅ ОПТИМИЗАЦИЯ: Используем requestIdleCallback для отложенного сравнения
+    // Это не блокирует UI при клике между ячейками
+    const checkChanges = () => {
+      const currentData = JSON.stringify(estimateData);
+      const hasChanges = currentData !== savedEstimateDataRef.current;
+      
+      setHasUnsavedChanges(hasChanges);
+      
+      // Уведомляем родительский компонент через ref (стабильная ссылка)
+      if (onUnsavedChangesRef.current) {
+        onUnsavedChangesRef.current(hasChanges);
+      }
+      
+      // ✅ Запускаем автосохранение при наличии изменений
+      if (hasChanges && estimateData.sections.length > 0) {
+        debouncedAutoSave(estimateData);
+      }
+    };
+
+    // Используем requestIdleCallback если доступен, иначе setTimeout
+    if ('requestIdleCallback' in window) {
+      const idleId = window.requestIdleCallback(checkChanges, { timeout: 500 });
+      return () => window.cancelIdleCallback(idleId);
+    } else {
+      const timeoutId = setTimeout(checkChanges, 100);
+      return () => clearTimeout(timeoutId);
     }
   }, [estimateData, debouncedAutoSave, isInitialLoadComplete]); // Добавлен isInitialLoadComplete
 
@@ -893,39 +905,42 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   };
   
   // ✅ НОВОЕ: Обработка при потере фокуса для расхода - вычисляем выражение (onBlur)
+  // ОПТИМИЗИРОВАНО: используем setTimeout для предотвращения блокировки UI
   const handleMaterialConsumptionBlur = (sectionIndex, itemIndex, materialIndex) => {
-    setEstimateData((prevData) => {
-      const newSections = [...prevData.sections];
-      const item = newSections[sectionIndex].items[itemIndex];
-      const material = item.materials[materialIndex];
-      const currentValue = material.consumption;
-      
-      // Если пустое значение, оставляем как есть
-      if (currentValue === '' || currentValue === null || currentValue === undefined) {
-        return prevData;
-      }
-      
-      // ✅ Вычисляем математическое выражение
-      const calculatedValue = calculateExpression(String(currentValue));
-      const consumption = parseFloat(calculatedValue);
-      
-      // Если результат не число, оставляем как есть
-      if (isNaN(consumption) || consumption < 0) {
-        return prevData;
-      }
-      
-      material.consumption = consumption;
-      
-      // ✅ Если auto_calculate = true, пересчитываем quantity
-      if (material.auto_calculate || material.autoCalculate) {
-        material.quantity = parseFloat((item.quantity * consumption).toFixed(2));
-      }
-      
-      // Пересчитываем total
-      material.total = parseFloat((material.quantity * material.price).toFixed(2));
-      
-      return { sections: newSections };
-    });
+    setTimeout(() => {
+      setEstimateData((prevData) => {
+        const newSections = [...prevData.sections];
+        const item = newSections[sectionIndex].items[itemIndex];
+        const material = item.materials[materialIndex];
+        const currentValue = material.consumption;
+        
+        // Если пустое значение, оставляем как есть
+        if (currentValue === '' || currentValue === null || currentValue === undefined) {
+          return prevData;
+        }
+        
+        // ✅ Вычисляем математическое выражение
+        const calculatedValue = calculateExpression(String(currentValue));
+        const consumption = parseFloat(calculatedValue);
+        
+        // Если результат не число, оставляем как есть
+        if (isNaN(consumption) || consumption < 0) {
+          return prevData;
+        }
+        
+        material.consumption = consumption;
+        
+        // ✅ Если auto_calculate = true, пересчитываем quantity
+        if (material.auto_calculate || material.autoCalculate) {
+          material.quantity = parseFloat((item.quantity * consumption).toFixed(2));
+        }
+        
+        // Пересчитываем total
+        material.total = parseFloat((material.quantity * material.price).toFixed(2));
+        
+        return { sections: newSections };
+      });
+    }, 0);
   };
   
   // ✅ НОВОЕ: Изменить количество материала вручную (onChange - просто сохраняет значение)
@@ -940,36 +955,40 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   };
   
   // ✅ НОВОЕ: Обработка при потере фокуса - вычисляем выражение (onBlur)
+  // ОПТИМИЗИРОВАНО: используем setTimeout для предотвращения блокировки UI
   const handleMaterialQuantityBlur = (sectionIndex, itemIndex, materialIndex) => {
-    setEstimateData((prevData) => {
-      const newSections = [...prevData.sections];
-      const material = newSections[sectionIndex].items[itemIndex].materials[materialIndex];
-      const currentValue = material.quantity;
+    // Откладываем обновление state чтобы не блокировать переход фокуса
+    setTimeout(() => {
+      setEstimateData((prevData) => {
+        const newSections = [...prevData.sections];
+        const material = newSections[sectionIndex].items[itemIndex].materials[materialIndex];
+        const currentValue = material.quantity;
       
-      // Если пустое значение, оставляем как есть
-      if (currentValue === '' || currentValue === null || currentValue === undefined) {
-        return prevData;
-      }
-      
-      // ✅ Вычисляем математическое выражение
-      const calculatedValue = calculateExpression(String(currentValue));
-      const quantity = parseFloat(calculatedValue);
-      
-      // Если результат не число, оставляем как есть
-      if (isNaN(quantity) || quantity < 0) {
-        return prevData;
-      }
-      
-      // ✅ Ручное изменение количества отключает автоматический расчет
-      material.quantity = quantity;
-      material.auto_calculate = false;
-      material.autoCalculate = false;
-      
-      // Пересчитываем total
-      material.total = parseFloat((quantity * material.price).toFixed(2));
-      
-      return { sections: newSections };
-    });
+        // Если пустое значение, оставляем как есть
+        if (currentValue === '' || currentValue === null || currentValue === undefined) {
+          return prevData;
+        }
+        
+        // ✅ Вычисляем математическое выражение
+        const calculatedValue = calculateExpression(String(currentValue));
+        const quantity = parseFloat(calculatedValue);
+        
+        // Если результат не число, оставляем как есть
+        if (isNaN(quantity) || quantity < 0) {
+          return prevData;
+        }
+        
+        // ✅ Ручное изменение количества отключает автоматический расчет
+        material.quantity = quantity;
+        material.auto_calculate = false;
+        material.autoCalculate = false;
+        
+        // Пересчитываем total
+        material.total = parseFloat((quantity * material.price).toFixed(2));
+        
+        return { sections: newSections };
+      });
+    }, 0); // setTimeout с 0 позволяет браузеру обработать фокус сначала
   };
 
   // Удалить работу (блок) вместе со всеми материалами
@@ -1192,12 +1211,12 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // Сохранить смету в БД
-  const handleSaveToDatabase = async () => {
+  // Сохранить смету в БД (isAutoSave = true для тихого автосохранения)
+  const handleSaveToDatabase = async (isAutoSave = false) => {
     try {
-      // 🛡️ ЗАЩИТА #3: Подтверждение при сохранении пустой сметы
-      if (estimateData.sections.length === 0 || 
-          estimateData.sections.every(s => !s.items || s.items.length === 0)) {
+      // 🛡️ ЗАЩИТА #3: Подтверждение при сохранении пустой сметы (только для ручного сохранения)
+      if (!isAutoSave && (estimateData.sections.length === 0 || 
+          estimateData.sections.every(s => !s.items || s.items.length === 0))) {
         const confirmSave = window.confirm(
           '⚠️ ВНИМАНИЕ!\n\n' +
           'Смета пустая - в ней нет ни одной работы.\n\n' +
@@ -1213,8 +1232,18 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         console.warn('⚠️ Пользователь подтвердил сохранение пустой сметы');
       }
       
-      setSaving(true);
-      showSnackbar('Смета сохраняется...', 'info');
+      // При автосохранении пустой сметы - пропускаем (не удаляем данные автоматически)
+      if (isAutoSave && (estimateData.sections.length === 0 || 
+          estimateData.sections.every(s => !s.items || s.items.length === 0))) {
+        console.log('⏭️ Автосохранение пустой сметы пропущено');
+        return;
+      }
+      
+      // Показываем UI индикатор только при ручном сохранении
+      if (!isAutoSave) {
+        setSaving(true);
+        showSnackbar('Смета сохраняется...', 'info');
+      }
 
       // Преобразуем estimateData в формат API
       // ✅ Подготавливаем данные для сохранения
@@ -1518,86 +1547,188 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
 
   return (
     <Box>
-      {/* Переключатель режима: Расчет (сайдбары открыты) / Просмотр (сайдбары скрыты) */}
-      <Box sx={{ mb: 1, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+      {/* ✅ Заголовок компонента */}
+      <Box sx={{ mb: 3 }}>
+        <Typography 
+          sx={{ 
+            fontSize: '1.5rem', 
+            fontWeight: 600, 
+            color: '#111827',
+            mb: 0.5,
+            lineHeight: 1.3
+          }}
+        >
+          Смета: {estimateMetadata.name || 'Без названия'}
+        </Typography>
+        <Typography 
+          sx={{ 
+            fontSize: '0.8125rem', 
+            color: '#6B7280'
+          }}
+        >
+          ID: {estimateId?.slice(0, 8) || 'новая'}...
+        </Typography>
+      </Box>
+
+      {/* ✅ Панель действий - новый дизайн */}
+      <Box 
+        sx={{ 
+          mb: 2, 
+          display: 'flex', 
+          gap: 1, 
+          alignItems: 'center', 
+          flexWrap: 'wrap',
+          py: 1,
+          px: 1.5,
+          bgcolor: '#FFFFFF',
+          borderRadius: '10px',
+          border: '1px solid #E5E7EB'
+        }}
+      >
+        {/* Переключатель режима */}
         <Button
-          variant="outlined"
-          color={sidebarVisible ? "primary" : "secondary"}
-          startIcon={sidebarVisible ? <IconEyeOff /> : <IconEye />}
+          variant={sidebarVisible ? "contained" : "outlined"}
+          startIcon={sidebarVisible ? <IconEyeOff size={16} /> : <IconEye size={16} />}
           onClick={toggleSidebar}
           size="small"
-          sx={{ py: 0.5 }}
+          sx={{ 
+            textTransform: 'none',
+            fontWeight: 500,
+            fontSize: '0.8125rem',
+            height: 34,
+            px: 1.5,
+            borderRadius: '8px',
+            ...(sidebarVisible ? {
+              bgcolor: '#635BFF',
+              '&:hover': { bgcolor: '#564EE6' }
+            } : {
+              color: '#374151',
+              borderColor: '#E5E7EB',
+              '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
+            })
+          }}
         >
           {sidebarVisible ? 'Режим просмотра' : 'Режим расчёта'}
         </Button>
 
-        <Divider orientation="vertical" flexItem />
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
+        {/* Сохранить в БД - фиолетовая primary */}
         <Button
           variant="contained"
-          color="primary"
-          startIcon={saving ? <CircularProgress size={16} /> : <IconPlus />}
+          startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <IconPlus size={16} />}
           onClick={handleSaveToDatabase}
           size="small"
-          sx={{ py: 0.5 }}
           disabled={estimateData.sections.length === 0 || saving}
+          sx={{ 
+            textTransform: 'none',
+            fontWeight: 500,
+            fontSize: '0.8125rem',
+            height: 34,
+            px: 1.5,
+            borderRadius: '8px',
+            bgcolor: '#635BFF',
+            '&:hover': { bgcolor: '#564EE6' },
+            '&:active': { bgcolor: '#453DCC' },
+            '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' }
+          }}
         >
-          {saving ? 'Сохранение...' : 'Сохранить в БД'}
+          {saving ? 'Сохранение...' : 'Сохранить'}
         </Button>
 
+        {/* Сохранить как шаблон - белая с фиолетовой обводкой */}
         <Button
           variant="outlined"
-          color="info"
-          startIcon={<IconTemplate />}
+          startIcon={<IconTemplate size={16} />}
           onClick={handleSaveAsTemplate}
           size="small"
-          sx={{ py: 0.5 }}
           disabled={!estimateId || estimateData.sections.length === 0}
+          sx={{ 
+            textTransform: 'none',
+            fontWeight: 500,
+            fontSize: '0.8125rem',
+            height: 34,
+            px: 1.5,
+            borderRadius: '8px',
+            color: '#635BFF',
+            borderColor: '#635BFF',
+            '&:hover': { borderColor: '#564EE6', bgcolor: '#F5F3FF' }
+          }}
         >
-          Сохранить как шаблон
+          Шаблон
         </Button>
 
+        {/* Коэффициент цен - вторичная */}
         <Button
           variant="outlined"
-          color="secondary"
-          startIcon={<IconPercentage />}
+          startIcon={<IconPercentage size={16} />}
           onClick={() => setCoefficientModalOpen(true)}
           size="small"
-          sx={{ py: 0.5 }}
           disabled={estimateData.sections.length === 0}
+          sx={{ 
+            textTransform: 'none',
+            fontWeight: 500,
+            fontSize: '0.8125rem',
+            height: 34,
+            px: 1.5,
+            borderRadius: '8px',
+            color: '#374151',
+            borderColor: '#E5E7EB',
+            '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
+          }}
         >
-          Коэффициент цен
+          Коэффициент
         </Button>
 
+        {/* Очистить смету - мягкий красный */}
         <Button
           variant="outlined"
-          color="error"
-          startIcon={<IconTrash />}
+          startIcon={<IconTrash size={16} />}
           onClick={handleClearEstimate}
           size="small"
-          sx={{ py: 0.5 }}
           disabled={estimateData.sections.length === 0}
+          sx={{ 
+            textTransform: 'none',
+            fontWeight: 500,
+            fontSize: '0.8125rem',
+            height: 34,
+            px: 1.5,
+            borderRadius: '8px',
+            color: '#DC2626',
+            borderColor: '#FCA5A5',
+            '&:hover': { borderColor: '#F87171', bgcolor: '#FEF2F2' }
+          }}
         >
-          Очистить смету
+          Очистить
         </Button>
 
-        <Divider orientation="vertical" flexItem />
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
+        {/* Экспорт в Excel - зелёная */}
         <Button
           variant="outlined"
-          color="success"
-          startIcon={exportingExcel ? <CircularProgress size={16} /> : <IconFileTypeXls />}
+          startIcon={exportingExcel ? <CircularProgress size={16} /> : <IconFileTypeXls size={16} />}
           onClick={handleExportExcel}
           size="small"
-          sx={{ py: 0.5 }}
           disabled={estimateData.sections.length === 0 || exportingExcel}
+          sx={{ 
+            textTransform: 'none',
+            fontWeight: 500,
+            fontSize: '0.8125rem',
+            height: 34,
+            px: 1.5,
+            borderRadius: '8px',
+            color: '#16A34A',
+            borderColor: '#86EFAC',
+            '&:hover': { borderColor: '#4ADE80', bgcolor: '#F0FDF4' }
+          }}
         >
-          {exportingExcel ? 'Экспорт...' : 'Экспорт в Excel'}
+          {exportingExcel ? 'Экспорт...' : 'Excel'}
         </Button>
       </Box>
 
       {/* Основной контейнер - смета на всю ширину (справочник теперь overlay drawer) */}
-      <Box sx={{ display: 'flex', gap: 2, height: 'calc(100vh - 250px)', minHeight: 500 }}>
+      <Box sx={{ display: 'flex', gap: 2, height: 'calc(100vh - 280px)', minHeight: 500 }}>
         {/* Справочник работ перенесен в Drawer (см. ниже) - этот блок будет удален */}
         <Box sx={{ display: 'none' }}>
           <Paper
@@ -1898,73 +2029,176 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         </Box>
 
         {/* ПРАВАЯ ЧАСТЬ - Смета */}
-        <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+        <Paper 
+          sx={{ 
+            flex: 1, 
+            display: 'flex', 
+            flexDirection: 'column', 
+            overflow: 'hidden',
+            borderRadius: '10px',
+            border: '1px solid #E5E7EB'
+          }}
+          elevation={0}
+        >
           {/* Таблица сметы */}
           <Box sx={{ flex: 1, overflow: 'auto' }}>
-            <TableContainer component={Paper} sx={{ overflowX: 'auto', maxWidth: '100%' }}>
-              <Table size="small">
+            <TableContainer 
+              component={Paper} 
+              elevation={0}
+              sx={{ 
+                overflowX: 'auto', 
+                maxWidth: '100%',
+                maxHeight: 'calc(100vh - 340px)',
+                '&::-webkit-scrollbar': { width: 6, height: 6 },
+                '&::-webkit-scrollbar-track': { bgcolor: '#F1F5F9' },
+                '&::-webkit-scrollbar-thumb': { bgcolor: '#CBD5E1', borderRadius: 3 },
+                '&::-webkit-scrollbar-thumb:hover': { bgcolor: '#94A3B8' }
+              }}
+            >
+              <Table size="small" stickyHeader>
                 <TableHead>
-                  <TableRow sx={{ bgcolor: 'grey.100' }}>
-                    <TableCell sx={{ py: 1, px: 1, borderRight: '1px dashed', borderColor: 'divider' }}>
-                      <Typography variant="subtitle2" fontWeight={600} fontSize="0.8rem">
+                  <TableRow>
+                    <TableCell 
+                      sx={{ 
+                        py: 1.25, 
+                        px: 1.5, 
+                        bgcolor: '#F9FAFB', 
+                        borderBottom: '1px solid #E5E7EB',
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 1
+                      }}
+                    >
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         Код
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ py: 1, px: 1, borderRight: '1px dashed', borderColor: 'divider' }}>
-                      <Typography variant="subtitle2" fontWeight={600} fontSize="0.8rem">
+                    <TableCell 
+                      sx={{ 
+                        py: 1.25, 
+                        px: 1.5, 
+                        bgcolor: '#F9FAFB', 
+                        borderBottom: '1px solid #E5E7EB',
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 1
+                      }}
+                    >
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         Наименование
                       </Typography>
                     </TableCell>
                     <TableCell
                       align="center"
-                      sx={{ py: 1, px: 1, borderRight: '1px dashed', borderColor: 'divider', minWidth: 80 }}
+                      sx={{ 
+                        py: 1.25, 
+                        px: 1.5, 
+                        bgcolor: '#F9FAFB', 
+                        borderBottom: '1px solid #E5E7EB',
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 1,
+                        minWidth: 70
+                      }}
                     >
-                      <Typography variant="subtitle2" fontWeight={600} fontSize="0.8rem">
-                        Изображение
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Фото
                       </Typography>
                     </TableCell>
                     <TableCell
                       align="center"
-                      sx={{ py: 1, px: 1, borderRight: '1px dashed', borderColor: 'divider' }}
+                      sx={{ 
+                        py: 1.25, 
+                        px: 1.5, 
+                        bgcolor: '#F9FAFB', 
+                        borderBottom: '1px solid #E5E7EB',
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 1
+                      }}
                     >
-                      <Typography variant="subtitle2" fontWeight={600} fontSize="0.8rem">
-                        Ед. изм.
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Ед.
                       </Typography>
                     </TableCell>
                     <TableCell
                       align="right"
-                      sx={{ py: 1, px: 1, borderRight: '1px dashed', borderColor: 'divider' }}
+                      sx={{ 
+                        py: 1.25, 
+                        px: 1.5, 
+                        bgcolor: '#F9FAFB', 
+                        borderBottom: '1px solid #E5E7EB',
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 1
+                      }}
                     >
-                      <Typography variant="subtitle2" fontWeight={600} fontSize="0.8rem">
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         Кол-во
                       </Typography>
                     </TableCell>
                     <TableCell
                       align="right"
-                      sx={{ py: 1, px: 1, borderRight: '1px dashed', borderColor: 'divider' }}
+                      sx={{ 
+                        py: 1.25, 
+                        px: 1.5, 
+                        bgcolor: '#F9FAFB', 
+                        borderBottom: '1px solid #E5E7EB',
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 1
+                      }}
                     >
-                      <Typography variant="subtitle2" fontWeight={600} fontSize="0.8rem">
-                        Цена, ₽
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Цена
                       </Typography>
                     </TableCell>
                     <TableCell
                       align="right"
-                      sx={{ py: 1, px: 1, borderRight: '1px dashed', borderColor: 'divider' }}
+                      sx={{ 
+                        py: 1.25, 
+                        px: 1.5, 
+                        bgcolor: '#F9FAFB', 
+                        borderBottom: '1px solid #E5E7EB',
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 1
+                      }}
                     >
-                      <Typography variant="subtitle2" fontWeight={600} fontSize="0.8rem">
-                        Сумма, ₽
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Сумма
                       </Typography>
                     </TableCell>
                     <TableCell
                       align="center"
-                      sx={{ py: 1, px: 1, borderRight: '1px dashed', borderColor: 'divider' }}
+                      sx={{ 
+                        py: 1.25, 
+                        px: 1.5, 
+                        bgcolor: '#F9FAFB', 
+                        borderBottom: '1px solid #E5E7EB',
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 1
+                      }}
                     >
-                      <Typography variant="subtitle2" fontWeight={600} fontSize="0.8rem">
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         Расход
                       </Typography>
                     </TableCell>
-                    <TableCell align="center" sx={{ py: 1, px: 1, minWidth: 120 }}>
-                      <Typography variant="subtitle2" fontWeight={600} fontSize="0.8rem">
+                    <TableCell 
+                      align="center" 
+                      sx={{ 
+                        py: 1.25, 
+                        px: 1.5, 
+                        bgcolor: '#F9FAFB', 
+                        borderBottom: '1px solid #E5E7EB',
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 1,
+                        minWidth: 100
+                      }}
+                    >
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         Действия
                       </Typography>
                     </TableCell>
@@ -1979,19 +2213,18 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                           {/* Строка работы */}
                           <TableRow
                             sx={{
-                              bgcolor: 'primary.lighter',
-                              borderBottom: item.materials?.length > 0 ? 'none' : '1px dashed',
-                              borderColor: 'divider',
-                              '&:hover': { bgcolor: 'primary.light' }
+                              bgcolor: '#F7F8FF',
+                              borderBottom: '1px solid #E5E7EB',
+                              '&:hover': { bgcolor: '#EEF2FF' }
                             }}
                           >
                             <TableCell
                               sx={{
                                 py: 1,
-                                px: 1,
+                                px: 1.5,
                                 fontWeight: 600,
-                                borderRight: '1px dashed',
-                                borderColor: 'divider'
+                                fontSize: '0.8125rem',
+                                color: '#374151'
                               }}
                             >
                               {item.code}
@@ -1999,32 +2232,30 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                             <TableCell
                               sx={{
                                 py: 1,
-                                px: 1,
-                                fontWeight: 600,
-                                borderRight: '1px dashed',
-                                borderColor: 'divider'
+                                px: 1.5,
+                                fontWeight: 600
                               }}
                             >
                               <Box>
-                                <Typography variant="body2" fontWeight={600}>
+                                <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
                                   {item.name}
                                 </Typography>
                                 {(item.phase || item.section || item.subsection) && (
                                   <Typography 
-                                    variant="caption" 
                                     sx={{ 
                                       display: 'block',
                                       mt: 0.5,
-                                      fontSize: '0.65rem',
-                                      fontStyle: 'italic'
+                                      fontSize: '0.6875rem',
+                                      fontStyle: 'italic',
+                                      color: '#6B7280'
                                     }}
                                   >
                                     {[
-                                      item.phase && <span key="phase" style={{ color: '#81C784' }}>{item.phase}</span>,
+                                      item.phase && <span key="phase" style={{ color: '#16A34A' }}>{item.phase}</span>,
                                       item.phase && item.section && <span key="arrow1"> → </span>,
-                                      item.section && <span key="section" style={{ color: '#E57373' }}>{item.section}</span>,
+                                      item.section && <span key="section" style={{ color: '#DC2626' }}>{item.section}</span>,
                                       item.section && item.subsection && <span key="arrow2"> → </span>,
-                                      item.subsection && <span key="subsection" style={{ color: '#64B5F6' }}>{item.subsection}</span>
+                                      item.subsection && <span key="subsection" style={{ color: '#2563EB' }}>{item.subsection}</span>
                                     ].filter(Boolean)}
                                   </Typography>
                                 )}
@@ -2032,13 +2263,13 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                             </TableCell>
                             <TableCell
                               align="center"
-                              sx={{ py: 1, px: 1, borderRight: '1px dashed', borderColor: 'divider' }}
+                              sx={{ py: 1, px: 1.5, color: '#9CA3AF', fontSize: '0.75rem' }}
                             >
-                              -
+                              —
                             </TableCell>
                             <TableCell
                               align="center"
-                              sx={{ py: 1, px: 1, borderRight: '1px dashed', borderColor: 'divider' }}
+                              sx={{ py: 1, px: 1.5, fontSize: '0.8125rem', color: '#6B7280' }}
                             >
                               {item.unit}
                             </TableCell>
@@ -2046,9 +2277,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                               align="right"
                               sx={{ 
                                 py: 1, 
-                                px: 1, 
-                                borderRight: '1px dashed', 
-                                borderColor: 'divider'
+                                px: 1.5
                               }}
                             >
                               {/* ✏️ РЕДАКТИРУЕМОЕ ПОЛЕ КОЛИЧЕСТВА */}
@@ -2062,21 +2291,26 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                                   step: 0.01,
                                   style: { 
                                     textAlign: 'right', 
-                                    fontSize: '0.875rem',
-                                    padding: '4px 8px'
+                                    fontSize: '0.8125rem',
+                                    padding: '6px 10px'
                                   }
                                 }}
                                 sx={{
-                                  width: '100px',
+                                  width: '90px',
                                   '& .MuiOutlinedInput-root': {
-                                    fontSize: '0.875rem',
-                                    // ✅ Красный фон input если quantity = 0 или пусто
-                                    bgcolor: (!item.quantity || item.quantity === 0) ? 'rgba(255, 0, 0, 0.15)' : 'background.paper',
-                                    '&:hover': {
-                                      bgcolor: (!item.quantity || item.quantity === 0) ? 'rgba(255, 0, 0, 0.2)' : 'primary.lighter'
+                                    fontSize: '0.8125rem',
+                                    borderRadius: '6px',
+                                    height: 34,
+                                    bgcolor: (!item.quantity || item.quantity === 0) ? '#FEF2F2' : '#FFFFFF',
+                                    '& fieldset': {
+                                      borderColor: (!item.quantity || item.quantity === 0) ? '#FCA5A5' : '#D1D5DB',
                                     },
-                                    '&.Mui-focused': {
-                                      bgcolor: (!item.quantity || item.quantity === 0) ? 'rgba(255, 0, 0, 0.25)' : 'primary.lighter'
+                                    '&:hover fieldset': {
+                                      borderColor: (!item.quantity || item.quantity === 0) ? '#F87171' : '#9CA3AF',
+                                    },
+                                    '&.Mui-focused fieldset': {
+                                      borderColor: '#635BFF',
+                                      borderWidth: '2px'
                                     }
                                   },
                                   // ❌ Убрать стрелки (spinner) у input[type="number"]
@@ -2096,25 +2330,20 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                             </TableCell>
                             <TableCell
                               align="right"
-                              sx={{ py: 1, px: 1, borderRight: '1px dashed', borderColor: 'divider' }}
+                              sx={{ py: 1, px: 1.5, fontSize: '0.8125rem', color: '#374151' }}
                             >
                               {formatCurrency(item.price)}
                             </TableCell>
                             <TableCell
                               align="right"
-                              sx={{ py: 1, px: 1, borderRight: '1px dashed', borderColor: 'divider' }}
+                              sx={{ py: 1, px: 1.5 }}
                             >
                               {/* 💰 АВТОМАТИЧЕСКИ РАССЧИТАННАЯ СУММА */}
                               <Typography 
-                                variant="body2" 
-                                fontWeight={600} 
-                                color="primary"
                                 sx={{
-                                  bgcolor: 'success.lighter',
-                                  px: 1,
-                                  py: 0.5,
-                                  borderRadius: 1,
-                                  display: 'inline-block'
+                                  fontSize: '0.875rem',
+                                  fontWeight: 600,
+                                  color: '#1D4ED8'
                                 }}
                               >
                                 {formatCurrency(item.total)}
@@ -2122,30 +2351,36 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                             </TableCell>
                             <TableCell
                               align="center"
-                              sx={{ py: 1, px: 1, borderRight: '1px dashed', borderColor: 'divider' }}
+                              sx={{ py: 1, px: 1.5, color: '#9CA3AF', fontSize: '0.75rem' }}
                             >
-                              -
+                              —
                             </TableCell>
-                            <TableCell align="center" sx={{ py: 1, px: 1 }}>
+                            <TableCell align="center" sx={{ py: 1, px: 1.5 }}>
                               <Stack direction="row" spacing={0.5} justifyContent="center">
                                 <Tooltip title="Добавить материал">
                                   <IconButton 
                                     size="small" 
-                                    color="primary" 
-                                    sx={{ p: 0.5 }}
+                                    sx={{ 
+                                      p: 0.5,
+                                      color: '#4B5563',
+                                      '&:hover': { bgcolor: '#F3F4F6', color: '#635BFF' }
+                                    }}
                                     onClick={() => handleOpenAddMaterial(sectionIndex, itemIndex)}
                                   >
-                                    <IconPackage size={16} />
+                                    <IconPackage size={18} />
                                   </IconButton>
                                 </Tooltip>
                                 <Tooltip title="Удалить блок">
                                   <IconButton 
                                     size="small" 
-                                    color="error" 
-                                    sx={{ p: 0.5 }}
+                                    sx={{ 
+                                      p: 0.5,
+                                      color: '#9CA3AF',
+                                      '&:hover': { bgcolor: '#FEF2F2', color: '#EF4444' }
+                                    }}
                                     onClick={() => handleDeleteWork(sectionIndex, itemIndex)}
                                   >
-                                    <IconTrash size={16} />
+                                    <IconTrash size={18} />
                                   </IconButton>
                                 </Tooltip>
                               </Stack>
@@ -2157,32 +2392,28 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                             <TableRow
                               key={material.id}
                               sx={{
-                                bgcolor: 'background.paper',
-                                borderBottom: matIndex === (item.materials?.length || 0) - 1 ? '1px dashed' : 'none',
-                                borderColor: 'divider',
-                                '&:hover': { bgcolor: 'action.hover' }
+                                bgcolor: '#FFFFFF',
+                                borderBottom: '1px solid #F1F5F9',
+                                '&:hover': { bgcolor: '#F9FAFB' }
                               }}
                             >
                               <TableCell
                                 sx={{
                                   py: 0.75,
-                                  px: 1,
+                                  px: 1.5,
                                   pl: 3,
                                   fontSize: '0.75rem',
-                                  borderRight: '1px dashed',
-                                  borderColor: 'divider'
+                                  color: '#6B7280'
                                 }}
                               >
-                                {material.code}
+                                {material.code || '—'}
                               </TableCell>
                               <TableCell
                                 sx={{
                                   py: 0.75,
-                                  px: 1,
+                                  px: 1.5,
                                   pl: 3,
-                                  fontSize: '0.75rem',
-                                  borderRight: '1px dashed',
-                                  borderColor: 'divider'
+                                  fontSize: '0.8125rem'
                                 }}
                               >
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -2190,7 +2421,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                                   {material.auto_calculate || material.autoCalculate ? (
                                     <Box
                                       sx={{
-                                        bgcolor: 'success.lighter',
+                                        bgcolor: '#DCFCE7',
                                         borderRadius: '50%',
                                         width: 18,
                                         height: 18,
@@ -2205,7 +2436,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                                   ) : (
                                     <Box
                                       sx={{
-                                        bgcolor: 'warning.lighter',
+                                        bgcolor: '#FEF3C7',
                                         borderRadius: '50%',
                                         width: 18,
                                         height: 18,
@@ -2218,14 +2449,14 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                                       <Typography fontSize="10px">✏️</Typography>
                                     </Box>
                                   )}
-                                  <Typography variant="body2" fontSize="0.75rem" color="text.secondary">
+                                  <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>
                                     {material.name}
                                   </Typography>
                                 </Box>
                               </TableCell>
                               <TableCell
                                 align="center"
-                                sx={{ py: 0.75, px: 1, borderRight: '1px dashed', borderColor: 'divider' }}
+                                sx={{ py: 0.75, px: 1.5 }}
                               >
                                 {material.showImage && material.image ? (
                                   <Box
@@ -2236,9 +2467,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                                       width: 28,
                                       height: 28,
                                       objectFit: 'cover',
-                                      borderRadius: 1,
-                                      border: '1px solid',
-                                      borderColor: 'divider',
+                                      borderRadius: '4px',
+                                      border: '1px solid #E5E7EB',
                                       display: 'block',
                                       mx: 'auto'
                                     }}
@@ -2248,8 +2478,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                                     sx={{
                                       width: 28,
                                       height: 28,
-                                      bgcolor: 'grey.200',
-                                      borderRadius: 1,
+                                      bgcolor: '#F3F4F6',
+                                      borderRadius: '4px',
                                       display: 'flex',
                                       alignItems: 'center',
                                       justifyContent: 'center',
@@ -2264,22 +2494,18 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                                 align="center"
                                 sx={{
                                   py: 0.75,
-                                  px: 1,
+                                  px: 1.5,
                                   fontSize: '0.75rem',
-                                  borderRight: '1px dashed',
-                                  borderColor: 'divider'
+                                  color: '#6B7280'
                                 }}
                               >
-                                {material.unit}
+                                {material.unit || '—'}
                               </TableCell>
                               <TableCell
                                 align="right"
                                 sx={{
                                   py: 0.75,
-                                  px: 1,
-                                  fontSize: '0.75rem',
-                                  borderRight: '1px dashed',
-                                  borderColor: 'divider'
+                                  px: 1.5
                                 }}
                               >
                                 {/* 🔢 КОЛИЧЕСТВО МАТЕРИАЛА - с калькулятором! */}
@@ -2296,7 +2522,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                                     }
                                   }}
                                   size="small"
-                                  placeholder="10 или 2+3"
+                                  placeholder="0"
                                   inputProps={{
                                     style: { 
                                       textAlign: 'right',
@@ -2306,15 +2532,20 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                                     }
                                   }}
                                   sx={{
-                                    width: 90,
+                                    width: 80,
                                     '& .MuiOutlinedInput-root': {
-                                      bgcolor: material.auto_calculate || material.autoCalculate ? 'success.lighter' : 'warning.lighter',
+                                      height: 30,
+                                      borderRadius: '6px',
+                                      bgcolor: material.auto_calculate || material.autoCalculate ? '#F0FDF4' : '#FEFCE8',
                                       '& fieldset': {
-                                        borderColor: material.auto_calculate || material.autoCalculate ? 'success.main' : 'warning.main',
-                                        borderStyle: 'dashed'
+                                        borderColor: material.auto_calculate || material.autoCalculate ? '#86EFAC' : '#FDE68A',
                                       },
                                       '&:hover fieldset': {
-                                        borderColor: material.auto_calculate || material.autoCalculate ? 'success.dark' : 'warning.dark'
+                                        borderColor: material.auto_calculate || material.autoCalculate ? '#4ADE80' : '#FBBF24',
+                                      },
+                                      '&.Mui-focused fieldset': {
+                                        borderColor: '#635BFF',
+                                        borderWidth: '2px'
                                       }
                                     }
                                   }}
@@ -2325,10 +2556,9 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                                 align="right"
                                 sx={{
                                   py: 0.75,
-                                  px: 1,
-                                  fontSize: '0.75rem',
-                                  borderRight: '1px dashed',
-                                  borderColor: 'divider'
+                                  px: 1.5,
+                                  fontSize: '0.8125rem',
+                                  color: '#374151'
                                 }}
                               >
                                 {formatCurrency(material.price)}
@@ -2337,40 +2567,26 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                                 align="right"
                                 sx={{
                                   py: 0.75,
-                                  px: 1,
-                                  fontSize: '0.75rem',
-                                  borderRight: '1px dashed',
-                                  borderColor: 'divider'
+                                  px: 1.5
                                 }}
                               >
                                 {/* 💰 АВТОМАТИЧЕСКИ РАССЧИТАННАЯ СУММА МАТЕРИАЛА */}
-                                <Box
+                                <Typography
                                   sx={{
-                                    bgcolor: 'warning.lighter',
-                                    px: 1,
-                                    py: 0.3,
-                                    borderRadius: 0.5,
-                                    display: 'inline-block'
+                                    fontSize: '0.8125rem',
+                                    fontWeight: 600,
+                                    color: '#1D4ED8'
                                   }}
                                 >
-                                  <Typography 
-                                    variant="caption" 
-                                    color="text.secondary"
-                                    fontWeight={500}
-                                    sx={{ fontSize: '0.75rem' }}
-                                  >
-                                    {formatCurrency(material.total)}
-                                  </Typography>
-                                </Box>
+                                  {formatCurrency(material.total)}
+                                </Typography>
                               </TableCell>
                               <TableCell
                                 align="center"
                                 sx={{
                                   py: 0.75,
-                                  px: 1,
-                                  fontSize: '0.75rem',
-                                  borderRight: '1px dashed',
-                                  borderColor: 'divider'
+                                  px: 1.5,
+                                  fontSize: '0.75rem'
                                 }}
                               >
                                 {/* 📊 КОЭФФИЦИЕНТ РАСХОДА - с калькулятором! */}
@@ -2387,7 +2603,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                                     }
                                   }}
                                   size="small"
-                                  placeholder="1.05 или 2+3"
+                                  placeholder="1.05"
                                   inputProps={{
                                     style: { 
                                       textAlign: 'center',
@@ -2397,37 +2613,51 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                                     }
                                   }}
                                   sx={{
-                                    width: 80,
+                                    width: 70,
                                     '& .MuiOutlinedInput-root': {
+                                      height: 26,
+                                      borderRadius: '6px',
                                       '& fieldset': {
-                                        borderColor: 'primary.main',
-                                        borderStyle: 'dashed'
+                                        borderColor: '#D1D5DB',
+                                      },
+                                      '&:hover fieldset': {
+                                        borderColor: '#9CA3AF',
+                                      },
+                                      '&.Mui-focused fieldset': {
+                                        borderColor: '#635BFF',
+                                        borderWidth: '2px'
                                       }
                                     }
                                   }}
                                   title="🧮 Калькулятор расхода: 1.05, 2+3, 10*1.5 и т.д."
                                 />
                               </TableCell>
-                              <TableCell align="center" sx={{ py: 0.75, px: 1 }}>
+                              <TableCell align="center" sx={{ py: 0.75, px: 1.5 }}>
                                 <Stack direction="row" spacing={0.5} justifyContent="center">
                                   <Tooltip title="Заменить материал">
                                     <IconButton 
                                       size="small" 
-                                      color="warning" 
-                                      sx={{ p: 0.5 }}
+                                      sx={{ 
+                                        p: 0.5,
+                                        color: '#6B7280',
+                                        '&:hover': { bgcolor: '#F3F4F6', color: '#F59E0B' }
+                                      }}
                                       onClick={() => handleOpenReplaceMaterial(sectionIndex, itemIndex, matIndex)}
                                     >
-                                      <IconReplace size={14} />
+                                      <IconReplace size={16} />
                                     </IconButton>
                                   </Tooltip>
                                   <Tooltip title="Удалить материал">
                                     <IconButton 
                                       size="small" 
-                                      color="error" 
-                                      sx={{ p: 0.5 }}
+                                      sx={{ 
+                                        p: 0.5,
+                                        color: '#9CA3AF',
+                                        '&:hover': { bgcolor: '#FEF2F2', color: '#EF4444' }
+                                      }}
                                       onClick={() => handleDeleteMaterial(sectionIndex, itemIndex, matIndex)}
                                     >
-                                      <IconTrash size={14} />
+                                      <IconTrash size={16} />
                                     </IconButton>
                                   </Tooltip>
                                 </Stack>
@@ -2439,61 +2669,64 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                     </React.Fragment>
                   ))}
 
-                  {/* ✅ КОМПАКТНЫЕ ИТОГИ */}
-                  {estimateData.sections.length > 0 && (
-                    <>
-                      {/* Пустая разделительная строка */}
-                      <TableRow>
-                        <TableCell colSpan={9} sx={{ py: 0.5, borderBottom: '2px solid', borderColor: 'divider' }} />
-                      </TableRow>
-
-                      {/* Итого за работы */}
-                      <TableRow sx={{ bgcolor: 'primary.lighter' }}>
-                        <TableCell colSpan={6} sx={{ py: 1, px: 2, borderRight: '1px solid', borderColor: 'divider' }}>
-                          <Typography variant="subtitle2" fontWeight={600} fontSize="0.85rem">
-                            Итого за работы
-                          </Typography>
-                        </TableCell>
-                        <TableCell colSpan={3} align="right" sx={{ py: 1, px: 2 }}>
-                          <Typography variant="h6" fontWeight={700} color="primary.main" fontSize="0.95rem">
-                            {formatCurrency(parseFloat(calculateTotals.totalWorks))}
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-
-                      {/* Итого за материалы */}
-                      <TableRow sx={{ bgcolor: 'success.lighter' }}>
-                        <TableCell colSpan={6} sx={{ py: 1, px: 2, borderRight: '1px solid', borderColor: 'divider' }}>
-                          <Typography variant="subtitle2" fontWeight={600} fontSize="0.85rem">
-                            Итого за материалы
-                          </Typography>
-                        </TableCell>
-                        <TableCell colSpan={3} align="right" sx={{ py: 1, px: 2 }}>
-                          <Typography variant="h6" fontWeight={700} color="success.main" fontSize="0.95rem">
-                            {formatCurrency(parseFloat(calculateTotals.totalMaterials))}
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-
-                      {/* Общий итог */}
-                      <TableRow sx={{ bgcolor: 'warning.lighter', borderTop: '2px solid', borderColor: 'warning.main' }}>
-                        <TableCell colSpan={6} sx={{ py: 1.5, px: 2, borderRight: '1px solid', borderColor: 'divider' }}>
-                          <Typography variant="h6" fontWeight={700} fontSize="1rem">
-                            ИТОГО ПО СМЕТЕ
-                          </Typography>
-                        </TableCell>
-                        <TableCell colSpan={3} align="right" sx={{ py: 1.5, px: 2 }}>
-                          <Typography variant="h5" fontWeight={700} color="warning.dark" fontSize="1.1rem">
-                            {formatCurrency(parseFloat(calculateTotals.grandTotal))}
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                    </>
-                  )}
+                  {/* Итоги вынесены в отдельный sticky footer */}
                 </TableBody>
               </Table>
             </TableContainer>
           </Box>
+
+          {/* ✅ STICKY FOOTER - Итоги прилипшие к низу */}
+          {estimateData.sections.length > 0 && (
+            <Box
+              sx={{
+                borderTop: '2px solid #E5E7EB',
+                bgcolor: '#FFFFFF',
+                px: 2.5,
+                py: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: 4,
+                flexShrink: 0
+              }}
+            >
+              {/* Итого за работы */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Typography sx={{ fontSize: '0.8125rem', color: '#6B7280' }}>
+                  Итого за работы:
+                </Typography>
+                <Box sx={{ 
+                  px: 1.5, 
+                  py: 0.5, 
+                  bgcolor: '#F0FDF4', 
+                  borderRadius: '6px',
+                  border: '1px solid #BBF7D0'
+                }}>
+                  <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600, color: '#16A34A' }}>
+                    {formatCurrency(parseFloat(calculateTotals.totalWorks))}
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Итого за материалы */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Typography sx={{ fontSize: '0.8125rem', color: '#6B7280' }}>
+                  Итого за материалы:
+                </Typography>
+                <Box sx={{ 
+                  px: 1.5, 
+                  py: 0.5, 
+                  bgcolor: '#FEF3C7', 
+                  borderRadius: '6px',
+                  border: '1px solid #FCD34D'
+                }}>
+                  <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600, color: '#D97706' }}>
+                    {formatCurrency(parseFloat(calculateTotals.totalMaterials))}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          )}
         </Paper>
       </Box>
 
@@ -2698,58 +2931,208 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         onToggle={() => setParametersWidgetOpen(!parametersWidgetOpen)}
       />
 
-      {/* Диалог сохранения как шаблон */}
+      {/* ✅ Диалог сохранения как шаблон - ОБНОВЛЁННЫЙ ДИЗАЙН */}
       <Dialog
         open={saveTemplateDialogOpen}
         onClose={() => !savingTemplate && setSaveTemplateDialogOpen(false)}
         maxWidth="sm"
-        fullWidth
+        PaperProps={{
+          sx: {
+            width: 540,
+            maxWidth: '90vw',
+            borderRadius: '12px',
+            overflow: 'hidden'
+          }
+        }}
       >
-        <DialogTitle>Сохранить как шаблон</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Название шаблона"
-              value={templateFormData.name}
-              onChange={handleTemplateFormChange('name')}
-              required
-              fullWidth
-              helperText='Например: "Шаблон: Ремонт квартиры"'
-            />
-            <TextField
-              label="Описание"
-              value={templateFormData.description}
-              onChange={handleTemplateFormChange('description')}
-              multiline
-              rows={3}
-              fullWidth
-              helperText="Краткое описание шаблона (необязательно)"
-            />
-            <TextField
-              label="Категория"
-              value={templateFormData.category}
-              onChange={handleTemplateFormChange('category')}
-              fullWidth
-              helperText='Например: "Квартиры", "Офисы", "Торговые центры"'
-            />
+        {/* ✅ Хедер - 56px, фон #F9FAFB */}
+        <Box
+          sx={{
+            height: 56,
+            px: 2.5,
+            bgcolor: '#F9FAFB',
+            borderBottom: '1px solid #E5E7EB',
+            display: 'flex',
+            alignItems: 'center'
+          }}
+        >
+          <Typography sx={{ 
+            fontSize: '1.125rem', 
+            fontWeight: 600, 
+            color: '#111827'
+          }}>
+            Сохранить как шаблон
+          </Typography>
+        </Box>
+
+        {/* ✅ Контент */}
+        <DialogContent sx={{ px: 2.5, py: 3 }}>
+          <Stack spacing={2.5}>
+            {/* Название шаблона */}
+            <Box>
+              <TextField
+                label="Название шаблона"
+                value={templateFormData.name}
+                onChange={handleTemplateFormChange('name')}
+                required
+                fullWidth
+                placeholder="Например: Ремонт квартиры"
+                error={!templateFormData.name.trim() && templateFormData.name !== ''}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    height: 44,
+                    borderRadius: '10px',
+                    '& fieldset': { borderColor: '#D1D5DB' },
+                    '&:hover fieldset': { borderColor: '#9CA3AF' },
+                    '&.Mui-focused fieldset': { borderColor: '#4F46E5', borderWidth: 2 },
+                    '&.Mui-error fieldset': { borderColor: '#DC2626' }
+                  },
+                  '& .MuiInputLabel-root': { 
+                    fontSize: '0.875rem',
+                    '&.Mui-focused': { color: '#4F46E5' }
+                  },
+                  '& .MuiOutlinedInput-input': {
+                    fontSize: '0.875rem',
+                    '&::placeholder': { color: '#9CA3AF', opacity: 1 }
+                  }
+                }}
+              />
+              {!templateFormData.name.trim() && templateFormData.name !== '' && (
+                <Typography sx={{ fontSize: '0.75rem', color: '#DC2626', mt: 0.5, ml: 0.5 }}>
+                  Название обязательно для заполнения
+                </Typography>
+              )}
+            </Box>
+
+            {/* Описание */}
+            <Box>
+              <TextField
+                label="Описание"
+                value={templateFormData.description}
+                onChange={handleTemplateFormChange('description')}
+                multiline
+                rows={3}
+                fullWidth
+                placeholder="Краткое описание шаблона"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '10px',
+                    minHeight: 90,
+                    alignItems: 'flex-start',
+                    padding: '10px 12px',
+                    '& fieldset': { borderColor: '#D1D5DB' },
+                    '&:hover fieldset': { borderColor: '#9CA3AF' },
+                    '&.Mui-focused fieldset': { borderColor: '#4F46E5', borderWidth: 2 }
+                  },
+                  '& .MuiInputLabel-root': { 
+                    fontSize: '0.875rem',
+                    '&.Mui-focused': { color: '#4F46E5' }
+                  },
+                  '& .MuiOutlinedInput-input': {
+                    fontSize: '0.875rem',
+                    padding: 0,
+                    '&::placeholder': { color: '#9CA3AF', opacity: 1 }
+                  }
+                }}
+              />
+              <Typography sx={{ fontSize: '0.75rem', color: '#6B7280', mt: 0.75, ml: 0.5 }}>
+                Необязательно. Поможет быстрее найти шаблон.
+              </Typography>
+            </Box>
+
+            {/* Разделитель и подзаголовок */}
+            <Box sx={{ pt: 1 }}>
+              <Typography sx={{ 
+                fontSize: '0.75rem', 
+                fontWeight: 500, 
+                color: '#6B7280',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                mb: 1.5
+              }}>
+                Дополнительно
+              </Typography>
+
+              {/* Категория */}
+              <TextField
+                label="Категория"
+                value={templateFormData.category}
+                onChange={handleTemplateFormChange('category')}
+                fullWidth
+                placeholder="Например: Квартиры, Офисы"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    height: 44,
+                    borderRadius: '10px',
+                    '& fieldset': { borderColor: '#D1D5DB' },
+                    '&:hover fieldset': { borderColor: '#9CA3AF' },
+                    '&.Mui-focused fieldset': { borderColor: '#4F46E5', borderWidth: 2 }
+                  },
+                  '& .MuiInputLabel-root': { 
+                    fontSize: '0.875rem',
+                    '&.Mui-focused': { color: '#4F46E5' }
+                  },
+                  '& .MuiOutlinedInput-input': {
+                    fontSize: '0.875rem',
+                    '&::placeholder': { color: '#9CA3AF', opacity: 1 }
+                  }
+                }}
+              />
+              <Typography sx={{ fontSize: '0.75rem', color: '#6B7280', mt: 0.75, ml: 0.5 }}>
+                Для группировки шаблонов в списке.
+              </Typography>
+            </Box>
           </Stack>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSaveTemplateDialogOpen(false)} disabled={savingTemplate}>
+
+        {/* ✅ Футер с кнопками */}
+        <Box
+          sx={{
+            px: 2.5,
+            py: 2,
+            borderTop: '1px solid #E5E7EB',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: 1.5
+          }}
+        >
+          <Button 
+            onClick={() => setSaveTemplateDialogOpen(false)} 
+            disabled={savingTemplate}
+            sx={{
+              textTransform: 'none',
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              color: '#6B7280',
+              px: 2,
+              '&:hover': { bgcolor: '#F3F4F6' }
+            }}
+          >
             Отмена
           </Button>
           <Button
             onClick={handleSaveTemplateConfirm}
             variant="contained"
             disabled={savingTemplate || !templateFormData.name.trim()}
-            startIcon={savingTemplate ? <CircularProgress size={16} /> : <IconTemplate />}
+            startIcon={savingTemplate ? <CircularProgress size={16} sx={{ color: '#FFFFFF' }} /> : <IconTemplate size={18} color="#FFFFFF" />}
+            sx={{
+              textTransform: 'none',
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              bgcolor: '#4F46E5',
+              borderRadius: '8px',
+              px: 2.5,
+              height: 40,
+              '&:hover': { bgcolor: '#4338CA' },
+              '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' }
+            }}
           >
-            {savingTemplate ? 'Сохранение...' : 'Сохранить'}
+            {savingTemplate ? 'Сохранение...' : 'Сохранить шаблон'}
           </Button>
-        </DialogActions>
+        </Box>
       </Dialog>
 
-      {/* 📚 OVERLAY DRAWER - Справочник работ */}
+      {/* 📚 OVERLAY DRAWER - Справочник работ (ФИНАЛЬНЫЙ РЕДИЗАЙН) */}
       <Drawer
         anchor="left"
         open={sidebarVisible}
@@ -2759,13 +3142,16 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         sx={{
           zIndex: (theme) => theme.zIndex.drawer + 2,
           '& .MuiDrawer-paper': {
-            width: 360,
+            width: 400,
             boxSizing: 'border-box',
-            boxShadow: '4px 0 12px rgba(0, 0, 0, 0.2)',
+            bgcolor: '#FFFFFF',
+            boxShadow: '4px 0 16px rgba(0, 0, 0, 0.06)',
+            borderRight: '1px solid #E5E7EB',
             position: 'fixed',
             top: 0,
             left: 0,
             height: '100vh',
+            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           },
         }}
         ModalProps={{
@@ -2775,50 +3161,109 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           disableRestoreFocus: true,
         }}
       >
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-          {/* Заголовок с кнопкой закрытия */}
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#FFFFFF' }}>
+          {/* ✅ ХЕДЕР */}
           <Box sx={{ 
-            p: 1.5, 
-            borderBottom: 1, 
-            borderColor: 'divider',
+            px: 2.5, 
+            py: 2,
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'flex-start'
+            alignItems: 'center',
+            borderBottom: '1px solid #E5E7EB'
           }}>
-            <Box>
-              <Typography variant="subtitle1" fontWeight={600}>
-                Справочник работ
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Выберите работы для добавления в смету
-              </Typography>
-            </Box>
+            <Typography sx={{ 
+              fontSize: '1.125rem', 
+              fontWeight: 600, 
+              color: '#111827'
+            }}>
+              Справочник работ
+            </Typography>
             <IconButton 
               size="small" 
               onClick={() => setSidebarVisible(false)}
-              sx={{ ml: 1 }}
+              sx={{ 
+                color: '#6B7280',
+                '&:hover': { bgcolor: '#F3F4F6', color: '#111827' }
+              }}
             >
-              <IconX size={18} />
+              <IconX size={20} />
             </IconButton>
           </Box>
 
-          {/* Tabs для переключения между глобальными и тенантными работами */}
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs 
-              value={workSourceTab} 
-              onChange={(e, newValue) => {
-                setWorkSourceTab(newValue);
-                setSearchTerm(''); // Сбрасываем поиск
-              }}
-              variant="fullWidth"
-            >
-              <Tab label="Глобальные работы" value="global" />
-              <Tab label="Мои работы" value="tenant" />
-            </Tabs>
+          {/* ✅ ВКЛАДКИ - с подчёркиванием */}
+          <Box sx={{ px: 2.5, pt: 2, pb: 1.5 }}>
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Button
+                fullWidth
+                size="small"
+                onClick={() => {
+                  setWorkSourceTab('global');
+                  setSearchTerm('');
+                }}
+                sx={{
+                  py: 1,
+                  borderRadius: '8px',
+                  textTransform: 'none',
+                  fontSize: '0.8125rem',
+                  fontWeight: 500,
+                  position: 'relative',
+                  color: workSourceTab === 'global' ? '#3B82F6' : '#6B7280',
+                  bgcolor: workSourceTab === 'global' ? '#EEF6FF' : 'transparent',
+                  '&:hover': { 
+                    bgcolor: workSourceTab === 'global' ? '#EEF6FF' : '#F3F4F6' 
+                  },
+                  '&::after': workSourceTab === 'global' ? {
+                    content: '""',
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 8,
+                    right: 8,
+                    height: 2,
+                    bgcolor: '#3B82F6',
+                    borderRadius: '1px'
+                  } : {}
+                }}
+              >
+                Глобальные работы
+              </Button>
+              <Button
+                fullWidth
+                size="small"
+                onClick={() => {
+                  setWorkSourceTab('tenant');
+                  setSearchTerm('');
+                }}
+                sx={{
+                  py: 1,
+                  borderRadius: '8px',
+                  textTransform: 'none',
+                  fontSize: '0.8125rem',
+                  fontWeight: 500,
+                  position: 'relative',
+                  color: workSourceTab === 'tenant' ? '#3B82F6' : '#6B7280',
+                  bgcolor: workSourceTab === 'tenant' ? '#EEF6FF' : 'transparent',
+                  '&:hover': { 
+                    bgcolor: workSourceTab === 'tenant' ? '#EEF6FF' : '#F3F4F6' 
+                  },
+                  '&::after': workSourceTab === 'tenant' ? {
+                    content: '""',
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 8,
+                    right: 8,
+                    height: 2,
+                    bgcolor: '#3B82F6',
+                    borderRadius: '1px'
+                  } : {}
+                }}
+              >
+                Мои работы
+              </Button>
+            </Box>
           </Box>
 
-          {/* Поиск */}
-          <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+          {/* ✅ ПОИСК + ФИЛЬТРЫ */}
+          <Box sx={{ px: 2.5, pb: 1.5, display: 'flex', gap: 1.5 }}>
             <TextField
               fullWidth
               size="small"
@@ -2828,36 +3273,67 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <IconSearch size={18} />
+                    <IconSearch size={18} color="#9CA3AF" />
                   </InputAdornment>
                 )
               }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  height: 40,
+                  borderRadius: '8px',
+                  bgcolor: '#F9FAFB',
+                  '& fieldset': { borderColor: '#E5E7EB' },
+                  '&:hover fieldset': { borderColor: '#D1D5DB' },
+                  '&.Mui-focused fieldset': { borderColor: '#635BFF', borderWidth: '2px' }
+                },
+                '& .MuiInputBase-input': {
+                  fontSize: '0.875rem'
+                }
+              }}
             />
-          </Box>
-
-          {/* ✅ Кнопка открытия фильтров */}
-          {availableSections.length > 0 && (
-            <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+            {availableSections.length > 0 && (
               <Button
-                fullWidth
-                variant={selectedSection ? 'contained' : 'outlined'}
+                variant="outlined"
                 size="small"
-                startIcon={<IconFilter size={16} />}
+                startIcon={<IconFilter size={16} color="#6B7280" />}
                 onClick={() => setFiltersPanelOpen(true)}
-                sx={{ justifyContent: 'flex-start' }}
+                sx={{ 
+                  minWidth: 'auto',
+                  height: 40,
+                  px: 1.5,
+                  borderRadius: '8px',
+                  textTransform: 'none',
+                  fontSize: '0.8125rem',
+                  fontWeight: 500,
+                  color: '#6B7280',
+                  bgcolor: '#F9FAFB',
+                  borderColor: '#E5E7EB',
+                  '&:hover': { 
+                    borderColor: '#D1D5DB',
+                    bgcolor: '#F3F4F6'
+                  }
+                }}
               >
-                Фильтры
                 {selectedSection && (
-                  <Chip 
-                    label="1" 
-                    size="small" 
-                    color="primary"
-                    sx={{ ml: 1, height: 18, fontSize: '0.65rem' }}
-                  />
+                  <Box sx={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    bgcolor: '#3B82F6',
+                    color: '#FFFFFF',
+                    fontSize: '0.65rem',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    ml: 0.5
+                  }}>
+                    1
+                  </Box>
                 )}
               </Button>
-            </Box>
-          )}
+            )}
+          </Box>
 
           {/* ✅ Вложенный Drawer фильтров */}
           <Drawer
@@ -2865,84 +3341,128 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
             open={filtersPanelOpen}
             onClose={() => setFiltersPanelOpen(false)}
             sx={{
-              zIndex: (theme) => theme.zIndex.drawer + 3, // Поверх основного drawer
+              zIndex: (theme) => theme.zIndex.drawer + 3,
               '& .MuiDrawer-paper': {
                 width: 320,
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                bgcolor: '#FFFFFF',
+                boxShadow: '4px 0 24px rgba(0, 0, 0, 0.12)'
               }
             }}
           >
             <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-              {/* Заголовок */}
+              {/* Заголовок фильтров */}
               <Box sx={{ 
-                p: 2, 
-                borderBottom: 1, 
-                borderColor: 'divider',
+                px: 2.5, 
+                py: 2, 
+                borderBottom: '1px solid #E5E7EB',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between'
               }}>
-                <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+                <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
                   Фильтры
                 </Typography>
-                <IconButton size="small" onClick={() => setFiltersPanelOpen(false)}>
+                <IconButton 
+                  size="small" 
+                  onClick={() => setFiltersPanelOpen(false)}
+                  sx={{ color: '#6B7280', '&:hover': { bgcolor: '#F3F4F6' } }}
+                >
                   <IconX size={18} />
                 </IconButton>
               </Box>
 
               {/* Контент фильтров */}
-              <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
-                    📋 По стадии
-                  </Typography>
-                  <FormControl component="fieldset" fullWidth>
-                    <RadioGroup
-                      value={selectedSection || 'all'}
-                      onChange={(e) => setSelectedSection(e.target.value === 'all' ? null : e.target.value)}
-                    >
-                      <FormControlLabel
-                        value="all"
-                        control={<Radio size="small" />}
-                        label={
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', pr: 1 }}>
-                            <Typography variant="body2">Все</Typography>
-                            <Chip label={worksAfterSearch.length} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
+              <Box sx={{ flex: 1, overflow: 'auto', p: 2.5 }}>
+                <Typography sx={{ 
+                  fontSize: '0.75rem', 
+                  fontWeight: 600, 
+                  color: '#6B7280',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  mb: 1.5 
+                }}>
+                  По стадии
+                </Typography>
+                <FormControl component="fieldset" fullWidth>
+                  <RadioGroup
+                    value={selectedSection || 'all'}
+                    onChange={(e) => setSelectedSection(e.target.value === 'all' ? null : e.target.value)}
+                  >
+                    <FormControlLabel
+                      value="all"
+                      control={<Radio size="small" sx={{ '&.Mui-checked': { color: '#635BFF' } }} />}
+                      label={
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 1 }}>
+                          <Typography sx={{ fontSize: '0.875rem', color: '#374151' }}>Все работы</Typography>
+                          <Box sx={{ 
+                            px: 1, 
+                            py: 0.25, 
+                            borderRadius: '6px', 
+                            bgcolor: '#F3F4F6',
+                            fontSize: '0.75rem',
+                            fontWeight: 500,
+                            color: '#6B7280'
+                          }}>
+                            {worksAfterSearch.length}
                           </Box>
-                        }
-                        sx={{ mb: 0.5 }}
-                      />
-                      {availableSections.map(section => {
-                        const count = worksAfterSearch.filter(w => w.section === section).length;
-                        return (
-                          <FormControlLabel
-                            key={section}
-                            value={section}
-                            control={<Radio size="small" />}
-                            label={
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', pr: 1 }}>
-                                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                                  {section}
-                                </Typography>
-                                <Chip label={count} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
+                        </Box>
+                      }
+                      sx={{ 
+                        mb: 0.5,
+                        mx: 0,
+                        py: 0.75,
+                        px: 1,
+                        borderRadius: '8px',
+                        '&:hover': { bgcolor: '#F9FAFB' }
+                      }}
+                    />
+                    {availableSections.map(section => {
+                      const count = worksAfterSearch.filter(w => w.section === section).length;
+                      return (
+                        <FormControlLabel
+                          key={section}
+                          value={section}
+                          control={<Radio size="small" sx={{ '&.Mui-checked': { color: '#635BFF' } }} />}
+                          label={
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 1 }}>
+                              <Typography sx={{ fontSize: '0.875rem', color: '#374151' }}>
+                                {section}
+                              </Typography>
+                              <Box sx={{ 
+                                px: 1, 
+                                py: 0.25, 
+                                borderRadius: '6px', 
+                                bgcolor: '#F3F4F6',
+                                fontSize: '0.75rem',
+                                fontWeight: 500,
+                                color: '#6B7280'
+                              }}>
+                                {count}
                               </Box>
-                            }
-                            sx={{ mb: 0.5 }}
-                          />
-                        );
-                      })}
-                    </RadioGroup>
-                  </FormControl>
-                </Box>
+                            </Box>
+                          }
+                          sx={{ 
+                            mb: 0.5,
+                            mx: 0,
+                            py: 0.75,
+                            px: 1,
+                            borderRadius: '8px',
+                            '&:hover': { bgcolor: '#F9FAFB' }
+                          }}
+                        />
+                      );
+                    })}
+                  </RadioGroup>
+                </FormControl>
               </Box>
 
               {/* Кнопки действий */}
               <Box sx={{ 
-                p: 2, 
-                borderTop: 1, 
-                borderColor: 'divider',
+                p: 2.5, 
+                borderTop: '1px solid #E5E7EB',
                 display: 'flex',
-                gap: 1
+                gap: 1.5
               }}>
                 <Button
                   fullWidth
@@ -2952,6 +3472,15 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                     setSelectedSection(null);
                     setFiltersPanelOpen(false);
                   }}
+                  sx={{
+                    height: 40,
+                    borderRadius: '8px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    color: '#374151',
+                    borderColor: '#E5E7EB',
+                    '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
+                  }}
                 >
                   Сбросить
                 </Button>
@@ -2960,6 +3489,14 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                   variant="contained"
                   size="small"
                   onClick={() => setFiltersPanelOpen(false)}
+                  sx={{
+                    height: 40,
+                    borderRadius: '8px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    bgcolor: '#635BFF',
+                    '&:hover': { bgcolor: '#564EE6' }
+                  }}
                 >
                   Применить
                 </Button>
@@ -2967,20 +3504,26 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
             </Box>
           </Drawer>
 
-          {/* Список работ - ВИРТУАЛИЗИРОВАННЫЙ */}
+          {/* ✅ СПИСОК РАБОТ */}
           <Box sx={{ flex: 1, overflow: 'hidden' }}>
             {/* Загрузка */}
             {loadingWorks && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
-                <CircularProgress size={40} />
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
+                <CircularProgress size={32} sx={{ color: '#635BFF' }} />
               </Box>
             )}
 
             {/* Ошибка */}
             {errorWorks && !loadingWorks && (
-              <Box sx={{ px: 2, py: 2 }}>
-                <Alert severity="error">
-                  <Typography variant="body2" sx={{ mb: 1 }}>
+              <Box sx={{ px: 2.5, py: 3 }}>
+                <Alert 
+                  severity="error"
+                  sx={{ 
+                    borderRadius: '10px',
+                    '& .MuiAlert-message': { fontSize: '0.875rem' }
+                  }}
+                >
+                  <Typography sx={{ fontSize: '0.875rem', mb: 1 }}>
                     {errorWorks}
                   </Typography>
                   <Button
@@ -2988,6 +3531,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                     variant="outlined"
                     color="error"
                     onClick={() => window.location.reload()}
+                    sx={{ borderRadius: '6px', textTransform: 'none' }}
                   >
                     Обновить страницу
                   </Button>
@@ -2995,90 +3539,176 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
               </Box>
             )}
 
-            {/* Виртуализированный список работ */}
-            {!loadingWorks && !errorWorks && (
+            {/* ✅ EMPTY STATE */}
+            {!loadingWorks && !errorWorks && filteredWorks.length === 0 && (
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                py: 8,
+                px: 3 
+              }}>
+                <Box sx={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: '16px',
+                  bgcolor: '#F3F4F6',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mb: 2
+                }}>
+                  <IconSearch size={28} color="#9CA3AF" />
+                </Box>
+                <Typography sx={{ 
+                  fontSize: '0.9375rem', 
+                  fontWeight: 600, 
+                  color: '#374151',
+                  mb: 0.5 
+                }}>
+                  Работы не найдены
+                </Typography>
+                <Typography sx={{ 
+                  fontSize: '0.8125rem', 
+                  color: '#9CA3AF',
+                  textAlign: 'center'
+                }}>
+                  Измените фильтры или строку поиска
+                </Typography>
+              </Box>
+            )}
+
+            {/* ✅ Виртуализированный список работ - НОВЫЙ ДИЗАЙН */}
+            {!loadingWorks && !errorWorks && filteredWorks.length > 0 && (
               <Virtuoso
                 style={{ height: '100%' }}
                 data={filteredWorks}
                 itemContent={(index, work) => {
                   const isAdded = addedWorkIds.has(work.id);
                   return (
-                    <React.Fragment key={work.id}>
-                      <ListItem 
-                        disablePadding
-                        secondaryAction={
-                          !isAdded && (
-                            <Tooltip title="Перенести в смету">
-                              <IconButton
-                                edge="end"
-                                size="small"
-                                color="primary"
-                                onClick={() => handleTransferToEstimate([work])}
-                                sx={{ mr: 1 }}
-                              >
-                                <IconArrowRight size={20} />
-                              </IconButton>
-                            </Tooltip>
-                          )
-                        }
-                      >
-                        <ListItemButton
-                          disabled={isAdded}
-                          sx={{
-                            py: 1.5,
-                            px: 2,
-                            '&:hover': { bgcolor: 'action.hover' }
-                          }}
-                        >
-                          <ListItemText
-                            primary={
-                              <Box>
-                                <Typography variant="body2" fontWeight={500} sx={{ mb: 0.5 }}>
-                                  {work.code} • {work.name}
-                                </Typography>
-                                <Stack direction="row" spacing={1} alignItems="center">
-                                  {work.category && (
-                                    <Chip 
-                                      label={work.category} 
-                                      size="small" 
-                                      color="primary"
-                                      variant="outlined"
-                                      sx={{ height: 20, fontSize: '0.7rem', '& .MuiChip-label': { px: 0.75 } }} 
-                                    />
-                                  )}
-                                  {work.image_url && (
-                                    <img 
-                                      src={work.image_url} 
-                                      alt={work.name}
-                                      style={{
-                                        width: 24,
-                                        height: 24,
-                                        objectFit: 'cover',
-                                        borderRadius: 4,
-                                        border: '1px solid',
-                                        borderColor: 'divider',
-                                        marginLeft: 4
-                                      }}
-                                      onError={(e) => { e.target.style.display = 'none'; }}
-                                    />
-                                  )}
-                                  <Typography variant="caption" color="text.secondary">
-                                    {work.unit}
-                                  </Typography>
-                                  <Typography variant="caption" fontWeight={600} color="primary">
-                                    {formatCurrency(work.price)}
-                                  </Typography>
-                                </Stack>
-                              </Box>
+                    <Box
+                      key={work.id}
+                      onClick={() => !isAdded && handleTransferToEstimate([work])}
+                      sx={{
+                        px: 2.5,
+                        py: 1.25,
+                        minHeight: 56,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: isAdded ? 'default' : 'pointer',
+                        bgcolor: '#FFFFFF',
+                        transition: 'all 0.15s ease',
+                        position: 'relative',
+                        opacity: isAdded ? 0.5 : 1,
+                        '&::after': {
+                          content: '""',
+                          position: 'absolute',
+                          bottom: 0,
+                          left: 16,
+                          right: 16,
+                          height: '1px',
+                          bgcolor: '#E5E7EB'
+                        },
+                        '&:hover': !isAdded ? {
+                          bgcolor: '#F9FAFB',
+                          '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            left: 0,
+                            top: 0,
+                            bottom: 0,
+                            width: 3,
+                            bgcolor: '#635BFF',
+                            borderRadius: '0 2px 2px 0'
+                          }
+                        } : {}
+                      }}
+                    >
+                      {/* Левая часть: код + название */}
+                      <Box sx={{ flex: 1, minWidth: 0, pr: 2 }}>
+                        <Typography sx={{ 
+                          fontSize: '0.6875rem', 
+                          color: '#9CA3AF',
+                          fontWeight: 500,
+                          mb: 0.25
+                        }}>
+                          {work.code}
+                        </Typography>
+                        <Typography sx={{ 
+                          fontSize: '0.8125rem', 
+                          fontWeight: 500, 
+                          color: '#111827',
+                          lineHeight: 1.4,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden'
+                        }}>
+                          {work.name}
+                        </Typography>
+                        {/* Бейдж категории (опционально) */}
+                        {work.section && (
+                          <Typography sx={{ 
+                            fontSize: '0.75rem', 
+                            color: '#9CA3AF',
+                            mt: 0.5
+                          }}>
+                            {work.section}
+                          </Typography>
+                        )}
+                      </Box>
+
+                      {/* Правая часть: цена + стрелка */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
+                        <Box sx={{ textAlign: 'right' }}>
+                          <Typography sx={{ 
+                            fontSize: '0.8125rem', 
+                            fontWeight: 600, 
+                            color: '#111827'
+                          }}>
+                            {formatCurrency(work.price)}
+                          </Typography>
+                          <Typography sx={{ 
+                            fontSize: '0.6875rem', 
+                            color: '#9CA3AF'
+                          }}>
+                            {work.unit}
+                          </Typography>
+                        </Box>
+                        {!isAdded ? (
+                          <Box sx={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: '6px',
+                            bgcolor: '#F1F4F9',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.15s ease',
+                            '&:hover': {
+                              bgcolor: '#635BFF',
+                              '& svg': { color: '#FFFFFF' }
                             }
-                          />
-                          {isAdded && (
-                            <Chip label="В смете" size="small" color="success" sx={{ ml: 1, height: 22 }} />
-                          )}
-                        </ListItemButton>
-                      </ListItem>
-                      <Divider />
-                    </React.Fragment>
+                          }}>
+                            <IconArrowRight size={16} color="#6B7280" />
+                          </Box>
+                        ) : (
+                          <Box sx={{
+                            px: 1,
+                            py: 0.25,
+                            borderRadius: '6px',
+                            bgcolor: '#DCFCE7',
+                            fontSize: '0.6875rem',
+                            fontWeight: 500,
+                            color: '#16A34A'
+                          }}>
+                            В смете
+                          </Box>
+                        )}
+                      </Box>
+                    </Box>
                   );
                 }}
               />

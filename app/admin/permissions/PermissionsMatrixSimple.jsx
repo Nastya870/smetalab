@@ -13,18 +13,17 @@ import {
   Paper,
   Checkbox,
   Typography,
-  Chip,
   Alert,
   CircularProgress,
-  Tooltip,
-  Switch,
-  FormControlLabel
+  Tooltip
 } from '@mui/material';
 import {
   IconEye,
-  IconEyeOff,
+  IconPlus,
   IconPencil,
-  IconTrash
+  IconTrash,
+  IconMenu2,
+  IconCheck
 } from '@tabler/icons-react';
 
 // API
@@ -32,20 +31,14 @@ import * as permissionsAPI from 'shared/lib/api/permissions';
 
 // ==============================|| SIMPLIFIED PERMISSIONS MATRIX ||============================== //
 
-/**
- * Упрощенная матрица разрешений с группировкой по разделам
- * Показывает только основные действия: Видимость в меню, Просмотр, Редактирование, Удаление
- */
 const PermissionsMatrixSimple = ({ roleId, roleName, roleKey, onPermissionsChange }) => {
   const [loading, setLoading] = useState(true);
-  const [allPermissions, setAllPermissions] = useState([]); // Все разрешения из БД
-  const [rolePermissions, setRolePermissions] = useState([]); // ID включенных разрешений
-  const [hiddenPermissions, setHiddenPermissions] = useState(new Set()); // ID скрытых в UI
+  const [allPermissions, setAllPermissions] = useState([]);
+  const [rolePermissions, setRolePermissions] = useState([]);
+  const [hiddenPermissions, setHiddenPermissions] = useState(new Set());
   const [hasChanges, setHasChanges] = useState(false);
   const [error, setError] = useState(null);
-  const [compactView, setCompactView] = useState(false);
 
-  // Загрузка данных
   useEffect(() => {
     loadPermissions();
   }, [roleId]);
@@ -74,14 +67,13 @@ const PermissionsMatrixSimple = ({ roleId, roleName, roleKey, onPermissionsChang
     }
   };
 
-  // Группировка разрешений по действиям для каждого ресурса
   const getResourceActions = (resourceGroup) => {
     const actions = {
-      view_menu: null,    // Видимость в меню
-      read: null,         // Просмотр (чтение)
-      create: null,       // Создание
-      update: null,       // Редактирование
-      delete: null        // Удаление
+      view_menu: null,
+      read: null,
+      create: null,
+      update: null,
+      delete: null
     };
 
     resourceGroup.permissions.forEach(perm => {
@@ -96,7 +88,6 @@ const PermissionsMatrixSimple = ({ roleId, roleName, roleKey, onPermissionsChang
       } else if (perm.action === 'delete') {
         actions.delete = perm;
       } else if (perm.action === 'manage') {
-        // manage заменяет create + update если их нет
         if (!actions.create) actions.create = perm;
         if (!actions.update) actions.update = perm;
       }
@@ -105,7 +96,6 @@ const PermissionsMatrixSimple = ({ roleId, roleName, roleKey, onPermissionsChang
     return actions;
   };
 
-  // Переключение разрешения
   const togglePermission = (permissionId, shouldCheck) => {
     const newPermissions = shouldCheck
       ? [...rolePermissions, permissionId]
@@ -119,42 +109,12 @@ const PermissionsMatrixSimple = ({ roleId, roleName, roleKey, onPermissionsChang
     }
   };
 
-  // Переключение видимости в меню (is_hidden для view_menu)
-  const toggleMenuVisibility = (permissionId, shouldHide) => {
-    const newHidden = new Set(hiddenPermissions);
-    if (shouldHide) {
-      newHidden.add(permissionId);
-    } else {
-      newHidden.delete(permissionId);
-    }
-    
-    setHiddenPermissions(newHidden);
-    setHasChanges(true);
-    
-    if (onPermissionsChange) {
-      onPermissionsChange(rolePermissions, newHidden);
-    }
-  };
-
-  // Обработка чекбокса для действия
   const handleActionToggle = (action) => {
     if (!action) return;
-
     const isChecked = rolePermissions.includes(action.id);
     togglePermission(action.id, !isChecked);
   };
 
-  // Обработка переключателя видимости меню
-  const handleMenuVisibilityToggle = (viewMenuAction) => {
-    if (!viewMenuAction) return;
-
-    const isEnabled = rolePermissions.includes(viewMenuAction.id);
-
-    // Простая логика: чекбокс включает/выключает разрешение
-    togglePermission(viewMenuAction.id, !isEnabled);
-  };
-
-  // Быстрое переключение всех разрешений для раздела
   const toggleAllForResource = (resourceGroup) => {
     const actions = getResourceActions(resourceGroup);
     const allActions = Object.values(actions).filter(a => a !== null);
@@ -165,65 +125,12 @@ const PermissionsMatrixSimple = ({ roleId, roleName, roleKey, onPermissionsChang
     });
   };
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Alert severity="error" sx={{ mb: 2 }}>
-        {error}
-      </Alert>
-    );
-  }
-
-  const isSuperAdmin = roleKey === 'super_admin';
-
-  // Определяем родительские ресурсы для подсказки
-  const parentResources = ['admin', 'references', 'projects'];
-  const childResourcesMap = {
-    'admin': ['users', 'roles', 'tenants', 'settings'],
-    'references': ['materials', 'works', 'counterparties', 'suppliers'],
-    'projects': ['estimates', 'purchases', 'reports']
-  };
-
-  // Функция для сортировки ресурсов в иерархическом порядке
   const getSortedPermissions = (permissions) => {
-    // Определяем порядок отображения
     const resourceOrder = {
-      // Родительские ресурсы
-      'admin': 1,
-      // Дочерние admin
-      'users': 2,
-      'roles': 3,
-      'tenants': 4,
-      'settings': 5,
-      
-      // Родительский references
-      'references': 10,
-      // Дочерние references
-      'materials': 11,
-      'works': 12,
-      'counterparties': 13,
-      'suppliers': 14,
-      
-      // Родительский projects
-      'projects': 20,
-      // Дочерние projects
-      'estimates': 21,
-      'estimate_templates': 22,
-      'purchases': 23,
-      'reports': 24,
-      
-      // Отдельные ресурсы
-      'dashboard': 30,
-      
-      // Все остальное в конец
-      'default': 100
+      'admin': 1, 'users': 2, 'roles': 3, 'tenants': 4, 'settings': 5,
+      'references': 10, 'materials': 11, 'works': 12, 'counterparties': 13, 'suppliers': 14,
+      'projects': 20, 'estimates': 21, 'estimate_templates': 22, 'purchases': 23, 'reports': 24,
+      'dashboard': 30, 'default': 100
     };
 
     return [...permissions].sort((a, b) => {
@@ -233,188 +140,157 @@ const PermissionsMatrixSimple = ({ roleId, roleName, roleKey, onPermissionsChang
     });
   };
 
-  // Сортируем разрешения для отображения
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+        <CircularProgress size={28} sx={{ color: '#6B7280' }} />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ fontSize: '12px', py: 0.5 }}>
+        {error}
+      </Alert>
+    );
+  }
+
+  const isSuperAdmin = roleKey === 'super_admin';
   const sortedPermissions = getSortedPermissions(allPermissions);
+  const parentResources = ['admin', 'references', 'projects'];
+  const childResourcesMap = {
+    'admin': ['users', 'roles', 'tenants', 'settings'],
+    'references': ['materials', 'works', 'counterparties', 'suppliers'],
+    'projects': ['estimates', 'purchases', 'reports']
+  };
+
+  // Monochrome checkbox style - unified color
+  const checkboxSx = {
+    p: 0.5,
+    color: '#D1D5DB',
+    '&.Mui-checked': { color: '#4F46E5' },
+    '&.MuiCheckbox-indeterminate': { color: '#4F46E5' },
+    '& .MuiSvgIcon-root': { fontSize: 18 }
+  };
 
   return (
     <Box>
-      {/* Предупреждение для super_admin */}
+      {/* Super admin warning */}
       {isSuperAdmin && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          <strong>Внимание!</strong> Вы редактируете разрешения роли <strong>super_admin</strong>. 
-          Эта роль имеет полный доступ ко всей системе.
-        </Alert>
+        <Typography sx={{ fontSize: '11px', color: '#DC2626', mb: 1 }}>
+          ⚠ Вы редактируете роль super_admin с полным доступом к системе
+        </Typography>
       )}
 
-      {/* Информация про иерархию разрешений */}
-      <Alert severity="info" sx={{ mb: 2 }}>
-        <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>
-          🔗 Как работает иерархия разрешений
+      {/* Role name + badge - single line */}
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: 1, 
+        mb: 1.5
+      }}>
+        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>
+          {roleName}
         </Typography>
-        <Typography variant="body2" sx={{ mb: 1 }}>
-          Некоторые разделы являются <strong>родительскими</strong> и автоматически дают доступ к связанным с ними подразделам:
+        <Typography sx={{ 
+          fontSize: '10px', 
+          fontWeight: 500,
+          color: '#6D28D9',
+          bgcolor: '#F5F3FF',
+          px: 0.75,
+          py: 0.125,
+          borderRadius: '3px',
+          lineHeight: '16px'
+        }}>
+          {rolePermissions.length} активно
         </Typography>
-        <Box component="ul" sx={{ m: 0, pl: 2, '& li': { mb: 0.5 } }}>
-          <li>
-            <strong>🔐 admin</strong> (Администрирование) → даёт доступ к: Пользователи, Роли, Тенанты, Настройки
-          </li>
-          <li>
-            <strong>📚 references</strong> (Справочники) → даёт доступ к: Материалы, Работы, Контрагенты, Поставщики
-          </li>
-          <li>
-            <strong>📊 projects</strong> (Проекты) → даёт доступ к: Сметы, Закупки, Отчёты
-          </li>
-        </Box>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-          ⚠️ <strong>Важно:</strong> Для работы иерархии обязательно включите ВСЕ 4 действия (📋 Меню, 👁️ Просмотр, ➕ Создание, ✏️ Изменение) для родительского раздела!
-          <br />
-          Особенно важно разрешение <strong>👁️ Просмотр</strong> — без него доступ к дочерним разделам работать не будет.
-        </Typography>
-      </Alert>
-
-      {/* Статистика и настройки вида */}
-      <Box sx={{ mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
-            Роль: {roleName}
+        {hasChanges && (
+          <Typography sx={{ 
+            fontSize: '10px', 
+            fontWeight: 500,
+            color: '#DC2626',
+            bgcolor: '#FEF2F2',
+            px: 0.75,
+            py: 0.125,
+            borderRadius: '3px',
+            lineHeight: '16px'
+          }}>
+            Не сохранено
           </Typography>
-          <Chip 
-            label={`${rolePermissions.length} разрешений активно`}
-            color="success"
-            size="small"
-            sx={{ fontWeight: 600 }}
-          />
-          {hasChanges && (
-            <Chip 
-              icon={<span>⚠️</span>}
-              label="Не сохранено"
-              color="error"
-              size="small"
-              sx={{ fontWeight: 600 }}
-            />
-          )}
-        </Box>
-        
-        <FormControlLabel
-          control={
-            <Switch 
-              checked={compactView}
-              onChange={(e) => setCompactView(e.target.checked)}
-              size="small"
-            />
-          }
-          label={<Typography variant="body2">Компактный вид</Typography>}
-        />
+        )}
       </Box>
 
-      {/* Таблица разрешений - АДАПТИВНАЯ ШИРИНА */}
+      {/* Permissions Table - only table has border */}
       <TableContainer 
         component={Paper} 
-        elevation={3}
+        elevation={0}
         sx={{ 
-          width: '100%',
-          maxWidth: '100%',
-          overflowX: 'auto'
+          border: '1px solid #E5E7EB',
+          borderRadius: '6px',
+          overflow: 'hidden'
         }}
       >
-        <Table 
-          size={compactView ? 'small' : 'medium'}
-          sx={{ 
-            minWidth: 900,
-            width: '100%'
-          }}
-        >
+        <Table size="small">
           <TableHead>
-            <TableRow sx={{ bgcolor: 'primary.lighter' }}>
-              <TableCell 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  minWidth: { xs: 180, sm: 220, md: 250 },
-                  width: '25%'
-                }}
-              >
-                Раздел системы
+            <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+              <TableCell sx={{ 
+                fontWeight: 600, 
+                fontSize: '12px', 
+                color: '#6B7280',
+                py: 1,
+                pl: 2,
+                width: '30%',
+                borderBottom: '1px solid #E5E7EB'
+              }}>
+                Раздел
               </TableCell>
-              <TableCell 
-                align="center" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  width: '13%',
-                  minWidth: 120
-                }}
-              >
-                <Tooltip title="Отображать раздел в главном меню">
+              <TableCell align="center" sx={{ fontWeight: 600, fontSize: '12px', color: '#6B7280', py: 1, width: '12%', borderBottom: '1px solid #E5E7EB' }}>
+                <Tooltip title="Видимость в меню">
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
-                    📋 Меню
+                    <IconMenu2 size={14} />
+                    <span>Меню</span>
                   </Box>
                 </Tooltip>
               </TableCell>
-              <TableCell 
-                align="center" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  width: '13%',
-                  minWidth: 120
-                }}
-              >
-                <Tooltip title="Просматривать данные (только чтение)">
+              <TableCell align="center" sx={{ fontWeight: 600, fontSize: '12px', color: '#6B7280', py: 1, width: '12%', borderBottom: '1px solid #E5E7EB' }}>
+                <Tooltip title="Просмотр данных">
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
-                    👁️ Просмотр
+                    <IconEye size={14} />
+                    <span>Просмотр</span>
                   </Box>
                 </Tooltip>
               </TableCell>
-              <TableCell 
-                align="center" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  width: '13%',
-                  minWidth: 120
-                }}
-              >
-                <Tooltip title="Создавать новые записи">
+              <TableCell align="center" sx={{ fontWeight: 600, fontSize: '12px', color: '#6B7280', py: 1, width: '12%', borderBottom: '1px solid #E5E7EB' }}>
+                <Tooltip title="Создание записей">
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
-                    ➕ Создание
+                    <IconPlus size={14} />
+                    <span>Создание</span>
                   </Box>
                 </Tooltip>
               </TableCell>
-              <TableCell 
-                align="center" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  width: '14%',
-                  minWidth: 130
-                }}
-              >
-                <Tooltip title="Изменять существующие записи">
+              <TableCell align="center" sx={{ fontWeight: 600, fontSize: '12px', color: '#6B7280', py: 1, width: '12%', borderBottom: '1px solid #E5E7EB' }}>
+                <Tooltip title="Редактирование">
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
-                    ✏️ Изменение
+                    <IconPencil size={14} />
+                    <span>Изменение</span>
                   </Box>
                 </Tooltip>
               </TableCell>
-              <TableCell 
-                align="center" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  width: '13%',
-                  minWidth: 120
-                }}
-              >
-                <Tooltip title="Удалять записи">
+              <TableCell align="center" sx={{ fontWeight: 600, fontSize: '12px', color: '#6B7280', py: 1, width: '12%', borderBottom: '1px solid #E5E7EB' }}>
+                <Tooltip title="Удаление записей">
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
-                    🗑️ Удаление
+                    <IconTrash size={14} />
+                    <span>Удаление</span>
                   </Box>
                 </Tooltip>
               </TableCell>
-              <TableCell 
-                align="center" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  width: '9%',
-                  minWidth: 90
-                }}
-              >
-                <Tooltip title="Выбрать все разрешения для раздела">
-                  <Box>Все</Box>
+              <TableCell align="center" sx={{ fontWeight: 600, fontSize: '12px', color: '#6B7280', py: 1, width: '10%', borderBottom: '1px solid #E5E7EB' }}>
+                <Tooltip title="Выбрать все">
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                    <IconCheck size={14} />
+                    <span>Все</span>
+                  </Box>
                 </Tooltip>
               </TableCell>
             </TableRow>
@@ -429,203 +305,115 @@ const PermissionsMatrixSimple = ({ roleId, roleName, roleKey, onPermissionsChang
               const allResourcePerms = Object.values(actions).filter(a => a !== null);
               const allChecked = allResourcePerms.every(a => rolePermissions.includes(a.id));
               const someChecked = allResourcePerms.some(a => rolePermissions.includes(a.id));
-
-              // Проверяем, является ли ресурс родительским
               const isParentResource = parentResources.includes(resourceGroup.resource);
               const childResources = childResourcesMap[resourceGroup.resource] || [];
 
               return (
                 <TableRow 
                   key={resourceGroup.resource}
-                  hover
                   sx={{
-                    '&:hover': { bgcolor: 'action.hover' },
-                    // Выделяем родительские ресурсы
-                    bgcolor: isParentResource ? 'success.lighter' : 'inherit',
-                    borderLeft: isParentResource ? '4px solid' : 'none',
-                    borderColor: isParentResource ? 'success.main' : 'transparent'
+                    '&:hover': { bgcolor: '#FAFAFA' },
+                    borderLeft: isParentResource ? '2px solid #4F46E5' : 'none',
+                    bgcolor: isParentResource ? '#FAFAFA' : '#FFFFFF'
                   }}
                 >
-                  {/* Название раздела */}
-                  <TableCell sx={{ py: 1.5 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                      <Box 
-                        sx={{ 
-                          fontSize: '1.5rem',
-                          minWidth: 32,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        {resourceGroup.icon}
-                      </Box>
-                      <Box sx={{ flex: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.95rem' }}>
-                            {resourceGroup.resourceName}
-                          </Typography>
-                          {isParentResource && (
-                            <Chip 
-                              label="Родительский" 
-                              size="small" 
-                              color="success"
-                              sx={{ 
-                                height: 18, 
-                                fontSize: '0.65rem',
-                                fontWeight: 600,
-                                '& .MuiChip-label': { px: 0.75 }
-                              }}
-                            />
-                          )}
-                        </Box>
-                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                          {resourceGroup.resource}
-                          {isParentResource && childResources.length > 0 && (
-                            <> → {childResources.join(', ')}</>
-                          )}
-                        </Typography>
-                      </Box>
+                  {/* Resource name - two-line compact */}
+                  <TableCell sx={{ py: 0.75, pl: 1.5, borderBottom: '1px solid #F3F4F6' }}>
+                    <Box>
+                      <Typography sx={{ 
+                        fontSize: '13px', 
+                        fontWeight: isParentResource ? 600 : 500, 
+                        color: '#374151',
+                        lineHeight: 1.3
+                      }}>
+                        {resourceGroup.resourceName}
+                      </Typography>
+                      <Typography sx={{ 
+                        fontSize: '11px', 
+                        color: '#9CA3AF',
+                        lineHeight: 1.2
+                      }}>
+                        {resourceGroup.resource}
+                        {isParentResource && childResources.length > 0 && (
+                          <span> → {childResources.join(', ')}</span>
+                        )}
+                      </Typography>
                     </Box>
                   </TableCell>
 
-                  {/* Видимость в меню */}
-                  <TableCell align="center" sx={{ py: 1.5 }}>
+                  {/* Menu visibility */}
+                  <TableCell align="center" sx={{ py: 0.75, borderBottom: '1px solid #F3F4F6' }}>
                     {actions.view_menu ? (
-                      <Tooltip 
-                        title={
-                          rolePermissions.includes(actions.view_menu.id)
-                            ? '✅ Раздел виден в меню (кликните чтобы скрыть)'
-                            : '❌ Раздел скрыт в меню (кликните чтобы показать)'
-                        }
-                        arrow
-                      >
-                        <Checkbox
-                          checked={rolePermissions.includes(actions.view_menu.id)}
-                          onChange={() => handleMenuVisibilityToggle(actions.view_menu)}
-                          color="info"
-                          size={compactView ? 'small' : 'medium'}
-                          sx={{
-                            '& .MuiSvgIcon-root': { fontSize: compactView ? 20 : 24 }
-                          }}
-                        />
-                      </Tooltip>
-                    ) : (
-                      <Typography variant="caption" color="text.disabled">—</Typography>
-                    )}
-                  </TableCell>
-
-                  {/* Просмотр */}
-                  <TableCell align="center" sx={{ py: 1.5 }}>
-                    {actions.read ? (
-                      <Tooltip 
-                        title={rolePermissions.includes(actions.read.id) ? 'Разрешено' : 'Запрещено'}
-                        arrow
-                      >
-                        <Checkbox
-                          checked={rolePermissions.includes(actions.read.id)}
-                          onChange={() => handleActionToggle(actions.read)}
-                          color="primary"
-                          size={compactView ? 'small' : 'medium'}
-                          sx={{
-                            '& .MuiSvgIcon-root': { fontSize: compactView ? 20 : 24 }
-                          }}
-                        />
-                      </Tooltip>
-                    ) : (
-                      <Typography variant="caption" color="text.disabled">—</Typography>
-                    )}
-                  </TableCell>
-
-                  {/* Создание */}
-                  <TableCell align="center" sx={{ py: 1.5 }}>
-                    {actions.create ? (
-                      <Tooltip 
-                        title={rolePermissions.includes(actions.create.id) ? 'Разрешено' : 'Запрещено'}
-                        arrow
-                      >
-                        <Checkbox
-                          checked={rolePermissions.includes(actions.create.id)}
-                          onChange={() => handleActionToggle(actions.create)}
-                          color="success"
-                          size={compactView ? 'small' : 'medium'}
-                          sx={{
-                            '& .MuiSvgIcon-root': { fontSize: compactView ? 20 : 24 }
-                          }}
-                        />
-                      </Tooltip>
-                    ) : (
-                      <Typography variant="caption" color="text.disabled">—</Typography>
-                    )}
-                  </TableCell>
-
-                  {/* Редактирование */}
-                  <TableCell align="center" sx={{ py: 1.5 }}>
-                    {actions.update ? (
-                      <Tooltip 
-                        title={rolePermissions.includes(actions.update.id) ? 'Разрешено' : 'Запрещено'}
-                        arrow
-                      >
-                        <Checkbox
-                          checked={rolePermissions.includes(actions.update.id)}
-                          onChange={() => handleActionToggle(actions.update)}
-                          color="warning"
-                          size={compactView ? 'small' : 'medium'}
-                          sx={{
-                            '& .MuiSvgIcon-root': { fontSize: compactView ? 20 : 24 }
-                          }}
-                        />
-                      </Tooltip>
-                    ) : (
-                      <Typography variant="caption" color="text.disabled">—</Typography>
-                    )}
-                  </TableCell>
-
-                  {/* Удаление */}
-                  <TableCell align="center" sx={{ py: 1.5 }}>
-                    {actions.delete ? (
-                      <Tooltip 
-                        title={rolePermissions.includes(actions.delete.id) ? 'Разрешено' : 'Запрещено'}
-                        arrow
-                      >
-                        <Checkbox
-                          checked={rolePermissions.includes(actions.delete.id)}
-                          onChange={() => handleActionToggle(actions.delete)}
-                          color="error"
-                          size={compactView ? 'small' : 'medium'}
-                          sx={{
-                            '& .MuiSvgIcon-root': { fontSize: compactView ? 20 : 24 }
-                          }}
-                        />
-                      </Tooltip>
-                    ) : (
-                      <Typography variant="caption" color="text.disabled">—</Typography>
-                    )}
-                  </TableCell>
-
-                  {/* Выбрать все для раздела */}
-                  <TableCell align="center" sx={{ py: 1.5 }}>
-                    <Tooltip 
-                      title={
-                        allChecked 
-                          ? 'Снять все разрешения' 
-                          : someChecked 
-                            ? 'Выбрать все разрешения'
-                            : 'Выбрать все разрешения'
-                      }
-                      arrow
-                    >
                       <Checkbox
-                        checked={allChecked}
-                        indeterminate={someChecked && !allChecked}
-                        onChange={() => toggleAllForResource(resourceGroup)}
-                        color="secondary"
-                        size={compactView ? 'small' : 'medium'}
-                        sx={{
-                          '& .MuiSvgIcon-root': { fontSize: compactView ? 20 : 24 }
-                        }}
+                        checked={rolePermissions.includes(actions.view_menu.id)}
+                        onChange={() => handleActionToggle(actions.view_menu)}
+                        sx={checkboxSx}
                       />
-                    </Tooltip>
+                    ) : (
+                      <Typography sx={{ fontSize: '11px', color: '#D1D5DB' }}>—</Typography>
+                    )}
+                  </TableCell>
+
+                  {/* Read */}
+                  <TableCell align="center" sx={{ py: 0.75, borderBottom: '1px solid #F3F4F6' }}>
+                    {actions.read ? (
+                      <Checkbox
+                        checked={rolePermissions.includes(actions.read.id)}
+                        onChange={() => handleActionToggle(actions.read)}
+                        sx={checkboxSx}
+                      />
+                    ) : (
+                      <Typography sx={{ fontSize: '11px', color: '#D1D5DB' }}>—</Typography>
+                    )}
+                  </TableCell>
+
+                  {/* Create */}
+                  <TableCell align="center" sx={{ py: 0.75, borderBottom: '1px solid #F3F4F6' }}>
+                    {actions.create ? (
+                      <Checkbox
+                        checked={rolePermissions.includes(actions.create.id)}
+                        onChange={() => handleActionToggle(actions.create)}
+                        sx={checkboxSx}
+                      />
+                    ) : (
+                      <Typography sx={{ fontSize: '11px', color: '#D1D5DB' }}>—</Typography>
+                    )}
+                  </TableCell>
+
+                  {/* Update */}
+                  <TableCell align="center" sx={{ py: 0.75, borderBottom: '1px solid #F3F4F6' }}>
+                    {actions.update ? (
+                      <Checkbox
+                        checked={rolePermissions.includes(actions.update.id)}
+                        onChange={() => handleActionToggle(actions.update)}
+                        sx={checkboxSx}
+                      />
+                    ) : (
+                      <Typography sx={{ fontSize: '11px', color: '#D1D5DB' }}>—</Typography>
+                    )}
+                  </TableCell>
+
+                  {/* Delete */}
+                  <TableCell align="center" sx={{ py: 0.75, borderBottom: '1px solid #F3F4F6' }}>
+                    {actions.delete ? (
+                      <Checkbox
+                        checked={rolePermissions.includes(actions.delete.id)}
+                        onChange={() => handleActionToggle(actions.delete)}
+                        sx={checkboxSx}
+                      />
+                    ) : (
+                      <Typography sx={{ fontSize: '11px', color: '#D1D5DB' }}>—</Typography>
+                    )}
+                  </TableCell>
+
+                  {/* Select all */}
+                  <TableCell align="center" sx={{ py: 0.75, borderBottom: '1px solid #F3F4F6' }}>
+                    <Checkbox
+                      checked={allChecked}
+                      indeterminate={someChecked && !allChecked}
+                      onChange={() => toggleAllForResource(resourceGroup)}
+                      sx={checkboxSx}
+                    />
                   </TableCell>
                 </TableRow>
               );
@@ -634,45 +422,20 @@ const PermissionsMatrixSimple = ({ roleId, roleName, roleKey, onPermissionsChang
         </Table>
       </TableContainer>
 
-      {/* Подсказки */}
-      <Alert severity="info" sx={{ mt: 2 }}>
-        <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>
-          📖 Как работают разрешения:
-        </Typography>
-        <Box component="ul" sx={{ m: 0, pl: 2, '& li': { mb: 0.5 } }}>
-          <li>
-            <strong>📋 Меню</strong> — показывать раздел в боковом меню навигации
-          </li>
-          <li>
-            <strong>👁️ Просмотр</strong> — просматривать записи (только чтение, без изменений)
-          </li>
-          <li>
-            <strong>➕ Создание</strong> — добавлять новые записи
-          </li>
-          <li>
-            <strong>✏️ Изменение</strong> — редактировать существующие записи
-          </li>
-          <li>
-            <strong>🗑️ Удаление</strong> — удалять записи (безвозвратно)
-          </li>
-          <li>
-            <strong>Все</strong> — быстро включить/отключить все разрешения для раздела одновременно
-          </li>
-        </Box>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-          💡 <em>Совет:</em> Обычно дают «Меню» + «Просмотр» для базового доступа к разделу
-        </Typography>
-      </Alert>
+      {/* Muted help text - no container */}
+      <Typography sx={{ 
+        mt: 1.5, 
+        fontSize: '11px', 
+        color: '#9CA3AF', 
+        lineHeight: 1.4 
+      }}>
+        Меню — навигация • Просмотр — чтение • Создание — добавление • Изменение — редактирование • Удаление — удаление
+      </Typography>
 
       {hasChanges && (
-        <Alert severity="warning" sx={{ mt: 2 }}>
-          <Typography variant="body2">
-            ⚠️ <strong>У вас есть несохраненные изменения!</strong>
-          </Typography>
-          <Typography variant="caption">
-            Нажмите кнопку <strong>«Сохранить изменения»</strong> в правом верхнем углу, чтобы применить их.
-          </Typography>
-        </Alert>
+        <Typography sx={{ mt: 1, fontSize: '11px', color: '#DC2626' }}>
+          ⚠ Есть несохраненные изменения
+        </Typography>
       )}
     </Box>
   );

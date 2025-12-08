@@ -1,11 +1,7 @@
 import PropTypes from 'prop-types';
 
 // material-ui
-import { useTheme } from '@mui/material/styles';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Divider from '@mui/material/Divider';
-import Grid from '@mui/material/Grid';
+import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -14,27 +10,10 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Chart from 'react-apexcharts';
 
 // icons
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import { IconChartBar, IconTrendingUp, IconTrendingDown } from '@tabler/icons-react';
 
-// ==============================|| FINANCIAL SUMMARY CHART ||============================== //
+// ==============================|| FINANCIAL SUMMARY CHART - MODERN ||============================== //
 
-/**
- * Финансовая сводка проекта
- * 
- * ОПТИМИЗАЦИЯ: Теперь принимает данные через props вместо загрузки через API.
- * Данные загружаются один раз в родительском компоненте через useProjectDashboard hook.
- * 
- * Раньше: FinancialSummaryChart загружал N×2 запросов (акты + закупки для каждой сметы)
- * Теперь: Данные приходят через financialSummary prop из единого endpoint
- * 
- * @param {Object} financialSummary - Данные финансовой сводки
- * @param {number} financialSummary.incomeWorks - Доход по работам (акты заказчика)
- * @param {number} financialSummary.expenseWorks - Расход по работам (акты специалистов)
- * @param {number} financialSummary.incomeMaterials - Доход по материалам (план)
- * @param {number} financialSummary.expenseMaterials - Расход по материалам (факт)
- * @param {boolean} isLoading - Состояние загрузки
- */
 export default function FinancialSummaryChart({ 
   financialSummary = {
     incomeWorks: 0,
@@ -44,8 +23,6 @@ export default function FinancialSummaryChart({
   },
   isLoading = false
 }) {
-  const theme = useTheme();
-
   const financialData = {
     incomeWorks: financialSummary?.incomeWorks || 0,
     expenseWorks: financialSummary?.expenseWorks || 0,
@@ -53,109 +30,9 @@ export default function FinancialSummaryChart({
     expenseMaterials: financialSummary?.expenseMaterials || 0
   };
 
-  // Настройки графика
-  const chartOptions = {
-    chart: {
-      id: 'financial-chart-v2',
-      type: 'bar',
-      toolbar: { show: false },
-      animations: {
-        enabled: true,
-        speed: 800
-      }
-    },
-    plotOptions: {
-      bar: {
-        horizontal: false,
-        columnWidth: '70%',
-        borderRadius: 4
-      }
-    },
-    dataLabels: {
-      enabled: true,
-      formatter: (val) => {
-        if (val === 0) return '0 ₽';
-        // Компактный формат для надписей на столбцах
-        if (val >= 1000000) {
-          return (val / 1000000).toFixed(1) + ' млн ₽';
-        } else if (val >= 1000) {
-          return (val / 1000).toFixed(0) + ' тыс ₽';
-        }
-        return val.toFixed(0) + ' ₽';
-      },
-      style: {
-        fontSize: '10px',
-        fontWeight: 600,
-        colors: ['#fff']
-      },
-      offsetY: -5
-    },
-    colors: [theme.palette.success.main, theme.palette.error.main],
-    xaxis: {
-      categories: ['Работы', 'Материалы'],
-      labels: {
-        style: {
-          fontSize: '13px',
-          fontWeight: 600
-        }
-      }
-    },
-    yaxis: {
-      labels: {
-        formatter: (val) => {
-          if (val === 0) return '0';
-          // Для больших чисел используем сокращения
-          if (val >= 1000000) {
-            return (val / 1000000).toFixed(1) + ' млн ₽';
-          } else if (val >= 1000) {
-            return (val / 1000).toFixed(0) + ' тыс. ₽';
-          }
-          return val.toFixed(0) + ' ₽';
-        },
-        style: {
-          fontSize: '11px'
-        }
-      }
-    },
-    legend: {
-      position: 'top',
-      horizontalAlign: 'right',
-      fontSize: '13px',
-      fontWeight: 500
-    },
-    tooltip: {
-      y: {
-        formatter: (val) => {
-          return new Intl.NumberFormat('ru-RU', {
-            style: 'currency',
-            currency: 'RUB',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-          }).format(val);
-        }
-      }
-    },
-    grid: {
-      borderColor: theme.palette.divider,
-      strokeDashArray: 4
-    }
-  };
-
-  const series = [
-    {
-      name: 'Доход',
-      data: [financialData.incomeWorks, financialData.incomeMaterials]
-    },
-    {
-      name: 'Расход',
-      data: [financialData.expenseWorks, financialData.expenseMaterials]
-    }
-  ];
-
-  // Расчет прибыли
-  const profitWorks = financialData.incomeWorks - financialData.expenseWorks;
-  const profitMaterials = financialData.incomeMaterials - financialData.expenseMaterials;
-  const totalProfit = profitWorks + profitMaterials;
+  const totalIncome = financialData.incomeWorks + financialData.incomeMaterials;
+  const totalExpense = financialData.expenseWorks + financialData.expenseMaterials;
+  const totalProfit = totalIncome - totalExpense;
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('ru-RU', {
@@ -166,79 +43,126 @@ export default function FinancialSummaryChart({
     }).format(value);
   };
 
+  const formatShort = (val) => {
+    if (val === 0) return '0';
+    if (val >= 1000000) return (val / 1000000).toFixed(1) + ' млн';
+    if (val >= 1000) return (val / 1000).toFixed(0) + ' тыс';
+    return val.toFixed(0);
+  };
+
+  const chartOptions = {
+    chart: {
+      id: 'financial-chart-modern',
+      type: 'bar',
+      toolbar: { show: false },
+      animations: { enabled: true, speed: 600 },
+      fontFamily: 'inherit',
+      offsetY: -12
+    },
+    plotOptions: {
+      bar: {
+        horizontal: false,
+        columnWidth: '55%',
+        borderRadius: 6,
+        borderRadiusApplication: 'end'
+      }
+    },
+    dataLabels: { enabled: false },
+    colors: ['#22C55E', '#EF4444'],
+    xaxis: {
+      categories: ['Работы', 'Материалы'],
+      labels: {
+        style: { fontSize: '11px', fontWeight: 500, colors: '#6B7280' },
+        offsetY: -4
+      },
+      axisBorder: { show: false },
+      axisTicks: { show: false }
+    },
+    yaxis: {
+      labels: {
+        formatter: formatShort,
+        style: { fontSize: '10px', colors: '#9CA3AF' }
+      }
+    },
+    legend: {
+      position: 'top',
+      horizontalAlign: 'right',
+      fontSize: '11px',
+      fontWeight: 500,
+      labels: { colors: '#6B7280' },
+      markers: { size: 6, shape: 'circle', offsetX: -2 },
+      itemMargin: { horizontal: 8 },
+      offsetY: 0
+    },
+    tooltip: {
+      y: { formatter: (val) => formatCurrency(val) },
+      style: { fontSize: '12px' }
+    },
+    grid: {
+      borderColor: '#E5E7EB',
+      strokeDashArray: 4,
+      xaxis: { lines: { show: false } },
+      padding: { top: -10, bottom: -5 }
+    },
+    states: {
+      hover: { filter: { type: 'darken', value: 0.9 } }
+    }
+  };
+
+  const series = [
+    { name: 'Доход', data: [financialData.incomeWorks, financialData.incomeMaterials] },
+    { name: 'Расход', data: [financialData.expenseWorks, financialData.expenseMaterials] }
+  ];
+
+  const summaryItems = [
+    { label: 'Общий доход', value: totalIncome, color: '#22C55E', bg: 'rgba(34,197,94,0.08)' },
+    { label: 'Общий расход', value: totalExpense, color: '#EF4444', bg: 'rgba(239,68,68,0.08)' },
+    { label: 'Прибыль', value: totalProfit, color: totalProfit >= 0 ? '#4F46E5' : '#F59E0B', bg: totalProfit >= 0 ? 'rgba(99,102,241,0.08)' : 'rgba(245,158,11,0.08)', trend: true }
+  ];
+
   if (isLoading) {
     return (
-      <Card>
-        <CardContent sx={{ pb: 2 }}>
-          <Typography variant="h5" gutterBottom>
-            Финансовая сводка проекта
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
-          <Box display="flex" justifyContent="center" alignItems="center" minHeight={300}>
-            <CircularProgress />
-          </Box>
-        </CardContent>
-      </Card>
+      <Paper elevation={0} sx={{ p: 2.5, borderRadius: '10px', border: '1px solid #E5E7EB', bgcolor: '#FFFFFF', height: '100%' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <IconChartBar size={16} stroke={1.5} color="#6B7280" />
+          <Typography sx={{ fontSize: '1rem', fontWeight: 500, color: '#1F2937' }}>Финансовая сводка</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+          <CircularProgress size={24} sx={{ color: '#6B7280' }} />
+        </Box>
+      </Paper>
     );
   }
 
   return (
-    <Card>
-      <CardContent sx={{ pb: 2 }}>
-        <Typography variant="h5" gutterBottom>
-          Финансовая сводка проекта
-        </Typography>
-        
-        {/* Статистика сверху */}
-        <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'success.lighter', borderRadius: 1 }}>
-              <Typography variant="h6" color="success.dark">
-                {formatCurrency(financialData.incomeWorks + financialData.incomeMaterials)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Общий доход
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'error.lighter', borderRadius: 1 }}>
-              <Typography variant="h6" color="error.dark">
-                {formatCurrency(financialData.expenseWorks + financialData.expenseMaterials)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Общий расход
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <Box sx={{ 
-              textAlign: 'center', 
-              p: 2, 
-              bgcolor: totalProfit >= 0 ? 'primary.lighter' : 'warning.lighter', 
-              borderRadius: 1 
-            }}>
-              <Typography variant="h6" color={totalProfit >= 0 ? 'primary.dark' : 'warning.dark'}>
-                {formatCurrency(totalProfit)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Прибыль
-                {totalProfit >= 0 ? (
-                  <TrendingUpIcon sx={{ fontSize: 16, ml: 0.5, verticalAlign: 'middle', color: 'success.main' }} />
-                ) : (
-                  <TrendingDownIcon sx={{ fontSize: 16, ml: 0.5, verticalAlign: 'middle', color: 'error.main' }} />
-                )}
-              </Typography>
-            </Box>
-          </Grid>
-        </Grid>
+    <Paper elevation={0} sx={{ p: 2.5, borderRadius: '10px', border: '1px solid #E5E7EB', bgcolor: '#FFFFFF', height: '100%' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <IconChartBar size={16} stroke={1.5} color="#6B7280" />
+        <Typography sx={{ fontSize: '1rem', fontWeight: 500, color: '#1F2937' }}>Финансовая сводка</Typography>
+      </Box>
 
-        {/* График */}
-        <Box sx={{ mt: 2, width: 'calc(100% + 48px)', ml: -3, mr: -3 }} key={`chart-${financialData.incomeWorks}`}>
-          <Chart options={chartOptions} series={series} type="bar" height={280} />
-        </Box>
-      </CardContent>
-    </Card>
+      {/* Сводка - 3 карточки */}
+      <Box sx={{ display: 'flex', gap: 1.5, mb: 2 }}>
+        {summaryItems.map((item, idx) => (
+          <Box key={idx} sx={{ flex: 1, p: '16px 20px', borderRadius: '8px', bgcolor: item.bg, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <Typography sx={{ fontSize: '0.6875rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{item.label}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: item.color }}>{formatCurrency(item.value)}</Typography>
+              {item.trend && (
+                item.value >= 0 
+                  ? <IconTrendingUp size={14} color="#22C55E" /> 
+                  : <IconTrendingDown size={14} color="#EF4444" />
+              )}
+            </Box>
+          </Box>
+        ))}
+      </Box>
+
+      {/* График */}
+      <Box sx={{ mx: -0.5, mt: -1 }} key={`chart-${financialData.incomeWorks}`}>
+        <Chart options={chartOptions} series={series} type="bar" height={170} />
+      </Box>
+    </Paper>
   );
 }
 
