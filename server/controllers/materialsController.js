@@ -264,23 +264,28 @@ export const getAllMaterials = async (req, res) => {
     
     // Поиск по SKU или названию (использует idx_materials_sku_trgm и idx_materials_name_trgm)
     // Поддержка умного поиска: "кабель 3х2,5" найдёт "Кабель ВВГПнг 3x2.5"
+    // Каждое слово ищется отдельно (логическое И)
     if (search) {
       const normalizedSearch = normalizeSearchQuery(search);
-      const originalSearch = search.toLowerCase().trim();
+      // Разбиваем на слова
+      const words = normalizedSearch.split(/\s+/).filter(w => w.length > 0);
       
-      // Если нормализация дала другой результат, ищем по обоим вариантам
-      if (normalizedSearch !== originalSearch) {
-        whereConditions.push(`(
-          sku ILIKE $${paramIndex} OR name ILIKE $${paramIndex} OR
-          LOWER(REPLACE(REPLACE(REPLACE(name, ',', '.'), 'х', 'x'), '×', 'x')) ILIKE $${paramIndex + 1} OR
-          LOWER(REPLACE(REPLACE(REPLACE(sku, ',', '.'), 'х', 'x'), '×', 'x')) ILIKE $${paramIndex + 1}
-        )`);
-        params.push(`%${originalSearch}%`, `%${normalizedSearch}%`);
-        paramIndex += 2;
-      } else {
-        whereConditions.push(`(sku ILIKE $${paramIndex} OR name ILIKE $${paramIndex})`);
-        params.push(`%${search}%`);
-        paramIndex++;
+      if (words.length > 0) {
+        // Для каждого слова создаём условие поиска
+        const wordConditions = words.map(word => {
+          const currentIdx = paramIndex;
+          paramIndex++;
+          params.push(`%${word}%`);
+          
+          // Ищем слово в name или sku (с нормализацией х→x, ,→.)
+          return `(
+            LOWER(REPLACE(REPLACE(REPLACE(name, ',', '.'), 'х', 'x'), '×', 'x')) ILIKE $${currentIdx} OR
+            LOWER(REPLACE(REPLACE(REPLACE(sku, ',', '.'), 'х', 'x'), '×', 'x')) ILIKE $${currentIdx}
+          )`;
+        });
+        
+        // Все слова должны быть найдены (логическое И)
+        whereConditions.push(`(${wordConditions.join(' AND ')})`);
       }
     }
     
