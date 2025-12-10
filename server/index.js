@@ -47,8 +47,13 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002',
+  'http://localhost:4173',
+  'http://localhost:4174',
   'https://vite-brh3woujs-ilyas-projects-8ff82073.vercel.app',
-  /\.vercel\.app$/
+  /\.vercel\.app$/,
+  /\.onrender\.com$/,  // ✅ Render.com домены
+  'https://smeta-lab.ru',
+  'https://www.smeta-lab.ru'
 ];
 
 app.use(cors({

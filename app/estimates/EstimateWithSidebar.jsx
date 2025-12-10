@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useRef, forwardRef, useImperativeHandle, useCallback, startTransition, useDeferredValue } from 'react';
 import PropTypes from 'prop-types';
 import { Virtuoso } from 'react-virtuoso';
 import debounce from 'lodash.debounce';
@@ -72,6 +72,10 @@ import { useGetMenuMaster } from 'api/menu'; // ✅ Только для полу
 import PriceCoefficientModal from './PriceCoefficientModal';
 import ObjectParametersSidebar from './ObjectParametersSidebar';
 import { fullTextSearch } from 'shared/lib/utils/fullTextSearch';
+
+// ✅ Мемоизированные компоненты строк для оптимизации производительности
+import WorkRow from './components/WorkRow';
+import MaterialRow from './components/MaterialRow';
 
 // ==============================|| HELPER FUNCTIONS ||============================== //
 
@@ -186,6 +190,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   const [loadingWorks, setLoadingWorks] = useState(true);
   const [errorWorks, setErrorWorks] = useState(null);
   const [transferringWorks, setTransferringWorks] = useState(false); // ✅ Индикатор переноса работ
+  const [addingWorkId, setAddingWorkId] = useState(null); // ✅ ID работы, которая сейчас добавляется
   
   // Modal states для действий с материалами
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
@@ -194,7 +199,10 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   const [materialToReplace, setMaterialToReplace] = useState(null);
   const [availableMaterials, setAvailableMaterials] = useState([]);
   const [loadingMaterials, setLoadingMaterials] = useState(false);
-  const [materialSearchTerm, setMaterialSearchTerm] = useState(''); // ✅ Поиск в модалке материалов
+  const [materialSearchQuery, setMaterialSearchQuery] = useState(''); // ✅ Для отображения в UI
+  
+  // ✅ Локальное хранилище для редактируемых полей (не вызывает ререндер)
+  const editingValuesRef = useRef({});
   
   // ✅ State для модального окна коэффициента цен
   const [coefficientModalOpen, setCoefficientModalOpen] = useState(false);
@@ -219,33 +227,11 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   const worksCacheTimestamp = useRef({ global: null, tenant: null });
   const WORKS_CACHE_TTL = 10 * 60 * 1000; // 10 минут
   
-  // ✅ Debounced поиск материалов - отложенный запрос к серверу
-  const debouncedSearchMaterials = useCallback(
-    debounce(async (searchQuery) => {
-      if (searchQuery.trim().length >= 2) {
-        // Поиск по запросу на сервере
-        await loadAvailableMaterials(searchQuery);
-      }
-    }, 500),
-    []
-  );
+  // ✅ УДАЛЁН серверный поиск материалов - теперь поиск только на клиенте
+  // Все материалы загружаются один раз при открытии модалки
 
-  // ✅ Debounced автосохранение (через 5 секунд после последнего изменения)
-  const debouncedAutoSave = useCallback(
-    debounce(async (dataToSave) => {
-      if (!estimateId) return; // Автосохранение только для существующих смет
-      
-      try {
-        console.log('🔄 Автосохранение...');
-        await handleSaveToDatabase(true); // true = isAutoSave (тихое сохранение)
-        console.log('✅ Автосохранение выполнено');
-      } catch (error) {
-        console.error('❌ Ошибка автосохранения:', error);
-        // Не показываем snackbar при ошибке автосохранения (не мешаем пользователю)
-      }
-    }, 5000), // 5 секунд - даёт время на несколько изменений подряд
-    [estimateId]
-  );
+  // ❌ ОТКЛЮЧЕНО: Автосохранение убрано для улучшения производительности
+  // Сохранение теперь только по кнопке "Сохранить"
 
   // ✅ Загрузить работы с кешированием
   const loadWorksCached = useCallback(async (sourceType) => {
@@ -331,6 +317,9 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // Данные всегда загружаются из БД через useEffect
   const [estimateData, setEstimateData] = useState({ sections: [] });
   
+  // ✅ ОПТИМИЗАЦИЯ: Отложенное обновление для таблицы (не блокирует ввод)
+  const deferredEstimateData = useDeferredValue(estimateData);
+  
   // ✅ Метаданные сметы (название, тип, описание и т.д.)
   const [estimateMetadata, setEstimateMetadata] = useState({
     name: `Смета от ${new Date().toLocaleDateString()}`,
@@ -377,48 +366,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     save: handleSaveToDatabase
   }));
 
-  // ✅ Отслеживание изменений estimateData + автосохранение (ОПТИМИЗИРОВАНО)
-  useEffect(() => {
-    // Игнорируем первый рендер (когда savedEstimateDataRef еще не установлен)
-    if (savedEstimateDataRef.current === null) {
-      savedEstimateDataRef.current = JSON.stringify(estimateData);
-      return;
-    }
-
-    // 🛡️ ЗАЩИТА #1: НЕ автосохранять до завершения начальной загрузки
-    if (!isInitialLoadComplete) {
-      console.log('⏸️ Автосохранение приостановлено: ожидание загрузки данных');
-      return;
-    }
-
-    // ✅ ОПТИМИЗАЦИЯ: Используем requestIdleCallback для отложенного сравнения
-    // Это не блокирует UI при клике между ячейками
-    const checkChanges = () => {
-      const currentData = JSON.stringify(estimateData);
-      const hasChanges = currentData !== savedEstimateDataRef.current;
-      
-      setHasUnsavedChanges(hasChanges);
-      
-      // Уведомляем родительский компонент через ref (стабильная ссылка)
-      if (onUnsavedChangesRef.current) {
-        onUnsavedChangesRef.current(hasChanges);
-      }
-      
-      // ✅ Запускаем автосохранение при наличии изменений
-      if (hasChanges && estimateData.sections.length > 0) {
-        debouncedAutoSave(estimateData);
-      }
-    };
-
-    // Используем requestIdleCallback если доступен, иначе setTimeout
-    if ('requestIdleCallback' in window) {
-      const idleId = window.requestIdleCallback(checkChanges, { timeout: 500 });
-      return () => window.cancelIdleCallback(idleId);
-    } else {
-      const timeoutId = setTimeout(checkChanges, 100);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [estimateData, debouncedAutoSave, isInitialLoadComplete]); // Добавлен isInitialLoadComplete
+  // ❌ УБРАН useEffect отслеживания изменений - он вызывал лаги
+  // Флаг hasUnsavedChanges теперь ставится напрямую при изменениях
 
   // Фильтрация работ с полнотекстовым поиском
   // Поддерживает поиск по нескольким словам одновременно
@@ -451,18 +400,12 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     return Array.from(sections).sort();
   }, [worksAfterSearch]);
 
-  // ✅ Фильтрация материалов с полнотекстовым поиском
-  const filteredMaterials = useMemo(() => {
-    if (!materialSearchTerm) return availableMaterials;
-    
-    // Используем полнотекстовый поиск по всем полям
-    return fullTextSearch(availableMaterials, materialSearchTerm, ['name', 'sku', 'category', 'supplier', 'unit']);
-  }, [materialSearchTerm, availableMaterials]);
+  // ✅ Материалы теперь загружаются с сервера при поиске - клиентская фильтрация не нужна
 
-  // Получить ID работ, которые уже добавлены в смету
+  // Получить ID работ, которые уже добавлены в смету (используем deferred для отложенного пересчёта)
   const addedWorkIds = useMemo(() => {
     const ids = new Set();
-    estimateData?.sections?.forEach((section) => {
+    deferredEstimateData?.sections?.forEach((section) => {
       section.items?.forEach((item) => {
         // ★ Приводим к строке для корректного сравнения с availableWorks[].id
         if (item.workId != null) {
@@ -471,33 +414,28 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       });
     });
     return ids;
-  }, [estimateData]);
+  }, [deferredEstimateData]);
 
-  // Подсчет итогов
-  const totalAmount = useMemo(
-    () => estimateData?.sections?.reduce((sum, section) => sum + section.subtotal, 0) || 0,
-    [estimateData]
-  );
+  // ❌ УДАЛЕНО: totalAmount не используется (дублирует calculateTotals)
 
   // Перенести выбранные работы в смету
-  const handleTransferToEstimate = async (customWorks = null) => {
-    try {
-      const startTime = performance.now();
-      setTransferringWorks(true);
-      
-      // Используем только явно переданные работы (customWorks)
-      const worksToAdd = customWorks || [];
-      
-      if (worksToAdd.length === 0) {
-        setTransferringWorks(false);
-        return;
-      }
+  const handleTransferToEstimate = useCallback(async (customWorks = null) => {
+    // Используем только явно переданные работы (customWorks)
+    const worksToAdd = customWorks || [];
+    
+    if (worksToAdd.length === 0) {
+      return;
+    }
 
+    // ✅ Показываем индикатор для конкретной работы
+    const workId = worksToAdd[0]?.id;
+    setAddingWorkId(workId);
+    setTransferringWorks(true);
+
+    try {
       // ⚡ Загружаем материалы ОДНИМ запросом для всех работ
-      const materialsStartTime = performance.now();
       const workIds = worksToAdd.map(w => w.id);
       const materialsMap = await workMaterialsAPI.getMaterialsForMultipleWorks(workIds);
-      const materialsEndTime = performance.now();
 
       // Формируем worksWithMaterials из полученной карты
       const worksWithMaterials = worksToAdd.map(work => ({
@@ -505,87 +443,97 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         materials: materialsMap[work.id] || []
       }));
 
-    setEstimateData((prevData) => {
-      const newSections = [...prevData.sections];
-
-      worksWithMaterials.forEach(({ work, materials }) => {
-        // Группируем работы по ФАЗЕ (Этап №0, Этап №1, и т.д.)
-        const phaseKey = work.phase || 'Без фазы';
-        const sectionCode = work.code ? work.code.split(/[-–]/)[0] : '00';
-
-        // Ищем существующий раздел по ФАЗЕ
-        let section = newSections.find((s) => s.title === phaseKey);
-
-        if (!section) {
-          section = {
-            id: `s${sectionCode}-${Date.now()}`,
-            code: sectionCode,
-            title: phaseKey,
-            name: phaseKey,
-            items: [],
-            subtotal: 0
-          };
-          newSections.push(section);
-        }
-
-        // Создаем новую позицию работы с материалами
-        const defaultQuantity = 0; // Начальное количество для новой работы (0 по умолчанию)
-
-        // Рассчитываем материалы из API
-        const calculatedMaterials = materials.map((mat) => ({
-          id: `${mat.material_id}-${Date.now()}-${Math.random()}`, // временный ID для UI
-          material_id: mat.material_id, // реальный ID для БД
-          code: mat.material_sku || `M-${mat.material_id}`,
-          name: mat.material_name,
-          unit: mat.material_unit,
-          quantity: parseFloat((defaultQuantity * mat.consumption).toFixed(2)),
-          price: mat.material_price,
-          total: parseFloat((defaultQuantity * mat.consumption * mat.material_price).toFixed(2)),
-          consumption: parseFloat(mat.consumption)
+      // ✅ Обновляем состояние синхронно (без setTimeout) для быстрого отклика
+      setEstimateData((prevData) => {
+        // ✅ Глубокая копия секций для React.memo
+        const newSections = prevData.sections.map(section => ({
+          ...section,
+          items: [...section.items]
         }));
 
-        const newItem = {
-          id: `item-${Date.now()}-${work.id}`,
-          workId: work.id,
-          code: work.code,
-          name: work.name,
-          unit: work.unit,
-          quantity: defaultQuantity,
-          price: work.price,
-          total: defaultQuantity * work.price,
-          phase: work.phase,
-          section: work.section,
-          subsection: work.subsection,
-          materials: calculatedMaterials
-        };
+        worksWithMaterials.forEach(({ work, materials }) => {
+          const phaseKey = work.phase || 'Без фазы';
+          const sectionCode = work.code ? work.code.split(/[-–]/)[0] : '00';
 
-        // ✅ Добавляем работу в конец массива
-        section.items.push(newItem);
+          let sectionIndex = newSections.findIndex((s) => s.title === phaseKey);
+
+          if (sectionIndex === -1) {
+            newSections.push({
+              id: `s${sectionCode}-${Date.now()}`,
+              code: sectionCode,
+              title: phaseKey,
+              name: phaseKey,
+              items: [],
+              subtotal: 0
+            });
+            sectionIndex = newSections.length - 1;
+          }
+
+          const defaultQuantity = 0;
+
+          const calculatedMaterials = materials.map((mat) => ({
+            id: `${mat.material_id}-${Date.now()}-${Math.random()}`,
+            material_id: mat.material_id,
+            code: mat.material_sku || `M-${mat.material_id}`,
+            name: mat.material_name,
+            unit: mat.material_unit,
+            quantity: parseFloat((defaultQuantity * mat.consumption).toFixed(2)),
+            price: mat.material_price,
+            total: parseFloat((defaultQuantity * mat.consumption * mat.material_price).toFixed(2)),
+            consumption: parseFloat(mat.consumption),
+            auto_calculate: true
+          }));
+
+          const newItem = {
+            id: `item-${Date.now()}-${work.id}`,
+            workId: work.id,
+            code: work.code,
+            name: work.name,
+            unit: work.unit,
+            quantity: defaultQuantity,
+            price: work.price,
+            total: defaultQuantity * work.price,
+            phase: work.phase,
+            section: work.section,
+            subsection: work.subsection,
+            materials: calculatedMaterials
+          };
+
+          // Создаём новый массив items (для React.memo)
+          newSections[sectionIndex] = {
+            ...newSections[sectionIndex],
+            items: [...newSections[sectionIndex].items, newItem]
+          };
+
+          // Сортируем
+          sortWorkItems(newSections[sectionIndex].items);
+
+          // Пересчитываем subtotal
+          newSections[sectionIndex].subtotal = newSections[sectionIndex].items.reduce(
+            (sum, item) => sum + item.total, 0
+          );
+        });
+
+        // Сортируем разделы по коду
+        newSections.sort((a, b) => {
+          const codeA = a.code || '00';
+          const codeB = b.code || '00';
+          return codeA.localeCompare(codeB);
+        });
+
+        // Сохраняем оригинальные цены новых работ
+        saveOriginalPrices(newSections);
         
-        // ✅ Сортируем весь раздел после добавления
-        sortWorkItems(section.items);
-
-        // Пересчитываем subtotal раздела
-        section.subtotal = section.items.reduce((sum, item) => sum + item.total, 0);
+        return { sections: newSections };
       });
-
-      // Сортируем разделы по коду (с проверкой на undefined)
-      newSections.sort((a, b) => {
-        const codeA = a.code || '00';
-        const codeB = b.code || '00';
-        return codeA.localeCompare(codeB);
-      });
-
-      const totalItems = newSections.flatMap(s => s.items).length;
-      // ✅ Сохраняем оригинальные цены новых работ
-      saveOriginalPrices(newSections);
       
-      return { sections: newSections };
-    });
+      setHasUnsavedChanges(true);
+      
     } finally {
       setTransferringWorks(false);
+      setAddingWorkId(null);
     }
-  };
+  }, []);
 
   // Toggle режима расчёта/просмотра - справочник как overlay, главный сайдбар НЕ трогаем
   const toggleSidebar = () => {
@@ -710,60 +658,41 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // ============ ДЕЙСТВИЯ С МАТЕРИАЛАМИ ============
 
   // Открыть диалог добавления материала
-  const handleOpenAddMaterial = (sectionIndex, itemIndex) => {
+  const handleOpenAddMaterial = useCallback((sectionIndex, itemIndex) => {
     setCurrentWorkItem({ sectionIndex, itemIndex });
     setMaterialDialogMode('add');
-    setMaterialSearchTerm(''); // ✅ Сбрасываем поиск
+    setMaterialSearchQuery('');
+    setAvailableMaterials([]); // ✅ Начинаем с пустого списка
     setMaterialDialogOpen(true);
-    // ✅ Используем кешированные данные если они актуальны
-    loadAvailableMaterialsCached();
-  };
+  }, []);
 
   // Открыть диалог замены материала
-  const handleOpenReplaceMaterial = (sectionIndex, itemIndex, materialIndex) => {
+  const handleOpenReplaceMaterial = useCallback((sectionIndex, itemIndex, materialIndex) => {
     setCurrentWorkItem({ sectionIndex, itemIndex });
     setMaterialToReplace(materialIndex);
     setMaterialDialogMode('replace');
-    setMaterialSearchTerm(''); // ✅ Сбрасываем поиск
+    setMaterialSearchQuery('');
+    setAvailableMaterials([]); // ✅ Начинаем с пустого списка
     setMaterialDialogOpen(true);
-    // ✅ Используем кешированные данные если они актуальны
-    loadAvailableMaterialsCached();
-  };
+  }, []);
 
-  // ✅ Загрузить материалы с использованием кеша
-  const loadAvailableMaterialsCached = async () => {
-    const now = Date.now();
-    
-    // Проверяем валидность кеша
-    if (materialsCache.current && 
-        materialsCacheTimestamp.current && 
-        (now - materialsCacheTimestamp.current) < MATERIALS_CACHE_TTL) {
-      // Используем кеш - мгновенное открытие!
-      setAvailableMaterials(materialsCache.current);
+  // ✅ Поиск материалов на сервере (по Enter)
+  const searchMaterialsOnServer = async (searchQuery) => {
+    if (!searchQuery || searchQuery.trim().length < 2) {
+      setAvailableMaterials([]);
       return;
     }
     
-    // Кеш устарел или отсутствует - загружаем заново
-    await loadAvailableMaterials();
-  };
-
-  // Загрузить список материалов из API
-  const loadAvailableMaterials = async (searchQuery = '') => {
     try {
       setLoadingMaterials(true);
-      // ✅ Загружаем только первые 1000 материалов для быстрой загрузки
-      // Пользователь может использовать поиск для остальных
       const materials = await materialsAPI.getAll({
-        search: searchQuery || undefined,
-        pageSize: 1000 // ✅ Оптимизировано: 1000 вместо 100000
+        search: searchQuery.trim(),
+        pageSize: 500 // Достаточно для результатов поиска
       });
-      
-      // ✅ Сохраняем в кеш
-      materialsCache.current = materials;
-      materialsCacheTimestamp.current = Date.now();
-      
       setAvailableMaterials(materials);
+      console.log(`✅ Найдено ${materials.length} материалов по запросу "${searchQuery}"`);
     } catch (error) {
+      console.error('❌ Ошибка поиска материалов:', error);
       setAvailableMaterials([]);
     } finally {
       setLoadingMaterials(false);
@@ -854,147 +783,156 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   };
 
   // Удалить материал
-  const handleDeleteMaterial = (sectionIndex, itemIndex, materialIndex) => {
+  const handleDeleteMaterial = useCallback((sectionIndex, itemIndex, materialIndex) => {
     if (!window.confirm('Удалить этот материал?')) return;
 
+    setHasUnsavedChanges(true);
     setEstimateData((prevData) => {
       const newSections = [...prevData.sections];
       const item = newSections[sectionIndex].items[itemIndex];
       item.materials.splice(materialIndex, 1);
       return { sections: newSections };
     });
-  };
+  }, []);
   
-  // ✅ КАЛЬКУЛЯТОР: Функция безопасного вычисления математических выражений
-  const calculateExpression = (expression) => {
-    if (!expression || typeof expression !== 'string') return expression;
+  // ❌ КАЛЬКУЛЯТОР ОТКЛЮЧЕН - теперь только прямой ввод чисел
+  // const calculateExpression = ... (удалено для производительности)
+  
+  // ✅ ОПТИМИЗИРОВАНО: onChange только сохраняет в ref (без ререндера)
+  const handleMaterialConsumptionChange = useCallback((sectionIndex, itemIndex, materialIndex, newConsumption) => {
+    const key = `cons_${sectionIndex}_${itemIndex}_${materialIndex}`;
+    editingValuesRef.current[key] = newConsumption;
+  }, []);
+  
+  // ✅ ОПТИМИЗИРОВАНО: Обработка при потере фокуса для расхода (onBlur)
+  const handleMaterialConsumptionBlur = useCallback((sectionIndex, itemIndex, materialIndex, inputElement) => {
+    const key = `cons_${sectionIndex}_${itemIndex}_${materialIndex}`;
+    const currentValue = editingValuesRef.current[key] ?? inputElement?.value;
     
-    // Проверяем, содержит ли строка математические операторы
-    if (!/[+\-*/]/.test(expression)) return expression;
+    // Очищаем ref
+    delete editingValuesRef.current[key];
     
-    try {
-      // Заменяем запятые на точки для вычисления
-      const normalized = expression.replace(/,/g, '.');
-      
-      // Очищаем выражение от недопустимых символов (только цифры, точка, операторы, скобки, пробелы)
-      const sanitized = normalized.replace(/[^\d+\-*/.() ]/g, '');
-      
-      // Вычисляем результат через Function (безопаснее eval)
-      const result = new Function('return ' + sanitized)();
-      
-      // Проверяем, что результат - число
-      if (typeof result === 'number' && !isNaN(result)) {
-        return result;
+    setTimeout(() => {
+      // Если пустое значение, ничего не делаем
+      if (currentValue === '' || currentValue === null || currentValue === undefined) {
+        return;
       }
-    } catch (error) {
-      // Если ошибка вычисления, возвращаем исходное значение
-    }
-    
-    return expression;
-  };
-  
-  // ✅ НОВОЕ: Изменить расход материала (consumption) - onChange
-  const handleMaterialConsumptionChange = (sectionIndex, itemIndex, materialIndex, newConsumption) => {
-    // Просто сохраняем значение как есть (для ввода выражения)
-    setEstimateData((prevData) => {
-      const newSections = [...prevData.sections];
-      const material = newSections[sectionIndex].items[itemIndex].materials[materialIndex];
-      material.consumption = newConsumption;
-      return { sections: newSections };
-    });
-  };
-  
-  // ✅ НОВОЕ: Обработка при потере фокуса для расхода - вычисляем выражение (onBlur)
-  // ОПТИМИЗИРОВАНО: используем setTimeout для предотвращения блокировки UI
-  const handleMaterialConsumptionBlur = (sectionIndex, itemIndex, materialIndex) => {
-    setTimeout(() => {
-      setEstimateData((prevData) => {
-        const newSections = [...prevData.sections];
-        const item = newSections[sectionIndex].items[itemIndex];
-        const material = item.materials[materialIndex];
-        const currentValue = material.consumption;
-        
-        // Если пустое значение, оставляем как есть
-        if (currentValue === '' || currentValue === null || currentValue === undefined) {
-          return prevData;
-        }
-        
-        // ✅ Вычисляем математическое выражение
-        const calculatedValue = calculateExpression(String(currentValue));
-        const consumption = parseFloat(calculatedValue);
-        
-        // Если результат не число, оставляем как есть
-        if (isNaN(consumption) || consumption < 0) {
-          return prevData;
-        }
-        
-        material.consumption = consumption;
-        
-        // ✅ Если auto_calculate = true, пересчитываем quantity
-        if (material.auto_calculate || material.autoCalculate) {
-          material.quantity = parseFloat((item.quantity * consumption).toFixed(2));
-        }
-        
-        // Пересчитываем total
-        material.total = parseFloat((material.quantity * material.price).toFixed(2));
-        
-        return { sections: newSections };
-      });
-    }, 0);
-  };
-  
-  // ✅ НОВОЕ: Изменить количество материала вручную (onChange - просто сохраняет значение)
-  const handleMaterialQuantityChange = (sectionIndex, itemIndex, materialIndex, newQuantity) => {
-    // Просто сохраняем значение как есть (для ввода выражения типа "2+3" или "10*1.5")
-    setEstimateData((prevData) => {
-      const newSections = [...prevData.sections];
-      const material = newSections[sectionIndex].items[itemIndex].materials[materialIndex];
-      material.quantity = newQuantity;
-      return { sections: newSections };
-    });
-  };
-  
-  // ✅ НОВОЕ: Обработка при потере фокуса - вычисляем выражение (onBlur)
-  // ОПТИМИЗИРОВАНО: используем setTimeout для предотвращения блокировки UI
-  const handleMaterialQuantityBlur = (sectionIndex, itemIndex, materialIndex) => {
-    // Откладываем обновление state чтобы не блокировать переход фокуса
-    setTimeout(() => {
-      setEstimateData((prevData) => {
-        const newSections = [...prevData.sections];
-        const material = newSections[sectionIndex].items[itemIndex].materials[materialIndex];
-        const currentValue = material.quantity;
       
-        // Если пустое значение, оставляем как есть
-        if (currentValue === '' || currentValue === null || currentValue === undefined) {
-          return prevData;
-        }
-        
-        // ✅ Вычисляем математическое выражение
-        const calculatedValue = calculateExpression(String(currentValue));
-        const quantity = parseFloat(calculatedValue);
-        
-        // Если результат не число, оставляем как есть
-        if (isNaN(quantity) || quantity < 0) {
-          return prevData;
-        }
-        
-        // ✅ Ручное изменение количества отключает автоматический расчет
-        material.quantity = quantity;
-        material.auto_calculate = false;
-        material.autoCalculate = false;
-        
-        // Пересчитываем total
-        material.total = parseFloat((quantity * material.price).toFixed(2));
+      // ✅ УПРОЩЕНО: просто parseFloat без калькулятора
+      const consumption = parseFloat(String(currentValue).replace(/,/g, '.'));
+      
+      // Если результат не число, ничего не делаем
+      if (isNaN(consumption) || consumption < 0) {
+        return;
+      }
+      
+      setHasUnsavedChanges(true);
+      setEstimateData((prevData) => {
+        // ✅ Глубокая копия для корректной работы React.memo
+        const newSections = prevData.sections.map((section, secIdx) => {
+          if (secIdx !== sectionIndex) return section;
+          
+          return {
+            ...section,
+            items: section.items.map((item, itIdx) => {
+              if (itIdx !== itemIndex) return item;
+              
+              return {
+                ...item,
+                materials: item.materials.map((mat, matIdx) => {
+                  if (matIdx !== materialIndex) return mat;
+                  
+                  const isAutoCalculate = mat.auto_calculate || mat.autoCalculate;
+                  const newQuantity = isAutoCalculate 
+                    ? parseFloat((item.quantity * consumption).toFixed(2))
+                    : mat.quantity;
+                  
+                  return {
+                    ...mat,
+                    consumption: consumption,
+                    quantity: newQuantity,
+                    total: parseFloat((newQuantity * mat.price).toFixed(2))
+                  };
+                })
+              };
+            })
+          };
+        });
         
         return { sections: newSections };
       });
-    }, 0); // setTimeout с 0 позволяет браузеру обработать фокус сначала
-  };
+    }, 50); // 50ms задержка для плавного перехода фокуса
+  }, []);
+  
+  // ✅ ОПТИМИЗИРОВАНО: onChange только сохраняет в ref (без ререндера)
+  const handleMaterialQuantityInputChange = useCallback((sectionIndex, itemIndex, materialIndex, value) => {
+    const key = `mat_${sectionIndex}_${itemIndex}_${materialIndex}`;
+    editingValuesRef.current[key] = value;
+  }, []);
+  
+  // ✅ ОПТИМИЗИРОВАНО: Обработка при потере фокуса - только обновляем данные
+  const handleMaterialQuantityBlur = useCallback((sectionIndex, itemIndex, materialIndex, inputElement) => {
+    const key = `mat_${sectionIndex}_${itemIndex}_${materialIndex}`;
+    const inputValue = editingValuesRef.current[key] ?? inputElement?.value;
+    
+    // Очищаем ref
+    delete editingValuesRef.current[key];
+    
+    // ✅ ОПТИМИЗАЦИЯ: Увеличиваем задержку чтобы браузер успел обработать фокус нового поля
+    setTimeout(() => {
+      // Если пустое значение, ничего не делаем
+      if (inputValue === '' || inputValue === null || inputValue === undefined) {
+        return;
+      }
+      
+      // ✅ УПРОЩЕНО: просто parseFloat без калькулятора
+      const quantity = parseFloat(String(inputValue).replace(/,/g, '.'));
+      
+      // Если результат не число, ничего не делаем
+      if (isNaN(quantity) || quantity < 0) {
+        return;
+      }
+      
+      // ✅ Ставим флаг изменений и обновляем данные
+      setHasUnsavedChanges(true);
+      setEstimateData((prevData) => {
+        // ✅ Глубокая копия для корректной работы React.memo
+        const newSections = prevData.sections.map((section, secIdx) => {
+          if (secIdx !== sectionIndex) return section;
+          
+          return {
+            ...section,
+            items: section.items.map((item, itIdx) => {
+              if (itIdx !== itemIndex) return item;
+              
+              return {
+                ...item,
+                materials: item.materials.map((mat, matIdx) => {
+                  if (matIdx !== materialIndex) return mat;
+                  
+                  return {
+                    ...mat,
+                    quantity: quantity,
+                    auto_calculate: false,
+                    autoCalculate: false,
+                    total: parseFloat((quantity * mat.price).toFixed(2))
+                  };
+                })
+              };
+            })
+          };
+        });
+        
+        return { sections: newSections };
+      });
+    }, 50); // 50ms задержка для плавного перехода фокуса
+  }, []);
 
   // Удалить работу (блок) вместе со всеми материалами
-  const handleDeleteWork = (sectionIndex, itemIndex) => {
+  const handleDeleteWork = useCallback((sectionIndex, itemIndex) => {
     if (!window.confirm('Удалить эту работу и все связанные материалы?')) return;
 
+    setHasUnsavedChanges(true);
     setEstimateData((prevData) => {
       const newSections = [...prevData.sections];
       newSections[sectionIndex].items.splice(itemIndex, 1);
@@ -1006,44 +944,75 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
 
       return { sections: newSections };
     });
-  };
+  }, []);
 
   // ============ РЕДАКТИРОВАНИЕ КОЛИЧЕСТВА ============
 
-  // Изменить количество работы (с автопересчётом материалов)
+  // ✅ ОПТИМИЗИРОВАНО: onChange только сохраняет в ref (без ререндера)
+  const handleWorkQuantityInputChange = useCallback((sectionIndex, itemIndex, value) => {
+    const key = `work_${sectionIndex}_${itemIndex}`;
+    editingValuesRef.current[key] = value;
+  }, []);
+
+  // ✅ ОПТИМИЗИРОВАНО: Пересчёт только при onBlur с задержкой
+  const handleWorkQuantityBlur = useCallback((sectionIndex, itemIndex, inputElement) => {
+    const key = `work_${sectionIndex}_${itemIndex}`;
+    const newQuantity = editingValuesRef.current[key] ?? inputElement?.value;
+    
+    // Очищаем ref
+    delete editingValuesRef.current[key];
+    
+    // ✅ ОПТИМИЗАЦИЯ: задержка для плавного перехода фокуса
+    setTimeout(() => {
+      setHasUnsavedChanges(true);
+      handleWorkQuantityChange(sectionIndex, itemIndex, newQuantity);
+    }, 50);
+  }, []);
+
+  // Изменить количество работы (с автопересчётом материалов) - вызывается только при onBlur
   const handleWorkQuantityChange = (sectionIndex, itemIndex, newQuantity) => {
     // ✅ Разрешаем пустую строку (для полного стирания)
     if (newQuantity === '' || newQuantity === null || newQuantity === undefined) {
       setEstimateData((prevData) => {
-        const newSections = [...prevData.sections];
-        const item = newSections[sectionIndex].items[itemIndex];
+        // ✅ Глубокая копия для корректной работы React.memo
+        const newSections = prevData.sections.map((section, secIdx) => {
+          if (secIdx !== sectionIndex) return section;
+          
+          return {
+            ...section,
+            items: section.items.map((item, itIdx) => {
+              if (itIdx !== itemIndex) return item;
+              
+              const newItem = {
+                ...item,
+                quantity: 0,
+                total: 0
+              };
+              
+              // Обнуляем материалы (только автоматические)
+              if (item.materials && item.materials.length > 0) {
+                newItem.materials = item.materials.map((material) => {
+                  const isAutoCalculate = material.auto_calculate !== undefined 
+                    ? material.auto_calculate 
+                    : material.autoCalculate !== false;
+                  
+                  if (isAutoCalculate) {
+                    return { ...material, quantity: 0, total: 0 };
+                  } else {
+                    return { ...material, total: 0 };
+                  }
+                });
+              }
+              
+              return newItem;
+            }),
+            subtotal: 0
+          };
+        });
         
-        // Устанавливаем 0 при пустом поле
-        item.quantity = 0;
-        item.total = 0;
-        
-        // Обнуляем материалы (только автоматические)
-        if (item.materials && item.materials.length > 0) {
-          item.materials.forEach((material) => {
-            const isAutoCalculate = material.auto_calculate !== undefined 
-              ? material.auto_calculate 
-              : material.autoCalculate !== false;
-            
-            if (isAutoCalculate) {
-              // 🤖 Автоматические материалы → обнуляем
-              material.quantity = 0;
-              material.total = 0;
-            } else {
-              // ✏️ Ручные материалы → пересчитываем только сумму
-              material.total = 0;
-            }
-          });
-        }
-
-        // Пересчитываем subtotal раздела
+        // Пересчитываем subtotal
         newSections[sectionIndex].subtotal = newSections[sectionIndex].items.reduce(
-          (sum, item) => sum + item.total,
-          0
+          (sum, item) => sum + item.total, 0
         );
 
         return { sections: newSections };
@@ -1059,40 +1028,54 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     }
 
     setEstimateData((prevData) => {
-      const newSections = [...prevData.sections];
-      const item = newSections[sectionIndex].items[itemIndex];
+      // ✅ Глубокая копия для корректной работы React.memo
+      const newSections = prevData.sections.map((section, secIdx) => {
+        if (secIdx !== sectionIndex) return section;
+        
+        return {
+          ...section,
+          items: section.items.map((item, itIdx) => {
+            if (itIdx !== itemIndex) return item;
+            
+            // Создаём новый объект работы
+            const newItem = {
+              ...item,
+              quantity: quantity,
+              total: quantity * item.price
+            };
+            
+            // ★ ПЕРЕСЧЁТ МАТЕРИАЛОВ
+            if (item.materials && item.materials.length > 0) {
+              newItem.materials = item.materials.map((material) => {
+                const isAutoCalculate = material.auto_calculate !== undefined 
+                  ? material.auto_calculate 
+                  : material.autoCalculate !== false;
+                
+                if (isAutoCalculate) {
+                  const newMatQty = parseFloat((quantity * (material.consumption || 0)).toFixed(2));
+                  return {
+                    ...material,
+                    quantity: newMatQty,
+                    total: parseFloat((newMatQty * material.price).toFixed(2))
+                  };
+                } else {
+                  return {
+                    ...material,
+                    total: parseFloat((material.quantity * material.price).toFixed(2))
+                  };
+                }
+              });
+            }
+            
+            return newItem;
+          }),
+          subtotal: 0 // Пересчитаем ниже
+        };
+      });
       
-      // Обновляем количество работы
-      item.quantity = quantity;
-      
-      // Пересчитываем стоимость работы
-      item.total = quantity * item.price;
-      
-      // ★ ПЕРЕСЧЁТ МАТЕРИАЛОВ:
-      // Если auto_calculate = true → quantity = work_quantity × consumption (автоматически)
-      // Если auto_calculate = false → quantity НЕ меняется (ручной ввод)
-      if (item.materials && item.materials.length > 0) {
-        item.materials.forEach((material) => {
-          // ✅ Проверяем флаг auto_calculate (поддержка snake_case и camelCase)
-          const isAutoCalculate = material.auto_calculate !== undefined 
-            ? material.auto_calculate 
-            : material.autoCalculate !== false; // По умолчанию true
-          
-          if (isAutoCalculate) {
-            // 🤖 Автоматический расчёт: quantity = work_quantity × consumption
-            material.quantity = parseFloat((quantity * (material.consumption || 0)).toFixed(2));
-            material.total = parseFloat((material.quantity * material.price).toFixed(2));
-          } else {
-            // ✏️ Ручной расчёт: количество НЕ меняется, пересчитываем только сумму
-            material.total = parseFloat((material.quantity * material.price).toFixed(2));
-          }
-        });
-      }
-
-      // Пересчитываем subtotal раздела
+      // Пересчитываем subtotal для изменённой секции
       newSections[sectionIndex].subtotal = newSections[sectionIndex].items.reduce(
-        (sum, item) => sum + item.total,
-        0
+        (sum, item) => sum + item.total, 0
       );
 
       return { sections: newSections };
@@ -1495,12 +1478,13 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   }, [estimateId, projectId]); // Перезагружаем только при изменении estimateId или projectId
 
   // ✅ АВТОМАТИЧЕСКАЯ СОРТИРОВКА: мемоизируем отсортированные данные
+  // ✅ ОПТИМИЗАЦИЯ: Используем deferredEstimateData для отложенного рендера таблицы
   const sortedEstimateData = useMemo(() => {
-    if (!estimateData.sections || estimateData.sections.length === 0) {
-      return estimateData;
+    if (!deferredEstimateData.sections || deferredEstimateData.sections.length === 0) {
+      return deferredEstimateData;
     }
 
-    const sortedSections = estimateData.sections.map(section => {
+    const sortedSections = deferredEstimateData.sections.map(section => {
       if (!section.items || section.items.length <= 1) {
         return section;
       }
@@ -1516,12 +1500,12 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     });
 
     return {
-      ...estimateData,
+      ...deferredEstimateData,
       sections: sortedSections
     };
-  }, [estimateData]);
+  }, [deferredEstimateData]);
 
-  // ✅ Подсчет итогов по работам и материалам
+  // ✅ Подсчет итогов по работам и материалам (используем deferred для отложенного пересчёта)
   const calculateTotals = useMemo(() => {
     let totalWorks = 0;
     let totalMaterials = 0;
@@ -1543,7 +1527,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       totalMaterials: totalMaterials.toFixed(2),
       grandTotal: (totalWorks + totalMaterials).toFixed(2)
     };
-  }, [estimateData]);
+  }, [sortedEstimateData]); // ✅ Зависит от sortedEstimateData который уже deferred
 
   return (
     <Box>
@@ -2210,459 +2194,32 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                       {/* Работы и материалы раздела */}
                       {section.items?.map((item, itemIndex) => (
                         <React.Fragment key={item.id}>
-                          {/* Строка работы */}
-                          <TableRow
-                            sx={{
-                              bgcolor: '#F7F8FF',
-                              borderBottom: '1px solid #E5E7EB',
-                              '&:hover': { bgcolor: '#EEF2FF' }
-                            }}
-                          >
-                            <TableCell
-                              sx={{
-                                py: 1,
-                                px: 1.5,
-                                fontWeight: 600,
-                                fontSize: '0.8125rem',
-                                color: '#374151'
-                              }}
-                            >
-                              {item.code}
-                            </TableCell>
-                            <TableCell
-                              sx={{
-                                py: 1,
-                                px: 1.5,
-                                fontWeight: 600
-                              }}
-                            >
-                              <Box>
-                                <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
-                                  {item.name}
-                                </Typography>
-                                {(item.phase || item.section || item.subsection) && (
-                                  <Typography 
-                                    sx={{ 
-                                      display: 'block',
-                                      mt: 0.5,
-                                      fontSize: '0.6875rem',
-                                      fontStyle: 'italic',
-                                      color: '#6B7280'
-                                    }}
-                                  >
-                                    {[
-                                      item.phase && <span key="phase" style={{ color: '#16A34A' }}>{item.phase}</span>,
-                                      item.phase && item.section && <span key="arrow1"> → </span>,
-                                      item.section && <span key="section" style={{ color: '#DC2626' }}>{item.section}</span>,
-                                      item.section && item.subsection && <span key="arrow2"> → </span>,
-                                      item.subsection && <span key="subsection" style={{ color: '#2563EB' }}>{item.subsection}</span>
-                                    ].filter(Boolean)}
-                                  </Typography>
-                                )}
-                              </Box>
-                            </TableCell>
-                            <TableCell
-                              align="center"
-                              sx={{ py: 1, px: 1.5, color: '#9CA3AF', fontSize: '0.75rem' }}
-                            >
-                              —
-                            </TableCell>
-                            <TableCell
-                              align="center"
-                              sx={{ py: 1, px: 1.5, fontSize: '0.8125rem', color: '#6B7280' }}
-                            >
-                              {item.unit}
-                            </TableCell>
-                            <TableCell
-                              align="right"
-                              sx={{ 
-                                py: 1, 
-                                px: 1.5
-                              }}
-                            >
-                              {/* ✏️ РЕДАКТИРУЕМОЕ ПОЛЕ КОЛИЧЕСТВА */}
-                              <TextField
-                                type="number"
-                                value={item.quantity || ''}
-                                onChange={(e) => handleWorkQuantityChange(sectionIndex, itemIndex, e.target.value)}
-                                size="small"
-                                inputProps={{
-                                  min: 0,
-                                  step: 0.01,
-                                  style: { 
-                                    textAlign: 'right', 
-                                    fontSize: '0.8125rem',
-                                    padding: '6px 10px'
-                                  }
-                                }}
-                                sx={{
-                                  width: '90px',
-                                  '& .MuiOutlinedInput-root': {
-                                    fontSize: '0.8125rem',
-                                    borderRadius: '6px',
-                                    height: 34,
-                                    bgcolor: (!item.quantity || item.quantity === 0) ? '#FEF2F2' : '#FFFFFF',
-                                    '& fieldset': {
-                                      borderColor: (!item.quantity || item.quantity === 0) ? '#FCA5A5' : '#D1D5DB',
-                                    },
-                                    '&:hover fieldset': {
-                                      borderColor: (!item.quantity || item.quantity === 0) ? '#F87171' : '#9CA3AF',
-                                    },
-                                    '&.Mui-focused fieldset': {
-                                      borderColor: '#635BFF',
-                                      borderWidth: '2px'
-                                    }
-                                  },
-                                  // ❌ Убрать стрелки (spinner) у input[type="number"]
-                                  '& input[type=number]': {
-                                    MozAppearance: 'textfield'
-                                  },
-                                  '& input[type=number]::-webkit-outer-spin-button': {
-                                    WebkitAppearance: 'none',
-                                    margin: 0
-                                  },
-                                  '& input[type=number]::-webkit-inner-spin-button': {
-                                    WebkitAppearance: 'none',
-                                    margin: 0
-                                  }
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell
-                              align="right"
-                              sx={{ py: 1, px: 1.5, fontSize: '0.8125rem', color: '#374151' }}
-                            >
-                              {formatCurrency(item.price)}
-                            </TableCell>
-                            <TableCell
-                              align="right"
-                              sx={{ py: 1, px: 1.5 }}
-                            >
-                              {/* 💰 АВТОМАТИЧЕСКИ РАССЧИТАННАЯ СУММА */}
-                              <Typography 
-                                sx={{
-                                  fontSize: '0.875rem',
-                                  fontWeight: 600,
-                                  color: '#1D4ED8'
-                                }}
-                              >
-                                {formatCurrency(item.total)}
-                              </Typography>
-                            </TableCell>
-                            <TableCell
-                              align="center"
-                              sx={{ py: 1, px: 1.5, color: '#9CA3AF', fontSize: '0.75rem' }}
-                            >
-                              —
-                            </TableCell>
-                            <TableCell align="center" sx={{ py: 1, px: 1.5 }}>
-                              <Stack direction="row" spacing={0.5} justifyContent="center">
-                                <Tooltip title="Добавить материал">
-                                  <IconButton 
-                                    size="small" 
-                                    sx={{ 
-                                      p: 0.5,
-                                      color: '#4B5563',
-                                      '&:hover': { bgcolor: '#F3F4F6', color: '#635BFF' }
-                                    }}
-                                    onClick={() => handleOpenAddMaterial(sectionIndex, itemIndex)}
-                                  >
-                                    <IconPackage size={18} />
-                                  </IconButton>
-                                </Tooltip>
-                                <Tooltip title="Удалить блок">
-                                  <IconButton 
-                                    size="small" 
-                                    sx={{ 
-                                      p: 0.5,
-                                      color: '#9CA3AF',
-                                      '&:hover': { bgcolor: '#FEF2F2', color: '#EF4444' }
-                                    }}
-                                    onClick={() => handleDeleteWork(sectionIndex, itemIndex)}
-                                  >
-                                    <IconTrash size={18} />
-                                  </IconButton>
-                                </Tooltip>
-                              </Stack>
-                            </TableCell>
-                          </TableRow>
+                          {/* ✅ МЕМОИЗИРОВАННАЯ СТРОКА РАБОТЫ */}
+                          <WorkRow
+                            item={item}
+                            sectionIndex={sectionIndex}
+                            itemIndex={itemIndex}
+                            onQuantityChange={handleWorkQuantityInputChange}
+                            onQuantityBlur={handleWorkQuantityBlur}
+                            onAddMaterial={handleOpenAddMaterial}
+                            onDeleteWork={handleDeleteWork}
+                          />
 
-                          {/* Строки материалов */}
+                          {/* ✅ МЕМОИЗИРОВАННЫЕ СТРОКИ МАТЕРИАЛОВ */}
                           {item.materials?.map((material, matIndex) => (
-                            <TableRow
+                            <MaterialRow
                               key={material.id}
-                              sx={{
-                                bgcolor: '#FFFFFF',
-                                borderBottom: '1px solid #F1F5F9',
-                                '&:hover': { bgcolor: '#F9FAFB' }
-                              }}
-                            >
-                              <TableCell
-                                sx={{
-                                  py: 0.75,
-                                  px: 1.5,
-                                  pl: 3,
-                                  fontSize: '0.75rem',
-                                  color: '#6B7280'
-                                }}
-                              >
-                                {material.code || '—'}
-                              </TableCell>
-                              <TableCell
-                                sx={{
-                                  py: 0.75,
-                                  px: 1.5,
-                                  pl: 3,
-                                  fontSize: '0.8125rem'
-                                }}
-                              >
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  {/* ✅ Иконка в зависимости от типа расчёта */}
-                                  {material.auto_calculate || material.autoCalculate ? (
-                                    <Box
-                                      sx={{
-                                        bgcolor: '#DCFCE7',
-                                        borderRadius: '50%',
-                                        width: 18,
-                                        height: 18,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                      }}
-                                      title="Автоматический расчёт"
-                                    >
-                                      <Typography fontSize="10px">🤖</Typography>
-                                    </Box>
-                                  ) : (
-                                    <Box
-                                      sx={{
-                                        bgcolor: '#FEF3C7',
-                                        borderRadius: '50%',
-                                        width: 18,
-                                        height: 18,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                      }}
-                                      title="Ручной ввод"
-                                    >
-                                      <Typography fontSize="10px">✏️</Typography>
-                                    </Box>
-                                  )}
-                                  <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>
-                                    {material.name}
-                                  </Typography>
-                                </Box>
-                              </TableCell>
-                              <TableCell
-                                align="center"
-                                sx={{ py: 0.75, px: 1.5 }}
-                              >
-                                {material.showImage && material.image ? (
-                                  <Box
-                                    component="img"
-                                    src={material.image}
-                                    alt={material.name}
-                                    sx={{
-                                      width: 28,
-                                      height: 28,
-                                      objectFit: 'cover',
-                                      borderRadius: '4px',
-                                      border: '1px solid #E5E7EB',
-                                      display: 'block',
-                                      mx: 'auto'
-                                    }}
-                                  />
-                                ) : (
-                                  <Box
-                                    sx={{
-                                      width: 28,
-                                      height: 28,
-                                      bgcolor: '#F3F4F6',
-                                      borderRadius: '4px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      mx: 'auto'
-                                    }}
-                                  >
-                                    <IconPackage size={14} style={{ opacity: 0.3 }} />
-                                  </Box>
-                                )}
-                              </TableCell>
-                              <TableCell
-                                align="center"
-                                sx={{
-                                  py: 0.75,
-                                  px: 1.5,
-                                  fontSize: '0.75rem',
-                                  color: '#6B7280'
-                                }}
-                              >
-                                {material.unit || '—'}
-                              </TableCell>
-                              <TableCell
-                                align="right"
-                                sx={{
-                                  py: 0.75,
-                                  px: 1.5
-                                }}
-                              >
-                                {/* 🔢 КОЛИЧЕСТВО МАТЕРИАЛА - с калькулятором! */}
-                                <TextField
-                                  type="text"
-                                  value={material.quantity}
-                                  onChange={(e) => handleMaterialQuantityChange(sectionIndex, itemIndex, matIndex, e.target.value)}
-                                  onBlur={() => handleMaterialQuantityBlur(sectionIndex, itemIndex, matIndex)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      handleMaterialQuantityBlur(sectionIndex, itemIndex, matIndex);
-                                      e.target.blur(); // Снимаем фокус с поля
-                                    }
-                                  }}
-                                  size="small"
-                                  placeholder="0"
-                                  inputProps={{
-                                    style: { 
-                                      textAlign: 'right',
-                                      fontSize: '0.75rem',
-                                      fontWeight: 500,
-                                      padding: '4px 8px'
-                                    }
-                                  }}
-                                  sx={{
-                                    width: 80,
-                                    '& .MuiOutlinedInput-root': {
-                                      height: 30,
-                                      borderRadius: '6px',
-                                      bgcolor: material.auto_calculate || material.autoCalculate ? '#F0FDF4' : '#FEFCE8',
-                                      '& fieldset': {
-                                        borderColor: material.auto_calculate || material.autoCalculate ? '#86EFAC' : '#FDE68A',
-                                      },
-                                      '&:hover fieldset': {
-                                        borderColor: material.auto_calculate || material.autoCalculate ? '#4ADE80' : '#FBBF24',
-                                      },
-                                      '&.Mui-focused fieldset': {
-                                        borderColor: '#635BFF',
-                                        borderWidth: '2px'
-                                      }
-                                    }
-                                  }}
-                                  title={material.auto_calculate || material.autoCalculate ? '🧮 Калькулятор: 2+3, 10*1.5 и т.д. (автоматический расчет)' : '🧮 Калькулятор: 2+3, 10*1.5 и т.д. (ручной ввод)'}
-                                />
-                              </TableCell>
-                              <TableCell
-                                align="right"
-                                sx={{
-                                  py: 0.75,
-                                  px: 1.5,
-                                  fontSize: '0.8125rem',
-                                  color: '#374151'
-                                }}
-                              >
-                                {formatCurrency(material.price)}
-                              </TableCell>
-                              <TableCell
-                                align="right"
-                                sx={{
-                                  py: 0.75,
-                                  px: 1.5
-                                }}
-                              >
-                                {/* 💰 АВТОМАТИЧЕСКИ РАССЧИТАННАЯ СУММА МАТЕРИАЛА */}
-                                <Typography
-                                  sx={{
-                                    fontSize: '0.8125rem',
-                                    fontWeight: 600,
-                                    color: '#1D4ED8'
-                                  }}
-                                >
-                                  {formatCurrency(material.total)}
-                                </Typography>
-                              </TableCell>
-                              <TableCell
-                                align="center"
-                                sx={{
-                                  py: 0.75,
-                                  px: 1.5,
-                                  fontSize: '0.75rem'
-                                }}
-                              >
-                                {/* 📊 КОЭФФИЦИЕНТ РАСХОДА - с калькулятором! */}
-                                <TextField
-                                  type="text"
-                                  value={material.consumption}
-                                  onChange={(e) => handleMaterialConsumptionChange(sectionIndex, itemIndex, matIndex, e.target.value)}
-                                  onBlur={() => handleMaterialConsumptionBlur(sectionIndex, itemIndex, matIndex)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      handleMaterialConsumptionBlur(sectionIndex, itemIndex, matIndex);
-                                      e.target.blur(); // Снимаем фокус с поля
-                                    }
-                                  }}
-                                  size="small"
-                                  placeholder="1.05"
-                                  inputProps={{
-                                    style: { 
-                                      textAlign: 'center',
-                                      fontSize: '0.7rem',
-                                      fontWeight: 600,
-                                      padding: '2px 6px'
-                                    }
-                                  }}
-                                  sx={{
-                                    width: 70,
-                                    '& .MuiOutlinedInput-root': {
-                                      height: 26,
-                                      borderRadius: '6px',
-                                      '& fieldset': {
-                                        borderColor: '#D1D5DB',
-                                      },
-                                      '&:hover fieldset': {
-                                        borderColor: '#9CA3AF',
-                                      },
-                                      '&.Mui-focused fieldset': {
-                                        borderColor: '#635BFF',
-                                        borderWidth: '2px'
-                                      }
-                                    }
-                                  }}
-                                  title="🧮 Калькулятор расхода: 1.05, 2+3, 10*1.5 и т.д."
-                                />
-                              </TableCell>
-                              <TableCell align="center" sx={{ py: 0.75, px: 1.5 }}>
-                                <Stack direction="row" spacing={0.5} justifyContent="center">
-                                  <Tooltip title="Заменить материал">
-                                    <IconButton 
-                                      size="small" 
-                                      sx={{ 
-                                        p: 0.5,
-                                        color: '#6B7280',
-                                        '&:hover': { bgcolor: '#F3F4F6', color: '#F59E0B' }
-                                      }}
-                                      onClick={() => handleOpenReplaceMaterial(sectionIndex, itemIndex, matIndex)}
-                                    >
-                                      <IconReplace size={16} />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <Tooltip title="Удалить материал">
-                                    <IconButton 
-                                      size="small" 
-                                      sx={{ 
-                                        p: 0.5,
-                                        color: '#9CA3AF',
-                                        '&:hover': { bgcolor: '#FEF2F2', color: '#EF4444' }
-                                      }}
-                                      onClick={() => handleDeleteMaterial(sectionIndex, itemIndex, matIndex)}
-                                    >
-                                      <IconTrash size={16} />
-                                    </IconButton>
-                                  </Tooltip>
-                                </Stack>
-                              </TableCell>
-                            </TableRow>
+                              material={material}
+                              sectionIndex={sectionIndex}
+                              itemIndex={itemIndex}
+                              matIndex={matIndex}
+                              onQuantityChange={handleMaterialQuantityInputChange}
+                              onQuantityBlur={handleMaterialQuantityBlur}
+                              onConsumptionChange={handleMaterialConsumptionChange}
+                              onConsumptionBlur={handleMaterialConsumptionBlur}
+                              onReplaceMaterial={handleOpenReplaceMaterial}
+                              onDeleteMaterial={handleDeleteMaterial}
+                            />
                           ))}
                         </React.Fragment>
                       ))}
@@ -2735,7 +2292,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         open={materialDialogOpen} 
         onClose={() => {
           setMaterialDialogOpen(false);
-          setMaterialSearchTerm('');
+          setMaterialSearchQuery('');
         }}
         maxWidth="md"
         fullWidth
@@ -2753,31 +2310,47 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
               {materialDialogMode === 'add' ? 'Добавить материал' : 'Заменить материал'}
             </Typography>
             <Chip 
-              label={loadingMaterials ? 'Загрузка...' : `${filteredMaterials.length} шт`}
+              label={loadingMaterials ? 'Загрузка...' : `${availableMaterials.length} шт`}
               size="small"
               color="primary"
               variant="outlined"
             />
           </Box>
-          {/* ✅ Компактный поиск с подсказкой */}
+          {/* ✅ Поиск по Enter - серверный поиск во всех материалах */}
           <TextField
             fullWidth
             size="small"
-            placeholder="Поиск: название, артикул, категория, поставщик, ед.изм..."
-            value={materialSearchTerm}
-            onChange={(e) => {
-              const value = e.target.value;
-              setMaterialSearchTerm(value);
-              
-              // ✅ Запускаем поиск на сервере при вводе >= 2 символов
-              if (value.trim().length >= 2) {
-                debouncedSearchMaterials(value);
+            placeholder="Введите название материала и нажмите Enter..."
+            defaultValue=""
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                const query = e.target.value;
+                setMaterialSearchQuery(query);
+                searchMaterialsOnServer(query);
               }
             }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
                   <IconSearch size={16} />
+                </InputAdornment>
+              ),
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton 
+                    size="small" 
+                    onClick={(e) => {
+                      const input = e.currentTarget.closest('.MuiTextField-root')?.querySelector('input');
+                      if (input) {
+                        setMaterialSearchQuery(input.value);
+                        searchMaterialsOnServer(input.value);
+                      }
+                    }}
+                    edge="end"
+                  >
+                    <IconSearch size={16} />
+                  </IconButton>
                 </InputAdornment>
               )
             }}
@@ -2789,22 +2362,24 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
               <CircularProgress size={40} />
             </Box>
-          ) : filteredMaterials.length === 0 ? (
+          ) : availableMaterials.length === 0 ? (
             <Box sx={{ p: 4, textAlign: 'center' }}>
               <Typography color="text.secondary" variant="body2">
-                {materialSearchTerm ? `Материалы по запросу "${materialSearchTerm}" не найдены` : 'Материалы не найдены'}
+                {materialSearchQuery 
+                  ? `Материалы по запросу "${materialSearchQuery}" не найдены` 
+                  : 'Введите название материала и нажмите Enter для поиска'}
               </Typography>
             </Box>
           ) : (
             /* ✅ Компактный виртуализированный список */
             <Virtuoso
               style={{ height: '100%' }}
-              data={filteredMaterials}
+              data={availableMaterials}
               itemContent={(index, material) => (
                 <ListItem 
                   disablePadding
                   sx={{ 
-                    borderBottom: index < filteredMaterials.length - 1 ? '1px solid' : 'none',
+                    borderBottom: index < availableMaterials.length - 1 ? '1px solid' : 'none',
                     borderColor: 'divider'
                   }}
                 >
@@ -2894,7 +2469,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           <Button 
             onClick={() => {
               setMaterialDialogOpen(false);
-              setMaterialSearchTerm('');
+              setMaterialSearchQuery('');
             }}
             size="small"
           >
@@ -3586,10 +3161,13 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                 data={filteredWorks}
                 itemContent={(index, work) => {
                   const isAdded = addedWorkIds.has(work.id);
+                  const isAdding = addingWorkId === work.id;
+                  const isDisabled = isAdded || isAdding || (addingWorkId && addingWorkId !== work.id);
+                  
                   return (
                     <Box
                       key={work.id}
-                      onClick={() => !isAdded && handleTransferToEstimate([work])}
+                      onClick={() => !isDisabled && handleTransferToEstimate([work])}
                       sx={{
                         px: 2.5,
                         py: 1.25,
@@ -3597,11 +3175,12 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        cursor: isAdded ? 'default' : 'pointer',
-                        bgcolor: '#FFFFFF',
+                        cursor: isDisabled ? 'default' : 'pointer',
+                        bgcolor: isAdding ? '#EEF6FF' : '#FFFFFF',
                         transition: 'all 0.15s ease',
                         position: 'relative',
-                        opacity: isAdded ? 0.5 : 1,
+                        opacity: isAdded ? 0.5 : (addingWorkId && !isAdding ? 0.6 : 1),
+                        pointerEvents: addingWorkId ? 'none' : 'auto',
                         '&::after': {
                           content: '""',
                           position: 'absolute',
@@ -3611,7 +3190,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                           height: '1px',
                           bgcolor: '#E5E7EB'
                         },
-                        '&:hover': !isAdded ? {
+                        '&:hover': !isDisabled ? {
                           bgcolor: '#F9FAFB',
                           '&::before': {
                             content: '""',
@@ -3660,7 +3239,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                         )}
                       </Box>
 
-                      {/* Правая часть: цена + стрелка */}
+                      {/* Правая часть: цена + стрелка/спиннер */}
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
                         <Box sx={{ textAlign: 'right' }}>
                           <Typography sx={{ 
@@ -3677,7 +3256,20 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                             {work.unit}
                           </Typography>
                         </Box>
-                        {!isAdded ? (
+                        {isAdding ? (
+                          /* ✅ Спиннер при добавлении */
+                          <Box sx={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: '6px',
+                            bgcolor: '#EEF6FF',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            <CircularProgress size={16} thickness={5} sx={{ color: '#635BFF' }} />
+                          </Box>
+                        ) : !isAdded ? (
                           <Box sx={{
                             width: 28,
                             height: 28,

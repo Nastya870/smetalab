@@ -1,0 +1,93 @@
+# ===========================================
+# RENDER.COM BLUEPRINT - SmetaLab
+# ===========================================
+# Этот файл описывает всю инфраструктуру:
+# - PostgreSQL база данных
+# - Node.js Backend API
+# - Static Frontend (React/Vite)
+# ===========================================
+
+databases:
+  # PostgreSQL Database
+  - name: smetalab-db
+    plan: free  # free | starter | standard | pro
+    databaseName: smetalab
+    user: smetalab_user
+    region: frankfurt  # Ближе к России
+
+services:
+  # ===========================================
+  # BACKEND API (Node.js + Express)
+  # ===========================================
+  - type: web
+    name: smetalab-api
+    runtime: node
+    plan: free  # free | starter | standard | pro
+    region: frankfurt
+    buildCommand: npm install
+    startCommand: node server/index.js
+    healthCheckPath: /api/health
+    envVars:
+      # Database - автоматически от Render PostgreSQL
+      - key: DATABASE_URL
+        fromDatabase:
+          name: smetalab-db
+          property: connectionString
+      
+      # JWT Secrets - генерируются автоматически
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      
+      # Environment
+      - key: NODE_ENV
+        value: production
+      
+      # Email (Resend) - установить вручную в Dashboard
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SENDER_EMAIL
+        value: noreply@smeta-lab.ru
+      - key: SENDER_NAME
+        value: Smeta Lab
+      
+      # Frontend URL для CORS и emails
+      - key: FRONTEND_URL
+        value: https://smetalab.onrender.com
+      
+      # Port (Render устанавливает автоматически)
+      - key: PORT
+        value: 10000
+
+  # ===========================================
+  # FRONTEND (React + Vite Static Site)
+  # ===========================================
+  - type: web
+    name: smetalab
+    runtime: static
+    plan: free
+    region: frankfurt
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=31536000
+    routes:
+      # SPA fallback - все роуты → index.html
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      # API URL - указывает на backend
+      - key: VITE_API_URL
+        value: https://smetalab-api.onrender.com
+      
+      # App Settings
+      - key: VITE_APP_VERSION
+        value: v1.0.0
+      - key: VITE_APP_BASE_NAME
+        value: /
+      - key: VITE_APP_NAME
+        value: Сметное приложение

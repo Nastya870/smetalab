@@ -262,31 +262,14 @@ export const getAllMaterials = async (req, res) => {
       paramIndex++;
     }
     
-    // Поиск по SKU или названию (использует idx_materials_sku_trgm и idx_materials_name_trgm)
-    // Поддержка умного поиска: "кабель 3х2,5" найдёт "Кабель ВВГПнг 3x2.5"
-    // Каждое слово ищется отдельно (логическое И)
+    // Поиск по SKU или названию - БЫСТРЫЙ поиск без REPLACE функций
+    // Нормализация делается на клиенте через fullTextSearch
     if (search) {
-      const normalizedSearch = normalizeSearchQuery(search);
-      // Разбиваем на слова
-      const words = normalizedSearch.split(/\s+/).filter(w => w.length > 0);
-      
-      if (words.length > 0) {
-        // Для каждого слова создаём условие поиска
-        const wordConditions = words.map(word => {
-          const currentIdx = paramIndex;
-          paramIndex++;
-          params.push(`%${word}%`);
-          
-          // Ищем слово в name или sku (с нормализацией х→x, ,→.)
-          return `(
-            LOWER(REPLACE(REPLACE(REPLACE(name, ',', '.'), 'х', 'x'), '×', 'x')) ILIKE $${currentIdx} OR
-            LOWER(REPLACE(REPLACE(REPLACE(sku, ',', '.'), 'х', 'x'), '×', 'x')) ILIKE $${currentIdx}
-          )`;
-        });
-        
-        // Все слова должны быть найдены (логическое И)
-        whereConditions.push(`(${wordConditions.join(' AND ')})`);
-      }
+      const searchLower = search.toLowerCase().trim();
+      // Простой ILIKE поиск - использует индексы
+      whereConditions.push(`(LOWER(name) ILIKE $${paramIndex} OR LOWER(sku) ILIKE $${paramIndex})`);
+      params.push(`%${searchLower}%`);
+      paramIndex++;
     }
     
     const whereClause = whereConditions.length > 0 
