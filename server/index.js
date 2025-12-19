@@ -176,7 +176,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start server (only in development, not in Vercel)
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`\n🚀 Express API server running on http://localhost:${PORT}`);
     console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
