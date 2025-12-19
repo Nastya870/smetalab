@@ -10,8 +10,10 @@ import { swaggerUIConfig } from './config/swagger-ui-config.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Загружаем .env из корня проекта (vite/)
-dotenv.config({ path: join(__dirname, '..', '.env') });
+// Загружаем .env ТОЛЬКО в development (на production используются Render env vars)
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: join(__dirname, '..', '.env') });
+}
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.js';
