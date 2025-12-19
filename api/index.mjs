@@ -41,7 +41,8 @@ const allowedOrigins = [
   'https://www.smeta-lab.ru',
   'https://vite-brh3woujs-ilyas-projects-8ff82073.vercel.app',
   'https://vite-1ndrsgc2s-ilyas-projects-8ff82073.vercel.app',
-  /\.vercel\.app$/
+  /\.vercel\.app$/,
+  /\.onrender\.com$/
 ];
 
 app.use(cors({
