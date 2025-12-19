@@ -12,8 +12,8 @@ const isProduction = window.location.hostname.includes('vercel.app') ||
 const isDevelopment = import.meta.env.MODE === 'development';
 
 const API_URL = isProduction
-  ? 'https://smetalab-backend.onrender.com'
-  : (import.meta.env.VITE_API_URL || 'http://localhost:3001');
+  ? 'https://smetalab-backend.onrender.com/api'
+  : (import.meta.env.VITE_API_URL || 'http://localhost:3001') + '/api';
 
 // Debug: показываем какой URL используется
 console.log('🔧 axiosInstance baseURL:', API_URL);
