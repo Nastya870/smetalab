@@ -7,13 +7,18 @@ import axios from 'axios';
 import { refreshAccessToken, logout } from 'services/authService';
 
 // API URL: в разработке - localhost, в production - Render backend
+const isProduction = window.location.hostname.includes('vercel.app') || 
+                     window.location.hostname.includes('smeta-lab.ru');
 const isDevelopment = import.meta.env.MODE === 'development';
-const API_URL = isDevelopment 
-  ? (import.meta.env.VITE_API_URL || 'http://localhost:3001')
-  : 'https://smetalab-backend.onrender.com';
+
+const API_URL = isProduction
+  ? 'https://smetalab-backend.onrender.com'
+  : (import.meta.env.VITE_API_URL || 'http://localhost:3001');
 
 // Debug: показываем какой URL используется
 console.log('🔧 axiosInstance baseURL:', API_URL);
+console.log('🔧 isProduction:', isProduction);
+console.log('🔧 hostname:', window.location.hostname);
 console.log('🔧 MODE:', import.meta.env.MODE);
 console.log('🔧 VITE_API_URL from env:', import.meta.env.VITE_API_URL);
 
