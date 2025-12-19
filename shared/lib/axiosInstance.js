@@ -9,6 +9,10 @@ import { refreshAccessToken, logout } from 'services/authService';
 // API URL: в разработке - localhost, в production - Render backend
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
+// Debug: показываем какой URL используется
+console.log('🔧 axiosInstance baseURL:', API_URL);
+console.log('🔧 VITE_API_URL from env:', import.meta.env.VITE_API_URL);
+
 // Создаем экземпляр axios с базовым URL
 const axiosInstance = axios.create({
   baseURL: API_URL,
