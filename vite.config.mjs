@@ -9,15 +9,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default defineConfig(({ mode }) => {
+  // Force VITE_API_URL in production BEFORE loading env
+  if (mode === 'production' && !process.env.VITE_API_URL) {
+    process.env.VITE_API_URL = 'https://smetalab-backend.onrender.com';
+    console.log('🔧 [Vite Config] Force set VITE_API_URL for production:', process.env.VITE_API_URL);
+  }
+
   // depending on your application, base can also be "/"
   const env = loadEnv(mode, process.cwd(), '');
   const API_URL = `${env.VITE_APP_BASE_NAME}`;
   const PORT = 3000;
 
-  // Force VITE_API_URL in production if not set
-  if (mode === 'production' && !process.env.VITE_API_URL) {
-    process.env.VITE_API_URL = 'https://smetalab-backend.onrender.com';
-  }
+  console.log('🔧 [Vite Config] Mode:', mode);
+  console.log('🔧 [Vite Config] VITE_API_URL:', process.env.VITE_API_URL);
 
   return {
     server: {
