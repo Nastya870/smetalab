@@ -25,9 +25,9 @@ import {
   deleteAllEstimateItems,
   replaceAllEstimateItems
 } from '../controllers/estimateItemsController.js';
+import { exportEstimateToExcel } from '../controllers/exportEstimateController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { checkPermission, checkAnyPermission } from '../middleware/checkPermission.js';
-import exportEstimateHandler from '../../api/export-estimate-excel.js';
 
 const router = express.Router();
 
@@ -179,10 +179,6 @@ router.delete('/estimates/:id', checkAnyPermission(['estimates', 'delete'], ['es
  * @desc    Экспорт сметы в Excel
  * @access  Private (требуется estimates.read)
  */
-router.post('/export-estimate-excel', checkPermission('estimates', 'read'), async (req, res) => {
-  console.log('🔐 Export route - User:', req.user);
-  console.log('📦 Export route - Has estimate:', !!req.body?.estimate);
-  await exportEstimateHandler(req, res);
-});
+router.post('/export-estimate-excel', checkPermission('estimates', 'read'), exportEstimateToExcel);
 
 export default router;
