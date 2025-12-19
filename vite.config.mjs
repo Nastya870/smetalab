@@ -14,6 +14,11 @@ export default defineConfig(({ mode }) => {
   const API_URL = `${env.VITE_APP_BASE_NAME}`;
   const PORT = 3000;
 
+  // Force VITE_API_URL in production if not set
+  if (mode === 'production' && !process.env.VITE_API_URL) {
+    process.env.VITE_API_URL = 'https://smetalab-backend.onrender.com';
+  }
+
   return {
     server: {
       // this ensures that the browser opens upon server start
