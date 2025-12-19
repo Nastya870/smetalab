@@ -58,29 +58,15 @@ const allowedOrigins = [
   'https://www.smeta-lab.ru'
 ];
 
+// Temporary: Allow all origins for debugging
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, Postman)
-    if (!origin) return callback(null, true);
-    
-    // Check if origin is allowed
-    const isAllowed = allowedOrigins.some(allowed => {
-      if (typeof allowed === 'string') return allowed === origin;
-      if (allowed instanceof RegExp) return allowed.test(origin);
-      return false;
-    });
-    
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      console.log('❌ CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: true, // Allow all origins temporarily
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range']
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 app.use(express.json({ limit: '10mb' })); // Увеличен лимит для загрузки изображений в base64
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -89,6 +75,7 @@ app.use(cookieParser());
 // Request logging
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  console.log(`   Origin: ${req.get('origin') || 'none'}`);
   if (req.path.includes('/ks2') || req.path.includes('/ks3')) {
     console.log('🔵 [SERVER] КС-2/КС-3 request detected:', req.method, req.path);
   }
