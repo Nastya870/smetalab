@@ -3,7 +3,16 @@
  * Взаимодействие с API аутентификации
  */
 
-const API_BASE_URL = '/api';
+// API URL: в разработке - localhost, в production - Render backend
+const isProduction = typeof window !== 'undefined' && 
+                     (window.location.hostname.includes('vercel.app') || 
+                      window.location.hostname.includes('smeta-lab.ru'));
+
+const API_BASE_URL = isProduction
+  ? 'https://smetalab-backend.onrender.com/api'
+  : (import.meta.env.VITE_API_URL || 'http://localhost:3001') + '/api';
+
+console.log('🔧 authService API_BASE_URL:', API_BASE_URL);
 
 /**
  * Регистрация нового пользователя и компании
