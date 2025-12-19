@@ -41,15 +41,5 @@ services:
 # FRONTEND НА VERCEL (не на Render)
 # ===========================================
 # Фронтенд остается на Vercel, только Backend мигрирует на Render
-    envVars:
-      # API URL - указывает на backend
-      - key: VITE_API_URL
-        value: https://smetalab-api.onrender.com
-      
-      # App Settings
-      - key: VITE_APP_VERSION
-        value: v1.0.0
-      - key: VITE_APP_BASE_NAME
-        value: /
-      - key: VITE_APP_NAME
-        value: Сметное приложение
+# VITE_API_URL будет обновлен в Vercel Dashboard после получения Render backend URL
+
