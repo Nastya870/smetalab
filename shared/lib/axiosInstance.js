@@ -7,10 +7,14 @@ import axios from 'axios';
 import { refreshAccessToken, logout } from 'services/authService';
 
 // API URL: в разработке - localhost, в production - Render backend
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const isDevelopment = import.meta.env.MODE === 'development';
+const API_URL = isDevelopment 
+  ? (import.meta.env.VITE_API_URL || 'http://localhost:3001')
+  : 'https://smetalab-backend.onrender.com';
 
 // Debug: показываем какой URL используется
 console.log('🔧 axiosInstance baseURL:', API_URL);
+console.log('🔧 MODE:', import.meta.env.MODE);
 console.log('🔧 VITE_API_URL from env:', import.meta.env.VITE_API_URL);
 
 // Создаем экземпляр axios с базовым URL
