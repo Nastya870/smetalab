@@ -6,9 +6,12 @@
 import axios from 'axios';
 import { refreshAccessToken, logout } from 'services/authService';
 
+// API URL: в разработке - localhost, в production - Render backend
+const API_URL = import.meta.env.VITE_API_URL || '/api';
+
 // Создаем экземпляр axios с базовым URL
 const axiosInstance = axios.create({
-  baseURL: '/api',
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json'
   }
