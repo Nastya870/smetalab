@@ -43,44 +43,49 @@ import { sanitizeErrorMessage } from './utils/sanitize.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
+// CORS Configuration
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   'http://localhost:3001',
-  'http://localhost:3002',
   'http://localhost:4173',
-  'http://localhost:4174',
-  'https://vite-brh3woujs-ilyas-projects-8ff82073.vercel.app',
   /\.vercel\.app$/,
-  /\.onrender\.com$/,  // ✅ Render.com домены
+  /\.onrender\.com$/,
   'https://smeta-lab.ru',
   'https://www.smeta-lab.ru'
 ];
 
-// Temporary: Allow all origins for debugging
 app.use(cors({
-  origin: true, // Allow all origins temporarily
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.some(allowed => {
+      if (allowed instanceof RegExp) return allowed.test(origin);
+      return allowed === origin;
+    })) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  preflightContinue: false,
   optionsSuccessStatus: 204
 }));
 app.use(express.json({ limit: '10mb' })); // Увеличен лимит для загрузки изображений в base64
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
-// Request logging
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  console.log(`   Origin: ${req.get('origin') || 'none'}`);
-  if (req.path.includes('/ks2') || req.path.includes('/ks3')) {
-    console.log('🔵 [SERVER] КС-2/КС-3 request detected:', req.method, req.path);
-  }
-  next();
-});
+// Request logging (only in development)
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    next();
+  });
+}
 
 // ==================== Swagger API Documentation ====================
 // Доступ: /api-docs для интерактивной документации

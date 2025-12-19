@@ -12,8 +12,6 @@ const API_BASE_URL = isProduction
   ? 'https://smetalab-backend.onrender.com/api'
   : (import.meta.env.VITE_API_URL || 'http://localhost:3001') + '/api';
 
-console.log('🔧 authService API_BASE_URL:', API_BASE_URL);
-
 /**
  * Регистрация нового пользователя и компании
  * @param {Object} data - Данные для регистрации

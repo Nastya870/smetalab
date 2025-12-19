@@ -15,13 +15,6 @@ const API_URL = isProduction
   ? 'https://smetalab-backend.onrender.com/api'
   : (import.meta.env.VITE_API_URL || 'http://localhost:3001') + '/api';
 
-// Debug: показываем какой URL используется
-console.log('🔧 axiosInstance baseURL:', API_URL);
-console.log('🔧 isProduction:', isProduction);
-console.log('🔧 hostname:', window.location.hostname);
-console.log('🔧 MODE:', import.meta.env.MODE);
-console.log('🔧 VITE_API_URL from env:', import.meta.env.VITE_API_URL);
-
 // Создаем экземпляр axios с базовым URL
 const axiosInstance = axios.create({
   baseURL: API_URL,
