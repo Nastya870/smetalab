@@ -187,14 +187,15 @@ const MaterialsReferencePage = () => {
       if (resetData) {
         setMaterials(newMaterials);
         setPage(1);
+        setHasMore(newMaterials.length < total);
       } else {
-        setMaterials(prev => [...prev, ...newMaterials]);
+        setMaterials(prev => {
+          const updated = [...prev, ...newMaterials];
+          setHasMore(updated.length < total);
+          return updated;
+        });
         setPage(pageNumber);
       }
-      
-      // Проверяем, есть ли еще данные
-      const totalLoaded = resetData ? newMaterials.length : materials.length + newMaterials.length;
-      setHasMore(totalLoaded < total);
       
     } catch (err) {
       console.error('Error loading materials:', err);
@@ -818,9 +819,7 @@ const MaterialsReferencePage = () => {
               border: '1px solid #E5E7EB', 
               borderRadius: '8px', 
               height: '100%', 
-              overflow: 'auto', 
-              display: 'flex', 
-              flexDirection: 'column' 
+              overflow: 'auto'
             }}
           >
             <InfiniteScroll

@@ -142,14 +142,15 @@ const WorksReferencePage = () => {
       if (resetData) {
         // Полная замена данных (при смене фильтра)
         setWorks(newWorks);
+        setHasMore(newWorks.length < total);
       } else {
         // Добавление к существующим (infinite scroll)
-        setWorks(prev => [...prev, ...newWorks]);
+        setWorks(prev => {
+          const updated = [...prev, ...newWorks];
+          setHasMore(updated.length < total);
+          return updated;
+        });
       }
-      
-      // Проверяем, есть ли ещё данные
-      const totalLoaded = resetData ? newWorks.length : works.length + newWorks.length;
-      setHasMore(totalLoaded < total);
       
     } catch (err) {
       console.error('Error loading works:', err);
@@ -701,9 +702,7 @@ const WorksReferencePage = () => {
               border: '1px solid #E5E7EB', 
               borderRadius: '8px', 
               height: '100%', 
-              overflow: 'auto', 
-              display: 'flex', 
-              flexDirection: 'column' 
+              overflow: 'auto'
             }}
           >
             <InfiniteScroll
