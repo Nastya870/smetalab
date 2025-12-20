@@ -601,7 +601,7 @@ const WorksReferencePage = () => {
       {filteredWorks.length > 0 ? (
         isMobile ? (
           // 🚀 Infinite Scroll для мобильных
-          <Box sx={{ flex: 1, overflow: 'auto' }}>
+          <Box id="works-mobile-container" sx={{ flex: 1, overflow: 'auto' }}>
             <InfiniteScroll
               dataLength={filteredWorks.length}
               next={loadMoreWorks}
@@ -612,6 +612,8 @@ const WorksReferencePage = () => {
                   {searchTerm ? `Найдено: ${filteredWorks.length}` : `Загружено всё (${filteredWorks.length} из ${totalRecords})`}
                 </Typography>
               }
+              scrollableTarget="works-mobile-container"
+              scrollThreshold={0.9}
             >
             {filteredWorks.map((work, index) => {
               const hierarchyParts = [work.phase, work.section, work.subsection].filter(Boolean);
@@ -692,14 +694,18 @@ const WorksReferencePage = () => {
           </Box>
         ) : (
           // Таблица для десктопа
-          <Paper elevation={0} sx={{ 
-            border: '1px solid #E5E7EB', 
-            borderRadius: '8px', 
-            height: '100%', 
-            overflow: 'auto', 
-            display: 'flex', 
-            flexDirection: 'column' 
-          }}>
+          <Paper 
+            id="works-table-container"
+            elevation={0} 
+            sx={{ 
+              border: '1px solid #E5E7EB', 
+              borderRadius: '8px', 
+              height: '100%', 
+              overflow: 'auto', 
+              display: 'flex', 
+              flexDirection: 'column' 
+            }}
+          >
             <InfiniteScroll
               dataLength={filteredWorks.length}
               next={loadMoreWorks}
@@ -716,6 +722,8 @@ const WorksReferencePage = () => {
                   </Box>
                 ) : null
               }
+              scrollableTarget="works-table-container"
+              scrollThreshold={0.9}
             >
               <TableContainer>
                 <Table sx={{ tableLayout: 'fixed' }}>
