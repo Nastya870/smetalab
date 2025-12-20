@@ -696,7 +696,7 @@ const MaterialsReferencePage = () => {
             dataLength={filteredMaterials.length}
             next={loadMoreMaterials}
             hasMore={hasMore}
-            loader={<div style={{ display: 'none' }} />}
+            loader={null}
             endMessage={
               filteredMaterials.length > 0 ? (
                 <Box sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
@@ -825,6 +825,13 @@ const MaterialsReferencePage = () => {
                 </Card>
               </Box>
             ))}
+            
+            {/* Custom loading indicator для мобильной версии */}
+            {loading && hasMore && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                <CircularProgress size={20} thickness={4} sx={{ color: '#3B82F6' }} />
+              </Box>
+            )}
           </InfiniteScroll>
           </Box>
         ) : (
@@ -844,7 +851,7 @@ const MaterialsReferencePage = () => {
               dataLength={filteredMaterials.length}
               next={loadMoreMaterials}
               hasMore={hasMore}
-              loader={<div style={{ display: 'none' }} />}
+              loader={null}
               endMessage={
                 filteredMaterials.length > 0 ? (
                   <Box sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
@@ -1006,6 +1013,15 @@ const MaterialsReferencePage = () => {
                         </TableCell>
                       </TableRow>
                     ))}
+                    
+                    {/* Custom loading indicator - встроен в таблицу как строка */}
+                    {loading && hasMore && (
+                      <TableRow>
+                        <TableCell colSpan={6} sx={{ py: 2, textAlign: 'center', borderBottom: 'none' }}>
+                          <CircularProgress size={20} thickness={4} sx={{ color: '#3B82F6' }} />
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </TableContainer>
