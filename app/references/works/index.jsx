@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import debounce from 'lodash.debounce';
-import InfiniteScroll from 'react-infinite-scroll-component';
+// InfiniteScroll больше не используется - собственная реализация через Intersection Observer
 
 // material-ui
 import {
@@ -77,6 +77,9 @@ const WorksReferencePage = () => {
   // 🔧 Ref для сохранения позиции скролла
   const scrollContainerRef = useRef(null);
   const scrollPositionRef = useRef(0);
+  
+  // 🎯 Ref для триггера загрузки (Intersection Observer)
+  const loadMoreTriggerRef = useRef(null);
 
   // Debounced поиск (обновляет searchTerm через 300ms после последнего ввода)
   const debouncedSearch = useMemo(
@@ -191,6 +194,31 @@ const WorksReferencePage = () => {
       }, 50);
     }
   }, [works.length]); // Срабатывает когда длина массива изменяется
+
+  // 🎯 Intersection Observer для автозагрузки при скролле
+  useEffect(() => {
+    if (!loadMoreTriggerRef.current || loading || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Когда триггер становится видимым - загружаем ещё данные
+        if (entries[0].isIntersecting && !loading && hasMore) {
+          loadMoreWorks();
+        }
+      },
+      {
+        root: scrollContainerRef.current, // Наблюдаем за скроллом внутри контейнера
+        rootMargin: '100px', // Начинаем загрузку за 100px до конца
+        threshold: 0.1
+      }
+    );
+
+    observer.observe(loadMoreTriggerRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [loading, hasMore, page]); // Перезапускаем когда меняется состояние загрузки
 
   // Показать уведомление
   const showSnackbar = (message, severity = 'success') => {
@@ -622,21 +650,12 @@ const WorksReferencePage = () => {
       <Box sx={{ flex: 1, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
       {filteredWorks.length > 0 ? (
         isMobile ? (
-          // 🚀 Infinite Scroll для мобильных
-          <Box id="works-mobile-container" sx={{ flex: 1, overflow: 'auto' }}>
-            <InfiniteScroll
-              dataLength={filteredWorks.length}
-              next={loadMoreWorks}
-              hasMore={hasMore}
-              loader={null}
-              endMessage={
-                <Typography sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
-                  {searchTerm ? `Найдено: ${filteredWorks.length}` : `Загружено всё (${filteredWorks.length} из ${totalRecords})`}
-                </Typography>
-              }
-              scrollableTarget="works-mobile-container"
-              scrollThreshold={0.9}
-            >
+          // � Мобильная версия - карточки с автозагрузкой
+          <Box 
+            id="works-mobile-container" 
+            ref={scrollContainerRef}
+            sx={{ flex: 1, overflow: 'auto' }}
+          >
             {filteredWorks.map((work, index) => {
               const hierarchyParts = [work.phase, work.section, work.subsection].filter(Boolean);
               const hierarchyText = hierarchyParts.length > 0 ? hierarchyParts.join(' → ') : null;
@@ -713,16 +732,25 @@ const WorksReferencePage = () => {
               );
             })}
             
-            {/* Custom loading indicator для мобильной версии */}
-            {loading && hasMore && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                <CircularProgress size={20} thickness={4} sx={{ color: '#3B82F6' }} />
+            {/* Триггер для автозагрузки через Intersection Observer */}
+            {hasMore && (
+              <Box 
+                ref={loadMoreTriggerRef} 
+                sx={{ height: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', py: 2 }}
+              >
+                {loading && <CircularProgress size={20} thickness={4} sx={{ color: '#3B82F6' }} />}
               </Box>
             )}
-          </InfiniteScroll>
+            
+            {/* Сообщение когда всё загружено */}
+            {!hasMore && filteredWorks.length > 0 && (
+              <Typography sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
+                {searchTerm ? `Найдено: ${filteredWorks.length}` : `Загружено всё (${filteredWorks.length} из ${totalRecords})`}
+              </Typography>
+            )}
           </Box>
         ) : (
-          // Таблица для десктопа
+          // 🖥️ Десктопная версия - таблица с автозагрузкой
           <Paper 
             id="works-table-container"
             ref={scrollContainerRef}
@@ -734,21 +762,6 @@ const WorksReferencePage = () => {
               overflow: 'auto'
             }}
           >
-            <InfiniteScroll
-              dataLength={filteredWorks.length}
-              next={loadMoreWorks}
-              hasMore={hasMore}
-              loader={null}
-              endMessage={
-                filteredWorks.length > 0 ? (
-                  <Box sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
-                    {searchTerm ? `Найдено: ${filteredWorks.length}` : `Все данные загружены (${filteredWorks.length} из ${totalRecords})`}
-                  </Box>
-                ) : null
-              }
-              scrollableTarget="works-table-container"
-              scrollThreshold={0.9}
-            >
               <TableContainer>
                 <Table sx={{ tableLayout: 'fixed' }}>
                   <TableHead>
@@ -847,18 +860,28 @@ const WorksReferencePage = () => {
                       );
                     })}
                     
-                    {/* Custom loading indicator - встроен в таблицу как строка */}
-                    {loading && hasMore && (
+                    {/* Триггер для автозагрузки через Intersection Observer */}
+                    {hasMore && (
+                      <TableRow ref={loadMoreTriggerRef}>
+                        <TableCell colSpan={5} sx={{ py: 2, textAlign: 'center', borderBottom: 'none', height: '40px' }}>
+                          {loading && <CircularProgress size={20} thickness={4} sx={{ color: '#3B82F6' }} />}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    
+                    {/* Сообщение когда всё загружено */}
+                    {!hasMore && filteredWorks.length > 0 && (
                       <TableRow>
                         <TableCell colSpan={5} sx={{ py: 2, textAlign: 'center', borderBottom: 'none' }}>
-                          <CircularProgress size={20} thickness={4} sx={{ color: '#3B82F6' }} />
+                          <Typography sx={{ color: '#9CA3AF', fontSize: '0.875rem' }}>
+                            {searchTerm ? `Найдено: ${filteredWorks.length}` : `Все данные загружены (${filteredWorks.length} из ${totalRecords})`}
+                          </Typography>
                         </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
               </TableContainer>
-            </InfiniteScroll>
         </Paper>
         )
       ) : works.length === 0 ? (
