@@ -597,31 +597,22 @@ const WorksReferencePage = () => {
       </Box>
 
       {/* Таблица работ или карточки - занимает оставшееся пространство */}
-      <Box 
-        id="works-scrollable-container"
-        sx={{ 
-          flex: 1, 
-          overflow: 'auto',
-          minHeight: 0,
-          height: '100%'
-        }}
-      >
+      <Box sx={{ flex: 1, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
       {filteredWorks.length > 0 ? (
         isMobile ? (
           // 🚀 Infinite Scroll для мобильных
-          <InfiniteScroll
-            dataLength={filteredWorks.length}
-            next={loadMoreWorks}
-            hasMore={hasMore}
-            loader={<Box sx={{ textAlign: 'center', py: 2 }}><CircularProgress size={24} /></Box>}
-            endMessage={
-              <Typography sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
-                {searchTerm ? `Найдено: ${filteredWorks.length}` : `Загружено всё (${filteredWorks.length} из ${totalRecords})`}
-              </Typography>
-            }
-            scrollableTarget="works-scrollable-container"
-            style={{ overflow: 'visible' }}
-          >
+          <Box sx={{ flex: 1, overflow: 'auto' }}>
+            <InfiniteScroll
+              dataLength={filteredWorks.length}
+              next={loadMoreWorks}
+              hasMore={hasMore}
+              loader={<Box sx={{ textAlign: 'center', py: 2 }}><CircularProgress size={24} /></Box>}
+              endMessage={
+                <Typography sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
+                  {searchTerm ? `Найдено: ${filteredWorks.length}` : `Загружено всё (${filteredWorks.length} из ${totalRecords})`}
+                </Typography>
+              }
+            >
             {filteredWorks.map((work, index) => {
               const hierarchyParts = [work.phase, work.section, work.subsection].filter(Boolean);
               const hierarchyText = hierarchyParts.length > 0 ? hierarchyParts.join(' → ') : null;
@@ -698,9 +689,17 @@ const WorksReferencePage = () => {
               );
             })}
           </InfiniteScroll>
+          </Box>
         ) : (
           // Таблица для десктопа
-          <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden', height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Paper elevation={0} sx={{ 
+            border: '1px solid #E5E7EB', 
+            borderRadius: '8px', 
+            height: '100%', 
+            overflow: 'auto', 
+            display: 'flex', 
+            flexDirection: 'column' 
+          }}>
             <InfiniteScroll
               dataLength={filteredWorks.length}
               next={loadMoreWorks}
@@ -717,8 +716,6 @@ const WorksReferencePage = () => {
                   </Box>
                 ) : null
               }
-              scrollableTarget="works-scrollable-container"
-              style={{ overflow: 'visible' }}
             >
               <TableContainer>
                 <Table sx={{ tableLayout: 'fixed' }}>

@@ -665,18 +665,11 @@ const MaterialsReferencePage = () => {
       </Box>
 
       {/* Таблица материалов или карточки - занимает оставшееся пространство */}
-      <Box 
-        id="materials-scrollable-container"
-        sx={{ 
-          flex: 1, 
-          overflow: 'auto',
-          minHeight: 0,
-          height: '100%'
-        }}
-      >
+      <Box sx={{ flex: 1, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
       {filteredMaterials.length > 0 ? (
         isMobile ? (
           // Infinite Scroll карточный вид для мобильных
+          <Box sx={{ flex: 1, overflow: 'auto' }}>
           <InfiniteScroll
             dataLength={filteredMaterials.length}
             next={loadMoreMaterials}
@@ -693,8 +686,6 @@ const MaterialsReferencePage = () => {
                 </Box>
               ) : null
             }
-            scrollableTarget="materials-scrollable-container"
-            style={{ overflow: 'visible' }}
           >
             {filteredMaterials.map((material) => (
               <Box key={material.id} sx={{ mb: 1.5 }}>
@@ -815,9 +806,17 @@ const MaterialsReferencePage = () => {
               </Box>
             ))}
           </InfiniteScroll>
+          </Box>
         ) : (
           // Таблица для десктопа
-          <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden', height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Paper elevation={0} sx={{ 
+            border: '1px solid #E5E7EB', 
+            borderRadius: '8px', 
+            height: '100%', 
+            overflow: 'auto', 
+            display: 'flex', 
+            flexDirection: 'column' 
+          }}>
             <InfiniteScroll
               dataLength={filteredMaterials.length}
               next={loadMoreMaterials}
@@ -834,8 +833,6 @@ const MaterialsReferencePage = () => {
                   </Box>
                 ) : null
               }
-              scrollableTarget="materials-scrollable-container"
-              style={{ overflow: 'visible' }}
             >
               <TableContainer>
                 <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
