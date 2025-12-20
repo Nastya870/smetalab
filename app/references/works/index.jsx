@@ -628,15 +628,7 @@ const WorksReferencePage = () => {
               dataLength={filteredWorks.length}
               next={loadMoreWorks}
               hasMore={hasMore}
-              loader={
-                <Box sx={{ 
-                  textAlign: 'center',
-                  py: 0.5,
-                  bgcolor: 'transparent'
-                }}>
-                  <CircularProgress size={16} thickness={3} />
-                </Box>
-              }
+              loader={<div />}
               endMessage={
                 <Typography sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
                   {searchTerm ? `Найдено: ${filteredWorks.length}` : `Загружено всё (${filteredWorks.length} из ${totalRecords})`}
@@ -739,15 +731,7 @@ const WorksReferencePage = () => {
               dataLength={filteredWorks.length}
               next={loadMoreWorks}
               hasMore={hasMore}
-              loader={
-                <Box sx={{ 
-                  textAlign: 'center',
-                  py: 0.5,
-                  bgcolor: 'transparent' // Прозрачный фон
-                }}>
-                  <CircularProgress size={16} thickness={3} />
-                </Box>
-              }
+              loader={<div />}
               endMessage={
                 filteredWorks.length > 0 ? (
                   <Box sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>

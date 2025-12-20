@@ -696,15 +696,7 @@ const MaterialsReferencePage = () => {
             dataLength={filteredMaterials.length}
             next={loadMoreMaterials}
             hasMore={hasMore}
-            loader={
-              <Box sx={{ 
-                textAlign: 'center',
-                py: 0.5,
-                bgcolor: 'transparent'
-              }}>
-                <CircularProgress size={16} thickness={3} />
-              </Box>
-            }
+            loader={<div />}
             endMessage={
               filteredMaterials.length > 0 ? (
                 <Box sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
@@ -852,15 +844,7 @@ const MaterialsReferencePage = () => {
               dataLength={filteredMaterials.length}
               next={loadMoreMaterials}
               hasMore={hasMore}
-              loader={
-                <Box sx={{ 
-                  textAlign: 'center',
-                  py: 0.5,
-                  bgcolor: 'transparent'
-                }}>
-                  <CircularProgress size={16} thickness={3} />
-                </Box>
-              }
+              loader={<div />}
               endMessage={
                 filteredMaterials.length > 0 ? (
                   <Box sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
