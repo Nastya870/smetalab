@@ -112,8 +112,19 @@ const MaterialsReferencePage = () => {
   const debouncedSearch = useMemo(
     () => debounce((value) => {
       setSearchTerm(value);
+      // При изменении поискового запроса - перезагружаем с сервера
+      if (value.trim()) {
+        setMaterials([]);
+        setPage(1);
+        fetchMaterials(1, true, value.trim());
+      } else {
+        // Если очистили поиск - загружаем обычные данные
+        setMaterials([]);
+        setPage(1);
+        fetchMaterials(1, true);
+      }
     }, 300),
-    []
+    [globalFilter]
   );
 
   // Очистка debounce при размонтировании
@@ -130,20 +141,22 @@ const MaterialsReferencePage = () => {
 
   // Загрузка материалов из API с пагинацией
   useEffect(() => {
+    setSearchTerm(''); // Очищаем поиск при смене фильтра
     fetchMaterials(1, true); // Первая загрузка
   }, [globalFilter]); // Перезагружаем при изменении фильтра
 
-  const fetchMaterials = async (pageNumber = 1, resetData = false) => {
+  const fetchMaterials = async (pageNumber = 1, resetData = false, search = '') => {
     try {
       setLoading(true);
       setError(null);
       
       const params = {
         page: pageNumber,
-        pageSize: PAGE_SIZE
+        pageSize: search ? 1000 : PAGE_SIZE // При поиске загружаем больше результатов
       };
       if (globalFilter === 'global') params.isGlobal = 'true';
       if (globalFilter === 'tenant') params.isGlobal = 'false';
+      if (search) params.search = search; // Серверный поиск по всей БД
       
       const response = await materialsAPI.getAll(params);
       
@@ -207,14 +220,9 @@ const MaterialsReferencePage = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // Мемоизированная фильтрация материалов с полнотекстовым поиском
-  // Поддерживает поиск по нескольким словам одновременно
-  const filteredMaterials = useMemo(() => {
-    if (!searchTerm) return materials; // Если поиск пустой, возвращаем все материалы
-    
-    // Используем полнотекстовый поиск по всем полям
-    return fullTextSearch(materials, searchTerm, ['name', 'sku', 'unit', 'supplier', 'category']);
-  }, [materials, searchTerm]);
+  // Отображаемые материалы (фильтрация теперь на сервере через params.search)
+  // Для совместимости оставляем переменную filteredMaterials, но она просто = materials
+  const filteredMaterials = materials;
 
   // Мемоизированные обработчики (стабильные функции, не пересоздаются при каждом рендере)
   const handleOpenCreate = useCallback(() => {
@@ -663,17 +671,17 @@ const MaterialsReferencePage = () => {
           // Infinite Scroll карточный вид для мобильных
           <InfiniteScroll
             dataLength={filteredMaterials.length}
-            next={searchTerm ? () => {} : loadMoreMaterials}
-            hasMore={!searchTerm && hasMore}
+            next={loadMoreMaterials}
+            hasMore={hasMore}
             loader={
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
                 <CircularProgress size={24} />
               </Box>
             }
             endMessage={
-              !searchTerm && filteredMaterials.length > 0 ? (
+              filteredMaterials.length > 0 ? (
                 <Box sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
-                  Все данные загружены ({filteredMaterials.length} из {totalRecords})
+                  {searchTerm ? `Найдено: ${filteredMaterials.length}` : `Все данные загружены (${filteredMaterials.length} из ${totalRecords})`}
                 </Box>
               ) : null
             }
@@ -803,17 +811,17 @@ const MaterialsReferencePage = () => {
           <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden' }}>
             <InfiniteScroll
               dataLength={filteredMaterials.length}
-              next={searchTerm ? () => {} : loadMoreMaterials}
-              hasMore={!searchTerm && hasMore}
+              next={loadMoreMaterials}
+              hasMore={hasMore}
               loader={
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
                   <CircularProgress size={24} />
                 </Box>
               }
               endMessage={
-                !searchTerm && filteredMaterials.length > 0 ? (
+                filteredMaterials.length > 0 ? (
                   <Box sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
-                    Все данные загружены ({filteredMaterials.length} из {totalRecords})
+                    {searchTerm ? `Найдено: ${filteredMaterials.length}` : `Все данные загружены (${filteredMaterials.length} из ${totalRecords})`}
                   </Box>
                 ) : null
               }

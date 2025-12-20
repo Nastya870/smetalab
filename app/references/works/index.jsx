@@ -78,8 +78,19 @@ const WorksReferencePage = () => {
   const debouncedSearch = useMemo(
     () => debounce((value) => {
       setSearchTerm(value);
+      // При изменении поискового запроса - перезагружаем с сервера
+      if (value.trim()) {
+        setWorks([]);
+        setPage(1);
+        fetchWorks(1, true, value.trim());
+      } else {
+        // Если очистили поиск - загружаем обычные данные
+        setWorks([]);
+        setPage(1);
+        fetchWorks(1, true);
+      }
     }, 300),
-    []
+    [globalFilter]
   );
 
   // Очистка debounce при размонтировании
@@ -101,22 +112,24 @@ const WorksReferencePage = () => {
     setPage(1);
     setHasMore(true);
     setTotalRecords(0);
+    setSearchTerm(''); // Очищаем поиск при смене фильтра
     fetchWorks(1, true); // true = сброс данных
   }, [globalFilter]);
 
-  // 🚀 Функция загрузки работ с пагинацией
-  const fetchWorks = async (pageNumber = 1, resetData = false) => {
+  // 🚀 Функция загрузки работ с пагинацией и поиском
+  const fetchWorks = async (pageNumber = 1, resetData = false, search = '') => {
     try {
       setLoading(true);
       setError(null);
       
       const params = {
         page: pageNumber,
-        pageSize: PAGE_SIZE,
+        pageSize: search ? 1000 : PAGE_SIZE, // При поиске загружаем больше результатов
       };
       
       if (globalFilter === 'global') params.isGlobal = 'true';
       if (globalFilter === 'tenant') params.isGlobal = 'false';
+      if (search) params.search = search; // Серверный поиск по всей БД
       
       const response = await worksAPI.getAll(params);
       
@@ -167,14 +180,9 @@ const WorksReferencePage = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // Мемоизированная фильтрация работ с полнотекстовым поиском
-  // Поддерживает поиск по нескольким словам одновременно
-  const filteredWorks = useMemo(() => {
-    if (!searchTerm) return works; // Если поиск пустой, возвращаем все работы
-    
-    // Используем полнотекстовый поиск по всем полям (включая иерархию)
-    return fullTextSearch(works, searchTerm, ['name', 'code', 'unit', 'phase', 'section', 'subsection']);
-  }, [works, searchTerm]);
+  // Отображаемые работы (фильтрация теперь на сервере через params.search)
+  // Для совместимости оставляем переменную filteredWorks, но она просто = works
+  const filteredWorks = works;
 
   // Мемоизированные обработчики (стабильные функции, не пересоздаются при каждом рендере)
   const handleOpenCreate = useCallback(() => {
@@ -595,12 +603,12 @@ const WorksReferencePage = () => {
           // 🚀 Infinite Scroll для мобильных
           <InfiniteScroll
             dataLength={filteredWorks.length}
-            next={searchTerm ? () => {} : loadMoreWorks}
-            hasMore={!searchTerm && hasMore}
+            next={loadMoreWorks}
+            hasMore={hasMore}
             loader={<Box sx={{ textAlign: 'center', py: 2 }}><CircularProgress size={24} /></Box>}
             endMessage={
               <Typography sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
-                {searchTerm ? 'Конец результатов поиска' : 'Все работы загружены'}
+                {searchTerm ? `Найдено: ${filteredWorks.length}` : `Загружено всё (${filteredWorks.length} из ${totalRecords})`}
               </Typography>
             }
             scrollableTarget="scrollableDiv"
@@ -687,17 +695,17 @@ const WorksReferencePage = () => {
           <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden' }}>
             <InfiniteScroll
               dataLength={filteredWorks.length}
-              next={searchTerm ? () => {} : loadMoreWorks}
-              hasMore={!searchTerm && hasMore}
+              next={loadMoreWorks}
+              hasMore={hasMore}
               loader={
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
                   <CircularProgress size={24} />
                 </Box>
               }
               endMessage={
-                !searchTerm && filteredWorks.length > 0 ? (
+                filteredWorks.length > 0 ? (
                   <Box sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
-                    Все данные загружены ({filteredWorks.length} из {totalRecords})
+                    {searchTerm ? `Найдено: ${filteredWorks.length}` : `Все данные загружены (${filteredWorks.length} из ${totalRecords})`}
                   </Box>
                 ) : null
               }
