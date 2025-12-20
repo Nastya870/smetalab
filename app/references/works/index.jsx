@@ -630,17 +630,11 @@ const WorksReferencePage = () => {
               hasMore={hasMore}
               loader={
                 <Box sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'center', 
-                  alignItems: 'center',
-                  py: 1,
-                  bgcolor: 'rgba(249, 250, 251, 0.7)',
-                  borderTop: '1px solid #E5E7EB'
+                  textAlign: 'center',
+                  py: 0.5,
+                  bgcolor: 'transparent'
                 }}>
-                  <CircularProgress size={18} thickness={4} sx={{ color: '#3B82F6' }} />
-                  <Typography sx={{ ml: 1.5, fontSize: '0.8125rem', color: '#6B7280' }}>
-                    Загрузка...
-                  </Typography>
+                  <CircularProgress size={16} thickness={3} />
                 </Box>
               }
               endMessage={
@@ -747,17 +741,11 @@ const WorksReferencePage = () => {
               hasMore={hasMore}
               loader={
                 <Box sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'center', 
-                  alignItems: 'center',
-                  py: 1,
-                  bgcolor: 'rgba(249, 250, 251, 0.7)', // Светло-серый полупрозрачный
-                  borderTop: '1px solid #E5E7EB'
+                  textAlign: 'center',
+                  py: 0.5,
+                  bgcolor: 'transparent' // Прозрачный фон
                 }}>
-                  <CircularProgress size={18} thickness={4} sx={{ color: '#3B82F6' }} />
-                  <Typography sx={{ ml: 1.5, fontSize: '0.8125rem', color: '#6B7280' }}>
-                    Загрузка...
-                  </Typography>
+                  <CircularProgress size={16} thickness={3} />
                 </Box>
               }
               endMessage={
