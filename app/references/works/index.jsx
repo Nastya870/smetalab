@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import debounce from 'lodash.debounce';
-import { TableVirtuoso, Virtuoso } from 'react-virtuoso';
+import InfiniteScroll from 'react-infinite-scroll-component';
 
 // material-ui
 import {
@@ -67,6 +67,12 @@ const WorksReferencePage = () => {
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [openImportDialog, setOpenImportDialog] = useState(false);
+  
+  // 🚀 NEW: Infinite Scroll state
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const PAGE_SIZE = 50; // Загружаем по 50 записей за раз
 
   // Debounced поиск (обновляет searchTerm через 300ms после последнего ввода)
   const debouncedSearch = useMemo(
@@ -88,37 +94,66 @@ const WorksReferencePage = () => {
     localStorage.setItem('worksGlobalFilter', globalFilter);
   }, [globalFilter]);
 
-  // Загрузка данных из API при монтировании
+  // 🚀 Загрузка первой страницы при изменении фильтра
   useEffect(() => {
-    fetchWorks();
-  }, [globalFilter]); // Перезагружаем при изменении фильтра
+    // Сбрасываем состояние при изменении фильтра
+    setWorks([]);
+    setPage(1);
+    setHasMore(true);
+    setTotalRecords(0);
+    fetchWorks(1, true); // true = сброс данных
+  }, [globalFilter]);
 
-  // Функция загрузки работ
-  const fetchWorks = async () => {
+  // 🚀 Функция загрузки работ с пагинацией
+  const fetchWorks = async (pageNumber = 1, resetData = false) => {
     try {
       setLoading(true);
       setError(null);
+      
       const params = {
-        pageSize: 20000 // Загружаем все записи для виртуализации (увеличено для поддержки больших баз)
+        page: pageNumber,
+        pageSize: PAGE_SIZE,
       };
+      
       if (globalFilter === 'global') params.isGlobal = 'true';
       if (globalFilter === 'tenant') params.isGlobal = 'false';
       
       const response = await worksAPI.getAll(params);
       
       // Обработка response
-      if (response.data) {
-        setWorks(response.data);
+      const newWorks = response.data || (Array.isArray(response) ? response : []);
+      const total = response.total || response.count || newWorks.length;
+      
+      setTotalRecords(total);
+      
+      if (resetData) {
+        // Полная замена данных (при смене фильтра)
+        setWorks(newWorks);
       } else {
-        // Fallback для старого формата API
-        setWorks(Array.isArray(response) ? response : []);
+        // Добавление к существующим (infinite scroll)
+        setWorks(prev => [...prev, ...newWorks]);
       }
+      
+      // Проверяем, есть ли ещё данные
+      const totalLoaded = resetData ? newWorks.length : works.length + newWorks.length;
+      setHasMore(totalLoaded < total);
+      
     } catch (err) {
       console.error('Error loading works:', err);
       setError('Ошибка загрузки данных. Проверьте подключение к серверу.');
       showSnackbar('Ошибка загрузки работ', 'error');
+      setHasMore(false);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 🚀 Загрузка следующей страницы для Infinite Scroll
+  const loadMoreWorks = () => {
+    if (!loading && hasMore) {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      fetchWorks(nextPage, false);
     }
   };
 
@@ -549,7 +584,7 @@ const WorksReferencePage = () => {
       {/* Статистика - отступ 16px сверху, 24px снизу до таблицы */}
       <Box sx={{ mt: 2, mb: 2 }}>
         <Typography sx={{ fontSize: '0.875rem', color: '#6B7280' }}>
-          Найдено: {filteredWorks.length}
+          {searchTerm ? `Найдено: ${filteredWorks.length}` : `Загружено: ${works.length} из ${totalRecords}`}
         </Typography>
       </Box>
 
@@ -557,16 +592,26 @@ const WorksReferencePage = () => {
       <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
       {filteredWorks.length > 0 ? (
         isMobile ? (
-          // Виртуализированный карточный вид для мобильных
-          <Virtuoso
-            style={{ height: '100%' }}
-            data={filteredWorks}
-            itemContent={(index, work) => {
+          // 🚀 Infinite Scroll для мобильных
+          <InfiniteScroll
+            dataLength={filteredWorks.length}
+            next={searchTerm ? () => {} : loadMoreWorks}
+            hasMore={!searchTerm && hasMore}
+            loader={<Box sx={{ textAlign: 'center', py: 2 }}><CircularProgress size={24} /></Box>}
+            endMessage={
+              <Typography sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
+                {searchTerm ? 'Конец результатов поиска' : 'Все работы загружены'}
+              </Typography>
+            }
+            scrollableTarget="scrollableDiv"
+            style={{ overflow: 'visible' }}
+          >
+            {filteredWorks.map((work, index) => {
               const hierarchyParts = [work.phase, work.section, work.subsection].filter(Boolean);
               const hierarchyText = hierarchyParts.length > 0 ? hierarchyParts.join(' → ') : null;
               
               return (
-                <Box sx={{ mb: 2 }}>
+                <Box key={work.id} sx={{ mb: 2 }}>
                   <Card sx={{ width: '100%', border: '1px solid #E5E7EB', boxShadow: 'none' }}>
                     <CardContent sx={{ pb: 1 }}>
                       <Stack spacing={1.5}>
@@ -635,118 +680,130 @@ const WorksReferencePage = () => {
                   </Card>
                 </Box>
               );
-            }}
-          />
+            })}
+          </InfiniteScroll>
         ) : (
           // Таблица для десктопа
-          <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden', height: '100%' }}>
-          <TableVirtuoso
-            data={filteredWorks}
-            style={{ height: '100%' }}
-            components={{
-              Scroller: React.forwardRef((props, ref) => (
-                <TableContainer {...props} ref={ref} sx={{ overflowX: 'auto', maxWidth: '100%' }} />
-              )),
-              Table: (props) => <Table {...props} sx={{ tableLayout: 'fixed' }} />,
-              TableHead: TableHead,
-              TableRow: (props) => <TableRow {...props} sx={{ '&:hover': { bgcolor: '#F3F4F6' } }} />,
-              TableBody: TableBody,
-            }}
-            fixedHeaderContent={() => (
-            <TableRow sx={{ bgcolor: '#F9FAFB' }}>
-              <TableCell sx={{ width: '120px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, pl: 2.5, borderBottom: '1px solid #E5E7EB' }}>
-                Код
-              </TableCell>
-              <TableCell sx={{ width: 'auto', minWidth: '300px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
-                Наименование
-              </TableCell>
-              <TableCell align="center" sx={{ width: '100px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
-                Ед. изм.
-              </TableCell>
-              <TableCell align="right" sx={{ width: '150px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
-                Базовая цена
-              </TableCell>
-              <TableCell align="center" sx={{ width: '100px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, pr: 2.5, borderBottom: '1px solid #E5E7EB' }}>
-                Действия
-              </TableCell>
-            </TableRow>
-          )}
-          itemContent={(index, work) => {
-            // Формируем строку иерархии
-            const hierarchyParts = [work.phase, work.section, work.subsection].filter(Boolean);
-            const hierarchyText = hierarchyParts.length > 0 ? hierarchyParts.join(' → ') : null;
-            
-            return (
-              <>
-                <TableCell sx={{ width: '120px', py: 1.25, pl: 2.5, borderBottom: '1px solid #F3F4F6' }}>
-                  <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
-                    {work.code}
-                  </Typography>
-                </TableCell>
-                <TableCell sx={{ width: 'auto', minWidth: '300px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <Tooltip title={work.is_global ? 'Глобальная работа' : 'Работа компании'}>
-                      {work.is_global ? (
-                        <IconWorld size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
-                      ) : (
-                        <IconBuilding size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
-                      )}
-                    </Tooltip>
-                    <Box sx={{ overflow: 'hidden' }}>
-                      <Typography sx={{ fontSize: '0.8125rem', color: '#374151', wordBreak: 'break-word' }}>{work.name}</Typography>
-                      {hierarchyText && (
-                        <Typography 
-                          sx={{ 
-                            color: '#6B7280',
-                            fontSize: '0.75rem',
-                            display: 'block',
-                            mt: 0.25
-                          }}
-                        >
-                          {hierarchyText}
-                        </Typography>
-                      )}
-                      {work._optimistic && (
-                        <Chip
-                          label="Сохраняется..."
-                          size="small"
-                          color="warning"
-                          sx={{ animation: 'pulse 1.5s infinite', mt: 0.5 }}
-                        />
-                      )}
-                    </Box>
-                  </Stack>
-                </TableCell>
-                <TableCell align="center" sx={{ width: '100px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
-                  <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>{work.unit}</Typography>
-                </TableCell>
-                <TableCell align="right" sx={{ width: '150px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
-                  <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
-                    {formatPrice(work.base_price || work.basePrice)}
-                  </Typography>
-                </TableCell>
-                <TableCell align="center" sx={{ width: '100px', py: 1.25, pr: 2.5, borderBottom: '1px solid #F3F4F6' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleOpenEdit(work)}
-                      sx={{ width: 28, height: 28, color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
-                    >
-                      <IconEdit size={16} />
-                    </IconButton>
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleDeleteWork(work.id)}
-                      sx={{ width: 28, height: 28, color: '#EF4444', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
-                    >
-                      <IconTrash size={16} />
-                    </IconButton>
+          <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden' }}>
+            <InfiniteScroll
+              dataLength={filteredWorks.length}
+              next={searchTerm ? () => {} : loadMoreWorks}
+              hasMore={!searchTerm && hasMore}
+              loader={
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              }
+              endMessage={
+                !searchTerm && filteredWorks.length > 0 ? (
+                  <Box sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
+                    Все данные загружены ({filteredWorks.length} из {totalRecords})
                   </Box>
-                </TableCell>
-              </>
-            );
-          }}
-          />
+                ) : null
+              }
+              style={{ overflow: 'visible' }}
+            >
+              <TableContainer>
+                <Table sx={{ tableLayout: 'fixed' }}>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+                      <TableCell sx={{ width: '120px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, pl: 2.5, borderBottom: '1px solid #E5E7EB' }}>
+                        Код
+                      </TableCell>
+                      <TableCell sx={{ width: 'auto', minWidth: '300px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
+                        Наименование
+                      </TableCell>
+                      <TableCell align="center" sx={{ width: '100px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
+                        Ед. изм.
+                      </TableCell>
+                      <TableCell align="right" sx={{ width: '150px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, borderBottom: '1px solid #E5E7EB' }}>
+                        Базовая цена
+                      </TableCell>
+                      <TableCell align="center" sx={{ width: '100px', fontWeight: 500, fontSize: '0.75rem', color: '#374151', py: 1.25, pr: 2.5, borderBottom: '1px solid #E5E7EB' }}>
+                        Действия
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredWorks.map((work) => {
+                      // Формируем строку иерархии
+                      const hierarchyParts = [work.phase, work.section, work.subsection].filter(Boolean);
+                      const hierarchyText = hierarchyParts.length > 0 ? hierarchyParts.join(' → ') : null;
+                      
+                      return (
+                        <TableRow key={work.id} sx={{ '&:hover': { bgcolor: '#F3F4F6' } }}>
+                          <TableCell sx={{ width: '120px', py: 1.25, pl: 2.5, borderBottom: '1px solid #F3F4F6' }}>
+                            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
+                              {work.code}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ width: 'auto', minWidth: '300px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              <Tooltip title={work.is_global ? 'Глобальная работа' : 'Работа компании'}>
+                                {work.is_global ? (
+                                  <IconWorld size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+                                ) : (
+                                  <IconBuilding size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+                                )}
+                              </Tooltip>
+                              <Box sx={{ overflow: 'hidden' }}>
+                                <Typography sx={{ fontSize: '0.8125rem', color: '#374151', wordBreak: 'break-word' }}>{work.name}</Typography>
+                                {hierarchyText && (
+                                  <Typography 
+                                    sx={{ 
+                                      color: '#6B7280',
+                                      fontSize: '0.75rem',
+                                      display: 'block',
+                                      mt: 0.25
+                                    }}
+                                  >
+                                    {hierarchyText}
+                                  </Typography>
+                                )}
+                                {work._optimistic && (
+                                  <Chip
+                                    label="Сохраняется..."
+                                    size="small"
+                                    color="warning"
+                                    sx={{ animation: 'pulse 1.5s infinite', mt: 0.5 }}
+                                  />
+                                )}
+                              </Box>
+                            </Stack>
+                          </TableCell>
+                          <TableCell align="center" sx={{ width: '100px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
+                            <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>{work.unit}</Typography>
+                          </TableCell>
+                          <TableCell align="right" sx={{ width: '150px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
+                            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
+                              {formatPrice(work.base_price || work.basePrice)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="center" sx={{ width: '100px', py: 1.25, pr: 2.5, borderBottom: '1px solid #F3F4F6' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
+                              <IconButton 
+                                size="small" 
+                                onClick={() => handleOpenEdit(work)}
+                                sx={{ width: 28, height: 28, color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
+                              >
+                                <IconEdit size={16} />
+                              </IconButton>
+                              <IconButton 
+                                size="small" 
+                                onClick={() => handleDeleteWork(work.id)}
+                                sx={{ width: 28, height: 28, color: '#EF4444', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
+                              >
+                                <IconTrash size={16} />
+                              </IconButton>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </InfiniteScroll>
         </Paper>
         )
       ) : works.length === 0 ? (
