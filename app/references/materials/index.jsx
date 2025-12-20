@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import debounce from 'lodash.debounce';
 import InfiniteScroll from 'react-infinite-scroll-component';
 
@@ -103,6 +103,10 @@ const MaterialsReferencePage = () => {
   const [hasMore, setHasMore] = useState(true);
   const [totalRecords, setTotalRecords] = useState(0);
   const PAGE_SIZE = 50;
+  
+  // 🔧 Ref для сохранения позиции скролла
+  const scrollContainerRef = useRef(null);
+  const scrollPositionRef = useRef(0);
   
   // Управление видимостью колонок
   const [showImageColumn, setShowImageColumn] = useState(true);
@@ -209,9 +213,26 @@ const MaterialsReferencePage = () => {
   // Функция для загрузки следующей страницы (Infinite Scroll)
   const loadMoreMaterials = () => {
     if (!loading && hasMore) {
+      // 🔧 Сохраняем текущую позицию скролла перед загрузкой
+      if (scrollContainerRef.current) {
+        scrollPositionRef.current = scrollContainerRef.current.scrollTop;
+      }
+      
       fetchMaterials(page + 1, false);
     }
   };
+  
+  // 🔧 Восстанавливаем позицию скролла после добавления новых данных
+  useEffect(() => {
+    if (scrollContainerRef.current && scrollPositionRef.current > 0) {
+      // Небольшая задержка чтобы DOM успел обновиться
+      setTimeout(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = scrollPositionRef.current;
+        }
+      }, 50);
+    }
+  }, [materials.length]); // Срабатывает когда длина массива изменяется
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
@@ -814,6 +835,7 @@ const MaterialsReferencePage = () => {
           // Таблица для десктопа
           <Paper 
             id="materials-table-container"
+            ref={scrollContainerRef}
             elevation={0} 
             sx={{ 
               border: '1px solid #E5E7EB', 

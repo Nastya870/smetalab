@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import debounce from 'lodash.debounce';
 import InfiniteScroll from 'react-infinite-scroll-component';
 
@@ -73,6 +73,10 @@ const WorksReferencePage = () => {
   const [hasMore, setHasMore] = useState(true);
   const [totalRecords, setTotalRecords] = useState(0);
   const PAGE_SIZE = 50; // Загружаем по 50 записей за раз
+  
+  // 🔧 Ref для сохранения позиции скролла
+  const scrollContainerRef = useRef(null);
+  const scrollPositionRef = useRef(0);
 
   // Debounced поиск (обновляет searchTerm через 300ms после последнего ввода)
   const debouncedSearch = useMemo(
@@ -165,11 +169,28 @@ const WorksReferencePage = () => {
   // 🚀 Загрузка следующей страницы для Infinite Scroll
   const loadMoreWorks = () => {
     if (!loading && hasMore) {
+      // 🔧 Сохраняем текущую позицию скролла перед загрузкой
+      if (scrollContainerRef.current) {
+        scrollPositionRef.current = scrollContainerRef.current.scrollTop;
+      }
+      
       const nextPage = page + 1;
       setPage(nextPage);
       fetchWorks(nextPage, false);
     }
   };
+  
+  // 🔧 Восстанавливаем позицию скролла после добавления новых данных
+  useEffect(() => {
+    if (scrollContainerRef.current && scrollPositionRef.current > 0) {
+      // Небольшая задержка чтобы DOM успел обновиться
+      setTimeout(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = scrollPositionRef.current;
+        }
+      }, 50);
+    }
+  }, [works.length]); // Срабатывает когда длина массива изменяется
 
   // Показать уведомление
   const showSnackbar = (message, severity = 'success') => {
@@ -697,6 +718,7 @@ const WorksReferencePage = () => {
           // Таблица для десктопа
           <Paper 
             id="works-table-container"
+            ref={scrollContainerRef}
             elevation={0} 
             sx={{ 
               border: '1px solid #E5E7EB', 
