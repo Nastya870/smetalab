@@ -697,8 +697,19 @@ const MaterialsReferencePage = () => {
             next={loadMoreMaterials}
             hasMore={hasMore}
             loader={
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                <CircularProgress size={24} />
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center',
+                py: 1.5,
+                backdropFilter: 'blur(4px)',
+                bgcolor: 'rgba(255, 255, 255, 0.8)',
+                borderTop: '1px solid rgba(229, 231, 235, 0.6)'
+              }}>
+                <CircularProgress size={20} thickness={4} sx={{ color: '#3B82F6' }} />
+                <Typography sx={{ ml: 1.5, fontSize: '0.875rem', color: '#6B7280', fontWeight: 500 }}>
+                  Загрузка...
+                </Typography>
               </Box>
             }
             endMessage={
@@ -849,8 +860,24 @@ const MaterialsReferencePage = () => {
               next={loadMoreMaterials}
               hasMore={hasMore}
               loader={
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                  <CircularProgress size={24} />
+                <Box sx={{ 
+                  position: 'sticky',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  display: 'flex', 
+                  justifyContent: 'center', 
+                  alignItems: 'center',
+                  py: 1.5,
+                  backdropFilter: 'blur(4px)',
+                  bgcolor: 'rgba(255, 255, 255, 0.8)',
+                  borderTop: '1px solid rgba(229, 231, 235, 0.6)',
+                  zIndex: 10
+                }}>
+                  <CircularProgress size={20} thickness={4} sx={{ color: '#3B82F6' }} />
+                  <Typography sx={{ ml: 1.5, fontSize: '0.875rem', color: '#6B7280', fontWeight: 500 }}>
+                    Загрузка...
+                  </Typography>
                 </Box>
               }
               endMessage={
