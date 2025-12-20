@@ -665,7 +665,15 @@ const MaterialsReferencePage = () => {
       </Box>
 
       {/* Таблица материалов или карточки - занимает оставшееся пространство */}
-      <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+      <Box 
+        id="materials-scrollable-container"
+        sx={{ 
+          flex: 1, 
+          overflow: 'auto',
+          minHeight: 0,
+          height: '100%'
+        }}
+      >
       {filteredMaterials.length > 0 ? (
         isMobile ? (
           // Infinite Scroll карточный вид для мобильных
@@ -685,6 +693,7 @@ const MaterialsReferencePage = () => {
                 </Box>
               ) : null
             }
+            scrollableTarget="materials-scrollable-container"
             style={{ overflow: 'visible' }}
           >
             {filteredMaterials.map((material) => (
@@ -808,7 +817,7 @@ const MaterialsReferencePage = () => {
           </InfiniteScroll>
         ) : (
           // Таблица для десктопа
-          <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden' }}>
+          <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden', height: '100%', display: 'flex', flexDirection: 'column' }}>
             <InfiniteScroll
               dataLength={filteredMaterials.length}
               next={loadMoreMaterials}
@@ -825,6 +834,7 @@ const MaterialsReferencePage = () => {
                   </Box>
                 ) : null
               }
+              scrollableTarget="materials-scrollable-container"
               style={{ overflow: 'visible' }}
             >
               <TableContainer>

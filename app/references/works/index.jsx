@@ -597,7 +597,15 @@ const WorksReferencePage = () => {
       </Box>
 
       {/* Таблица работ или карточки - занимает оставшееся пространство */}
-      <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+      <Box 
+        id="works-scrollable-container"
+        sx={{ 
+          flex: 1, 
+          overflow: 'auto',
+          minHeight: 0,
+          height: '100%'
+        }}
+      >
       {filteredWorks.length > 0 ? (
         isMobile ? (
           // 🚀 Infinite Scroll для мобильных
@@ -611,7 +619,7 @@ const WorksReferencePage = () => {
                 {searchTerm ? `Найдено: ${filteredWorks.length}` : `Загружено всё (${filteredWorks.length} из ${totalRecords})`}
               </Typography>
             }
-            scrollableTarget="scrollableDiv"
+            scrollableTarget="works-scrollable-container"
             style={{ overflow: 'visible' }}
           >
             {filteredWorks.map((work, index) => {
@@ -692,7 +700,7 @@ const WorksReferencePage = () => {
           </InfiniteScroll>
         ) : (
           // Таблица для десктопа
-          <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden' }}>
+          <Paper elevation={0} sx={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden', height: '100%', display: 'flex', flexDirection: 'column' }}>
             <InfiniteScroll
               dataLength={filteredWorks.length}
               next={loadMoreWorks}
@@ -709,6 +717,7 @@ const WorksReferencePage = () => {
                   </Box>
                 ) : null
               }
+              scrollableTarget="works-scrollable-container"
               style={{ overflow: 'visible' }}
             >
               <TableContainer>
