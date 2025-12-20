@@ -701,13 +701,12 @@ const MaterialsReferencePage = () => {
                 display: 'flex', 
                 justifyContent: 'center', 
                 alignItems: 'center',
-                py: 1.5,
-                backdropFilter: 'blur(4px)',
-                bgcolor: 'rgba(255, 255, 255, 0.8)',
-                borderTop: '1px solid rgba(229, 231, 235, 0.6)'
+                py: 1,
+                bgcolor: 'rgba(249, 250, 251, 0.7)',
+                borderTop: '1px solid #E5E7EB'
               }}>
-                <CircularProgress size={20} thickness={4} sx={{ color: '#3B82F6' }} />
-                <Typography sx={{ ml: 1.5, fontSize: '0.875rem', color: '#6B7280', fontWeight: 500 }}>
+                <CircularProgress size={18} thickness={4} sx={{ color: '#3B82F6' }} />
+                <Typography sx={{ ml: 1.5, fontSize: '0.8125rem', color: '#6B7280' }}>
                   Загрузка...
                 </Typography>
               </Box>
@@ -861,21 +860,15 @@ const MaterialsReferencePage = () => {
               hasMore={hasMore}
               loader={
                 <Box sx={{ 
-                  position: 'sticky',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
                   display: 'flex', 
                   justifyContent: 'center', 
                   alignItems: 'center',
-                  py: 1.5,
-                  backdropFilter: 'blur(4px)',
-                  bgcolor: 'rgba(255, 255, 255, 0.8)',
-                  borderTop: '1px solid rgba(229, 231, 235, 0.6)',
-                  zIndex: 10
+                  py: 1,
+                  bgcolor: 'rgba(249, 250, 251, 0.7)',
+                  borderTop: '1px solid #E5E7EB'
                 }}>
-                  <CircularProgress size={20} thickness={4} sx={{ color: '#3B82F6' }} />
-                  <Typography sx={{ ml: 1.5, fontSize: '0.875rem', color: '#6B7280', fontWeight: 500 }}>
+                  <CircularProgress size={18} thickness={4} sx={{ color: '#3B82F6' }} />
+                  <Typography sx={{ ml: 1.5, fontSize: '0.8125rem', color: '#6B7280' }}>
                     Загрузка...
                   </Typography>
                 </Box>
