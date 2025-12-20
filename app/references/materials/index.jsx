@@ -696,7 +696,7 @@ const MaterialsReferencePage = () => {
             dataLength={filteredMaterials.length}
             next={loadMoreMaterials}
             hasMore={hasMore}
-            loader={<div />}
+            loader={<div style={{ display: 'none' }} />}
             endMessage={
               filteredMaterials.length > 0 ? (
                 <Box sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
@@ -844,7 +844,7 @@ const MaterialsReferencePage = () => {
               dataLength={filteredMaterials.length}
               next={loadMoreMaterials}
               hasMore={hasMore}
-              loader={<div />}
+              loader={<div style={{ display: 'none' }} />}
               endMessage={
                 filteredMaterials.length > 0 ? (
                   <Box sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>

@@ -628,7 +628,7 @@ const WorksReferencePage = () => {
               dataLength={filteredWorks.length}
               next={loadMoreWorks}
               hasMore={hasMore}
-              loader={<div />}
+              loader={<div style={{ display: 'none' }} />}
               endMessage={
                 <Typography sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
                   {searchTerm ? `Найдено: ${filteredWorks.length}` : `Загружено всё (${filteredWorks.length} из ${totalRecords})`}
@@ -731,7 +731,7 @@ const WorksReferencePage = () => {
               dataLength={filteredWorks.length}
               next={loadMoreWorks}
               hasMore={hasMore}
-              loader={<div />}
+              loader={<div style={{ display: 'none' }} />}
               endMessage={
                 filteredWorks.length > 0 ? (
                   <Box sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
