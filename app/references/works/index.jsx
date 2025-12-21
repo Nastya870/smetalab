@@ -46,6 +46,83 @@ import { fullTextSearch } from 'shared/lib/utils/fullTextSearch';
 // Code Splitting: Lazy load WorkDialog (загружается только при открытии)
 const WorkDialog = lazy(() => import('./WorkDialog'));
 
+// ==============================|| MEMOIZED TABLE ROW ||============================== //
+
+const WorkTableRow = React.memo(({ work, formatPrice, handleOpenEdit, handleDeleteWork }) => {
+  const hierarchyParts = [work.phase, work.section, work.subsection].filter(Boolean);
+  const hierarchyText = hierarchyParts.length > 0 ? hierarchyParts.join(' → ') : null;
+  
+  return (
+    <TableRow sx={{ '&:hover': { bgcolor: '#F3F4F6' } }}>
+      <TableCell sx={{ width: '120px', py: 1.25, pl: 2.5, borderBottom: '1px solid #F3F4F6' }}>
+        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
+          {work.code}
+        </Typography>
+      </TableCell>
+      <TableCell sx={{ width: 'auto', minWidth: '300px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
+        <Stack direction="row" alignItems="center" spacing={1}>
+          {work.isGlobal && (
+            <Tooltip title="Глобальная работа" arrow placement="top">
+              <IconWorld size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+            </Tooltip>
+          )}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#111827', mb: 0.25 }}>
+              {work.name}
+            </Typography>
+            {hierarchyText && (
+              <Typography sx={{ fontSize: '0.6875rem', color: '#6B7280', lineHeight: 1.4 }}>
+                {hierarchyText}
+              </Typography>
+            )}
+            {work._optimistic && (
+              <Chip
+                label="Сохраняется..."
+                size="small"
+                color="warning"
+                sx={{ animation: 'pulse 1.5s infinite', mt: 0.5 }}
+              />
+            )}
+          </Box>
+        </Stack>
+      </TableCell>
+      <TableCell align="center" sx={{ width: '100px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
+        <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>{work.unit}</Typography>
+      </TableCell>
+      <TableCell align="right" sx={{ width: '150px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
+        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
+          {formatPrice(work.base_price || work.basePrice)}
+        </Typography>
+      </TableCell>
+      <TableCell align="center" sx={{ width: '100px', py: 1.25, pr: 2.5, borderBottom: '1px solid #F3F4F6' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
+          <IconButton 
+            size="small" 
+            onClick={() => handleOpenEdit(work)}
+            sx={{ width: 28, height: 28, color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
+          >
+            <IconEdit size={16} />
+          </IconButton>
+          <IconButton 
+            size="small" 
+            onClick={() => handleDeleteWork(work.id)}
+            sx={{ width: 28, height: 28, color: '#EF4444', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
+          >
+            <IconTrash size={16} />
+          </IconButton>
+        </Box>
+      </TableCell>
+    </TableRow>
+  );
+}, (prevProps, nextProps) => {
+  // Перерендерить только если изменился сам work объект
+  return prevProps.work.id === nextProps.work.id && 
+         prevProps.work._optimistic === nextProps.work._optimistic &&
+         prevProps.work.name === nextProps.work.name;
+});
+
+WorkTableRow.displayName = 'WorkTableRow';
+
 // ==============================|| WORKS REFERENCE PAGE ||============================== //
 
 const WorksReferencePage = () => {
@@ -766,81 +843,15 @@ const WorksReferencePage = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {filteredWorks.map((work) => {
-                      // Формируем строку иерархии
-                      const hierarchyParts = [work.phase, work.section, work.subsection].filter(Boolean);
-                      const hierarchyText = hierarchyParts.length > 0 ? hierarchyParts.join(' → ') : null;
-                      
-                      return (
-                        <TableRow key={work.id} sx={{ '&:hover': { bgcolor: '#F3F4F6' } }}>
-                          <TableCell sx={{ width: '120px', py: 1.25, pl: 2.5, borderBottom: '1px solid #F3F4F6' }}>
-                            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
-                              {work.code}
-                            </Typography>
-                          </TableCell>
-                          <TableCell sx={{ width: 'auto', minWidth: '300px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
-                            <Stack direction="row" alignItems="center" spacing={1}>
-                              <Tooltip title={work.is_global ? 'Глобальная работа' : 'Работа компании'}>
-                                {work.is_global ? (
-                                  <IconWorld size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
-                                ) : (
-                                  <IconBuilding size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
-                                )}
-                              </Tooltip>
-                              <Box sx={{ overflow: 'hidden' }}>
-                                <Typography sx={{ fontSize: '0.8125rem', color: '#374151', wordBreak: 'break-word' }}>{work.name}</Typography>
-                                {hierarchyText && (
-                                  <Typography 
-                                    sx={{ 
-                                      color: '#6B7280',
-                                      fontSize: '0.75rem',
-                                      display: 'block',
-                                      mt: 0.25
-                                    }}
-                                  >
-                                    {hierarchyText}
-                                  </Typography>
-                                )}
-                                {work._optimistic && (
-                                  <Chip
-                                    label="Сохраняется..."
-                                    size="small"
-                                    color="warning"
-                                    sx={{ animation: 'pulse 1.5s infinite', mt: 0.5 }}
-                                  />
-                                )}
-                              </Box>
-                            </Stack>
-                          </TableCell>
-                          <TableCell align="center" sx={{ width: '100px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
-                            <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>{work.unit}</Typography>
-                          </TableCell>
-                          <TableCell align="right" sx={{ width: '150px', py: 1.25, borderBottom: '1px solid #F3F4F6' }}>
-                            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
-                              {formatPrice(work.base_price || work.basePrice)}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center" sx={{ width: '100px', py: 1.25, pr: 2.5, borderBottom: '1px solid #F3F4F6' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
-                              <IconButton 
-                                size="small" 
-                                onClick={() => handleOpenEdit(work)}
-                                sx={{ width: 28, height: 28, color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
-                              >
-                                <IconEdit size={16} />
-                              </IconButton>
-                              <IconButton 
-                                size="small" 
-                                onClick={() => handleDeleteWork(work.id)}
-                                sx={{ width: 28, height: 28, color: '#EF4444', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
-                              >
-                                <IconTrash size={16} />
-                              </IconButton>
-                            </Box>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                    {filteredWorks.map((work) => (
+                      <WorkTableRow
+                        key={work.id}
+                        work={work}
+                        formatPrice={formatPrice}
+                        handleOpenEdit={handleOpenEdit}
+                        handleDeleteWork={handleDeleteWork}
+                      />
+                    ))}
                     
                     {/* Триггер для автозагрузки через Intersection Observer */}
                     {hasMore && (
