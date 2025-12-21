@@ -104,9 +104,8 @@ const MaterialsReferencePage = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const PAGE_SIZE = 50;
   
-  // 🔧 Ref для сохранения позиции скролла
+  // 🔧 Ref для контейнера со скроллом
   const scrollContainerRef = useRef(null);
-  const scrollPositionRef = useRef(0);
   
   // 🎯 Ref для триггера загрузки (Intersection Observer)
   const loadMoreTriggerRef = useRef(null);
@@ -216,27 +215,10 @@ const MaterialsReferencePage = () => {
   // Функция для загрузки следующей страницы (Infinite Scroll)
   const loadMoreMaterials = () => {
     if (!loading && hasMore) {
-      // 🔧 Сохраняем текущую позицию скролла перед загрузкой
-      if (scrollContainerRef.current) {
-        scrollPositionRef.current = scrollContainerRef.current.scrollTop;
-      }
-      
       fetchMaterials(page + 1, false);
     }
   };
   
-  // 🔧 Восстанавливаем позицию скролла после добавления новых данных
-  useEffect(() => {
-    if (scrollContainerRef.current && scrollPositionRef.current > 0) {
-      // Небольшая задержка чтобы DOM успел обновиться
-      setTimeout(() => {
-        if (scrollContainerRef.current) {
-          scrollContainerRef.current.scrollTop = scrollPositionRef.current;
-        }
-      }, 50);
-    }
-  }, [materials.length]); // Срабатывает когда длина массива изменяется
-
   // 🎯 Intersection Observer для автозагрузки при скролле
   useEffect(() => {
     if (!loadMoreTriggerRef.current || loading || !hasMore) return;

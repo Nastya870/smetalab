@@ -74,9 +74,8 @@ const WorksReferencePage = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const PAGE_SIZE = 50; // Загружаем по 50 записей за раз
   
-  // 🔧 Ref для сохранения позиции скролла
+  // 🔧 Ref для контейнера со скроллом
   const scrollContainerRef = useRef(null);
-  const scrollPositionRef = useRef(0);
   
   // 🎯 Ref для триггера загрузки (Intersection Observer)
   const loadMoreTriggerRef = useRef(null);
@@ -172,29 +171,12 @@ const WorksReferencePage = () => {
   // 🚀 Загрузка следующей страницы для Infinite Scroll
   const loadMoreWorks = () => {
     if (!loading && hasMore) {
-      // 🔧 Сохраняем текущую позицию скролла перед загрузкой
-      if (scrollContainerRef.current) {
-        scrollPositionRef.current = scrollContainerRef.current.scrollTop;
-      }
-      
       const nextPage = page + 1;
       setPage(nextPage);
       fetchWorks(nextPage, false);
     }
   };
   
-  // 🔧 Восстанавливаем позицию скролла после добавления новых данных
-  useEffect(() => {
-    if (scrollContainerRef.current && scrollPositionRef.current > 0) {
-      // Небольшая задержка чтобы DOM успел обновиться
-      setTimeout(() => {
-        if (scrollContainerRef.current) {
-          scrollContainerRef.current.scrollTop = scrollPositionRef.current;
-        }
-      }, 50);
-    }
-  }, [works.length]); // Срабатывает когда длина массива изменяется
-
   // 🎯 Intersection Observer для автозагрузки при скролле
   useEffect(() => {
     if (!loadMoreTriggerRef.current || loading || !hasMore) return;
