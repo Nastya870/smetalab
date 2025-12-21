@@ -77,6 +77,96 @@ const HighlightText = ({ text, query }) => {
   );
 };
 
+// ==============================|| MEMOIZED TABLE ROW ||============================== //
+
+const MaterialTableRow = React.memo(({ material, formatPrice, showImageColumn, handleOpenEdit, handleDeleteMaterial }) => {
+  return (
+    <TableRow sx={{ '&:hover': { bgcolor: '#F3F4F6' } }}>
+      <TableCell sx={{ width: '100px', py: 1, pl: 2, borderBottom: '1px solid #F3F4F6' }}>
+        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
+          {material.code || '—'}
+        </Typography>
+      </TableCell>
+      {showImageColumn && (
+        <TableCell sx={{ width: '60px', py: 1, borderBottom: '1px solid #F3F4F6' }}>
+          {material.image_url ? (
+            <Box
+              component="img"
+              src={material.image_url}
+              alt={material.name}
+              sx={{
+                width: 40,
+                height: 40,
+                objectFit: 'cover',
+                borderRadius: 1,
+                border: '1px solid #E5E7EB'
+              }}
+            />
+          ) : (
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                bgcolor: '#F3F4F6',
+                borderRadius: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <Typography sx={{ fontSize: '0.625rem', color: '#9CA3AF' }}>—</Typography>
+            </Box>
+          )}
+        </TableCell>
+      )}
+      <TableCell sx={{ width: 'auto', minWidth: '250px', py: 1, borderBottom: '1px solid #F3F4F6' }}>
+        <Stack direction="row" alignItems="center" spacing={0.75}>
+          {material.isGlobal && (
+            <Tooltip title="Глобальный материал" arrow placement="top">
+              <IconWorld size={13} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+            </Tooltip>
+          )}
+          <Typography sx={{ fontSize: '0.8125rem', color: '#374151', fontWeight: 500 }}>
+            {material.name}
+          </Typography>
+        </Stack>
+      </TableCell>
+      <TableCell align="center" sx={{ width: '80px', py: 1, borderBottom: '1px solid #F3F4F6' }}>
+        <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>{material.unit || '—'}</Typography>
+      </TableCell>
+      <TableCell align="right" sx={{ width: '120px', py: 1, borderBottom: '1px solid #F3F4F6' }}>
+        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
+          {formatPrice(material.base_price || material.basePrice)}
+        </Typography>
+      </TableCell>
+      <TableCell align="center" sx={{ width: '90px', py: 1, pr: 2, borderBottom: '1px solid #F3F4F6' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+          <IconButton
+            size="small"
+            onClick={() => handleOpenEdit(material)}
+            sx={{ width: 26, height: 26, color: '#6B7280', '&:hover': { color: '#374151', bgcolor: '#F3F4F6' } }}
+          >
+            <IconEdit size={14} />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={() => handleDeleteMaterial(material.id)}
+            sx={{ width: 26, height: 26, color: '#EF4444', '&:hover': { color: '#DC2626', bgcolor: '#FEF2F2' } }}
+          >
+            <IconTrash size={14} />
+          </IconButton>
+        </Box>
+      </TableCell>
+    </TableRow>
+  );
+}, (prevProps, nextProps) => {
+  return prevProps.material.id === nextProps.material.id &&
+         prevProps.material.name === nextProps.material.name &&
+         prevProps.showImageColumn === nextProps.showImageColumn;
+});
+
+MaterialTableRow.displayName = 'MaterialTableRow';
+
 // ==============================|| MATERIALS REFERENCE PAGE ||============================== //
 
 const MaterialsReferencePage = () => {
@@ -213,11 +303,11 @@ const MaterialsReferencePage = () => {
   };
 
   // Функция для загрузки следующей страницы (Infinite Scroll)
-  const loadMoreMaterials = () => {
+  const loadMoreMaterials = useCallback(() => {
     if (!loading && hasMore) {
       fetchMaterials(page + 1, false);
     }
-  };
+  }, [loading, hasMore, page]);
   
   // 🎯 Intersection Observer для автозагрузки при скролле
   useEffect(() => {
@@ -231,9 +321,10 @@ const MaterialsReferencePage = () => {
         }
       },
       {
-        root: scrollContainerRef.current, // Наблюдаем за скроллом внутри контейнера
-        rootMargin: '100px', // Начинаем загрузку за 100px до конца
-        threshold: 0.1
+        // Убрали root - теперь Observer следит относительно viewport, а не контейнера
+        // Это предотвращает прыжки скролла при изменении высоты
+        rootMargin: '200px', // Начинаем загрузку за 200px до конца
+        threshold: 0.01
       }
     );
 

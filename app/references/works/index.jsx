@@ -246,13 +246,13 @@ const WorksReferencePage = () => {
   };
 
   // 🚀 Загрузка следующей страницы для Infinite Scroll
-  const loadMoreWorks = () => {
+  const loadMoreWorks = useCallback(() => {
     if (!loading && hasMore) {
       const nextPage = page + 1;
       setPage(nextPage);
       fetchWorks(nextPage, false);
     }
-  };
+  }, [loading, hasMore, page]);
   
   // 🎯 Intersection Observer для автозагрузки при скролле
   useEffect(() => {
@@ -266,9 +266,10 @@ const WorksReferencePage = () => {
         }
       },
       {
-        root: scrollContainerRef.current, // Наблюдаем за скроллом внутри контейнера
-        rootMargin: '100px', // Начинаем загрузку за 100px до конца
-        threshold: 0.1
+        // Убрали root - теперь Observer следит относительно viewport, а не контейнера
+        // Это предотвращает прыжки скролла при изменении высоты
+        rootMargin: '200px', // Начинаем загрузку за 200px до конца
+        threshold: 0.01
       }
     );
 
