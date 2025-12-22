@@ -163,7 +163,8 @@ export const getAllMaterials = async (req, res) => {
       sort = 'sku', 
       order = 'ASC',
       page = 1,
-      pageSize = 50 // По умолчанию 50 записей на страницу
+      pageSize = 50, // По умолчанию 50 записей на страницу
+      skipCount = 'false' // Пропустить COUNT(*) для ускорения последующих запросов
     } = req.query;
     
     // Pagination parameters
@@ -288,18 +289,33 @@ export const getAllMaterials = async (req, res) => {
     // ============================================
     // ОПТИМИЗИРОВАННЫЙ ЗАПРОС - явное указание колонок для covering index
     // ============================================
-    const query = `
-      SELECT 
-        id, sku, sku_number, name, unit, price, weight,
-        supplier, category, image, product_url, 
-        show_image, auto_calculate, is_global,
-        tenant_id, created_at, updated_at,
-        COUNT(*) OVER() as total_count
-      FROM materials
-      ${whereClause}
-      ORDER BY is_global DESC, ${sortField} ${sortOrder}
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1};
-    `;
+    // Пропускаем COUNT(*) OVER() для последующих запросов (ускорение в 10x)
+    const shouldSkipCount = skipCount === 'true' && pageNum > 1;
+    
+    const query = shouldSkipCount 
+      ? `
+        SELECT 
+          id, sku, sku_number, name, unit, price, weight,
+          supplier, category, image, product_url, 
+          show_image, auto_calculate, is_global,
+          tenant_id, created_at, updated_at
+        FROM materials
+        ${whereClause}
+        ORDER BY is_global DESC, ${sortField} ${sortOrder}
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1};
+      `
+      : `
+        SELECT 
+          id, sku, sku_number, name, unit, price, weight,
+          supplier, category, image, product_url, 
+          show_image, auto_calculate, is_global,
+          tenant_id, created_at, updated_at,
+          COUNT(*) OVER() as total_count
+        FROM materials
+        ${whereClause}
+        ORDER BY is_global DESC, ${sortField} ${sortOrder}
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1};
+      `;
     
     params.push(pageSizeNum, offset);
     
@@ -330,14 +346,19 @@ export const getAllMaterials = async (req, res) => {
     }
     
     // Извлечь total из первой строки (если есть данные)
-    const total = result.rows.length > 0 ? parseInt(result.rows[0].total_count, 10) : 0;
+    // Для последующих запросов (skipCount=true) возвращаем null, фронтенд использует кэшированное значение
+    const total = shouldSkipCount 
+      ? null 
+      : (result.rows.length > 0 ? parseInt(result.rows[0].total_count, 10) : 0);
     
     // Удалить total_count из результатов (технический столбец)
     const transformStartTime = Date.now();
-    const data = result.rows.map(row => {
-      const { total_count, ...rest } = row;
-      return rest;
-    });
+    const data = shouldSkipCount
+      ? result.rows
+      : result.rows.map(row => {
+          const { total_count, ...rest } = row;
+          return rest;
+        });
     const transformDuration = Date.now() - transformStartTime;
     
     console.log(`[MATERIALS PERFORMANCE] Query: ${queryDuration}ms, Rows: ${data.length}, Total: ${total}`);

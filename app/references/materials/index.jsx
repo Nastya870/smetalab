@@ -249,7 +249,8 @@ const MaterialsReferencePage = () => {
       
       const params = {
         page: pageNumber,
-        pageSize: search ? 1000 : PAGE_SIZE // При поиске загружаем больше результатов
+        pageSize: search ? 1000 : PAGE_SIZE, // При поиске загружаем больше результатов
+        skipCount: pageNumber > 1 ? 'true' : 'false' // Пропускаем COUNT(*) на последующих страницах для ускорения
       };
       if (globalFilter === 'global') params.isGlobal = 'true';
       if (globalFilter === 'tenant') params.isGlobal = 'false';
@@ -277,7 +278,10 @@ const MaterialsReferencePage = () => {
       }
       
       // Получаем общее количество
-      const total = response.total || response.count || newMaterials.length;
+      // Для последующих страниц (skipCount=true) сервер возвращает total=null, используем кэшированное значение
+      const total = response.total !== null && response.total !== undefined 
+        ? response.total 
+        : (totalRecords || response.count || newMaterials.length);
       setTotalRecords(total);
       
       // Добавляем или заменяем данные

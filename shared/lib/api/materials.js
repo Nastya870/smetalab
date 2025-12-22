@@ -22,6 +22,7 @@ const materialsAPI = {
       if (params.isGlobal) queryParams.append('isGlobal', params.isGlobal); // Фильтр по типу
       if (params.pageSize) queryParams.append('pageSize', params.pageSize); // Размер страницы
       if (params.page) queryParams.append('page', params.page); // Номер страницы
+      if (params.skipCount) queryParams.append('skipCount', params.skipCount); // Пропустить COUNT(*) для ускорения
       
       const queryString = queryParams.toString();
       const endpoint = queryString ? `/materials?${queryString}` : '/materials';
