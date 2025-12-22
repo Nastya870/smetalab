@@ -193,6 +193,7 @@ const MaterialsReferencePage = () => {
   const [hasMore, setHasMore] = useState(true);
   const [totalRecords, setTotalRecords] = useState(0);
   const PAGE_SIZE = 50;
+  const [initialLoading, setInitialLoading] = useState(true); // Первая загрузка
   
   // 🔧 Ref для контейнера со скроллом
   const scrollContainerRef = useRef(null);
@@ -299,6 +300,7 @@ const MaterialsReferencePage = () => {
       showSnackbar('Ошибка загрузки материалов', 'error');
     } finally {
       setLoading(false);
+      setInitialLoading(false); // Первая загрузка завершена
     }
   };
 
@@ -519,7 +521,7 @@ const MaterialsReferencePage = () => {
   };
 
   // Loading state
-  if (loading) {
+  if (initialLoading) {
     return (
       <Box sx={{ bgcolor: '#F3F4F6', minHeight: '100vh', p: 3 }}>
         <Paper elevation={0} sx={{ bgcolor: '#FFFFFF', borderRadius: '12px', border: '1px solid #E5E7EB', p: 4 }}>

@@ -150,6 +150,7 @@ const WorksReferencePage = () => {
   const [hasMore, setHasMore] = useState(true);
   const [totalRecords, setTotalRecords] = useState(0);
   const PAGE_SIZE = 50; // Загружаем по 50 записей за раз
+  const [initialLoading, setInitialLoading] = useState(true); // Первая загрузка
   
   // 🔧 Ref для контейнера со скроллом
   const scrollContainerRef = useRef(null);
@@ -242,6 +243,7 @@ const WorksReferencePage = () => {
       setHasMore(false);
     } finally {
       setLoading(false);
+      setInitialLoading(false); // Первая загрузка завершена
     }
   };
 
@@ -512,14 +514,14 @@ const WorksReferencePage = () => {
       )}
 
       {/* Индикатор загрузки */}
-      {loading && (
+      {initialLoading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
           <CircularProgress />
         </Box>
       )}
 
       {/* Контент */}
-      {!loading && (
+      {!initialLoading && (
         <>
 
       {/* Поиск и фильтр */}
