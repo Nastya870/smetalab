@@ -27,9 +27,9 @@ const materialsAPI = {
       const endpoint = queryString ? `/materials?${queryString}` : '/materials';
       
       const response = await axiosInstance.get(endpoint);
-      // API возвращает { success: true, count: N, data: [...] }
-      // Нам нужен только массив data
-      return response.data.data || [];
+      // API возвращает { success: true, count: N, total: M, page: P, pageSize: S, data: [...] }
+      // Возвращаем полный объект для поддержки пагинации
+      return response.data;
     } catch (error) {
       console.error('Error fetching materials:', error);
       throw error;
