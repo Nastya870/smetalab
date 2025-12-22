@@ -335,7 +335,7 @@ const MaterialsReferencePage = () => {
     return () => {
       observer.disconnect();
     };
-  }, [loading, hasMore, page]); // Перезапускаем когда меняется состояние загрузки
+  }, [loading, hasMore, page, loadMoreMaterials]); // Добавлен loadMoreMaterials в зависимости
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });

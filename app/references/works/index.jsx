@@ -280,7 +280,7 @@ const WorksReferencePage = () => {
     return () => {
       observer.disconnect();
     };
-  }, [loading, hasMore, page]); // Перезапускаем когда меняется состояние загрузки
+  }, [loading, hasMore, page, loadMoreWorks]); // Добавлен loadMoreWorks в зависимости
 
   // Показать уведомление
   const showSnackbar = (message, severity = 'success') => {
