@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, forwardRef, useImperativeHandle, useCallback, startTransition, useDeferredValue } from 'react';
 import PropTypes from 'prop-types';
-import { Virtuoso } from 'react-virtuoso';
 import debounce from 'lodash.debounce';
 
 // material-ui
@@ -207,6 +206,9 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   const [materialsTotalRecords, setMaterialsTotalRecords] = useState(0);
   const MATERIALS_PAGE_SIZE = 50;
   
+  // ✅ Ref для триггера Intersection Observer (автозагрузка при скролле)
+  const loadMoreMaterialsRef = useRef(null);
+  
   // ✅ Локальное хранилище для редактируемых полей (не вызывает ререндер)
   const editingValuesRef = useRef({});
   
@@ -234,15 +236,16 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   const WORKS_CACHE_TTL = 10 * 60 * 1000; // 10 минут
   
   // ✅ Загрузка материалов с пагинацией (аналогично основному справочнику)
-  const loadMaterialsForDialog = useCallback(async (pageNumber = 1, resetData = false) => {
+  const loadMaterialsForDialog = useCallback(async (pageNumber = 1, resetData = false, search = '') => {
     try {
       setLoadingMaterials(true);
       
       const params = {
         page: pageNumber,
-        pageSize: MATERIALS_PAGE_SIZE,
+        pageSize: search ? 1000 : MATERIALS_PAGE_SIZE, // При поиске загружаем больше результатов
         skipCount: pageNumber > 1 ? 'true' : 'false' // Пропускаем COUNT(*) на последующих страницах
       };
+      if (search) params.search = search; // Серверный поиск по всей БД
       
       const response = await materialsAPI.getAll(params);
       
@@ -748,15 +751,63 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     await loadMaterialsForDialog(1, true);
   }, [loadMaterialsForDialog]);
 
-  // ✅ Клиентская фильтрация материалов (аналогично основному справочнику)
+  // ✅ Клиентская фильтрация материалов (только для отображения, серверный поиск отдельно)
   const filteredMaterialsForDialog = useMemo(() => {
-    if (!materialSearchQuery || materialSearchQuery.trim().length === 0) {
-      return allMaterialsForDialog;
+    // Без фильтрации - показываем все загруженные
+    return allMaterialsForDialog;
+  }, [allMaterialsForDialog]);
+  
+  // ✅ Debounced серверный поиск (как в основном справочнике)
+  const debouncedMaterialSearch = useMemo(
+    () => debounce((query) => {
+      if (query && query.trim().length > 0) {
+        // Серверный поиск по всей БД
+        loadMaterialsForDialog(1, true, query.trim());
+      } else {
+        // Очистили поиск - загружаем обычные данные
+        loadMaterialsForDialog(1, true);
+      }
+    }, 300),
+    [loadMaterialsForDialog]
+  );
+  
+  // Очистка debounce при размонтировании
+  useEffect(() => {
+    return () => {
+      debouncedMaterialSearch.cancel();
+    };
+  }, [debouncedMaterialSearch]);
+  
+  // ✅ Функция загрузки следующей страницы материалов
+  const loadMoreMaterials = useCallback(() => {
+    if (!loadingMaterials && materialsHasMore && !materialSearchQuery) {
+      loadMaterialsForDialog(materialsPage + 1, false);
     }
-    
-    // Используем fullTextSearch для мгновенного поиска
-    return fullTextSearch(allMaterialsForDialog, materialSearchQuery, ['name', 'sku', 'category', 'supplier']);
-  }, [allMaterialsForDialog, materialSearchQuery]);
+  }, [loadingMaterials, materialsHasMore, materialsPage, materialSearchQuery, loadMaterialsForDialog]);
+  
+  // ✅ Intersection Observer для автозагрузки материалов при скролле
+  useEffect(() => {
+    if (!loadMoreMaterialsRef.current || loadingMaterials || !materialsHasMore || materialSearchQuery) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Когда триггер становится видимым - загружаем ещё данные
+        if (entries[0].isIntersecting && !loadingMaterials && materialsHasMore) {
+          loadMoreMaterials();
+        }
+      },
+      {
+        rootMargin: '200px', // Начинаем загрузку за 200px до конца
+        threshold: 0.01
+      }
+    );
+
+    observer.observe(loadMoreMaterialsRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [loadingMaterials, materialsHasMore, materialsPage, materialSearchQuery, loadMoreMaterials]);
 
   // Добавить материал к работе
   const handleAddMaterialToWork = (material) => {
@@ -2483,7 +2534,11 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
             size="small"
             placeholder="Поиск по названию, артикулу, категории..."
             value={materialSearchQuery}
-            onChange={(e) => setMaterialSearchQuery(e.target.value)}
+            onChange={(e) => {
+              const query = e.target.value;
+              setMaterialSearchQuery(query);
+              debouncedMaterialSearch(query);
+            }}
             autoFocus
             InputProps={{
               startAdornment: (
@@ -2495,8 +2550,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
             sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.875rem' } }}
           />
         </DialogTitle>
-        <DialogContent sx={{ p: 0 }}>
-          {loadingMaterials ? (
+        <DialogContent sx={{ p: 0, height: '500px', overflow: 'auto' }}>
+          {loadingMaterials && filteredMaterialsForDialog.length === 0 ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
               <CircularProgress size={40} />
             </Box>
@@ -2509,18 +2564,11 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
               </Typography>
             </Box>
           ) : (
-            /* ✅ Компактный виртуализированный список с Infinite Scroll */
-            <Virtuoso
-              style={{ height: '100%' }}
-              data={filteredMaterialsForDialog}
-              endReached={() => {
-                // ✅ Загружаем следующую страницу при достижении конца списка
-                if (!loadingMaterials && materialsHasMore && !materialSearchQuery) {
-                  loadMaterialsForDialog(materialsPage + 1, false);
-                }
-              }}
-              itemContent={(index, material) => (
+            /* ✅ Обычный список с Intersection Observer (без Virtuoso для избежания скачков скролла) */
+            <List sx={{ py: 0 }}>
+              {filteredMaterialsForDialog.map((material, index) => (
                 <ListItem 
+                  key={material.id}
                   disablePadding
                   sx={{ 
                     borderBottom: index < filteredMaterialsForDialog.length - 1 ? '1px solid' : 'none',
@@ -2605,8 +2653,25 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                     )}
                   </ListItemButton>
                 </ListItem>
+              ))}
+              
+              {/* ✅ Триггер для автозагрузки через Intersection Observer */}
+              {materialsHasMore && !materialSearchQuery && (
+                <Box 
+                  ref={loadMoreMaterialsRef} 
+                  sx={{ height: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', py: 2 }}
+                >
+                  {loadingMaterials && <CircularProgress size={20} thickness={4} sx={{ color: '#3B82F6' }} />}
+                </Box>
               )}
-            />
+              
+              {/* Сообщение когда всё загружено */}
+              {!materialsHasMore && filteredMaterialsForDialog.length > 0 && (
+                <Typography sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
+                  {materialSearchQuery ? `Найдено: ${filteredMaterialsForDialog.length}` : `Загружено всё (${filteredMaterialsForDialog.length} из ${materialsTotalRecords})`}
+                </Typography>
+              )}
+            </List>
           )}
         </DialogContent>
         <DialogActions sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
