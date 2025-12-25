@@ -676,32 +676,87 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     setMaterialDialogOpen(true);
   }, []);
 
-  // ✅ Поиск материалов на сервере (по Enter)
-  const searchMaterialsOnServer = async (searchQuery) => {
+  // ✅ Кэш результатов поиска материалов
+  const materialSearchCacheRef = useRef(new Map());
+  const searchAbortControllerRef = useRef(null);
+  
+  // ✅ Поиск материалов на сервере (оптимизированный)
+  const searchMaterialsOnServer = useCallback(async (searchQuery) => {
     if (!searchQuery || searchQuery.trim().length < 2) {
       setAvailableMaterials([]);
       return;
     }
     
+    const query = searchQuery.trim().toLowerCase();
+    
+    // ✅ Проверяем кэш
+    if (materialSearchCacheRef.current.has(query)) {
+      const cached = materialSearchCacheRef.current.get(query);
+      setAvailableMaterials(cached);
+      console.log(`⚡ Кэш: Найдено ${cached.length} материалов по запросу "${searchQuery}"`);
+      return;
+    }
+    
+    // ✅ Отменяем предыдущий запрос если есть
+    if (searchAbortControllerRef.current) {
+      searchAbortControllerRef.current.abort();
+    }
+    
     try {
       setLoadingMaterials(true);
+      
+      // Создаём новый AbortController для этого запроса
+      searchAbortControllerRef.current = new AbortController();
+      
       const response = await materialsAPI.getAll({
-        search: searchQuery.trim(),
+        search: query,
         pageSize: 500 // Достаточно для результатов поиска
       });
       
       // ✅ Обработка нового формата ответа с pagination
       const materials = Array.isArray(response) ? response : (response?.data || []);
       
+      // ✅ Сохраняем в кэш
+      materialSearchCacheRef.current.set(query, materials);
+      
+      // Ограничиваем размер кэша (последние 20 запросов)
+      if (materialSearchCacheRef.current.size > 20) {
+        const firstKey = materialSearchCacheRef.current.keys().next().value;
+        materialSearchCacheRef.current.delete(firstKey);
+      }
+      
       setAvailableMaterials(materials);
-      console.log(`✅ Найдено ${materials.length} материалов по запросу "${searchQuery}"`);
+      console.log(`✅ API: Найдено ${materials.length} материалов по запросу "${searchQuery}"`);
     } catch (error) {
+      if (error.name === 'AbortError' || error.name === 'CanceledError') {
+        console.log('🚫 Запрос отменён (новый запрос начался)');
+        return;
+      }
       console.error('❌ Ошибка поиска материалов:', error);
       setAvailableMaterials([]);
     } finally {
       setLoadingMaterials(false);
+      searchAbortControllerRef.current = null;
     }
-  };
+  }, []);
+
+  // ✅ Debounced версия для автоматического поиска при вводе
+  const debouncedMaterialSearch = useMemo(
+    () => debounce((query) => {
+      searchMaterialsOnServer(query);
+    }, 400), // 400ms задержка после остановки ввода
+    [searchMaterialsOnServer]
+  );
+
+  // ✅ Очистка debounce при размонтировании
+  useEffect(() => {
+    return () => {
+      debouncedMaterialSearch.cancel();
+      if (searchAbortControllerRef.current) {
+        searchAbortControllerRef.current.abort();
+      }
+    };
+  }, [debouncedMaterialSearch]);
 
   // Добавить материал к работе
   const handleAddMaterialToWork = (material) => {
@@ -2422,17 +2477,31 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
               variant="outlined"
             />
           </Box>
-          {/* ✅ Поиск по Enter - серверный поиск во всех материалах */}
+          {/* ✅ Поиск с автоматическим debounce - серверный поиск во всех материалах */}
           <TextField
             fullWidth
             size="small"
-            placeholder="Введите название материала и нажмите Enter..."
+            placeholder="Начните вводить название материала (поиск через 0.4 сек)..."
             defaultValue=""
+            onChange={(e) => {
+              const query = e.target.value;
+              setMaterialSearchQuery(query);
+              
+              // ✅ Автоматический поиск с debounce
+              if (query.trim().length >= 2) {
+                debouncedMaterialSearch(query);
+              } else if (query.trim().length === 0) {
+                debouncedMaterialSearch.cancel();
+                setAvailableMaterials([]);
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
                 const query = e.target.value;
-                setMaterialSearchQuery(query);
+                
+                // ✅ Enter отменяет debounce и ищет сразу
+                debouncedMaterialSearch.cancel();
                 searchMaterialsOnServer(query);
               }
             }}
@@ -2449,6 +2518,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                     onClick={(e) => {
                       const input = e.currentTarget.closest('.MuiTextField-root')?.querySelector('input');
                       if (input) {
+                        debouncedMaterialSearch.cancel();
                         setMaterialSearchQuery(input.value);
                         searchMaterialsOnServer(input.value);
                       }
@@ -2473,7 +2543,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
               <Typography color="text.secondary" variant="body2">
                 {materialSearchQuery 
                   ? `Материалы по запросу "${materialSearchQuery}" не найдены` 
-                  : 'Введите название материала и нажмите Enter для поиска'}
+                  : 'Начните вводить название материала (минимум 2 символа)'}
               </Typography>
             </Box>
           ) : (
