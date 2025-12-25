@@ -9,7 +9,7 @@ import {
   Tooltip,
   Stack
 } from '@mui/material';
-import { IconPackage, IconTrash } from '@tabler/icons-react';
+import { IconPackage, IconTrash, IconRefresh } from '@tabler/icons-react';
 
 // Утилита форматирования валюты
 const formatCurrency = (value) => {
@@ -27,6 +27,9 @@ const WorkRow = memo(({
   itemIndex,
   onQuantityChange,
   onQuantityBlur,
+  onPriceChange,
+  onPriceBlur,
+  onUpdateWorkPrice,
   onAddMaterial,
   onDeleteWork
 }) => {
@@ -155,12 +158,82 @@ const WorkRow = memo(({
         />
       </TableCell>
 
-      {/* Цена */}
+      {/* Цена - редактируемое поле */}
       <TableCell
         align="right"
-        sx={{ py: 1, px: 1.5, fontSize: '0.8125rem', color: '#374151' }}
+        sx={{ py: 1, px: 1.5 }}
       >
-        {formatCurrency(item.price)}
+        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
+          <TextField
+            type="number"
+            key={`price_${sectionIndex}_${itemIndex}_${item.price}`}
+            defaultValue={item.price || ''}
+            onChange={(e) => onPriceChange(sectionIndex, itemIndex, e.target.value)}
+            onBlur={(e) => onPriceBlur(sectionIndex, itemIndex, e.target)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                onPriceBlur(sectionIndex, itemIndex, e.target);
+                e.target.blur();
+              }
+            }}
+            size="small"
+            inputProps={{
+              min: 0,
+              step: 0.01,
+              style: { 
+                textAlign: 'right', 
+                fontSize: '0.8125rem',
+                padding: '6px 10px'
+              }
+            }}
+            sx={{
+              width: '110px',
+              '& .MuiOutlinedInput-root': {
+                fontSize: '0.8125rem',
+                borderRadius: '6px',
+                height: 34,
+                bgcolor: '#FEF3C7',
+                '& fieldset': {
+                  borderColor: '#FCD34D',
+                },
+                '&:hover fieldset': {
+                  borderColor: '#FBBF24',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: '#F59E0B',
+                  borderWidth: '2px'
+                }
+              },
+              '& input[type=number]': {
+                MozAppearance: 'textfield'
+              },
+              '& input[type=number]::-webkit-outer-spin-button': {
+                WebkitAppearance: 'none',
+                margin: 0
+              },
+              '& input[type=number]::-webkit-inner-spin-button': {
+                WebkitAppearance: 'none',
+                margin: 0
+              }
+            }}
+          />
+          {item.workId && (
+            <Tooltip title="Обновить базовую цену в справочнике Работ">
+              <IconButton 
+                size="small" 
+                sx={{ 
+                  p: 0.5,
+                  color: '#6B7280',
+                  '&:hover': { bgcolor: '#F3F4F6', color: '#10B981' }
+                }}
+                onClick={() => onUpdateWorkPrice(sectionIndex, itemIndex, item.workId, item.price)}
+              >
+                <IconRefresh size={16} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Stack>
       </TableCell>
 
       {/* Сумма */}

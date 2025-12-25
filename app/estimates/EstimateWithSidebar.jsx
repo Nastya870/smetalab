@@ -1082,6 +1082,105 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     });
   };
 
+  // ============ ИЗМЕНЕНИЕ ЦЕНЫ РАБОТЫ ============
+  
+  // ✅ ОПТИМИЗИРОВАНО: onChange только сохраняет в ref (без ререндера)
+  const handleWorkPriceInputChange = useCallback((sectionIndex, itemIndex, value) => {
+    const key = `work_price_${sectionIndex}_${itemIndex}`;
+    editingValuesRef.current[key] = value;
+  }, []);
+
+  // ✅ ОПТИМИЗИРОВАНО: Пересчёт только при onBlur с задержкой
+  const handleWorkPriceBlur = useCallback((sectionIndex, itemIndex, inputElement) => {
+    const key = `work_price_${sectionIndex}_${itemIndex}`;
+    const newPrice = editingValuesRef.current[key] ?? inputElement?.value;
+    
+    // Очищаем ref
+    delete editingValuesRef.current[key];
+    
+    // ✅ ОПТИМИЗАЦИЯ: задержка для плавного перехода фокуса
+    setTimeout(() => {
+      if (newPrice === '' || newPrice === null || newPrice === undefined) {
+        return;
+      }
+      
+      const price = parseFloat(String(newPrice).replace(/,/g, '.'));
+      
+      if (isNaN(price) || price < 0) {
+        return;
+      }
+      
+      setHasUnsavedChanges(true);
+      handleWorkPriceChange(sectionIndex, itemIndex, price);
+    }, 50);
+  }, []);
+
+  // Изменить цену работы
+  const handleWorkPriceChange = (sectionIndex, itemIndex, newPrice) => {
+    setEstimateData((prevData) => {
+      const newSections = prevData.sections.map((section, secIdx) => {
+        if (secIdx !== sectionIndex) return section;
+        
+        return {
+          ...section,
+          items: section.items.map((item, itIdx) => {
+            if (itIdx !== itemIndex) return item;
+            
+            // Пересчитываем total работы
+            const newTotal = parseFloat((item.quantity * newPrice).toFixed(2));
+            
+            return {
+              ...item,
+              price: newPrice,
+              total: newTotal
+            };
+          }),
+          subtotal: 0 // Пересчитаем ниже
+        };
+      });
+      
+      // Пересчитываем subtotal для изменённой секции
+      newSections[sectionIndex].subtotal = newSections[sectionIndex].items.reduce(
+        (sum, item) => sum + item.total, 0
+      );
+
+      return { sections: newSections };
+    });
+  };
+
+  // Обновить базовую цену работы в справочнике
+  const handleUpdateWorkPriceInReference = async (sectionIndex, itemIndex, workId, currentPrice) => {
+    // Показываем диалог подтверждения
+    const confirmed = window.confirm(
+      `Обновить базовую цену в справочнике Работ?\n\n` +
+      `Новая цена: ${currentPrice} ₽\n\n` +
+      `⚠️ ВНИМАНИЕ: Это изменит базовую цену работы в справочнике.\n` +
+      `Все новые сметы будут использовать обновлённую цену.`
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      // Вызываем API для обновления цены
+      const response = await worksAPI.updateWorkPrice(workId, currentPrice);
+      
+      if (response.success) {
+        enqueueSnackbar('✅ Базовая цена обновлена в справочнике Работ', { 
+          variant: 'success',
+          autoHideDuration: 3000
+        });
+      }
+    } catch (error) {
+      console.error('Ошибка обновления цены работы:', error);
+      enqueueSnackbar(
+        `❌ Ошибка обновления: ${error.response?.data?.message || error.message}`, 
+        { variant: 'error', autoHideDuration: 5000 }
+      );
+    }
+  };
+
+  // ============ КОНЕЦ ДЕЙСТВИЙ С ЦЕНОЙ РАБОТЫ ============
+
   // ============ КОНЕЦ ДЕЙСТВИЙ С МАТЕРИАЛАМИ ============
 
   // ============ КОЭФФИЦИЕНТ ЦЕН НА РАБОТЫ ============
@@ -2201,6 +2300,9 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                             itemIndex={itemIndex}
                             onQuantityChange={handleWorkQuantityInputChange}
                             onQuantityBlur={handleWorkQuantityBlur}
+                            onPriceChange={handleWorkPriceInputChange}
+                            onPriceBlur={handleWorkPriceBlur}
+                            onUpdateWorkPrice={handleUpdateWorkPriceInReference}
                             onAddMaterial={handleOpenAddMaterial}
                             onDeleteWork={handleDeleteWork}
                           />

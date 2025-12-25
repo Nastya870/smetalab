@@ -106,6 +106,25 @@ const worksAPI = {
   },
 
   /**
+   * Обновить базовую цену работы в справочнике
+   * @param {number} workId - ID работы
+   * @param {number} newPrice - Новая базовая цена
+   * @returns {Promise<Object>} - Обновленная работа
+   */
+  updateWorkPrice: async (workId, newPrice) => {
+    try {
+      const response = await axiosInstance.patch(`/works/${workId}/price`, { 
+        basePrice: newPrice 
+      });
+      // API возвращает { success: true, message: "...", data: {...} }
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating work price ${workId}:`, error);
+      throw error;
+    }
+  },
+
+  /**
    * Получить статистику по работам
    * @returns {Promise<Object>} - Статистика
    */

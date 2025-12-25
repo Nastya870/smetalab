@@ -675,6 +675,130 @@ export const updateWork = async (req, res) => {
 
 /**
  * @swagger
+ * /works/{id}/price:
+ *   patch:
+ *     tags: [Works]
+ *     summary: Обновить базовую цену работы
+ *     description: |
+ *       Обновляет только базовую цену (base_price) работы в справочнике.
+ *       
+ *       **⚠️ Важно:**
+ *       - Изменение влияет только на справочник работ
+ *       - Существующие сметы НЕ обновляются автоматически
+ *       - Новые сметы будут использовать обновлённую цену
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID работы
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - basePrice
+ *             properties:
+ *               basePrice:
+ *                 type: number
+ *                 format: float
+ *                 minimum: 0
+ *                 example: 150.00
+ *     responses:
+ *       200:
+ *         description: Цена успешно обновлена
+ *       400:
+ *         description: Некорректные данные
+ *       404:
+ *         description: Работа не найдена
+ *       401:
+ *         description: Не авторизован
+ */
+export const updateWorkPrice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { basePrice } = req.body;
+    const tenantId = req.user?.tenantId;
+    
+    // Валидация
+    if (!tenantId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Требуется аутентификация для обновления цены'
+      });
+    }
+    
+    if (basePrice === undefined || basePrice === null) {
+      return res.status(400).json({
+        success: false,
+        message: 'Поле basePrice обязательно'
+      });
+    }
+    
+    const price = parseFloat(basePrice);
+    if (isNaN(price) || price < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Некорректное значение цены'
+      });
+    }
+    
+    // 🔒 Tenant Isolation: проверка существования и прав доступа
+    const existing = await db.query(
+      'SELECT id, is_global, tenant_id, name, code FROM works WHERE id = $1 AND (is_global = TRUE OR tenant_id = $2)',
+      [id, tenantId]
+    );
+    
+    if (existing.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Работа не найдена или у вас нет прав для её редактирования'
+      });
+    }
+    
+    // Запрет редактирования глобальных работ обычными пользователями
+    if (existing.rows[0].is_global && req.user?.isSuperAdmin !== true) {
+      return res.status(403).json({
+        success: false,
+        message: 'Только суперадминистратор может редактировать глобальные работы'
+      });
+    }
+    
+    // Обновление только цены
+    const result = await db.query(
+      `UPDATE works 
+       SET base_price = $1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2
+       RETURNING *`,
+      [price, id]
+    );
+    
+    // Инвалидация кеша после обновления
+    invalidateWorksCache(result.rows[0].tenant_id);
+    
+    res.status(200).json({
+      success: true,
+      message: `Базовая цена работы "${existing.rows[0].name}" обновлена на ${price} ₽`,
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error updating work price:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Ошибка при обновлении цены работы',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @swagger
  * /works/{id}:
  *   delete:
  *     tags: [Works]
@@ -956,6 +1080,7 @@ export default {
   getWorkById,
   createWork,
   updateWork,
+  updateWorkPrice,
   deleteWork,
   getWorksStats,
   getWorkCategories

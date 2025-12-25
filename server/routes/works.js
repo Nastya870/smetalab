@@ -4,6 +4,7 @@ import {
   getWorkById,
   createWork,
   updateWork,
+  updateWorkPrice,
   deleteWork,
   getWorksStats,
   getWorkCategories
@@ -69,6 +70,14 @@ router.post('/', authenticateToken, checkPermission('works', 'create'), createWo
  * @body    { code?, name?, category?, unit?, basePrice? }
  */
 router.put('/:id', authenticateToken, checkAnyPermission(['works', 'update'], ['works', 'manage']), updateWork);
+
+/**
+ * @route   PATCH /api/works/:id/price
+ * @desc    Обновить только базовую цену работы
+ * @access  Private (требуется works.update ИЛИ works.manage)
+ * @body    { basePrice: number }
+ */
+router.patch('/:id/price', authenticateToken, checkAnyPermission(['works', 'update'], ['works', 'manage']), updateWorkPrice);
 
 /**
  * @route   DELETE /api/works/:id
