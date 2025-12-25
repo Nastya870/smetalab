@@ -197,9 +197,15 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   const [materialDialogMode, setMaterialDialogMode] = useState('add'); // 'add' или 'replace'
   const [currentWorkItem, setCurrentWorkItem] = useState(null);
   const [materialToReplace, setMaterialToReplace] = useState(null);
-  const [allMaterialsForDialog, setAllMaterialsForDialog] = useState([]); // ✅ ВСЕ материалы, загруженные один раз
+  const [allMaterialsForDialog, setAllMaterialsForDialog] = useState([]); // ✅ Материалы с Infinite Scroll
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [materialSearchQuery, setMaterialSearchQuery] = useState(''); // ✅ Для клиентского поиска
+  
+  // ✅ Пагинация для Infinite Scroll материалов
+  const [materialsPage, setMaterialsPage] = useState(1);
+  const [materialsHasMore, setMaterialsHasMore] = useState(true);
+  const [materialsTotalRecords, setMaterialsTotalRecords] = useState(0);
+  const MATERIALS_PAGE_SIZE = 50;
   
   // ✅ Локальное хранилище для редактируемых полей (не вызывает ререндер)
   const editingValuesRef = useRef({});
@@ -227,60 +233,64 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   const worksCacheTimestamp = useRef({ global: null, tenant: null });
   const WORKS_CACHE_TTL = 10 * 60 * 1000; // 10 минут
   
-  // ✅ Загрузка ВСЕХ материалов один раз при открытии диалога (с кешированием)
-  const loadAllMaterialsForDialog = useCallback(async () => {
-    const now = Date.now();
-    
-    // Проверяем валидность кеша
-    if (materialsCache.current && 
-        materialsCacheTimestamp.current && 
-        (now - materialsCacheTimestamp.current) < MATERIALS_CACHE_TTL) {
-      // Используем кеш - мгновенная загрузка!
-      console.log(`✅ Кеш материалов: ${materialsCache.current.length} записей`);
-      setAllMaterialsForDialog(materialsCache.current);
-      return;
-    }
-    
-    // Кеш устарел или отсутствует - загружаем заново
+  // ✅ Загрузка материалов с пагинацией (аналогично основному справочнику)
+  const loadMaterialsForDialog = useCallback(async (pageNumber = 1, resetData = false) => {
     try {
       setLoadingMaterials(true);
-      console.log('🔄 Загрузка всех материалов из API...');
       
-      const response = await materialsAPI.getAll({ 
-        pageSize: 10000 // Загружаем ВСЕ материалы
-      });
+      const params = {
+        page: pageNumber,
+        pageSize: MATERIALS_PAGE_SIZE,
+        skipCount: pageNumber > 1 ? 'true' : 'false' // Пропускаем COUNT(*) на последующих страницах
+      };
       
-      // Извлекаем массив data из response
-      const data = response.data || response;
-      
-      if (!data || !Array.isArray(data)) {
-        console.error('Некорректный формат данных:', response);
-        setAllMaterialsForDialog([]);
-        return;
-      }
+      const response = await materialsAPI.getAll(params);
       
       // Нормализация данных
-      const normalized = data.map(mat => ({
+      const normalizeMaterial = (mat) => ({
         ...mat,
         productUrl: mat.product_url || mat.productUrl,
         showImage: mat.show_image !== undefined ? mat.show_image : mat.showImage,
         isGlobal: mat.is_global !== undefined ? mat.is_global : mat.isGlobal,
         autoCalculate: mat.auto_calculate !== undefined ? mat.auto_calculate : mat.autoCalculate
-      }));
+      });
       
-      // Сохраняем в кеш
-      materialsCache.current = normalized;
-      materialsCacheTimestamp.current = now;
+      let newMaterials = [];
+      if (response.data) {
+        newMaterials = response.data.map(normalizeMaterial);
+      } else {
+        const data = Array.isArray(response) ? response : [];
+        newMaterials = data.map(normalizeMaterial);
+      }
       
-      setAllMaterialsForDialog(normalized);
-      console.log(`✅ Материалы загружены и закешированы: ${normalized.length} записей`);
+      // Получаем общее количество
+      const total = response.total !== null && response.total !== undefined 
+        ? response.total 
+        : (materialsTotalRecords || response.count || newMaterials.length);
+      setMaterialsTotalRecords(total);
+      
+      // Добавляем или заменяем данные
+      if (resetData) {
+        setAllMaterialsForDialog(newMaterials);
+        setMaterialsPage(1);
+        setMaterialsHasMore(newMaterials.length < total);
+      } else {
+        setAllMaterialsForDialog(prev => {
+          const updated = [...prev, ...newMaterials];
+          setMaterialsHasMore(updated.length < total);
+          return updated;
+        });
+        setMaterialsPage(pageNumber);
+      }
+      
+      console.log(`✅ Материалы загружены: страница ${pageNumber}, записей ${newMaterials.length}, всего ${total}`);
     } catch (error) {
       console.error('❌ Ошибка загрузки материалов:', error);
       setAllMaterialsForDialog([]);
     } finally {
       setLoadingMaterials(false);
     }
-  }, []);
+  }, [materialsTotalRecords]);
 
   // ❌ ОТКЛЮЧЕНО: Автосохранение убрано для улучшения производительности
   // Сохранение теперь только по кнопке "Сохранить"
@@ -714,11 +724,14 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     setCurrentWorkItem({ sectionIndex, itemIndex });
     setMaterialDialogMode('add');
     setMaterialSearchQuery('');
+    setAllMaterialsForDialog([]); // ✅ Очищаем перед загрузкой
+    setMaterialsPage(1);
+    setMaterialsHasMore(true);
     setMaterialDialogOpen(true);
     
-    // ✅ Загружаем ВСЕ материалы один раз при открытии
-    await loadAllMaterialsForDialog();
-  }, []);
+    // ✅ Загружаем первую страницу
+    await loadMaterialsForDialog(1, true);
+  }, [loadMaterialsForDialog]);
 
   // Открыть диалог замены материала
   const handleOpenReplaceMaterial = useCallback(async (sectionIndex, itemIndex, materialIndex) => {
@@ -726,11 +739,14 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     setMaterialToReplace(materialIndex);
     setMaterialDialogMode('replace');
     setMaterialSearchQuery('');
+    setAllMaterialsForDialog([]); // ✅ Очищаем перед загрузкой
+    setMaterialsPage(1);
+    setMaterialsHasMore(true);
     setMaterialDialogOpen(true);
     
-    // ✅ Загружаем ВСЕ материалы один раз при открытии
-    await loadAllMaterialsForDialog();
-  }, []);
+    // ✅ Загружаем первую страницу
+    await loadMaterialsForDialog(1, true);
+  }, [loadMaterialsForDialog]);
 
   // ✅ Клиентская фильтрация материалов (аналогично основному справочнику)
   const filteredMaterialsForDialog = useMemo(() => {
@@ -2493,10 +2509,16 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
               </Typography>
             </Box>
           ) : (
-            /* ✅ Компактный виртуализированный список */
+            /* ✅ Компактный виртуализированный список с Infinite Scroll */
             <Virtuoso
               style={{ height: '100%' }}
               data={filteredMaterialsForDialog}
+              endReached={() => {
+                // ✅ Загружаем следующую страницу при достижении конца списка
+                if (!loadingMaterials && materialsHasMore && !materialSearchQuery) {
+                  loadMaterialsForDialog(materialsPage + 1, false);
+                }
+              }}
               itemContent={(index, material) => (
                 <ListItem 
                   disablePadding
