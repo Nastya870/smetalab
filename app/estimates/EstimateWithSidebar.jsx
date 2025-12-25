@@ -685,10 +685,14 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     
     try {
       setLoadingMaterials(true);
-      const materials = await materialsAPI.getAll({
+      const response = await materialsAPI.getAll({
         search: searchQuery.trim(),
         pageSize: 500 // Достаточно для результатов поиска
       });
+      
+      // ✅ Обработка нового формата ответа с pagination
+      const materials = Array.isArray(response) ? response : (response?.data || []);
+      
       setAvailableMaterials(materials);
       console.log(`✅ Найдено ${materials.length} материалов по запросу "${searchQuery}"`);
     } catch (error) {
