@@ -197,9 +197,9 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   const [materialDialogMode, setMaterialDialogMode] = useState('add'); // 'add' или 'replace'
   const [currentWorkItem, setCurrentWorkItem] = useState(null);
   const [materialToReplace, setMaterialToReplace] = useState(null);
-  const [availableMaterials, setAvailableMaterials] = useState([]);
+  const [allMaterialsForDialog, setAllMaterialsForDialog] = useState([]); // ✅ ВСЕ материалы, загруженные один раз
   const [loadingMaterials, setLoadingMaterials] = useState(false);
-  const [materialSearchQuery, setMaterialSearchQuery] = useState(''); // ✅ Для отображения в UI
+  const [materialSearchQuery, setMaterialSearchQuery] = useState(''); // ✅ Для клиентского поиска
   
   // ✅ Локальное хранилище для редактируемых полей (не вызывает ререндер)
   const editingValuesRef = useRef({});
@@ -227,8 +227,60 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   const worksCacheTimestamp = useRef({ global: null, tenant: null });
   const WORKS_CACHE_TTL = 10 * 60 * 1000; // 10 минут
   
-  // ✅ УДАЛЁН серверный поиск материалов - теперь поиск только на клиенте
-  // Все материалы загружаются один раз при открытии модалки
+  // ✅ Загрузка ВСЕХ материалов один раз при открытии диалога (с кешированием)
+  const loadAllMaterialsForDialog = useCallback(async () => {
+    const now = Date.now();
+    
+    // Проверяем валидность кеша
+    if (materialsCache.current && 
+        materialsCacheTimestamp.current && 
+        (now - materialsCacheTimestamp.current) < MATERIALS_CACHE_TTL) {
+      // Используем кеш - мгновенная загрузка!
+      console.log(`✅ Кеш материалов: ${materialsCache.current.length} записей`);
+      setAllMaterialsForDialog(materialsCache.current);
+      return;
+    }
+    
+    // Кеш устарел или отсутствует - загружаем заново
+    try {
+      setLoadingMaterials(true);
+      console.log('🔄 Загрузка всех материалов из API...');
+      
+      const response = await materialsAPI.getAll({ 
+        pageSize: 10000 // Загружаем ВСЕ материалы
+      });
+      
+      // Извлекаем массив data из response
+      const data = response.data || response;
+      
+      if (!data || !Array.isArray(data)) {
+        console.error('Некорректный формат данных:', response);
+        setAllMaterialsForDialog([]);
+        return;
+      }
+      
+      // Нормализация данных
+      const normalized = data.map(mat => ({
+        ...mat,
+        productUrl: mat.product_url || mat.productUrl,
+        showImage: mat.show_image !== undefined ? mat.show_image : mat.showImage,
+        isGlobal: mat.is_global !== undefined ? mat.is_global : mat.isGlobal,
+        autoCalculate: mat.auto_calculate !== undefined ? mat.auto_calculate : mat.autoCalculate
+      }));
+      
+      // Сохраняем в кеш
+      materialsCache.current = normalized;
+      materialsCacheTimestamp.current = now;
+      
+      setAllMaterialsForDialog(normalized);
+      console.log(`✅ Материалы загружены и закешированы: ${normalized.length} записей`);
+    } catch (error) {
+      console.error('❌ Ошибка загрузки материалов:', error);
+      setAllMaterialsForDialog([]);
+    } finally {
+      setLoadingMaterials(false);
+    }
+  }, []);
 
   // ❌ ОТКЛЮЧЕНО: Автосохранение убрано для улучшения производительности
   // Сохранение теперь только по кнопке "Сохранить"
@@ -658,105 +710,37 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // ============ ДЕЙСТВИЯ С МАТЕРИАЛАМИ ============
 
   // Открыть диалог добавления материала
-  const handleOpenAddMaterial = useCallback((sectionIndex, itemIndex) => {
+  const handleOpenAddMaterial = useCallback(async (sectionIndex, itemIndex) => {
     setCurrentWorkItem({ sectionIndex, itemIndex });
     setMaterialDialogMode('add');
     setMaterialSearchQuery('');
-    setAvailableMaterials([]); // ✅ Начинаем с пустого списка
     setMaterialDialogOpen(true);
+    
+    // ✅ Загружаем ВСЕ материалы один раз при открытии
+    await loadAllMaterialsForDialog();
   }, []);
 
   // Открыть диалог замены материала
-  const handleOpenReplaceMaterial = useCallback((sectionIndex, itemIndex, materialIndex) => {
+  const handleOpenReplaceMaterial = useCallback(async (sectionIndex, itemIndex, materialIndex) => {
     setCurrentWorkItem({ sectionIndex, itemIndex });
     setMaterialToReplace(materialIndex);
     setMaterialDialogMode('replace');
     setMaterialSearchQuery('');
-    setAvailableMaterials([]); // ✅ Начинаем с пустого списка
     setMaterialDialogOpen(true);
+    
+    // ✅ Загружаем ВСЕ материалы один раз при открытии
+    await loadAllMaterialsForDialog();
   }, []);
 
-  // ✅ Кэш результатов поиска материалов
-  const materialSearchCacheRef = useRef(new Map());
-  const searchAbortControllerRef = useRef(null);
-  
-  // ✅ Поиск материалов на сервере (оптимизированный)
-  const searchMaterialsOnServer = useCallback(async (searchQuery) => {
-    if (!searchQuery || searchQuery.trim().length < 2) {
-      setAvailableMaterials([]);
-      return;
+  // ✅ Клиентская фильтрация материалов (аналогично основному справочнику)
+  const filteredMaterialsForDialog = useMemo(() => {
+    if (!materialSearchQuery || materialSearchQuery.trim().length === 0) {
+      return allMaterialsForDialog;
     }
     
-    const query = searchQuery.trim().toLowerCase();
-    
-    // ✅ Проверяем кэш
-    if (materialSearchCacheRef.current.has(query)) {
-      const cached = materialSearchCacheRef.current.get(query);
-      setAvailableMaterials(cached);
-      console.log(`⚡ Кэш: Найдено ${cached.length} материалов по запросу "${searchQuery}"`);
-      return;
-    }
-    
-    // ✅ Отменяем предыдущий запрос если есть
-    if (searchAbortControllerRef.current) {
-      searchAbortControllerRef.current.abort();
-    }
-    
-    try {
-      setLoadingMaterials(true);
-      
-      // Создаём новый AbortController для этого запроса
-      searchAbortControllerRef.current = new AbortController();
-      
-      const response = await materialsAPI.getAll({
-        search: query,
-        pageSize: 500 // Достаточно для результатов поиска
-      });
-      
-      // ✅ Обработка нового формата ответа с pagination
-      const materials = Array.isArray(response) ? response : (response?.data || []);
-      
-      // ✅ Сохраняем в кэш
-      materialSearchCacheRef.current.set(query, materials);
-      
-      // Ограничиваем размер кэша (последние 20 запросов)
-      if (materialSearchCacheRef.current.size > 20) {
-        const firstKey = materialSearchCacheRef.current.keys().next().value;
-        materialSearchCacheRef.current.delete(firstKey);
-      }
-      
-      setAvailableMaterials(materials);
-      console.log(`✅ API: Найдено ${materials.length} материалов по запросу "${searchQuery}"`);
-    } catch (error) {
-      if (error.name === 'AbortError' || error.name === 'CanceledError') {
-        console.log('🚫 Запрос отменён (новый запрос начался)');
-        return;
-      }
-      console.error('❌ Ошибка поиска материалов:', error);
-      setAvailableMaterials([]);
-    } finally {
-      setLoadingMaterials(false);
-      searchAbortControllerRef.current = null;
-    }
-  }, []);
-
-  // ✅ Debounced версия для автоматического поиска при вводе
-  const debouncedMaterialSearch = useMemo(
-    () => debounce((query) => {
-      searchMaterialsOnServer(query);
-    }, 400), // 400ms задержка после остановки ввода
-    [searchMaterialsOnServer]
-  );
-
-  // ✅ Очистка debounce при размонтировании
-  useEffect(() => {
-    return () => {
-      debouncedMaterialSearch.cancel();
-      if (searchAbortControllerRef.current) {
-        searchAbortControllerRef.current.abort();
-      }
-    };
-  }, [debouncedMaterialSearch]);
+    // Используем fullTextSearch для мгновенного поиска
+    return fullTextSearch(allMaterialsForDialog, materialSearchQuery, ['name', 'sku', 'category', 'supplier']);
+  }, [allMaterialsForDialog, materialSearchQuery]);
 
   // Добавить материал к работе
   const handleAddMaterialToWork = (material) => {
@@ -2471,62 +2455,24 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
               {materialDialogMode === 'add' ? 'Добавить материал' : 'Заменить материал'}
             </Typography>
             <Chip 
-              label={loadingMaterials ? 'Загрузка...' : `${availableMaterials.length} шт`}
+              label={loadingMaterials ? 'Загрузка...' : `${filteredMaterialsForDialog.length} из ${allMaterialsForDialog.length}`}
               size="small"
               color="primary"
               variant="outlined"
             />
           </Box>
-          {/* ✅ Поиск с автоматическим debounce - серверный поиск во всех материалах */}
+          {/* ✅ Мгновенный клиентский поиск */}
           <TextField
             fullWidth
             size="small"
-            placeholder="Начните вводить название материала (поиск через 0.4 сек)..."
-            defaultValue=""
-            onChange={(e) => {
-              const query = e.target.value;
-              setMaterialSearchQuery(query);
-              
-              // ✅ Автоматический поиск с debounce
-              if (query.trim().length >= 2) {
-                debouncedMaterialSearch(query);
-              } else if (query.trim().length === 0) {
-                debouncedMaterialSearch.cancel();
-                setAvailableMaterials([]);
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                const query = e.target.value;
-                
-                // ✅ Enter отменяет debounce и ищет сразу
-                debouncedMaterialSearch.cancel();
-                searchMaterialsOnServer(query);
-              }
-            }}
+            placeholder="Поиск по названию, артикулу, категории..."
+            value={materialSearchQuery}
+            onChange={(e) => setMaterialSearchQuery(e.target.value)}
+            autoFocus
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
                   <IconSearch size={16} />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton 
-                    size="small" 
-                    onClick={(e) => {
-                      const input = e.currentTarget.closest('.MuiTextField-root')?.querySelector('input');
-                      if (input) {
-                        debouncedMaterialSearch.cancel();
-                        setMaterialSearchQuery(input.value);
-                        searchMaterialsOnServer(input.value);
-                      }
-                    }}
-                    edge="end"
-                  >
-                    <IconSearch size={16} />
-                  </IconButton>
                 </InputAdornment>
               )
             }}
@@ -2538,24 +2484,24 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
               <CircularProgress size={40} />
             </Box>
-          ) : availableMaterials.length === 0 ? (
+          ) : filteredMaterialsForDialog.length === 0 ? (
             <Box sx={{ p: 4, textAlign: 'center' }}>
               <Typography color="text.secondary" variant="body2">
                 {materialSearchQuery 
                   ? `Материалы по запросу "${materialSearchQuery}" не найдены` 
-                  : 'Начните вводить название материала (минимум 2 символа)'}
+                  : 'Материалы загружаются...'}
               </Typography>
             </Box>
           ) : (
             /* ✅ Компактный виртуализированный список */
             <Virtuoso
               style={{ height: '100%' }}
-              data={availableMaterials}
+              data={filteredMaterialsForDialog}
               itemContent={(index, material) => (
                 <ListItem 
                   disablePadding
                   sx={{ 
-                    borderBottom: index < availableMaterials.length - 1 ? '1px solid' : 'none',
+                    borderBottom: index < filteredMaterialsForDialog.length - 1 ? '1px solid' : 'none',
                     borderColor: 'divider'
                   }}
                 >
