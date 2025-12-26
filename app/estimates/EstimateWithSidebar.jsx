@@ -1737,15 +1737,18 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   const calculateTotals = useMemo(() => {
     let totalWorks = 0;
     let totalMaterials = 0;
+    let totalWeight = 0; // 🔥 Добавлен подсчёт веса
 
     sortedEstimateData.sections.forEach(section => {
       section.items.forEach(item => {
         // Добавляем стоимость работы
         totalWorks += parseFloat(item.total) || 0;
         
-        // Добавляем стоимость материалов
+        // Добавляем стоимость материалов и вес
         item.materials?.forEach(material => {
           totalMaterials += parseFloat(material.total) || 0;
+          // 🔥 Подсчёт веса: quantity × weight
+          totalWeight += (parseFloat(material.quantity) || 0) * (parseFloat(material.weight) || 0);
         });
       });
     });
@@ -1753,7 +1756,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     return {
       totalWorks: totalWorks.toFixed(2),
       totalMaterials: totalMaterials.toFixed(2),
-      grandTotal: (totalWorks + totalMaterials).toFixed(2)
+      grandTotal: (totalWorks + totalMaterials).toFixed(2),
+      totalWeight: totalWeight.toFixed(3) // 🔥 Вес в кг с точностью до грамма
     };
   }, [sortedEstimateData]); // ✅ Зависит от sortedEstimateData который уже deferred
 
@@ -2513,6 +2517,26 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                   </Typography>
                 </Box>
               </Box>
+
+              {/* 🔥 Общий вес материалов */}
+              {parseFloat(calculateTotals.totalWeight) > 0 && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Typography sx={{ fontSize: '0.8125rem', color: '#6B7280' }}>
+                    Общий вес:
+                  </Typography>
+                  <Box sx={{ 
+                    px: 1.5, 
+                    py: 0.5, 
+                    bgcolor: '#EFF6FF', 
+                    borderRadius: '6px',
+                    border: '1px solid #BFDBFE'
+                  }}>
+                    <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600, color: '#2563EB' }}>
+                      {parseFloat(calculateTotals.totalWeight).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 3 })} кг
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
             </Box>
           )}
         </Paper>

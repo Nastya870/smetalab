@@ -283,6 +283,8 @@ export async function findByIdWithDetails(estimateId, tenantId) {
               eim.consumption_coefficient,
               eim.is_required,
               eim.notes,
+              eim.weight,
+              eim.total_weight,
               m.id as material_id,
               m.sku,
               m.name as material_name,
