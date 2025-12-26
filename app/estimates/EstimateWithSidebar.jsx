@@ -63,6 +63,7 @@ import {
 
 // project imports
 import { formatCurrency } from '../projects/utils';
+import axiosInstance from 'shared/lib/axiosInstance';
 import worksAPI from 'api/works';
 import workMaterialsAPI from 'api/workMaterials';
 import estimatesAPI from 'api/estimates';
@@ -658,22 +659,13 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         }
       };
       
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch('/api/export-estimate-excel', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(exportData),
+      // 🔥 FIX: Используем axiosInstance для правильного baseURL в production
+      const response = await axiosInstance.post('/export-estimate-excel', exportData, {
+        responseType: 'blob' // Важно для получения Excel файла
       });
 
-      if (!response.ok) {
-        throw new Error('Ошибка экспорта Excel');
-      }
-
       // Скачиваем файл
-      const blob = await response.blob();
+      const blob = response.data;
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
