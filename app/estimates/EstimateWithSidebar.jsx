@@ -71,7 +71,6 @@ import estimateTemplatesAPI from 'shared/lib/api/estimateTemplates';
 import { useGetMenuMaster } from 'api/menu'; // ✅ Только для получения данных меню
 import PriceCoefficientModal from './PriceCoefficientModal';
 import ObjectParametersSidebar from './ObjectParametersSidebar';
-import { fullTextSearch } from 'shared/lib/utils/fullTextSearch';
 
 // ✅ Мемоизированные компоненты строк для оптимизации производительности
 import WorkRow from './components/WorkRow';
@@ -240,13 +239,16 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   const loadMaterialsForDialog = useCallback(async (pageNumber = 1, resetData = false, search = '') => {
     try {
       setLoadingMaterials(true);
+      const startTime = performance.now(); // ⏱️ Замер времени
       
       const params = {
         page: pageNumber,
-        pageSize: search ? 1000 : MATERIALS_PAGE_SIZE, // При поиске загружаем больше результатов
-        skipCount: pageNumber > 1 ? 'true' : 'false' // Пропускаем COUNT(*) на последующих страницах
+        pageSize: 100, // ✅ Увеличено до 100 для лучшего UX (было 50)
+        skipCount: pageNumber > 1 ? 'true' : 'false'
       };
-      if (search) params.search = search; // Серверный поиск по всей БД
+      if (search && search.trim().length > 0) {
+        params.search = search.trim(); // ✅ Серверный поиск
+      }
       
       const response = await materialsAPI.getAll(params);
       
@@ -287,7 +289,10 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         setMaterialsPage(pageNumber);
       }
       
-      console.log(`✅ Материалы загружены: страница ${pageNumber}, записей ${newMaterials.length}, всего ${total}`);
+      // ⏱️ Логирование производительности
+      const duration = performance.now() - startTime;
+      console.log(`✅ Материалы загружены: ${duration.toFixed(0)}ms | страница ${pageNumber} | записей ${newMaterials.length} | всего ${total}`);
+      
     } catch (error) {
       console.error('❌ Ошибка загрузки материалов:', error);
       setAllMaterialsForDialog([]);
@@ -752,27 +757,38 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     await loadMaterialsForDialog(1, true);
   }, [loadMaterialsForDialog]);
 
-  // ✅ Клиентская фильтрация материалов (мгновенный поиск)
-  const filteredMaterialsForDialog = useMemo(() => {
-    if (!materialSearchQuery || materialSearchQuery.trim().length === 0) {
-      return allMaterialsForDialog;
+  // ✅ НОВАЯ ЛОГИКА: Debounced серверный поиск (вместо клиентской фильтрации)
+  // Поиск запускается автоматически через 400ms после прекращения ввода
+  const debouncedSearchRef = useRef(null);
+  
+  const handleMaterialSearchChange = useCallback((query) => {
+    setMaterialSearchQuery(query);
+    
+    // Очищаем предыдущий таймер
+    if (debouncedSearchRef.current) {
+      clearTimeout(debouncedSearchRef.current);
     }
     
-    // Используем fullTextSearch для мгновенного поиска по загруженным данным
-    return fullTextSearch(allMaterialsForDialog, materialSearchQuery, ['name', 'sku', 'category', 'supplier']);
-  }, [allMaterialsForDialog, materialSearchQuery]);
-  
-  // ✅ Серверный поиск по всей базе (вызывается по кнопке)
-  const handleServerSearch = useCallback(async (query) => {
-    if (query && query.trim().length > 0) {
-      await loadMaterialsForDialog(1, true, query.trim());
+    // Если пустой запрос - загружаем первую страницу без поиска
+    if (!query || query.trim().length === 0) {
+      loadMaterialsForDialog(1, true, '');
+      return;
     }
+    
+    // Запускаем поиск через 400ms
+    debouncedSearchRef.current = setTimeout(() => {
+      console.log(`🔍 Поиск материалов: "${query}"`);
+      loadMaterialsForDialog(1, true, query.trim());
+    }, 400); // Debounce 400ms
   }, [loadMaterialsForDialog]);
+  
+  // ✅ Убираем клиентскую фильтрацию - теперь все данные приходят с сервера
+  const filteredMaterialsForDialog = allMaterialsForDialog;
   
   // ✅ Функция загрузки следующей страницы материалов
   const loadMoreMaterials = useCallback(() => {
     if (!loadingMaterials && materialsHasMore && !materialSearchQuery) {
-      loadMaterialsForDialog(materialsPage + 1, false);
+      loadMaterialsForDialog(materialsPage + 1, false, materialSearchQuery);
     }
   }, [loadingMaterials, materialsHasMore, materialsPage, materialSearchQuery, loadMaterialsForDialog]);
   
@@ -2512,43 +2528,51 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
             <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>
               {materialDialogMode === 'add' ? 'Добавить материал' : 'Заменить материал'}
             </Typography>
-            <Chip 
-              label={loadingMaterials ? 'Загрузка...' : `${filteredMaterialsForDialog.length} из ${allMaterialsForDialog.length}`}
-              size="small"
-              color="primary"
-              variant="outlined"
-            />
+            <Stack direction="row" spacing={1} alignItems="center">
+              {loadingMaterials && (
+                <CircularProgress size={16} thickness={4} />
+              )}
+              <Chip 
+                label={materialsTotalRecords > 0 
+                  ? `Найдено: ${materialsTotalRecords}${filteredMaterialsForDialog.length < materialsTotalRecords ? ` (показано ${filteredMaterialsForDialog.length})` : ''}`
+                  : 'Загрузка...'
+                }
+                size="small"
+                color={materialSearchQuery ? "success" : "primary"}
+                variant="outlined"
+              />
+            </Stack>
           </Box>
-          {/* ✅ Мгновенный клиентский поиск */}
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          {/* ✅ НОВАЯ ЛОГИКА: Debounced серверный поиск (автоматически через 400ms) */}
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <TextField
               fullWidth
               size="small"
-              placeholder="Поиск по названию, артикулу, категории..."
+              placeholder="Начните вводить название, артикул или поставщика..."
               value={materialSearchQuery}
-              onChange={(e) => setMaterialSearchQuery(e.target.value)}
+              onChange={(e) => handleMaterialSearchChange(e.target.value)}
               autoFocus
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <IconSearch size={16} />
+                    <IconSearch size={16} color={loadingMaterials ? '#9CA3AF' : '#3B82F6'} />
                   </InputAdornment>
                 )
               }}
-              sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.875rem' } }}
+              sx={{ 
+                '& .MuiOutlinedInput-root': { 
+                  fontSize: '0.875rem',
+                  bgcolor: loadingMaterials ? '#F9FAFB' : 'white'
+                } 
+              }}
             />
-            {/* Кнопка для поиска по всей базе если ничего не найдено */}
-            {materialSearchQuery && filteredMaterialsForDialog.length === 0 && !loadingMaterials && (
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={() => handleServerSearch(materialSearchQuery)}
-                sx={{ minWidth: '120px', whiteSpace: 'nowrap' }}
-              >
-                Искать везде
-              </Button>
-            )}
           </Box>
+          {/* Подсказка для пользователя */}
+          {materialSearchQuery && materialSearchQuery.trim().length > 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+              🔍 Поиск в базе 47,000 материалов...
+            </Typography>
+          )}
         </DialogTitle>
         <DialogContent sx={{ p: 0, height: '500px', overflow: 'auto' }}>
           {loadingMaterials && filteredMaterialsForDialog.length === 0 ? (
@@ -2559,12 +2583,12 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
             <Box sx={{ p: 4, textAlign: 'center' }}>
               <Typography color="text.secondary" variant="body2" sx={{ mb: 1 }}>
                 {materialSearchQuery 
-                  ? `Не найдено в загруженных материалах (${allMaterialsForDialog.length})` 
-                  : 'Материалы загружаются...'}
+                  ? `Материалы не найдены` 
+                  : 'Загрузка материалов...'}
               </Typography>
               {materialSearchQuery && (
                 <Typography color="text.secondary" variant="caption">
-                  Нажмите "Искать везде" для поиска по всей базе
+                  Попробуйте изменить поисковый запрос
                 </Typography>
               )}
             </Box>
@@ -2661,7 +2685,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
               ))}
               
               {/* ✅ Триггер для автозагрузки через Intersection Observer */}
-              {materialsHasMore && !materialSearchQuery && (
+              {materialsHasMore && (
                 <Box 
                   ref={loadMoreMaterialsRef} 
                   sx={{ height: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', py: 2 }}
@@ -2670,10 +2694,20 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                 </Box>
               )}
               
-              {/* Сообщение когда всё загружено */}
+              {/* Сообщение когда всё загружено или при поиске */}
               {!materialsHasMore && filteredMaterialsForDialog.length > 0 && (
                 <Typography sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
-                  {materialSearchQuery ? `Найдено: ${filteredMaterialsForDialog.length}` : `Загружено всё (${filteredMaterialsForDialog.length} из ${materialsTotalRecords})`}
+                  {materialSearchQuery 
+                    ? `✅ Найдено ${filteredMaterialsForDialog.length} материалов` 
+                    : `Показано ${filteredMaterialsForDialog.length} материалов`
+                  }
+                </Typography>
+              )}
+              
+              {/* Подсказка при большом количестве результатов */}
+              {materialsTotalRecords > 100 && !materialSearchQuery && (
+                <Typography sx={{ textAlign: 'center', py: 2, color: '#F59E0B', fontSize: '0.8125rem', px: 2 }}>
+                  💡 Найдено {materialsTotalRecords} материалов — используйте поиск для быстрого доступа
                 </Typography>
               )}
             </List>
