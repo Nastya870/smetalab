@@ -2518,25 +2518,23 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                 </Box>
               </Box>
 
-              {/* 🔥 Общий вес материалов */}
-              {parseFloat(calculateTotals.totalWeight) > 0 && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Typography sx={{ fontSize: '0.8125rem', color: '#6B7280' }}>
-                    Общий вес:
+              {/* 🔥 Общий вес материалов - показываем всегда */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Typography sx={{ fontSize: '0.8125rem', color: '#6B7280' }}>
+                  Вес:
+                </Typography>
+                <Box sx={{ 
+                  px: 1.5, 
+                  py: 0.5, 
+                  bgcolor: '#EFF6FF', 
+                  borderRadius: '6px',
+                  border: '1px solid #BFDBFE'
+                }}>
+                  <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600, color: '#2563EB' }}>
+                    {parseFloat(calculateTotals.totalWeight || 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 3 })} кг
                   </Typography>
-                  <Box sx={{ 
-                    px: 1.5, 
-                    py: 0.5, 
-                    bgcolor: '#EFF6FF', 
-                    borderRadius: '6px',
-                    border: '1px solid #BFDBFE'
-                  }}>
-                    <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600, color: '#2563EB' }}>
-                      {parseFloat(calculateTotals.totalWeight).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 3 })} кг
-                    </Typography>
-                  </Box>
                 </Box>
-              )}
+              </Box>
             </Box>
           )}
         </Paper>
