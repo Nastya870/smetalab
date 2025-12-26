@@ -12,8 +12,8 @@
 ### 1. Применить миграцию БД (5 минут)
 
 ```bash
-# Подключиться к базе (Neon)
-psql your_database_url
+# Подключиться к базе на Render
+psql your_render_database_url
 
 # Выполнить миграцию
 \i database/migrations/052_optimize_materials_search.sql

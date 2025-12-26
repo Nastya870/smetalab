@@ -344,8 +344,8 @@ Execution Time: 18.567 ms  ✅ (в 45 раз быстрее!)
 
 ### 1. Применить миграцию:
 ```bash
-# Подключиться к базе данных
-psql $DATABASE_URL
+# Подключиться к базе данных на Render
+psql $RENDER_DATABASE_URL
 
 # Выполнить миграцию
 \i database/migrations/052_optimize_materials_search.sql
