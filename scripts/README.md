@@ -133,7 +133,8 @@ user_role_assignments (user_id, tenant_id, role_id)
 
 **Решение:**
 - Проверьте `.env` файл и переменную `DATABASE_URL`
-- Убедитесь, что БД доступна (Neon/Supabase)
+- Убедитесь, что БД доступна (Render PostgreSQL)
+- Проверьте соединение через `psql $DATABASE_URL`
 
 ---
 

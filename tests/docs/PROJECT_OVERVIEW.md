@@ -42,7 +42,7 @@
 **Сервер и API:**
 - **Node.js v22.19.0** - серверная платформа
 - **Express 5.1.0** - веб-фреймворк (порт 3001)
-- **PostgreSQL (Neon Cloud)** - основная база данных
+- **PostgreSQL (Render)** - основная база данных
 
 **Аутентификация и безопасность:**
 - **JWT (jsonwebtoken 9.0.2)** - токены доступа
@@ -57,9 +57,9 @@
 
 ### **База данных**
 
-**СУБД:** PostgreSQL (Neon Cloud)
-- **Хост:** ep-polished-forest-agj7s875-pooler.c-2.eu-central-1.aws.neon.tech
-- **База:** neondb
+**СУБД:** PostgreSQL на Render
+- **Регион:** Frankfurt, Germany
+- **Версия:** PostgreSQL 14+
 - **Пул соединений:** pg 8.13.1
 - **SSL:** включен (sslmode=require)
 
@@ -237,9 +237,7 @@ projects.*
 
 **Environment Variables (.env.production):**
 ```env
-DATABASE_URL=postgresql://neondb_owner:npg_z9nkcaAxB6ju@...
-NEON_API_KEY=napi_aa0nrxrwc4g5h4g78ic1bnj3a1p1mvmllc62zyob4c25svobtr971jyavok7a8mn
-VERCEL_TOKEN=AzbO3kroECHEKi6JEnEFQgdj
+DATABASE_URL=postgresql://[render_connection_string]
 JWT_ACCESS_SECRET=your_super_secret_access_key_change_this_in_production_12345
 JWT_REFRESH_SECRET=your_super_secret_refresh_key_change_this_in_production_67890
 RESEND_API_KEY=re_2S3ZNHhd_9mCwZfkcVAD9Fmpq61fekM42
@@ -417,11 +415,12 @@ node vite/check-user-permissions.cjs
 
 - **Production:** https://smeta-lab.ru
 - **Vercel Dashboard:** https://vercel.com/ilyas-projects-5a5f05a9/vite
-- **Database:** Neon PostgreSQL Dashboard
+- **Backend:** Render Web Service
+- **Database:** Render PostgreSQL (Frankfurt)
 - **Email Support:** noreply@smeta-lab.ru
 
 ---
 
-**Версия документа:** 1.0  
-**Дата обновления:** 21 ноября 2025 г.  
+**Версия документа:** 1.1  
+**Дата обновления:** 26 декабря 2025 г.  
 **Автор:** GitHub Copilot + Development Team

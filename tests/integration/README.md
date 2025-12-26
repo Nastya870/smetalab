@@ -57,7 +57,7 @@ npx vitest run tests/integration --reporter=verbose
 ### Предварительные требования
 
 1. **Backend запущен** на `http://localhost:3001`
-2. **База данных** доступна (PostgreSQL/Neon)
+2. **База данных** доступна (PostgreSQL на Render)
 3. **Переменные окружения** настроены (`.env`)
 
 ---

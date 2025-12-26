@@ -100,7 +100,7 @@ npm run dev
 ```
 
 ### 2. База данных
-- PostgreSQL (Neon Cloud)
+- PostgreSQL (Render)
 - Переменная DATABASE_URL в .env
 
 ### 3. Environment variables

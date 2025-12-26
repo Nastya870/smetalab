@@ -1,13 +1,14 @@
 # AI Agent Instructions - Smeta Pro
 
 ## Project Overview
-**Smeta Pro** - Multi-tenant construction estimation SaaS application built with React + Material-UI frontend, Express backend, and PostgreSQL database (Neon). The system manages construction estimates, purchases, projects, and implements role-based access control (RBAC) with tenant isolation.
+**Smeta Pro** - Multi-tenant construction estimation SaaS application built with React + Material-UI frontend, Express backend, and PostgreSQL database. The system manages construction estimates, purchases, projects, and implements role-based access control (RBAC) with tenant isolation.
 
 ## Architecture
 
 ### Stack
-- **Frontend**: React 19, Material-UI 7, Vite 6, React Router 7
-- **Backend**: Express 5, PostgreSQL (Neon), JWT authentication
+- **Frontend**: React 19, Material-UI 7, Vite 6, React Router 7 (deployed on **Vercel**)
+- **Backend**: Express 5, PostgreSQL, JWT authentication (deployed on **Render**)
+- **Database**: PostgreSQL on **Render**
 - **Testing**: Vitest (unit/integration), Playwright (E2E)
 - **Key Libraries**: ApexCharts, ExcelJS, jsPDF, Formik, Yup
 
@@ -186,7 +187,7 @@ catch (error) {
 - Swagger docs: `http://localhost:3001/api-docs`
 
 ### Environment Variables
-- `DATABASE_URL` - PostgreSQL connection string
+- `DATABASE_URL` - PostgreSQL connection string (Render)
 - `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` - Token signing keys
 - `VITE_APP_BASE_NAME` - Frontend base path
 
@@ -201,5 +202,5 @@ export async function down(db) {
 ```
 
 ---
-**Last Updated**: December 18, 2025  
-**Version**: 1.28
+**Last Updated**: December 26, 2025  
+**Version**: 1.29
