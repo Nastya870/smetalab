@@ -445,7 +445,22 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // ✅ Работы после поиска (для подсчёта в фильтрах)
   const worksAfterSearch = useMemo(() => {
     if (!searchTerm) return availableWorks;
-    return fullTextSearch(availableWorks, searchTerm, ['name', 'code', 'section', 'subsection']);
+    
+    const searchLower = searchTerm.toLowerCase().trim();
+    
+    return availableWorks.filter(work => {
+      // Поиск по всем полям: название, код, раздел, подраздел
+      const searchableText = [
+        work.name,
+        work.code,
+        work.section,
+        work.subsection
+      ].filter(Boolean).join(' ').toLowerCase();
+      
+      // Поддержка поиска по нескольким словам (все слова должны присутствовать)
+      const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
+      return searchWords.every(word => searchableText.includes(word));
+    });
   }, [searchTerm, availableWorks]);
 
   const filteredWorks = useMemo(() => {
