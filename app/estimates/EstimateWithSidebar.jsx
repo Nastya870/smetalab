@@ -860,8 +860,13 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       return { sections: newSections };
     });
 
-    setMaterialDialogOpen(false);
-    setCurrentWorkItem(null);
+    // ✅ НЕ закрываем диалог, чтобы можно было добавить несколько материалов подряд
+    // Диалог закроется только при клике на крестик или вне диалога
+    // setMaterialDialogOpen(false);
+    // setCurrentWorkItem(null);
+    
+    // Показываем уведомление об успешном добавлении
+    showSnackbar(`✅ Материал "${material.name}" добавлен`, 'success');
   };
 
   // Заменить материал
@@ -2525,9 +2530,16 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       >
         <DialogTitle sx={{ pb: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-            <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>
-              {materialDialogMode === 'add' ? 'Добавить материал' : 'Заменить материал'}
-            </Typography>
+            <Box>
+              <Typography variant="h6" sx={{ fontSize: '1.1rem', mb: 0.5 }}>
+                {materialDialogMode === 'add' ? 'Добавить материал' : 'Заменить материал'}
+              </Typography>
+              {materialDialogMode === 'add' && (
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+                  💡 Добавьте несколько материалов подряд. Окно закроется при клике вне области.
+                </Typography>
+              )}
+            </Box>
             <Stack direction="row" spacing={1} alignItems="center">
               {loadingMaterials && (
                 <CircularProgress size={16} thickness={4} />
