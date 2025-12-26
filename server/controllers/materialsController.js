@@ -269,22 +269,20 @@ export const getAllMaterials = async (req, res) => {
     if (search) {
       const searchLower = search.toLowerCase().trim();
       
-      // Если запрос короткий (1-2 символа) - используем префиксный поиск (быстрее)
-      if (searchLower.length <= 2) {
-        whereConditions.push(`(LOWER(sku) LIKE $${paramIndex} OR LOWER(name) LIKE $${paramIndex})`);
-        params.push(`${searchLower}%`); // Префиксный поиск (MAT% вместо %MAT%)
-        paramIndex++;
-      } else {
-        // Для длинных запросов используем триграммный поиск
-        // Оператор % (similarity) работает через GIN индекс
-        whereConditions.push(`(
-          LOWER(name) % $${paramIndex} OR 
-          LOWER(sku) % $${paramIndex} OR 
-          LOWER(supplier) % $${paramIndex}
-        )`);
-        params.push(searchLower);
-        paramIndex++;
-      }
+      // Комбинированный подход для максимальной точности:
+      // 1. LIKE для точных совпадений и префиксов (быстро через индекс)
+      // 2. % (триграммы) для fuzzy search с пониженным порогом
+      whereConditions.push(`(
+        LOWER(name) LIKE $${paramIndex} OR 
+        LOWER(name) LIKE $${paramIndex + 1} OR
+        LOWER(sku) LIKE $${paramIndex} OR 
+        LOWER(sku) LIKE $${paramIndex + 1} OR
+        LOWER(supplier) LIKE $${paramIndex} OR
+        similarity(LOWER(name), $${paramIndex + 2}) > 0.2 OR
+        similarity(LOWER(sku), $${paramIndex + 2}) > 0.2
+      )`);
+      params.push(`%${searchLower}%`, `${searchLower}%`, searchLower);
+      paramIndex += 3;
     }
     
     const whereClause = whereConditions.length > 0 
@@ -305,12 +303,25 @@ export const getAllMaterials = async (req, res) => {
     let orderByClause;
     if (search && search.trim().length > 0) {
       const searchLower = search.toLowerCase().trim();
+      // Добавляем параметры для сортировки
+      params.push(searchLower); // Для CASE WHEN LOWER(sku) = $N
+      const skuParamIndex = paramIndex;
+      paramIndex++;
+      
+      params.push(`${searchLower}%`); // Для CASE WHEN LOWER(name) LIKE $N
+      const nameParamIndex = paramIndex;
+      paramIndex++;
+      
+      params.push(searchLower); // Для similarity(LOWER(name), $N)
+      const simParamIndex = paramIndex;
+      paramIndex++;
+      
       // Сортируем по релевантности: сначала точные совпадения в SKU, затем в названии, затем по сходству
       orderByClause = `
         ORDER BY 
-          CASE WHEN LOWER(sku) = '${searchLower}' THEN 1 ELSE 2 END,
-          CASE WHEN LOWER(name) LIKE '${searchLower}%' THEN 1 ELSE 2 END,
-          similarity(LOWER(name), '${searchLower}') DESC,
+          CASE WHEN LOWER(sku) = $${skuParamIndex} THEN 1 ELSE 2 END,
+          CASE WHEN LOWER(name) LIKE $${nameParamIndex} THEN 1 ELSE 2 END,
+          similarity(LOWER(name), $${simParamIndex}) DESC,
           is_global DESC,
           ${sortField} ${sortOrder}
       `;
