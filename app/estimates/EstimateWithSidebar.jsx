@@ -1346,10 +1346,9 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     const multiplier = 1 + (coefficientPercent / 100);
     
     setEstimateData((prevData) => {
-      const newSections = [...prevData.sections];
-      
-      newSections.forEach((section) => {
-        section.items.forEach((item) => {
+      // ✅ Создаем DEEP COPY разделов и элементов для корректного обновления React
+      const newSections = prevData.sections.map((section) => {
+        const updatedItems = section.items.map((item) => {
           const key = item.workId || `${item.code}_${item.name}`;
           
           // Получаем оригинальную цену или используем текущую
@@ -1363,17 +1362,23 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           // Применяем коэффициент к оригинальной цене
           const newPrice = parseFloat((originalPrice * multiplier).toFixed(2));
           
-          // Обновляем цену работы
-          item.price = newPrice;
-          
-          // Пересчитываем сумму работы
-          item.total = parseFloat((item.quantity * newPrice).toFixed(2));
-          
-          // ⚠️ НЕ ТРОГАЕМ МАТЕРИАЛЫ - коэффициент применяется только к работам
+          // ✅ Возвращаем НОВЫЙ объект item с обновленными значениями
+          return {
+            ...item,
+            price: newPrice,
+            total: parseFloat((item.quantity * newPrice).toFixed(2))
+          };
         });
         
         // Пересчитываем subtotal раздела
-        section.subtotal = section.items.reduce((sum, item) => sum + item.total, 0);
+        const newSubtotal = updatedItems.reduce((sum, item) => sum + item.total, 0);
+        
+        // ✅ Возвращаем НОВЫЙ объект section
+        return {
+          ...section,
+          items: updatedItems,
+          subtotal: newSubtotal
+        };
       });
       
       return { sections: newSections };
@@ -1386,25 +1391,36 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // Сбросить цены работ до оригинальных значений
   const handleResetPrices = () => {
     setEstimateData((prevData) => {
-      const newSections = [...prevData.sections];
-      
-      newSections.forEach((section) => {
-        section.items.forEach((item) => {
+      // ✅ Создаем DEEP COPY разделов и элементов для корректного обновления React
+      const newSections = prevData.sections.map((section) => {
+        const updatedItems = section.items.map((item) => {
           const key = item.workId || `${item.code}_${item.name}`;
           
           // Восстанавливаем оригинальную цену
           const originalPrice = originalPrices.get(key);
           
           if (originalPrice !== undefined) {
-            item.price = originalPrice;
-            
-            // Пересчитываем сумму работы
-            item.total = parseFloat((item.quantity * originalPrice).toFixed(2));
+            // ✅ Возвращаем НОВЫЙ объект item с восстановленной ценой
+            return {
+              ...item,
+              price: originalPrice,
+              total: parseFloat((item.quantity * originalPrice).toFixed(2))
+            };
           }
+          
+          // Если оригинальной цены нет, возвращаем item без изменений
+          return item;
         });
         
         // Пересчитываем subtotal раздела
-        section.subtotal = section.items.reduce((sum, item) => sum + item.total, 0);
+        const newSubtotal = updatedItems.reduce((sum, item) => sum + item.total, 0);
+        
+        // ✅ Возвращаем НОВЫЙ объект section
+        return {
+          ...section,
+          items: updatedItems,
+          subtotal: newSubtotal
+        };
       });
       
       return { sections: newSections };
