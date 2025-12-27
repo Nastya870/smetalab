@@ -128,14 +128,15 @@ export async function create(itemData, estimateId, tenantId) {
       await db.query(
         `INSERT INTO estimate_item_materials (
           estimate_item_id, material_id, quantity, unit_price,
-          consumption_coefficient, is_required, notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          consumption_coefficient, auto_calculate, is_required, notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
           createdItem.id,
           material.material_id,
           material.quantity,
           material.unit_price || material.price,
           material.consumption || material.consumption_coefficient || 1.0,
+          material.auto_calculate !== undefined ? material.auto_calculate : true,
           material.is_required !== false,
           material.notes || ''
         ]
@@ -511,9 +512,10 @@ export async function bulkCreate(estimateId, items, tenantId) {
               quantity,
               unit_price,
               consumption_coefficient,
+              auto_calculate,
               is_required,
               notes
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           `;
           
           const materialValues = [
@@ -522,6 +524,7 @@ export async function bulkCreate(estimateId, items, tenantId) {
             material.quantity,
             material.unit_price || material.price,
             material.consumption || material.consumption_coefficient || 1.0,
+            material.auto_calculate !== undefined ? material.auto_calculate : true,
             material.is_required !== false,
             material.notes || ''
           ];
@@ -716,9 +719,10 @@ export async function replaceAllItems(estimateId, items, tenantId) {
                 quantity,
                 unit_price,
                 consumption_coefficient,
+                auto_calculate,
                 is_required,
                 notes
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             `;
             
             const materialValues = [
@@ -727,6 +731,7 @@ export async function replaceAllItems(estimateId, items, tenantId) {
               material.quantity,
               material.unit_price || material.price,
               material.consumption || material.consumption_coefficient || 1.0,
+              material.auto_calculate !== undefined ? material.auto_calculate : true,
               material.is_required !== false,
               material.notes || ''
             ];

@@ -281,6 +281,7 @@ export async function findByIdWithDetails(estimateId, tenantId) {
               eim.unit_price,
               eim.total_price,
               eim.consumption_coefficient,
+              eim.auto_calculate,
               eim.is_required,
               eim.notes,
               eim.weight,
@@ -433,14 +434,15 @@ export async function createWithDetails(data, tenantId, userId) {
           await client.query(
             `INSERT INTO estimate_item_materials (
               estimate_item_id, material_id, quantity, unit_price,
-              consumption_coefficient, is_required, notes
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+              consumption_coefficient, auto_calculate, is_required, notes
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
             [
               createdItem.id,
               material.material_id, // только реальный ID
               material.quantity,
               material.unit_price || material.price,
               material.consumption || material.consumption_coefficient || 1.0,
+              material.auto_calculate !== undefined ? material.auto_calculate : true,
               material.is_required !== false,
               material.notes || ''
             ]

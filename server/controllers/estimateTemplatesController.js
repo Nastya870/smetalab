@@ -467,21 +467,28 @@ export async function applyTemplate(req, res) {
     console.log(`🗺️  Created mapping for ${Object.keys(workToItemMap).length} works`);
 
     // Копируем материалы из шаблона в estimate_item_materials с привязкой к работам
+    // 🔥 АВТОМАТИЧЕСКИЙ РАСЧЁТ КОЭФФИЦИЕНТА РАСХОДА
     let materialsCount = 0;
     
     if (Object.keys(workToItemMap).length > 0) {
+      // Получаем данные работы для расчёта коэффициента расхода
       const copyMaterialsQuery = `
         INSERT INTO estimate_item_materials (
-          estimate_item_id, material_id, quantity, unit_price, consumption_coefficient
+          estimate_item_id, material_id, quantity, unit_price, consumption_coefficient, auto_calculate
         )
         SELECT 
           $1,
           etm.material_id,
           etm.quantity,
           m.price,
-          1.0
+          CASE 
+            WHEN etw.quantity > 0 THEN etm.quantity / etw.quantity
+            ELSE 1.0
+          END,
+          true
         FROM estimate_template_materials etm
         JOIN materials m ON etm.material_id = m.id
+        JOIN estimate_template_works etw ON etm.template_work_id = etw.id
         WHERE etm.template_work_id = $2
       `;
 
@@ -490,7 +497,7 @@ export async function applyTemplate(req, res) {
         const matResult = await client.query(copyMaterialsQuery, [estimateItemId, templateWorkId]);
         materialsCount += matResult.rowCount;
         if (matResult.rowCount > 0) {
-          console.log(`  📦 Added ${matResult.rowCount} materials to work ${estimateItemId}`);
+          console.log(`  📦 Added ${matResult.rowCount} materials to work ${estimateItemId} with auto-calculated coefficient`);
         }
       }
     }
