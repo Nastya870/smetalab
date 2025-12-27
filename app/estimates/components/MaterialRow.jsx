@@ -240,7 +240,7 @@ const MaterialRow = memo(({
         <TextField
           type="text"
           key={`cons_${sectionIndex}_${itemIndex}_${matIndex}_${material.consumption}`}
-          defaultValue={material.consumption}
+          defaultValue={parseFloat(material.consumption || 1.0).toFixed(2).replace(/\.?0+$/, '')}
           onChange={(e) => onConsumptionChange(sectionIndex, itemIndex, matIndex, e.target.value)}
           onBlur={(e) => onConsumptionBlur(sectionIndex, itemIndex, matIndex, e.target)}
           onKeyDown={(e) => {
