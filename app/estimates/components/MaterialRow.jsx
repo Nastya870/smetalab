@@ -49,7 +49,7 @@ const MaterialRow = memo(({
           py: 0.75,
           px: 1.5,
           pl: 3,
-          fontSize: '0.75rem',
+          fontSize: '0.65rem',
           color: '#6B7280'
         }}
       >
@@ -62,7 +62,7 @@ const MaterialRow = memo(({
           py: 0.75,
           px: 1.5,
           pl: 3,
-          fontSize: '0.8125rem'
+          fontSize: '0.7rem'
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -97,7 +97,7 @@ const MaterialRow = memo(({
               <Typography fontSize="10px">✏️</Typography>
             </Box>
           )}
-          <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>
+          <Typography sx={{ fontSize: '0.7rem', color: '#374151' }}>
             {material.name}
           </Typography>
         </Box>
@@ -147,7 +147,7 @@ const MaterialRow = memo(({
         sx={{
           py: 0.75,
           px: 1.5,
-          fontSize: '0.75rem',
+          fontSize: '0.65rem',
           color: '#6B7280'
         }}
       >
@@ -177,7 +177,7 @@ const MaterialRow = memo(({
           inputProps={{
             style: { 
               textAlign: 'right',
-              fontSize: '0.75rem',
+              fontSize: '0.65rem',
               fontWeight: 500,
               padding: '4px 8px'
             }
@@ -209,7 +209,7 @@ const MaterialRow = memo(({
         sx={{
           py: 0.75,
           px: 1.5,
-          fontSize: '0.8125rem',
+          fontSize: '0.7rem',
           color: '#374151'
         }}
       >
@@ -223,7 +223,7 @@ const MaterialRow = memo(({
       >
         <Typography
           sx={{
-            fontSize: '0.8125rem',
+            fontSize: '0.7rem',
             fontWeight: 600,
             color: '#1D4ED8'
           }}
@@ -235,7 +235,7 @@ const MaterialRow = memo(({
       {/* Коэффициент расхода - uncontrolled */}
       <TableCell
         align="center"
-        sx={{ py: 0.75, px: 1.5, fontSize: '0.75rem' }}
+        sx={{ py: 0.75, px: 1.5, fontSize: '0.65rem' }}
       >
         <TextField
           type="text"
@@ -255,7 +255,7 @@ const MaterialRow = memo(({
           inputProps={{
             style: { 
               textAlign: 'center',
-              fontSize: '0.7rem',
+              fontSize: '0.65rem',
               fontWeight: 600,
               padding: '2px 6px'
             }

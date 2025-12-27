@@ -2285,7 +2285,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                         zIndex: 1
                       }}
                     >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         Код
                       </Typography>
                     </TableCell>
@@ -2300,7 +2300,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                         zIndex: 1
                       }}
                     >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         Наименование
                       </Typography>
                     </TableCell>
@@ -2317,7 +2317,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                         minWidth: 70
                       }}
                     >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         Фото
                       </Typography>
                     </TableCell>
@@ -2333,7 +2333,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                         zIndex: 1
                       }}
                     >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         Ед.
                       </Typography>
                     </TableCell>
@@ -2349,7 +2349,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                         zIndex: 1
                       }}
                     >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         Кол-во
                       </Typography>
                     </TableCell>
@@ -2365,7 +2365,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                         zIndex: 1
                       }}
                     >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         Цена
                       </Typography>
                     </TableCell>
@@ -2381,7 +2381,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                         zIndex: 1
                       }}
                     >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         Сумма
                       </Typography>
                     </TableCell>
@@ -2397,7 +2397,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                         zIndex: 1
                       }}
                     >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         Расход
                       </Typography>
                     </TableCell>
@@ -2414,7 +2414,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                         minWidth: 100
                       }}
                     >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         Действия
                       </Typography>
                     </TableCell>
@@ -2484,7 +2484,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
             >
               {/* Итого за работы */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Typography sx={{ fontSize: '0.8125rem', color: '#6B7280' }}>
+                <Typography sx={{ fontSize: '0.7rem', color: '#6B7280' }}>
                   Итого за работы:
                 </Typography>
                 <Box sx={{ 
@@ -2494,7 +2494,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                   borderRadius: '6px',
                   border: '1px solid #BBF7D0'
                 }}>
-                  <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600, color: '#16A34A' }}>
+                  <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: '#16A34A' }}>
                     {formatCurrency(parseFloat(calculateTotals.totalWorks))}
                   </Typography>
                 </Box>
@@ -2502,7 +2502,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
 
               {/* Итого за материалы */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Typography sx={{ fontSize: '0.8125rem', color: '#6B7280' }}>
+                <Typography sx={{ fontSize: '0.7rem', color: '#6B7280' }}>
                   Итого за материалы:
                 </Typography>
                 <Box sx={{ 
@@ -2512,7 +2512,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                   borderRadius: '6px',
                   border: '1px solid #FCD34D'
                 }}>
-                  <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600, color: '#D97706' }}>
+                  <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: '#D97706' }}>
                     {formatCurrency(parseFloat(calculateTotals.totalMaterials))}
                   </Typography>
                 </Box>
@@ -2520,7 +2520,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
 
               {/* 🔥 Общий вес материалов - показываем всегда */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Typography sx={{ fontSize: '0.8125rem', color: '#6B7280' }}>
+                <Typography sx={{ fontSize: '0.7rem', color: '#6B7280' }}>
                   Вес:
                 </Typography>
                 <Box sx={{ 
@@ -2530,7 +2530,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                   borderRadius: '6px',
                   border: '1px solid #BFDBFE'
                 }}>
-                  <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600, color: '#2563EB' }}>
+                  <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: '#2563EB' }}>
                     {parseFloat(calculateTotals.totalWeight || 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 3 })} кг
                   </Typography>
                 </Box>

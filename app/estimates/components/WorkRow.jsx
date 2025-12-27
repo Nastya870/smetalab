@@ -47,7 +47,7 @@ const WorkRow = memo(({
           py: 1,
           px: 1.5,
           fontWeight: 600,
-          fontSize: '0.8125rem',
+          fontSize: '0.7rem',
           color: '#374151'
         }}
       >
@@ -63,7 +63,7 @@ const WorkRow = memo(({
         }}
       >
         <Box>
-          <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
+          <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#111827' }}>
             {item.name}
           </Typography>
           {(item.phase || item.section || item.subsection) && (
@@ -71,7 +71,7 @@ const WorkRow = memo(({
               sx={{ 
                 display: 'block',
                 mt: 0.5,
-                fontSize: '0.6875rem',
+                fontSize: '0.625rem',
                 fontStyle: 'italic',
                 color: '#6B7280'
               }}
@@ -91,7 +91,7 @@ const WorkRow = memo(({
       {/* Фото (пусто для работы) */}
       <TableCell
         align="center"
-        sx={{ py: 1, px: 1.5, color: '#9CA3AF', fontSize: '0.75rem' }}
+        sx={{ py: 1, px: 1.5, color: '#9CA3AF', fontSize: '0.65rem' }}
       >
         —
       </TableCell>
@@ -99,7 +99,7 @@ const WorkRow = memo(({
       {/* Единица измерения */}
       <TableCell
         align="center"
-        sx={{ py: 1, px: 1.5, fontSize: '0.8125rem', color: '#6B7280' }}
+        sx={{ py: 1, px: 1.5, fontSize: '0.7rem', color: '#6B7280' }}
       >
         {item.unit}
       </TableCell>
@@ -121,14 +121,14 @@ const WorkRow = memo(({
             step: 0.01,
             style: { 
               textAlign: 'right', 
-              fontSize: '0.8125rem',
+              fontSize: '0.7rem',
               padding: '6px 10px'
             }
           }}
           sx={{
             width: '90px',
             '& .MuiOutlinedInput-root': {
-              fontSize: '0.8125rem',
+              fontSize: '0.7rem',
               borderRadius: '6px',
               height: 34,
               bgcolor: (!item.quantity || item.quantity === 0) ? '#FEF2F2' : '#FFFFFF',
@@ -183,14 +183,14 @@ const WorkRow = memo(({
               step: 0.01,
               style: { 
                 textAlign: 'right', 
-                fontSize: '0.8125rem',
+                fontSize: '0.7rem',
                 padding: '6px 10px'
               }
             }}
             sx={{
               width: '110px',
               '& .MuiOutlinedInput-root': {
-                fontSize: '0.8125rem',
+                fontSize: '0.7rem',
                 borderRadius: '6px',
                 height: 34,
                 bgcolor: '#FEF3C7',
@@ -243,7 +243,7 @@ const WorkRow = memo(({
       >
         <Typography 
           sx={{
-            fontSize: '0.875rem',
+            fontSize: '0.75rem',
             fontWeight: 600,
             color: '#1D4ED8'
           }}
@@ -255,7 +255,7 @@ const WorkRow = memo(({
       {/* Расход (пусто для работы) */}
       <TableCell
         align="center"
-        sx={{ py: 1, px: 1.5, color: '#9CA3AF', fontSize: '0.75rem' }}
+        sx={{ py: 1, px: 1.5, color: '#9CA3AF', fontSize: '0.65rem' }}
       >
         —
       </TableCell>
