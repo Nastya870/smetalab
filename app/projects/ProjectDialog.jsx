@@ -294,7 +294,7 @@ setCounterparties(data || []);
           Отмена
         </Button>
         <Button 
-          onClick={onSave} 
+          onClick={() => onSave(project)} 
           variant="contained" 
           disabled={!isFormValid}
           sx={{ 

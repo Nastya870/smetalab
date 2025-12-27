@@ -87,9 +87,9 @@ const ProjectDashboard = () => {
     setCurrentProject(emptyProject);
   };
 
-  const handleSaveProject = async (updatedProject) => {
+  const handleSaveProject = async () => {
     try {
-      await projectsAPI.update(updatedProject.id, updatedProject);
+      await projectsAPI.update(currentProject.id, currentProject);
       refresh();
       handleCloseDialog();
     } catch (err) {
