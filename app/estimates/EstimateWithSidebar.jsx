@@ -70,6 +70,7 @@ import estimatesAPI from 'api/estimates';
 import materialsAPI from 'api/materials';
 import estimateTemplatesAPI from 'shared/lib/api/estimateTemplates';
 import { useGetMenuMaster } from 'api/menu'; // ✅ Только для получения данных меню
+import { useSnackbar } from 'notistack';
 import PriceCoefficientModal from './PriceCoefficientModal';
 import ObjectParametersSidebar from './ObjectParametersSidebar';
 
@@ -174,6 +175,9 @@ const findInsertPosition = (items, newItem) => {
 // ==============================|| ESTIMATE WITH SIDEBAR ||============================== //
 
 const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChanges }, ref) => {
+  // Snackbar для уведомлений
+  const { enqueueSnackbar } = useSnackbar();
+  
   // State
   const [sidebarVisible, setSidebarVisible] = useState(false); // ✅ По умолчанию скрыт (режим просмотра)
   const [searchTerm, setSearchTerm] = useState('');
