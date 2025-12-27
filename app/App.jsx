@@ -5,6 +5,9 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import 'dayjs/locale/ru';
 
+// Notistack для уведомлений
+import { SnackbarProvider } from 'notistack';
+
 // routing
 import router from 'routes';
 
@@ -22,15 +25,24 @@ import { PermissionsProvider } from 'shared/lib/contexts/PermissionsContext';
 export default function App() {
   return (
     <ThemeCustomization>
-      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="ru">
-        <NavigationScroll>
-          <AuthProvider>
-            <PermissionsProvider>
-              <RouterProvider router={router} />
-            </PermissionsProvider>
-          </AuthProvider>
-        </NavigationScroll>
-      </LocalizationProvider>
+      <SnackbarProvider 
+        maxSnack={3}
+        anchorOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+        autoHideDuration={3000}
+      >
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="ru">
+          <NavigationScroll>
+            <AuthProvider>
+              <PermissionsProvider>
+                <RouterProvider router={router} />
+              </PermissionsProvider>
+            </AuthProvider>
+          </NavigationScroll>
+        </LocalizationProvider>
+      </SnackbarProvider>
     </ThemeCustomization>
   );
 }
