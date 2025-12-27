@@ -472,6 +472,7 @@ export async function applyTemplate(req, res) {
     
     if (Object.keys(workToItemMap).length > 0) {
       // Получаем данные работы для расчёта коэффициента расхода
+      // ✅ Округление коэффициента до десятых в БОЛЬШУЮ сторону (CEIL)
       const copyMaterialsQuery = `
         INSERT INTO estimate_item_materials (
           estimate_item_id, material_id, quantity, unit_price, consumption_coefficient, auto_calculate
@@ -479,10 +480,10 @@ export async function applyTemplate(req, res) {
         SELECT 
           $1,
           etm.material_id,
-          etm.quantity,
+          CEIL(etm.quantity),
           m.price,
           CASE 
-            WHEN etw.quantity > 0 THEN etm.quantity / etw.quantity
+            WHEN etw.quantity > 0 THEN CEIL((etm.quantity / etw.quantity) * 10) / 10.0
             ELSE 1.0
           END,
           true

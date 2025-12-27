@@ -833,17 +833,19 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       const item = newSections[sectionIndex].items[itemIndex];
 
       // ✅ Получаем consumption из материала (если есть) или используем дефолт
-      const materialConsumption = material.consumption || material.consumption_coefficient || 1.0;
+      // ✅ Округляем коэффициент расхода до десятых в БОЛЬШУЮ сторону
+      const rawConsumption = material.consumption || material.consumption_coefficient || 1.0;
+      const materialConsumption = Math.ceil(rawConsumption * 10) / 10;
       
       // ✅ Получаем auto_calculate из материала
       const autoCalculate = material.auto_calculate !== undefined 
         ? material.auto_calculate 
         : (material.autoCalculate !== undefined ? material.autoCalculate : true);
 
-      // ✅ Если auto_calculate = true, то quantity = work_quantity × consumption
+      // ✅ Если auto_calculate = true, то quantity = work_quantity × consumption (округление ВВЕРХ)
       // ✅ Если auto_calculate = false, то quantity = consumption (ручной ввод)
       const calculatedQuantity = autoCalculate 
-        ? parseFloat((item.quantity * materialConsumption).toFixed(2))
+        ? Math.ceil(item.quantity * materialConsumption)
         : materialConsumption;
 
       const newMaterial = {
@@ -1181,7 +1183,9 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                   : material.autoCalculate !== false;
                 
                 if (isAutoCalculate) {
-                  const newMatQty = parseFloat((quantity * (material.consumption || 0)).toFixed(2));
+                  // ✅ Округление количества ВВЕРХ до целого числа (1.3 → 2, 1.7 → 2)
+                  const calculatedQty = quantity * (material.consumption || 0);
+                  const newMatQty = Math.ceil(calculatedQty);
                   return {
                     ...material,
                     quantity: newMatQty,
