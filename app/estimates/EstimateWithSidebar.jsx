@@ -2256,21 +2256,45 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           }}
           elevation={0}
         >
-          {/* Таблица сметы */}
-          <Box sx={{ flex: 1, overflow: 'auto' }}>
-            <TableContainer 
-              component={Paper} 
-              elevation={0}
+          {/* ✅ Индикатор загрузки сметы */}
+          {loading && (
+            <Box 
               sx={{ 
-                overflowX: 'auto', 
-                maxWidth: '100%',
-                maxHeight: 'calc(100vh - 340px)',
-                '&::-webkit-scrollbar': { width: 6, height: 6 },
-                '&::-webkit-scrollbar-track': { bgcolor: '#F1F5F9' },
-                '&::-webkit-scrollbar-thumb': { bgcolor: '#CBD5E1', borderRadius: 3 },
-                '&::-webkit-scrollbar-thumb:hover': { bgcolor: '#94A3B8' }
+                display: 'flex', 
+                flexDirection: 'column',
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                flex: 1,
+                gap: 2,
+                py: 8
               }}
             >
+              <CircularProgress size={48} thickness={4} sx={{ color: '#635BFF' }} />
+              <Typography sx={{ fontSize: '0.875rem', color: '#6B7280', fontWeight: 500 }}>
+                Загрузка сметы...
+              </Typography>
+              <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>
+                Пожалуйста, подождите
+              </Typography>
+            </Box>
+          )}
+
+          {/* Таблица сметы */}
+          {!loading && (
+            <Box sx={{ flex: 1, overflow: 'auto' }}>
+              <TableContainer 
+                component={Paper} 
+                elevation={0}
+                sx={{ 
+                  overflowX: 'auto', 
+                  maxWidth: '100%',
+                  maxHeight: 'calc(100vh - 340px)',
+                  '&::-webkit-scrollbar': { width: 6, height: 6 },
+                  '&::-webkit-scrollbar-track': { bgcolor: '#F1F5F9' },
+                  '&::-webkit-scrollbar-thumb': { bgcolor: '#CBD5E1', borderRadius: 3 },
+                  '&::-webkit-scrollbar-thumb:hover': { bgcolor: '#94A3B8' }
+                }}
+              >
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
@@ -2465,10 +2489,11 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                 </TableBody>
               </Table>
             </TableContainer>
-          </Box>
+            </Box>
+          )}
 
           {/* ✅ STICKY FOOTER - Итоги прилипшие к низу */}
-          {estimateData.sections.length > 0 && (
+          {!loading && estimateData.sections.length > 0 && (
             <Box
               sx={{
                 borderTop: '2px solid #E5E7EB',
