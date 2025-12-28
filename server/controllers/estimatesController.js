@@ -65,7 +65,7 @@ export async function getEstimateById(req, res) {
     const { id } = req.params;
     const tenantId = req.user.tenantId;
 
-    const estimate = await estimatesRepository.findById(id, tenantId);
+    const estimate = await estimatesRepository.findByIdWithDetails(id, tenantId);
 
     if (!estimate) {
       return res.status(StatusCodes.NOT_FOUND).json({
@@ -81,6 +81,7 @@ export async function getEstimateById(req, res) {
       contractor_name: estimate.contractor_name,
       object_address: estimate.object_address,
       contract_number: estimate.contract_number,
+      items_count: estimate.items?.length || 0
     });
 
     res.status(StatusCodes.OK).json(estimate);

@@ -164,7 +164,13 @@ const Purchases = ({ estimateId, projectId }) => {
       }
     } catch (err) {
       console.error('Ошибка формирования закупок:', err);
-      setError(err.response?.data?.message || 'Не удалось сформировать закупки');
+      console.error('Детали ошибки:', {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+        message: err.message
+      });
+      setError(err.response?.data?.details || err.response?.data?.message || err.response?.data?.error || 'Не удалось сформировать закупки. Проверьте логи сервера.');
     } finally {
       setLoading(false);
     }

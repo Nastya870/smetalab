@@ -16,7 +16,6 @@ import {
   InputAdornment,
   CircularProgress,
   Alert,
-  Snackbar,
   Stack,
   Tooltip,
   Dialog,
@@ -39,6 +38,7 @@ import {
 import MainCard from 'ui-component/cards/MainCard';
 import estimateTemplatesAPI from 'shared/lib/api/estimateTemplates';
 import TemplateFormDialog from './TemplateFormDialog';
+import { useNotifications } from 'contexts/NotificationsContext';
 
 // ==============================|| ESTIMATE TEMPLATES PAGE ||============================== //
 
@@ -50,7 +50,7 @@ const EstimateTemplatesPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const { success, error: showError, info } = useNotifications();
   
   // Dialogs
   const [openFormDialog, setOpenFormDialog] = useState(false);
@@ -71,7 +71,7 @@ const EstimateTemplatesPage = () => {
     } catch (error) {
       console.error('Error fetching templates:', error);
       setError('Ошибка при загрузке шаблонов');
-      showSnackbar('Ошибка при загрузке шаблонов', 'error');
+      showError('Ошибка при загрузке шаблонов');
     } finally {
       setLoading(false);
     }
@@ -92,7 +92,7 @@ const EstimateTemplatesPage = () => {
   const handleAddTemplate = () => {
     // Для создания шаблона нужна существующая смета
     // Редирект на страницу смет или показать сообщение
-    showSnackbar('Для создания шаблона откройте смету и нажмите "Сохранить как шаблон"', 'info');
+    info('Для создания шаблона откройте смету и нажмите "Сохранить как шаблон"');
   };
 
   const handleEditTemplate = (template) => {
@@ -108,11 +108,11 @@ const EstimateTemplatesPage = () => {
   const handleDeleteConfirm = async () => {
     try {
       await estimateTemplatesAPI.deleteTemplate(selectedTemplate.id);
-      showSnackbar('Шаблон успешно удален', 'success');
+      success('Шаблон успешно удален', selectedTemplate.name);
       fetchTemplates();
     } catch (error) {
       console.error('Error deleting template:', error);
-      showSnackbar('Ошибка при удалении шаблона', 'error');
+      showError('Ошибка при удалении шаблона');
     } finally {
       setOpenDeleteDialog(false);
       setSelectedTemplate(null);
@@ -124,17 +124,14 @@ const EstimateTemplatesPage = () => {
       if (selectedTemplate) {
         // Update
         await estimateTemplatesAPI.updateTemplate(selectedTemplate.id, formData);
-        showSnackbar('Шаблон успешно обновлен', 'success');
+        success('Шаблон успешно обновлен', formData.name);
       }
       fetchTemplates();
       setOpenFormDialog(false);
       setSelectedTemplate(null);
     } catch (error) {
       console.error('Error saving template:', error);
-      showSnackbar(
-        error.response?.data?.message || 'Ошибка при сохранении шаблона',
-        'error'
-      );
+      showError('Ошибка при сохранении шаблона', error.response?.data?.message);
     }
   };
 
@@ -144,19 +141,11 @@ const EstimateTemplatesPage = () => {
       const response = await estimateTemplatesAPI.getTemplateById(templateId);
       console.log('Template details:', response.data);
       // TODO: Открыть модальное окно с деталями или перейти на страницу просмотра
-      showSnackbar('Просмотр шаблона (TODO)', 'info');
+      info('Просмотр шаблона (TODO)');
     } catch (error) {
       console.error('Error fetching template details:', error);
-      showSnackbar('Ошибка при загрузке деталей шаблона', 'error');
+      showError('Ошибка при загрузке деталей шаблона');
     }
-  };
-
-  const showSnackbar = (message, severity = 'success') => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
   };
 
   // Empty state
@@ -385,18 +374,6 @@ const EstimateTemplatesPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Snackbar */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </>
   );
 };

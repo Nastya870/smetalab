@@ -11,6 +11,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./tests/setup.js'],
+    globalSetup: ['./tests/integration/setup.integration.js'],
     // Запускаем integration тесты последовательно (не параллельно)
     poolOptions: {
       threads: {

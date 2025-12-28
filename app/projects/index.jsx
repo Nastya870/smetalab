@@ -15,8 +15,6 @@ import {
   Select,
   MenuItem,
   CircularProgress,
-  Snackbar,
-  Alert,
   TablePagination,
   InputAdornment
 } from '@mui/material';
@@ -29,6 +27,7 @@ import ProjectCard from './ProjectCard';
 const ProjectDialog = lazy(() => import('./ProjectDialog'));
 import ProjectStatsCard from './ProjectStatsCard';
 import EmptyState from './EmptyState';
+import { useNotifications, NOTIFICATION_CATEGORIES } from 'shared/lib/contexts/NotificationsContext';
 
 // utils and API
 import { formatCurrency } from './utils';
@@ -41,6 +40,7 @@ import useAuth from 'hooks/useAuth';
 const ProjectsPage = () => {
   const navigate = useNavigate();
   const { tenant } = useAuth(); // Получаем данные нашей компании
+  const { success, error: showError } = useNotifications();
 
   // State: Data
   const [projects, setProjects] = useState([]);
@@ -69,9 +69,8 @@ const ProjectsPage = () => {
   const [rowsPerPage, setRowsPerPage] = useState(12); // 12 карточек на странице (3x4 grid)
   const [totalRecords, setTotalRecords] = useState(0);
 
-  // State: Loading & Errors
+  // State: Loading
   const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
 
   // Debounced Search (Phase 1: Quick Win - 300ms delay)
   const debouncedSearch = useMemo(
@@ -86,15 +85,6 @@ const ProjectsPage = () => {
   useEffect(() => {
     return () => debouncedSearch.cancel(); // Cleanup
   }, [debouncedSearch]);
-
-  // Snackbar helper (Phase 1: Error handling)
-  const showSnackbar = useCallback((message, severity = 'info') => {
-    setSnackbar({ open: true, message, severity });
-  }, []);
-
-  const handleCloseSnackbar = useCallback(() => {
-    setSnackbar({ ...snackbar, open: false });
-  }, [snackbar]);
 
   // Fetch Projects (Phase 1: API Integration + Phase 2: Pagination)
   const fetchProjects = useCallback(async () => {
@@ -114,11 +104,13 @@ const ProjectsPage = () => {
       setTotalRecords(response.pagination?.totalItems || 0);
     } catch (error) {
       console.error('Error fetching projects:', error);
-      showSnackbar(error.response?.data?.message || 'Ошибка загрузки проектов', 'error');
+      showError('Ошибка загрузки', error.response?.data?.message || 'Не удалось загрузить проекты', {
+        category: NOTIFICATION_CATEGORIES.PROJECT
+      });
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, searchTerm, statusFilter, showSnackbar]);
+  }, [page, rowsPerPage, searchTerm, statusFilter, showError]);
 
   // Fetch Statistics (Phase 1: API Integration)
   const fetchStats = useCallback(async () => {
@@ -183,7 +175,6 @@ const ProjectsPage = () => {
         const optimisticUpdate = { ...currentProject, _optimistic: true };
 
         setProjects(projects.map((p) => (p.id === currentProject.id ? optimisticUpdate : p)));
-        showSnackbar('Проект обновляется...', 'info');
         handleCloseDialog();
 
         try {
@@ -192,12 +183,17 @@ const ProjectsPage = () => {
           // Обновляем со свежими данными с сервера
           await fetchProjects();
           await fetchStats();
-          showSnackbar('Проект успешно обновлен', 'success');
+          success('Проект обновлен', `"${currentProject.name}" успешно сохранен`, {
+            category: NOTIFICATION_CATEGORIES.PROJECT,
+            link: `/app/projects/${currentProject.id}`
+          });
         } catch (err) {
           // ROLLBACK: восстанавливаем предыдущее состояние
           setProjects(previousProjects);
           console.error('Error updating project:', err);
-          showSnackbar(err.response?.data?.message || 'Ошибка при обновлении проекта', 'error');
+          showError('Ошибка обновления', err.response?.data?.message || 'Не удалось обновить проект', {
+            category: NOTIFICATION_CATEGORIES.PROJECT
+          });
           throw err;
         }
       } else {
@@ -211,21 +207,26 @@ const ProjectsPage = () => {
 
         // Мгновенно добавляем в UI
         setProjects([optimisticProject, ...projects]);
-        showSnackbar('Проект создается...', 'info');
         handleCloseDialog();
 
         try {
-          await projectsAPI.create(currentProject);
+          const response = await projectsAPI.create(currentProject);
+          const createdProject = response.data;
 
           // Обновляем список со свежими данными
           await fetchProjects();
           await fetchStats();
-          showSnackbar('Проект успешно создан', 'success');
+          success('Проект создан', `"${currentProject.objectName}" успешно добавлен`, {
+            category: NOTIFICATION_CATEGORIES.PROJECT,
+            link: `/app/projects/${createdProject.id}`
+          });
         } catch (err) {
           // ROLLBACK: удаляем optimistic проект при ошибке
           setProjects((prev) => prev.filter((p) => p.id !== optimisticProject.id));
           console.error('Error creating project:', err);
-          showSnackbar(err.response?.data?.message || 'Ошибка при создании проекта', 'error');
+          showError('Ошибка создания', err.response?.data?.message || 'Не удалось создать проект', {
+            category: NOTIFICATION_CATEGORIES.PROJECT
+          });
           throw err;
         }
       }
@@ -239,22 +240,26 @@ const ProjectsPage = () => {
     if (window.confirm('Вы уверены, что хотите удалить этот проект?')) {
       const previousProjects = [...projects]; // Backup
       const previousTotal = totalRecords;
+      const deletedProject = projects.find((p) => p.id === id);
 
       // Мгновенно удаляем из UI
       setProjects(projects.filter((p) => p.id !== id));
       setTotalRecords((prev) => Math.max(0, prev - 1));
-      showSnackbar('Проект удаляется...', 'info');
 
       try {
         await projectsAPI.delete(id);
         await fetchStats(); // Обновляем статистику
-        showSnackbar('Проект успешно удален', 'success');
+        success('Проект удален', `"${deletedProject?.name}" удален из системы`, {
+          category: NOTIFICATION_CATEGORIES.PROJECT
+        });
       } catch (err) {
         // ROLLBACK: восстанавливаем удаленный проект
         setProjects(previousProjects);
         setTotalRecords(previousTotal);
         console.error('Error deleting project:', err);
-        showSnackbar(err.response?.data?.message || 'Ошибка при удалении проекта', 'error');
+        showError('Ошибка удаления', err.response?.data?.message || 'Не удалось удалить проект', {
+          category: NOTIFICATION_CATEGORIES.PROJECT
+        });
       }
     }
   };
@@ -494,13 +499,6 @@ const ProjectsPage = () => {
           />
         </Suspense>
       )}
-
-      {/* Snackbar для уведомлений (Phase 1 + Phase 3) */}
-      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={handleCloseSnackbar} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }} variant="filled">
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </MainCard>
   );
 };

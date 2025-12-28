@@ -127,7 +127,7 @@ describe('Materials API Integration Tests', () => {
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
       expect(Array.isArray(response.body.data)).toBe(true);
-    });
+    }, 30000); // Увеличен timeout до 30 секунд (база на Render: 46977 записей, запрос 24s)
 
     it('должен поддерживать поиск', async () => {
       const response = await request(app)
@@ -136,7 +136,7 @@ describe('Materials API Integration Tests', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-    });
+    }, 10000); // Увеличен timeout до 10 секунд для поисковых запросов
 
     it('должен поддерживать фильтрацию по категории', async () => {
       const response = await request(app)

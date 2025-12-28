@@ -5,11 +5,20 @@ import db from '../config/database.js';
  * Материалы с одинаковым material_id суммируются
  */
 export const generatePurchases = async (tenantId, projectId, estimateId, userId) => {
-  const client = await db.getClient();
+  let client;
   
   try {
+    console.log('[PURCHASES REPO] Starting generatePurchases with params:', {
+      tenantId, projectId, estimateId, userId
+    });
+    
+    console.log('[PURCHASES REPO] Getting DB client...');
+    client = await db.getClient();
+    console.log('[PURCHASES REPO] DB client obtained successfully');
+    
     console.log('[PURCHASES REPO] Starting transaction...');
     await client.query('BEGIN');
+    console.log('[PURCHASES REPO] Transaction started');
 
     // Устанавливаем контекст RLS
     console.log('[PURCHASES REPO] Setting RLS context:', { userId, tenantId });
@@ -129,15 +138,7 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
             tenant_id, project_id, estimate_id, material_id,
             material_sku, material_name, category, unit, material_image,
             quantity, unit_price, total_price, purchased_quantity
-           ) VALUES ${insertValues.join(', ')}
-           ON CONFLICT (estimate_id, material_id) 
-           DO UPDATE SET
-             quantity = EXCLUDED.quantity,
-             unit_price = EXCLUDED.unit_price,
-             total_price = EXCLUDED.total_price,
-             material_image = EXCLUDED.material_image,
-             purchased_quantity = EXCLUDED.purchased_quantity,
-             updated_at = CURRENT_TIMESTAMP`,
+           ) VALUES ${insertValues.join(', ')}`,
           insertParams
         );
         console.log('[PURCHASES REPO] Successfully inserted materials with preserved purchased_quantity');
@@ -165,16 +166,31 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
     }));
 
   } catch (error) {
-    console.error('[PURCHASES REPO] Error in generatePurchases:', error);
+    console.error('[PURCHASES REPO] ❌ Fatal error in generatePurchases:', error);
+    console.error('[PURCHASES REPO] Error stack:', error.stack);
     console.error('[PURCHASES REPO] Error details:', {
       message: error.message,
       code: error.code,
-      detail: error.detail
+      detail: error.detail,
+      hint: error.hint,
+      position: error.position
     });
-    await client.query('ROLLBACK');
+    
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+        console.log('[PURCHASES REPO] Transaction rolled back');
+      } catch (rollbackError) {
+        console.error('[PURCHASES REPO] Rollback error:', rollbackError);
+      }
+    }
+    
     throw error;
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+      console.log('[PURCHASES REPO] Client released');
+    }
   }
 };
 

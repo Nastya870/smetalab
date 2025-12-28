@@ -44,6 +44,9 @@ const UtilsShadow = Loadable(lazy(() => import('views/utilities/Shadow')));
 // sample page routing
 const SamplePage = Loadable(lazy(() => import('views/sample-page')));
 
+// test pages
+const NotificationTestPage = Loadable(lazy(() => import('views/test/NotificationTestPage')));
+
 // ==============================|| MAIN ROUTING ||============================== //
 
 const MainRoutes = {
@@ -130,6 +133,10 @@ const MainRoutes = {
     {
       path: '/app/sample-page',
       element: <SamplePage />
+    },
+    {
+      path: '/app/test/notifications',
+      element: <NotificationTestPage />
     }
   ]
 };

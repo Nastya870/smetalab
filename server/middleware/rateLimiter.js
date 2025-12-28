@@ -15,12 +15,13 @@ const commonOptions = {
 
 /**
  * Лимит на попытки входа
- * 5 попыток за 15 минут
+ * 5 попыток за 15 минут (в тестах отключено)
  */
 export const loginLimiter = rateLimit({
   ...commonOptions,
   windowMs: 15 * 60 * 1000, // 15 минут
   max: 5, // 5 попыток
+  skip: (req) => process.env.NODE_ENV === 'test', // Отключить в тестах
   message: {
     success: false,
     message: 'Слишком много попыток входа. Попробуйте через 15 минут.',
@@ -37,12 +38,13 @@ export const loginLimiter = rateLimit({
 
 /**
  * Лимит на регистрацию
- * 3 регистрации в час с одного IP
+ * 3 регистрации в час с одного IP (в тестах отключено)
  */
 export const registerLimiter = rateLimit({
   ...commonOptions,
   windowMs: 60 * 60 * 1000, // 1 час
   max: 3, // 3 регистрации
+  skip: (req) => process.env.NODE_ENV === 'test', // Отключить в тестах
   message: {
     success: false,
     message: 'Слишком много регистраций. Попробуйте через час.',

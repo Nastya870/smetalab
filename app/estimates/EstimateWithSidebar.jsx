@@ -37,7 +37,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Snackbar,
   Grid,
   Drawer,
   Radio,
@@ -70,7 +69,7 @@ import estimatesAPI from 'api/estimates';
 import materialsAPI from 'api/materials';
 import estimateTemplatesAPI from 'shared/lib/api/estimateTemplates';
 import { useGetMenuMaster } from 'api/menu'; // ✅ Только для получения данных меню
-import { useSnackbar } from 'notistack';
+import { useNotifications } from 'contexts/NotificationsContext';
 import PriceCoefficientModal from './PriceCoefficientModal';
 import ObjectParametersSidebar from './ObjectParametersSidebar';
 
@@ -175,8 +174,8 @@ const findInsertPosition = (items, newItem) => {
 // ==============================|| ESTIMATE WITH SIDEBAR ||============================== //
 
 const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChanges }, ref) => {
-  // Snackbar для уведомлений
-  const { enqueueSnackbar } = useSnackbar();
+  // Notifications
+  const { success, error: showError, warning, info } = useNotifications();
   
   // State
   const [sidebarVisible, setSidebarVisible] = useState(false); // ✅ По умолчанию скрыт (режим просмотра)
@@ -689,12 +688,12 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // ============ СОХРАНЕНИЕ КАК ШАБЛОН ============
   const handleSaveAsTemplate = () => {
     if (!estimateId) {
-      showSnackbar('Сначала сохраните смету в БД', 'warning');
+      warning('Сначала сохраните смету в БД');
       return;
     }
     
     if (estimateData.sections.length === 0) {
-      showSnackbar('Смета пуста. Добавьте работы перед сохранением шаблона', 'warning');
+      warning('Смета пуста. Добавьте работы перед сохранением шаблона');
       return;
     }
     
@@ -717,14 +716,11 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         ...templateFormData
       });
       
-      showSnackbar('Шаблон успешно создан!', 'success');
+      success('Шаблон успешно создан!');
       setSaveTemplateDialogOpen(false);
     } catch (error) {
       console.error('Error creating template:', error);
-      showSnackbar(
-        error.response?.data?.message || 'Ошибка при создании шаблона',
-        'error'
-      );
+      showError('Ошибка при создании шаблона', error.response?.data?.message);
     } finally {
       setSavingTemplate(false);
     }
@@ -879,7 +875,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     // setCurrentWorkItem(null);
     
     // Показываем уведомление об успешном добавлении
-    showSnackbar(`✅ Материал "${material.name}" добавлен`, 'success');
+    success(`Материал "${material.name}" добавлен`);
   };
 
   // Заменить материал
@@ -1302,17 +1298,11 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       const response = await worksAPI.updateWorkPrice(workId, currentPrice);
       
       if (response.success) {
-        enqueueSnackbar('✅ Базовая цена обновлена в справочнике Работ', { 
-          variant: 'success',
-          autoHideDuration: 3000
-        });
+        success('Базовая цена обновлена в справочнике Работ');
       }
     } catch (error) {
       console.error('Ошибка обновления цены работы:', error);
-      enqueueSnackbar(
-        `❌ Ошибка обновления: ${error.response?.data?.message || error.message}`, 
-        { variant: 'error', autoHideDuration: 5000 }
-      );
+      showError('Ошибка обновления цены', error.response?.data?.message || error.message);
     }
   };
 
@@ -1385,7 +1375,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     });
     
     setCurrentCoefficient(coefficientPercent);
-    showSnackbar(`Коэффициент ${coefficientPercent > 0 ? '+' : ''}${coefficientPercent}% применен к ценам работ`, 'success');
+    success(`Коэффициент ${coefficientPercent > 0 ? '+' : ''}${coefficientPercent}% применен к ценам работ`);
   };
 
   // Сбросить цены работ до оригинальных значений
@@ -1427,7 +1417,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     });
     
     setCurrentCoefficient(0);
-    showSnackbar('Цены работ сброшены до исходных значений', 'info');
+    info('Цены работ сброшены до исходных значений');
   };
 
   // ============ КОНЕЦ КОЭФФИЦИЕНТА ЦЕН ============
@@ -1435,16 +1425,6 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // State для сохранения/загрузки
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-
-  // Функция для показа уведомлений
-  const showSnackbar = (message, severity = 'success') => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
-  };
 
   // Сохранить смету в БД (isAutoSave = true для тихого автосохранения)
   const handleSaveToDatabase = async (isAutoSave = false) => {
@@ -1477,7 +1457,6 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       // Показываем UI индикатор только при ручном сохранении
       if (!isAutoSave) {
         setSaving(true);
-        showSnackbar('Смета сохраняется...', 'info');
       }
 
       // Преобразуем estimateData в формат API
@@ -1559,11 +1538,11 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       if (estimateId) {
         // Обновляем существующую смету (с полной перезаписью items)
         savedEstimate = await estimatesAPI.updateWithItems(estimateId, estimatePayload);
-        showSnackbar(`Смета успешно обновлена! ID: ${savedEstimate.id}`, 'success');
+        success(`Смета успешно обновлена! ID: ${savedEstimate.id}`);
       } else {
         // Создаем новую смету
         savedEstimate = await estimatesAPI.create(estimatePayload);
-        showSnackbar(`Смета успешно создана! ID: ${savedEstimate.id}`, 'success');
+        success(`Смета успешно создана! ID: ${savedEstimate.id}`);
         
         // Сохраняем ID сметы в localStorage только для новых смет
         localStorage.setItem('currentEstimateId', savedEstimate.id);
@@ -1582,10 +1561,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       }
     } catch (error) {
       console.error('Error saving estimate:', error);
-      showSnackbar(
-        `Ошибка сохранения: ${error.response?.data?.error || error.message}`,
-        'error'
-      );
+      showError('Ошибка сохранения', error.response?.data?.error || error.message);
     } finally {
       setSaving(false);
     }
@@ -1714,7 +1690,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         setIsInitialLoadComplete(true);
         console.log('✅ Начальная загрузка завершена, автосохранение активировано');
         
-        showSnackbar(`📂 Смета "${estimate.name}" загружена из БД`, 'info');
+        info(`Смета "${estimate.name}" загружена из БД`);
       } catch (error) {
         console.error('Error auto-loading estimate:', error);
         // Не показываем ошибку пользователю при автозагрузке
@@ -2446,10 +2422,10 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
                 </TableHead>
                 <TableBody>
                   {sortedEstimateData?.sections?.map((section, sectionIndex) => (
-                    <React.Fragment key={section.id}>
+                    <React.Fragment key={section.id || `section-${sectionIndex}`}>
                       {/* Работы и материалы раздела */}
                       {section.items?.map((item, itemIndex) => (
-                        <React.Fragment key={item.id}>
+                        <React.Fragment key={item.id || `item-${sectionIndex}-${itemIndex}`}>
                           {/* ✅ МЕМОИЗИРОВАННАЯ СТРОКА РАБОТЫ */}
                           <WorkRow
                             item={item}
@@ -2799,18 +2775,6 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         onReset={handleResetPrices}
         currentCoefficient={currentCoefficient}
       />
-
-      {/* Snackbar для уведомлений */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
 
       {/* ✅ Виджет параметров объекта */}
       <ObjectParametersSidebar

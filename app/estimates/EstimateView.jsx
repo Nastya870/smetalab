@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { useParams, useBlocker, useNavigate, useSearchParams } from 'react-router-dom';
 
 // material-ui
@@ -10,7 +10,8 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  DialogContentText
+  DialogContentText,
+  CircularProgress
 } from '@mui/material';
 import { IconDeviceFloppy, IconX } from '@tabler/icons-react';
 
@@ -19,11 +20,13 @@ import MainCard from 'ui-component/cards/MainCard';
 import EstimateNavBar from './EstimateNavBar';
 import ObjectParameters from './ObjectParameters';
 import EstimateWithSidebar from './EstimateWithSidebar';
-import Schedule from './Schedule';
-import SpecialistEstimate from './SpecialistEstimate';
-import Purchases from './Purchases';
 import WorkCompletionActs from './WorkCompletionActs';
 import ContractView from './ContractView';
+
+// ✅ Lazy-loaded компоненты для оптимизации производительности
+const Schedule = lazy(() => import('./Schedule'));
+const SpecialistEstimate = lazy(() => import('./SpecialistEstimate'));
+const Purchases = lazy(() => import('./Purchases'));
 
 // ==============================|| ESTIMATE VIEW ||============================== //
 
@@ -209,11 +212,35 @@ const EstimateView = () => {
           />
         )}
         
-        {activeTab === 'schedule' && <Schedule estimateId={estimateId} projectId={projectId} />}
+        {activeTab === 'schedule' && (
+          <Suspense fallback={
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+              <CircularProgress />
+            </Box>
+          }>
+            <Schedule estimateId={estimateId} projectId={projectId} />
+          </Suspense>
+        )}
         
-        {activeTab === 'specialist_estimate' && <SpecialistEstimate estimateId={estimateId} projectId={projectId} />}
+        {activeTab === 'specialist_estimate' && (
+          <Suspense fallback={
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+              <CircularProgress />
+            </Box>
+          }>
+            <SpecialistEstimate estimateId={estimateId} projectId={projectId} />
+          </Suspense>
+        )}
         
-        {activeTab === 'purchases' && <Purchases estimateId={estimateId} projectId={projectId} />}
+        {activeTab === 'purchases' && (
+          <Suspense fallback={
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+              <CircularProgress />
+            </Box>
+          }>
+            <Purchases estimateId={estimateId} projectId={projectId} />
+          </Suspense>
+        )}
         
         {activeTab === 'documents' && activeDocument === 'acts' && (
           <WorkCompletionActs estimateId={estimateId} projectId={projectId} />

@@ -16,7 +16,6 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
-import Snackbar from '@mui/material/Snackbar';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 
@@ -44,6 +43,7 @@ import { emptyProject } from './mockData';
 import { projectsAPI } from 'api/projects';
 import { estimatesAPI } from 'api/estimatesAPI';
 import { useProjectDashboard } from 'hooks/useProjectDashboard';
+import { useNotifications } from 'contexts/NotificationsContext';
 
 const ProjectDashboard = () => {
   const { id } = useParams();
@@ -62,7 +62,7 @@ const ProjectDashboard = () => {
   const [currentProject, setCurrentProject] = useState(emptyProject);
   const [openEstimateDialog, setOpenEstimateDialog] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const { success, error: showError } = useNotifications();
   const [estimateStatusMenu, setEstimateStatusMenu] = useState(null);
   const [selectedEstimate, setSelectedEstimate] = useState(null);
 
@@ -92,8 +92,9 @@ const ProjectDashboard = () => {
       await projectsAPI.update(currentProject.id, currentProject);
       refresh();
       handleCloseDialog();
+      success('Проект обновлен', currentProject.name);
     } catch (err) {
-      setSnackbar({ open: true, message: err.message || 'Ошибка при сохранении', severity: 'error' });
+      showError('Ошибка при сохранении', err.message);
     }
   };
 
@@ -102,8 +103,9 @@ const ProjectDashboard = () => {
       try {
         await projectsAPI.delete(currentProject.id);
         navigate('/app/projects');
+        success('Проект удален', currentProject.name);
       } catch (err) {
-        setSnackbar({ open: true, message: err.message || 'Ошибка при удалении', severity: 'error' });
+        showError('Ошибка при удалении', err.message);
       }
     }
   };
@@ -129,9 +131,9 @@ const ProjectDashboard = () => {
     try {
       await estimatesAPI.delete(estimateId);
       refresh();
-      setSnackbar({ open: true, message: 'Смета удалена', severity: 'success' });
+      success('Смета удалена');
     } catch (error) {
-      setSnackbar({ open: true, message: 'Ошибка удаления', severity: 'error' });
+      showError('Ошибка удаления', error.message);
     }
   };
 
@@ -140,9 +142,9 @@ const ProjectDashboard = () => {
       setStatusLoading(true);
       await projectsAPI.updateStatus(id, newStatus);
       refresh();
-      setSnackbar({ open: true, message: `Статус: ${getStatusText(newStatus)}`, severity: 'success' });
+      success(`Статус: ${getStatusText(newStatus)}`);
     } catch (error) {
-      setSnackbar({ open: true, message: 'Ошибка изменения статуса', severity: 'error' });
+      showError('Ошибка изменения статуса', error.message);
     } finally {
       setStatusLoading(false);
     }
@@ -164,9 +166,11 @@ const ProjectDashboard = () => {
     try {
       await estimatesAPI.update(selectedEstimate.id, { status: newStatus });
       refresh();
-      setSnackbar({ open: true, message: 'Статус сметы изменён', severity: 'success' });
+      success('Статус сметы изменён', selectedEstimate.name, {
+        link: `/app/estimates/${selectedEstimate.id}`
+      });
     } catch (error) {
-      setSnackbar({ open: true, message: 'Ошибка изменения статуса', severity: 'error' });
+      showError('Ошибка изменения статуса', error.message);
     } finally {
       handleCloseEstimateStatusMenu();
     }
@@ -366,10 +370,6 @@ const ProjectDashboard = () => {
           </MenuItem>
         ))}
       </Menu>
-
-      <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
-        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ borderRadius: '8px' }}>{snackbar.message}</Alert>
-      </Snackbar>
     </Box>
   );
 };

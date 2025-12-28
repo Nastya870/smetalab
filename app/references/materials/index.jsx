@@ -24,7 +24,6 @@ import {
   Stack,
   CircularProgress,
   Alert,
-  Snackbar,
   ToggleButtonGroup,
   ToggleButton,
   Tooltip,
@@ -41,6 +40,7 @@ import { emptyMaterial } from './mockData';
 import materialsAPI from 'api/materials';
 import ImportDialog from './ImportDialog';
 import { fullTextSearch, highlightMatches } from 'shared/lib/utils/fullTextSearch';
+import { useNotifications } from 'contexts/NotificationsContext';
 
 // Code Splitting: Lazy load MaterialDialog (загружается только при открытии)
 const MaterialDialog = lazy(() => import('./MaterialDialog'));
@@ -186,7 +186,7 @@ const MaterialsReferencePage = () => {
   const [globalFilter, setGlobalFilter] = useState(() => {
     return localStorage.getItem('materialsGlobalFilter') || 'global';
   });
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const { success, error: showError, info: showInfo } = useNotifications();
   
   // Пагинация для Infinite Scroll
   const [page, setPage] = useState(1);
@@ -301,7 +301,7 @@ const MaterialsReferencePage = () => {
     } catch (err) {
       console.error('Error loading materials:', err);
       setError('Не удалось загрузить материалы. Проверьте подключение к серверу.');
-      showSnackbar('Ошибка загрузки материалов', 'error');
+      showError('Ошибка загрузки материалов');
     } finally {
       setLoading(false);
       setInitialLoading(false); // Первая загрузка завершена
@@ -341,14 +341,6 @@ const MaterialsReferencePage = () => {
     };
   }, [loading, hasMore, page, loadMoreMaterials]); // Добавлен loadMoreMaterials в зависимости
 
-  const showSnackbar = (message, severity = 'success') => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
-  };
-
   // Отображаемые материалы (фильтрация теперь на сервере через params.search)
   // Для совместимости оставляем переменную filteredMaterials, но она просто = materials
   const filteredMaterials = materials;
@@ -380,7 +372,6 @@ const MaterialsReferencePage = () => {
         const optimisticUpdate = { ...currentMaterial, _optimistic: true };
         
         setMaterials(materials.map((m) => (m.id === currentMaterial.id ? optimisticUpdate : m)));
-        showSnackbar('Материал обновляется...', 'info');
         handleCloseDialog();
         
         try {
@@ -389,12 +380,12 @@ const MaterialsReferencePage = () => {
           
           // Заменяем optimistic на реальные данные
           setMaterials(prev => prev.map((m) => (m.id === updated.id ? updated : m)));
-          showSnackbar('Материал успешно обновлен', 'success');
+          success('Материал успешно обновлен', currentMaterial.name);
         } catch (err) {
           // ROLLBACK: восстанавливаем предыдущее состояние
           setMaterials(previousMaterials);
           console.error('Error updating material:', err);
-          showSnackbar(err.response?.data?.message || 'Ошибка при обновлении материала', 'error');
+          showError('Ошибка при обновлении материала', err.response?.data?.message);
           throw err;
         }
       } else {
@@ -407,7 +398,6 @@ const MaterialsReferencePage = () => {
         
         // Мгновенно обновляем UI
         setMaterials([optimisticMaterial, ...materials]);
-        showSnackbar('Материал создается...', 'info');
         handleCloseDialog();
         
         try {
@@ -418,7 +408,7 @@ const MaterialsReferencePage = () => {
           setMaterials(prev => prev.map(m => 
             m.id === optimisticMaterial.id ? created : m
           ));
-          showSnackbar('Материал успешно создан', 'success');
+          success('Материал успешно создан', currentMaterial.name);
           
           // Обновляем totalRecords для pagination
           setTotalRecords(prev => prev + 1);
@@ -426,7 +416,7 @@ const MaterialsReferencePage = () => {
           // ROLLBACK: удаляем optimistic материал при ошибке
           setMaterials(prev => prev.filter(m => m.id !== optimisticMaterial.id));
           console.error('Error creating material:', err);
-          showSnackbar(err.response?.data?.message || 'Ошибка при создании материала', 'error');
+          showError('Ошибка при создании материала', err.response?.data?.message);
           throw err; // Re-throw для внешнего catch
         }
       }
@@ -434,7 +424,7 @@ const MaterialsReferencePage = () => {
       console.error('Error saving material:', err);
       // Ошибка уже обработана в блоке create
       if (editMode) {
-        showSnackbar(err.response?.data?.message || 'Ошибка при сохранении материала', 'error');
+        showError('Ошибка при сохранении материала', err.response?.data?.message);
       }
     }
   };
@@ -447,7 +437,6 @@ const MaterialsReferencePage = () => {
       const previousMaterials = [...materials]; // Backup для rollback
       
       setMaterials(materials.filter((m) => m.id !== id));
-      showSnackbar('Материал удаляется...', 'info');
       
       // Обновляем totalRecords для pagination
       setTotalRecords(prev => Math.max(0, prev - 1));
@@ -455,13 +444,13 @@ const MaterialsReferencePage = () => {
       try {
         // Реальный API call
         await materialsAPI.delete(id);
-        showSnackbar('Материал успешно удален', 'success');
+        success('Материал успешно удален', deletedMaterial?.name);
       } catch (err) {
         // ROLLBACK: восстанавливаем удаленный материал
         setMaterials(previousMaterials);
         setTotalRecords(prev => prev + 1); // Восстанавливаем count
         console.error('Error deleting material:', err);
-        showSnackbar(err.response?.data?.message || 'Ошибка при удалении материала', 'error');
+        showError('Ошибка при удалении материала', err.response?.data?.message);
       }
     }
   };
@@ -470,11 +459,11 @@ const MaterialsReferencePage = () => {
   const handleDeleteFromDialog = async () => {
     if (currentMaterial.id && window.confirm('Вы уверены, что хотите удалить этот материал?')) {
       const deletedId = currentMaterial.id;
+      const deletedName = currentMaterial.name;
       const previousMaterials = [...materials]; // Backup для rollback
       
       // OPTIMISTIC DELETE: удаляем мгновенно
       setMaterials(materials.filter((m) => m.id !== deletedId));
-      showSnackbar('Материал удаляется...', 'info');
       handleCloseDialog();
       
       // Обновляем totalRecords
@@ -483,13 +472,13 @@ const MaterialsReferencePage = () => {
       try {
         // Реальный API call
         await materialsAPI.delete(deletedId);
-        showSnackbar('Материал успешно удален', 'success');
+        success('Материал успешно удален', deletedName);
       } catch (err) {
         // ROLLBACK: восстанавливаем
         setMaterials(previousMaterials);
         setTotalRecords(prev => prev + 1);
         console.error('Error deleting material:', err);
-        showSnackbar(err.response?.data?.message || 'Ошибка при удалении материала', 'error');
+        showError('Ошибка при удалении материала', err.response?.data?.message);
       }
     }
   };
@@ -512,7 +501,7 @@ const MaterialsReferencePage = () => {
 
   const handleImportSuccess = () => {
     fetchMaterials(); // Перезагрузить список материалов
-    showSnackbar('Материалы успешно импортированы', 'success');
+    success('Материалы успешно импортированы');
   };
 
   // Форматирование цены
@@ -1164,18 +1153,6 @@ const MaterialsReferencePage = () => {
         onSuccess={handleImportSuccess}
         isGlobal={globalFilter === 'global'}
       />
-
-      {/* Snackbar для уведомлений */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
       </Paper>
     </Box>
   );

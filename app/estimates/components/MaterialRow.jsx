@@ -112,6 +112,7 @@ const MaterialRow = memo(({
           <Box
             component="img"
             src={material.image}
+            loading="lazy"
             alt={material.name}
             sx={{
               width: 28,

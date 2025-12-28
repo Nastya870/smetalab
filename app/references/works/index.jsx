@@ -22,7 +22,6 @@ import {
   InputAdornment,
   CircularProgress,
   Alert,
-  Snackbar,
   ToggleButtonGroup,
   ToggleButton,
   Stack,
@@ -42,6 +41,7 @@ import worksAPI from 'api/works';
 import worksImportExportAPI from 'api/worksImportExport';
 import ImportDialog from './ImportDialog';
 import { fullTextSearch } from 'shared/lib/utils/fullTextSearch';
+import { useNotifications } from 'contexts/NotificationsContext';
 
 // Code Splitting: Lazy load WorkDialog (загружается только при открытии)
 const WorkDialog = lazy(() => import('./WorkDialog'));
@@ -142,7 +142,7 @@ const WorksReferencePage = () => {
   const [globalFilter, setGlobalFilter] = useState(() => {
     return localStorage.getItem('worksGlobalFilter') || 'global';
   });
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const { success, error: showError, info: showInfo } = useNotifications();
   const [openImportDialog, setOpenImportDialog] = useState(false);
   
   // 🚀 NEW: Infinite Scroll state
@@ -239,7 +239,7 @@ const WorksReferencePage = () => {
     } catch (err) {
       console.error('Error loading works:', err);
       setError('Ошибка загрузки данных. Проверьте подключение к серверу.');
-      showSnackbar('Ошибка загрузки работ', 'error');
+      showError('Ошибка загрузки работ');
       setHasMore(false);
     } finally {
       setLoading(false);
@@ -282,16 +282,6 @@ const WorksReferencePage = () => {
     };
   }, [loading, hasMore, page, loadMoreWorks]); // Добавлен loadMoreWorks в зависимости
 
-  // Показать уведомление
-  const showSnackbar = (message, severity = 'success') => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  // Закрыть уведомление
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
-  };
-
   // Отображаемые работы (фильтрация теперь на сервере через params.search)
   // Для совместимости оставляем переменную filteredWorks, но она просто = works
   const filteredWorks = works;
@@ -324,7 +314,6 @@ const WorksReferencePage = () => {
         const optimisticUpdate = { ...currentWork, _optimistic: true };
         
         setWorks(works.map((w) => (w.id === currentWork.id ? optimisticUpdate : w)));
-        showSnackbar('Работа обновляется...', 'info');
         handleCloseDialog();
         
         try {
@@ -341,12 +330,12 @@ const WorksReferencePage = () => {
           
           // Заменяем optimistic на реальные данные
           setWorks(prev => prev.map((w) => (w.id === updated.id ? updated : w)));
-          showSnackbar('Работа успешно обновлена', 'success');
+          success('Работа успешно обновлена', currentWork.name);
         } catch (err) {
           // ROLLBACK: восстанавливаем предыдущее состояние
           setWorks(previousWorks);
           console.error('Error updating work:', err);
-          showSnackbar(err.response?.data?.message || 'Ошибка при обновлении работы', 'error');
+          showError('Ошибка при обновлении работы', err.response?.data?.message);
           throw err;
         }
       } else {
@@ -359,7 +348,6 @@ const WorksReferencePage = () => {
         
         // Мгновенно обновляем UI
         setWorks([optimisticWork, ...works]);
-        showSnackbar('Работа создается...', 'info');
         handleCloseDialog();
         
         try {
@@ -378,7 +366,7 @@ const WorksReferencePage = () => {
           setWorks(prev => prev.map(w => 
             w.id === optimisticWork.id ? created : w
           ));
-          showSnackbar('Работа успешно создана', 'success');
+          success('Работа успешно создана', currentWork.name);
           
           // Обновляем totalRecords для pagination
           setTotalRecords(prev => prev + 1);
@@ -386,7 +374,7 @@ const WorksReferencePage = () => {
           // ROLLBACK: удаляем optimistic работу при ошибке
           setWorks(prev => prev.filter(w => w.id !== optimisticWork.id));
           console.error('Error creating work:', err);
-          showSnackbar(err.response?.data?.message || 'Ошибка при создании работы', 'error');
+          showError('Ошибка при создании работы', err.response?.data?.message);
           throw err;
         }
       }
@@ -407,7 +395,6 @@ const WorksReferencePage = () => {
       const previousWorks = [...works]; // Backup для rollback
       
       setWorks(works.filter((w) => w.id !== id));
-      showSnackbar('Работа удаляется...', 'info');
       
       // Обновляем totalRecords для pagination
       setTotalRecords(prev => Math.max(0, prev - 1));
@@ -415,13 +402,13 @@ const WorksReferencePage = () => {
       try {
         // Реальный API call
         await worksAPI.delete(id);
-        showSnackbar('Работа успешно удалена', 'success');
+        success('Работа успешно удалена', deletedWork?.name);
       } catch (err) {
         // ROLLBACK: восстанавливаем удаленную работу
         setWorks(previousWorks);
         setTotalRecords(prev => prev + 1); // Восстанавливаем count
         console.error('Error deleting work:', err);
-        showSnackbar(err.response?.data?.message || 'Ошибка удаления работы', 'error');
+        showError('Ошибка удаления работы', err.response?.data?.message);
       }
     }
   };
@@ -430,11 +417,11 @@ const WorksReferencePage = () => {
   const handleDeleteFromDialog = async () => {
     if (currentWork.id && window.confirm('Вы уверены, что хотите удалить эту работу?')) {
       const deletedId = currentWork.id;
+      const deletedName = currentWork.name;
       const previousWorks = [...works]; // Backup для rollback
       
       // OPTIMISTIC DELETE: удаляем мгновенно
       setWorks(works.filter((w) => w.id !== deletedId));
-      showSnackbar('Работа удаляется...', 'info');
       handleCloseDialog();
       
       // Обновляем totalRecords
@@ -443,13 +430,13 @@ const WorksReferencePage = () => {
       try {
         // Реальный API call
         await worksAPI.delete(deletedId);
-        showSnackbar('Работа успешно удалена', 'success');
+        success('Работа успешно удалена', deletedName);
       } catch (err) {
         // ROLLBACK: восстанавливаем
         setWorks(previousWorks);
         setTotalRecords(prev => prev + 1);
         console.error('Error deleting work:', err);
-        showSnackbar(err.response?.data?.message || 'Ошибка удаления работы', 'error');
+        showError('Ошибка удаления работы', err.response?.data?.message);
       }
     }
   };
@@ -472,7 +459,7 @@ const WorksReferencePage = () => {
   // Успешный импорт
   const handleImportSuccess = () => {
     fetchWorks(); // Перезагрузить список работ
-    showSnackbar('Работы успешно импортированы', 'success');
+    success('Работы успешно импортированы');
   };
 
   // Форматирование цены
@@ -918,18 +905,6 @@ const WorksReferencePage = () => {
       />
       </>
       )}
-
-      {/* Snackbar для уведомлений */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
       </Paper>
     </Box>
   );
