@@ -5,6 +5,7 @@ import emailService, { verifyEmailToken } from '../services/emailService.js';
 import { v4 as uuidv4 } from 'uuid';
 import { query } from '../config/database.js';
 import { createDefaultRolesForTenant } from '../utils/createDefaultRoles.js';
+import { catchAsync, NotFoundError } from '../utils/errors.js';
 
 /**
  * @swagger
@@ -1098,75 +1099,66 @@ export const refresh = async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-export const getMe = async (req, res) => {
-  try {
-    const { userId, tenantId } = req.user;
+export const getMe = catchAsync(async (req, res) => {
+  const { userId, tenantId } = req.user;
 
-    const result = await transaction(async (client) => {
-      // Получаем данные пользователя
-      const userResult = await client.query(
-        `SELECT id, email, full_name, phone, avatar_url, last_login_at, created_at
-         FROM users
-         WHERE id = $1`,
-        [userId]
-      );
+  const result = await transaction(async (client) => {
+    // Получаем данные пользователя
+    const userResult = await client.query(
+      `SELECT id, email, full_name, phone, avatar_url, last_login_at, created_at
+       FROM users
+       WHERE id = $1`,
+      [userId]
+    );
 
-      if (userResult.rows.length === 0) {
-        throw new Error('USER_NOT_FOUND');
-      }
+    if (userResult.rows.length === 0) {
+      throw new NotFoundError('Пользователь не найден');
+    }
 
-      const user = userResult.rows[0];
+    const user = userResult.rows[0];
 
-      // Получаем текущую компанию
-      const tenantResult = await client.query(
-        `SELECT id, name, plan, status
-         FROM tenants
-         WHERE id = $1`,
-        [tenantId]
-      );
+    // Получаем текущую компанию
+    const tenantResult = await client.query(
+      `SELECT id, name, plan, status
+       FROM tenants
+       WHERE id = $1`,
+      [tenantId]
+    );
 
-      const tenant = tenantResult.rows[0];
+    const tenant = tenantResult.rows[0];
 
-      // Получаем роли
-      const rolesResult = await client.query(
-        `SELECT r.key, r.name
-         FROM user_role_assignments ura
-         JOIN roles r ON r.id = ura.role_id
-         WHERE ura.user_id = $1 AND ura.tenant_id = $2`,
-        [userId, tenantId]
-      );
+    // Получаем роли
+    const rolesResult = await client.query(
+      `SELECT r.key, r.name
+       FROM user_role_assignments ura
+       JOIN roles r ON r.id = ura.role_id
+       WHERE ura.user_id = $1 AND ura.tenant_id = $2`,
+      [userId, tenantId]
+    );
 
-      // Получаем разрешения
-      const permissionsResult = await client.query(
-        `SELECT DISTINCT p.key, p.name, p.resource, p.action
-         FROM user_role_assignments ura
-         JOIN role_permissions rp ON rp.role_id = ura.role_id
-         JOIN permissions p ON p.id = rp.permission_id
-         WHERE ura.user_id = $1 AND ura.tenant_id = $2`,
-        [userId, tenantId]
-      );
+    // Получаем разрешения
+    const permissionsResult = await client.query(
+      `SELECT DISTINCT p.key, p.name, p.resource, p.action
+       FROM user_role_assignments ura
+       JOIN role_permissions rp ON rp.role_id = ura.role_id
+       JOIN permissions p ON p.id = rp.permission_id
+       WHERE ura.user_id = $1 AND ura.tenant_id = $2`,
+      [userId, tenantId]
+    );
 
-      return {
-        user,
-        tenant,
-        roles: rolesResult.rows,
-        permissions: permissionsResult.rows
-      };
-    });
+    return {
+      user,
+      tenant,
+      roles: rolesResult.rows,
+      permissions: permissionsResult.rows
+    };
+  });
 
-    res.json({
-      success: true,
-      data: result
-    });
-
-  } catch (error) {
-    console.error('Get me error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при получении данных пользователя'
-    });
-  }
-};
+  res.json({
+    success: true,
+    data: result
+  });
+});
 
 /**
  * @swagger

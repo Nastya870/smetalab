@@ -39,6 +39,7 @@ import estimateTemplatesRoutes from './routes/estimateTemplates.js';
 import permissionsRoutes from './routes/permissions.js';
 import { apiLimiter, heavyOperationsLimiter } from './middleware/rateLimiter.js';
 import { sanitizeErrorMessage } from './utils/sanitize.js';
+import errorHandler from './middleware/errorHandler.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -158,18 +159,9 @@ app.use((req, res) => {
   });
 });
 
-// Error handler
-app.use((err, req, res, next) => {
-  console.error('Server error:', err);
-  
-  // Санитизируем сообщение об ошибке для защиты от XSS
-  const safeMessage = sanitizeErrorMessage(err.message || 'Internal server error');
-  
-  res.status(err.status || 500).json({
-    success: false,
-    message: safeMessage
-  });
-});
+// ==================== Unified Error Handler ====================
+// MUST be last middleware (after all routes and 404)
+app.use(errorHandler);
 
 // Start server (only in development, not in Vercel)
 if (!process.env.VERCEL) {
