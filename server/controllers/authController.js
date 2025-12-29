@@ -5,7 +5,13 @@ import emailService, { verifyEmailToken } from '../services/emailService.js';
 import { v4 as uuidv4 } from 'uuid';
 import { query } from '../config/database.js';
 import { createDefaultRolesForTenant } from '../utils/createDefaultRoles.js';
-import { catchAsync, NotFoundError } from '../utils/errors.js';
+import { 
+  catchAsync, 
+  BadRequestError, 
+  UnauthorizedError, 
+  NotFoundError, 
+  ConflictError 
+} from '../utils/errors.js';
 
 /**
  * @swagger
@@ -117,9 +123,8 @@ import { catchAsync, NotFoundError } from '../utils/errors.js';
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-export const register = async (req, res) => {
-  try {
-    const { companyName, email, password, fullName, phone, skipEmailVerification } = req.body;
+export const register = catchAsync(async (req, res) => {
+  const { companyName, email, password, fullName, phone, skipEmailVerification } = req.body;
     
     // E2E Test Mode: если передан skipEmailVerification=true и мы в dev окружении,
     // пользователь создаётся с уже подтверждённым email
@@ -160,7 +165,7 @@ export const register = async (req, res) => {
       );
 
       if (existingUser.rows.length > 0) {
-        throw new Error('EMAIL_EXISTS');
+        throw new ConflictError('Пользователь с таким email уже существует');
       }
 
       // 2. Определяем название компании (если не указано, используем email + timestamp)
@@ -173,7 +178,7 @@ export const register = async (req, res) => {
       );
 
       if (existingTenant.rows.length > 0) {
-        throw new Error('COMPANY_EXISTS');
+        throw new ConflictError('Компания с таким названием уже существует');
       }
 
       // 4. Создаем компанию
@@ -218,7 +223,7 @@ export const register = async (req, res) => {
       );
 
       if (roleResult.rows.length === 0) {
-        throw new Error('ROLE_NOT_FOUND');
+        throw new NotFoundError('Роль admin не найдена для нового тенанта');
       }
 
       const adminRoleId = roleResult.rows[0].id;
@@ -333,32 +338,7 @@ export const register = async (req, res) => {
         // Токены НЕ возвращаем - пользователь должен сначала подтвердить email
       }
     });
-
-  } catch (error) {
-    console.error('Registration error:', error);
-
-    if (error.message === 'EMAIL_EXISTS') {
-      return res.status(409).json({
-        success: false,
-        message: 'Пользователь с таким email уже существует'
-      });
-    }
-
-    if (error.message === 'COMPANY_EXISTS') {
-      return res.status(409).json({
-        success: false,
-        message: 'Компания с таким названием уже существует'
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при регистрации',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -487,28 +467,21 @@ export const register = async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-export const login = async (req, res) => {
-  try {
-    const { email, password, tenantId, rememberMe } = req.body;
+export const login = catchAsync(async (req, res) => {
+  const { email, password, tenantId, rememberMe} = req.body;
 
-    // Валидация
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email и пароль обязательны'
-      });
-    }
+  // Валидация
+  if (!email || !password) {
+    throw new BadRequestError('Email и пароль обязательны');
+  }
 
-    // Валидация формата email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Неверный формат email'
-      });
-    }
+  // Валидация формата email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new BadRequestError('Неверный формат email');
+  }
 
-    const result = await transaction(async (client) => {
+  const result = await transaction(async (client) => {
       // 1. Находим пользователя
       const userResult = await client.query(
         `SELECT id, email, pass_hash, full_name, phone, avatar_url, status, email_verified
@@ -518,20 +491,20 @@ export const login = async (req, res) => {
       );
 
       if (userResult.rows.length === 0) {
-        throw new Error('USER_NOT_FOUND');
+        throw new UnauthorizedError('Неверный email или пароль');
       }
 
       const user = userResult.rows[0];
 
       // 2. Проверяем статус
       if (user.status !== 'active') {
-        throw new Error('USER_INACTIVE');
+        throw new UnauthorizedError('Аккаунт деактивирован');
       }
 
       // 3. Проверяем пароль
       const passwordMatch = await comparePassword(password, user.pass_hash);
       if (!passwordMatch) {
-        throw new Error('INVALID_PASSWORD');
+        throw new UnauthorizedError('Неверный email или пароль');
       }
 
       // 3.5. Проверяем является ли пользователь super_admin (может работать без tenant)
@@ -562,7 +535,7 @@ export const login = async (req, res) => {
 
       // Для super_admin отсутствие tenant не является ошибкой
       if (!isSuperAdmin && tenantsResult.rows.length === 0) {
-        throw new Error('NO_TENANTS');
+        throw new UnauthorizedError('У вас нет доступа ни к одной компании');
       }
 
       // 5. Выбираем тенант (указанный или дефолтный)
@@ -578,7 +551,7 @@ export const login = async (req, res) => {
         if (tenantId) {
           selectedTenant = tenantsResult.rows.find(t => t.id === tenantId);
           if (!selectedTenant) {
-            throw new Error('TENANT_NOT_FOUND');
+            throw new NotFoundError('Компания не найдена');
           }
         } else {
           selectedTenant = tenantsResult.rows[0]; // Первый (дефолтный)
@@ -712,42 +685,12 @@ export const login = async (req, res) => {
       };
     });
 
-    res.json({
-      success: true,
-      message: 'Вход выполнен успешно',
-      data: result
-    });
-
-  } catch (error) {
-    console.error('Login error:', error);
-
-    if (error.message === 'USER_NOT_FOUND' || error.message === 'INVALID_PASSWORD') {
-      return res.status(401).json({
-        success: false,
-        message: 'Неверный email или пароль'
-      });
-    }
-
-    if (error.message === 'USER_INACTIVE') {
-      return res.status(403).json({
-        success: false,
-        message: 'Аккаунт деактивирован'
-      });
-    }
-
-    if (error.message === 'NO_TENANTS') {
-      return res.status(403).json({
-        success: false,
-        message: 'У вас нет доступа ни к одной компании'
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при входе'
-    });
-  }
-};
+  res.json({
+    success: true,
+    message: 'Вход выполнен успешно',
+    data: result
+  });
+});
 
 /**
  * @swagger
@@ -795,46 +738,31 @@ export const login = async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-export const logout = async (req, res) => {
-  try {
-    // Проверяем наличие req.body перед деструктуризацией
-    if (!req.body) {
-      return res.status(401).json({
-        success: false,
-        message: 'Требуется авторизация'
-      });
-    }
-
-    const { refreshToken } = req.body;
-
-    if (!refreshToken) {
-      return res.status(400).json({
-        success: false,
-        message: 'Refresh token обязателен'
-      });
-    }
-
-    // Удаляем сессию
-    await transaction(async (client) => {
-      await client.query(
-        `DELETE FROM sessions WHERE refresh_token = $1`,
-        [refreshToken]
-      );
-    });
-
-    res.json({
-      success: true,
-      message: 'Выход выполнен успешно'
-    });
-
-  } catch (error) {
-    console.error('Logout error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при выходе'
-    });
+export const logout = catchAsync(async (req, res) => {
+  // Проверяем наличие req.body перед деструктуризацией
+  if (!req.body) {
+    throw new UnauthorizedError('Требуется авторизация');
   }
-};
+
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    throw new BadRequestError('Refresh token обязателен');
+  }
+
+  // Удаляем сессию
+  await transaction(async (client) => {
+    await client.query(
+      `DELETE FROM sessions WHERE refresh_token = $1`,
+      [refreshToken]
+    );
+  });
+
+  res.json({
+    success: true,
+    message: 'Выход выполнен успешно'
+  });
+});
 
 /**
  * @swagger
@@ -906,39 +834,35 @@ export const logout = async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-export const refresh = async (req, res) => {
-  try {
-    const { refreshToken } = req.body;
+export const refresh = catchAsync(async (req, res) => {
+  const { refreshToken } = req.body;
 
-    if (!refreshToken) {
-      return res.status(400).json({
-        success: false,
-        message: 'Refresh token обязателен'
-      });
+  if (!refreshToken) {
+    throw new BadRequestError('Refresh token обязателен');
+  }
+
+  const result = await transaction(async (client) => {
+    // 1. Находим сессию
+    const sessionResult = await client.query(
+      `SELECT s.user_id, s.tenant_id, s.expires_at, u.email
+       FROM sessions s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.refresh_token = $1`,
+      [refreshToken]
+    );
+
+    if (sessionResult.rows.length === 0) {
+      throw new UnauthorizedError('Недействительный refresh token');
     }
 
-    const result = await transaction(async (client) => {
-      // 1. Находим сессию
-      const sessionResult = await client.query(
-        `SELECT s.user_id, s.tenant_id, s.expires_at, u.email
-         FROM sessions s
-         JOIN users u ON u.id = s.user_id
-         WHERE s.refresh_token = $1`,
-        [refreshToken]
-      );
+    const session = sessionResult.rows[0];
 
-      if (sessionResult.rows.length === 0) {
-        throw new Error('INVALID_REFRESH_TOKEN');
-      }
-
-      const session = sessionResult.rows[0];
-
-      // 2. Проверяем, что токен не истёк
-      if (new Date(session.expires_at) < new Date()) {
-        // Удаляем истёкшую сессию
-        await client.query(`DELETE FROM sessions WHERE refresh_token = $1`, [refreshToken]);
-        throw new Error('REFRESH_TOKEN_EXPIRED');
-      }
+    // 2. Проверяем, что токен не истёк
+    if (new Date(session.expires_at) < new Date()) {
+      // Удаляем истёкшую сессию
+      await client.query(`DELETE FROM sessions WHERE refresh_token = $1`, [refreshToken]);
+      throw new UnauthorizedError('Refresh token истёк');
+    }
 
       // 2.5. Получаем email_verified пользователя
       const userResult = await client.query(
@@ -978,38 +902,15 @@ export const refresh = async (req, res) => {
         [tokens.refreshToken, newExpiresAt, refreshToken]
       );
 
-      return tokens;
-    });
+    return tokens;
+  });
 
-    res.json({
-      success: true,
-      message: 'Токен обновлён',
-      data: result
-    });
-
-  } catch (error) {
-    console.error('Refresh token error:', error);
-
-    if (error.message === 'INVALID_REFRESH_TOKEN') {
-      return res.status(401).json({
-        success: false,
-        message: 'Недействительный refresh token'
-      });
-    }
-
-    if (error.message === 'REFRESH_TOKEN_EXPIRED') {
-      return res.status(401).json({
-        success: false,
-        message: 'Refresh token истёк'
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при обновлении токена'
-    });
-  }
-};
+  res.json({
+    success: true,
+    message: 'Токен обновлён',
+    data: result
+  });
+});
 
 /**
  * @swagger
@@ -1208,44 +1109,29 @@ export const getMe = catchAsync(async (req, res) => {
  *       500:
  *         description: Внутренняя ошибка сервера
  */
-export const verifyEmail = async (req, res) => {
-  try {
-    const { token } = req.body;
+export const verifyEmail = catchAsync(async (req, res) => {
+  const { token } = req.body;
 
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: 'Токен подтверждения обязателен'
-      });
-    }
-
-    console.log(`📧 [AuthController] Подтверждение email по токену`);
-
-    const result = await verifyEmailToken(token);
-
-    if (!result.success) {
-      return res.status(400).json({
-        success: false,
-        message: result.message
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: result.message,
-      data: {
-        user: result.user
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ [AuthController] Ошибка подтверждения email:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при подтверждении email'
-    });
+  if (!token) {
+    throw new BadRequestError('Токен подтверждения обязателен');
   }
-};
+
+  console.log(`📧 [AuthController] Подтверждение email по токену`);
+
+  const result = await verifyEmailToken(token);
+
+  if (!result.success) {
+    throw new BadRequestError(result.message);
+  }
+
+  res.status(200).json({
+    success: true,
+    message: result.message,
+    data: {
+      user: result.user
+    }
+  });
+});
 
 export default {
   register,
