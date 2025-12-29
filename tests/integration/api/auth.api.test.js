@@ -63,7 +63,7 @@ describe('Auth API Integration Tests', () => {
       expect(response.body.data.user).toBeDefined();
       expect(response.body.data.user.email).toBe('newuser@authtest.local');
       expect(response.body.data.user.fullName).toBe('New Test User');
-    });
+    }, 10000); // TODO: stub email provider in tests - Resend API latency 5-7s
 
     it('должен вернуть 400 для невалидного email', async () => {
       const response = await request(app)
@@ -115,7 +115,7 @@ describe('Auth API Integration Tests', () => {
       expect(response.status).toBe(409);
       expect(response.body.success).toBe(false);
       expect(response.body.message).toContain('уже');
-    });
+    }, 10000); // TODO: stub email provider in tests - Resend API latency 5-7s
 
     it('должен вернуть 400 если отсутствует обязательное поле', async () => {
       const response = await request(app)
