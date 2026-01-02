@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import storageService from '../services/storageService';
 
 const AuthContext = createContext(null);
 
@@ -11,17 +12,16 @@ export function AuthProvider({ children }) {
     // Загружаем данные пользователя из localStorage
     const loadUser = () => {
       try {
-        const storedUser = localStorage.getItem('user');
-        const storedTenant = localStorage.getItem('tenant');
-        const token = localStorage.getItem('accessToken');if (storedUser && token) {
-          const userData = JSON.parse(storedUser);
-          const tenantData = storedTenant ? JSON.parse(storedTenant) : null;
-
+        const storedUser = storageService.get('user');
+        const storedTenant = storageService.get('tenant');
+        const token = storageService.get('accessToken');
+if (storedUser && token) {
           const userWithVerification = {
-            ...userData,
-            tenant: tenantData,
-            emailVerified: userData.emailVerified || false
-          };setUser(userWithVerification);
+            ...storedUser,
+            tenant: storedTenant,
+            emailVerified: storedUser.emailVerified || false
+          };
+setUser(userWithVerification);
         }
       } catch (error) {
         console.error('[AuthContext] Ошибка загрузки пользователя:', error);
@@ -43,9 +43,10 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  const login = (userData, tenantData, accessToken) => {localStorage.setItem('user', JSON.stringify(userData));
-    localStorage.setItem('tenant', JSON.stringify(tenantData));
-    localStorage.setItem('accessToken', accessToken);
+  const login = (userData, tenantData, accessToken) => {
+storageService.set('user', userData);
+    storageService.set('tenant', tenantData);
+    storageService.set('accessToken', accessToken);
 
     setUser({
       ...userData,
@@ -54,10 +55,11 @@ export function AuthProvider({ children }) {
     });
   };
 
-  const logout = () => {localStorage.removeItem('user');
-    localStorage.removeItem('tenant');
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+  const logout = () => {
+storageService.remove('user');
+    storageService.remove('tenant');
+    storageService.remove('accessToken');
+    storageService.remove('refreshToken');
     setUser(null);
   };
 
@@ -66,7 +68,7 @@ export function AuthProvider({ children }) {
     setUser(updatedUser);
     
     const { tenant, ...userWithoutTenant } = updatedUser;
-    localStorage.setItem('user', JSON.stringify(userWithoutTenant));
+    storageService.set('user', userWithoutTenant);
   };
 
   const value = {
