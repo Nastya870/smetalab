@@ -23,6 +23,10 @@ import EstimateWithSidebar from './EstimateWithSidebar';
 import WorkCompletionActs from './WorkCompletionActs';
 import ContractView from './ContractView';
 
+// error boundary
+import ErrorBoundary from 'shared/ui/components/ErrorBoundary';
+import ErrorFallback from 'shared/ui/components/ErrorFallback';
+
 // ✅ Lazy-loaded компоненты для оптимизации производительности
 const Schedule = lazy(() => import('./Schedule'));
 const SpecialistEstimate = lazy(() => import('./SpecialistEstimate'));
@@ -253,10 +257,23 @@ const EstimateView = () => {
     );
   };
 
+  // Error handler для ErrorBoundary
+  const handleError = (error, errorInfo) => {
+    console.error('[EstimateView] Error caught:', {
+      error: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+      estimateId,
+      projectId,
+      activeTab
+    });
+  };
+
   return (
-    <MainCard>
-      <EstimateNavBar activeTab={activeTab} onTabChange={handleTabChange} />
-      {renderContent()}
+    <ErrorBoundary fallback={<ErrorFallback />} onError={handleError}>
+      <MainCard>
+        <EstimateNavBar activeTab={activeTab} onTabChange={handleTabChange} />
+        {renderContent()}
 
       {/* Диалог предупреждения о несохраненных изменениях */}
       <Dialog
@@ -410,6 +427,7 @@ const EstimateView = () => {
         </DialogActions>
       </Dialog>
     </MainCard>
+    </ErrorBoundary>
   );
 };
 

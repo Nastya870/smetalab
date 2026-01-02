@@ -35,6 +35,10 @@ import { emptyProject } from './mockData';
 import { projectsAPI } from 'api/projects';
 import useAuth from 'hooks/useAuth';
 
+// error boundary
+import ErrorBoundary from 'shared/ui/components/ErrorBoundary';
+import ErrorFallback from 'shared/ui/components/ErrorFallback';
+
 // ==============================|| PROJECTS PAGE ||============================== //
 
 const ProjectsPage = () => {
@@ -288,8 +292,18 @@ const ProjectsPage = () => {
     setPage(0); // Сбросить на первую страницу
   }, []);
 
+  // Error handler для ErrorBoundary
+  const handleError = (error, errorInfo) => {
+    console.error('[ProjectsPage] Error caught:', {
+      error: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack
+    });
+  };
+
   return (
-    <MainCard title="Проекты" data-testid="projects-page">
+    <ErrorBoundary fallback={<ErrorFallback />} onError={handleError}>
+      <MainCard title="Проекты" data-testid="projects-page">
       {/* Шапка с кнопкой добавления */}
       <Box sx={{ mb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '0.9375rem', color: '#374151' }} data-testid="projects-title">
@@ -500,6 +514,7 @@ const ProjectsPage = () => {
         </Suspense>
       )}
     </MainCard>
+    </ErrorBoundary>
   );
 };
 
