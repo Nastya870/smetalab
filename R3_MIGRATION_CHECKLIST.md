@@ -1,6 +1,6 @@
 # R3 Storage Service Migration Checklist
 
-## ✅ Completed (3/10)
+## ✅ Completed (6/10 - 60%)
 
 ### 1. Infrastructure (DONE)
 - ✅ `shared/lib/services/storageService.js` (217 lines)
@@ -26,53 +26,38 @@
   - Gate: 18/18 auth integration tests ✅
   - Commit: `ed9252c` (refactor(R3): migrate authService to storageService)
 
----
+### 4. ProtectedRoute (DONE - Batch 1)
+- ✅ `app/routes/ProtectedRoute.jsx`
+  - 4 localStorage calls → storageService
+  - Keys: accessToken, user, redirectAfterLogin
+  - Lines migrated: 12, 13, 18, 25
+  - Removed: manual JSON.parse, localStorage.clear() → storageService.clear()
+  - Commit: `e4befb0` (refactor(R3): migrate ProtectedRoute to storageService)
 
-## ⏳ Remaining (7/10)
+### 5. AuthLogin (DONE - Batch 1)
+- ✅ `app/pages/auth-forms/AuthLogin.jsx`
+  - 12 localStorage calls → storageService
+  - Keys: accessToken, refreshToken, user, tenant, tenants, roles, redirectAfterLogin
+  - Lines migrated: 72-77, 86, 90-91, 101
+  - Removed: manual JSON.stringify/parse operations
+  - Commit: `8ff5038` (refactor(R3): migrate AuthLogin to storageService)
 
-### 4. ProtectedRoute (HIGH PRIORITY)
-**File**: `app/routes/ProtectedRoute.jsx`  
-**Calls**: 4 localStorage  
-**Keys**: `accessToken`, `user`, `redirectAfterLogin`  
-**Lines**: 12, 13, 18, 25  
-**Actions**:
-- Line 12: `localStorage.getItem('accessToken')` → `storageService.get('accessToken')`
-- Line 13: `localStorage.getItem('user')` → `storageService.get('user')` (remove JSON.parse)
-- Line 18: `localStorage.setItem('redirectAfterLogin', currentPath)` → `storageService.set('redirectAfterLogin', currentPath)`
-- Line 25: `localStorage.clear()` → `storageService.clear()`
+### 6. VerifyEmail (DONE - Batch 1)
+- ✅ `app/pages/VerifyEmail.jsx`
+  - 3 localStorage calls → storageService
+  - Keys: user, accessToken
+  - Lines migrated: 54, 57, 65
+  - Updated comments to reference "storage" instead of "localStorage"
+  - Commit: `830220a` (refactor(R3): migrate VerifyEmail to storageService)
 
-**Import**: Add `import storageService from '@/shared/lib/services/storageService';`
-
----
-
-### 5. AuthLogin (HIGH PRIORITY)
-**File**: `app/pages/auth-forms/AuthLogin.jsx`  
-**Calls**: 12 localStorage  
-**Keys**: `accessToken`, `refreshToken`, `user`, `tenant`, `tenants`, `roles`, `redirectAfterLogin`  
-**Lines**: 72-77 (removeItem), 86 (setItem), 90-91 (getItem), 101 (getItem)  
-**Actions**:
-- Lines 72-77: `localStorage.removeItem(...)` → `storageService.remove(...)`
-- Line 86: `localStorage.setItem('roles', JSON.stringify(...))` → `storageService.set('roles', ...)`
-- Lines 90-91: `localStorage.getItem(...)` → `storageService.get(...)`
-- Line 101: `localStorage.getItem('redirectAfterLogin')` → `storageService.get('redirectAfterLogin')`
-
-**Import**: Add `import storageService from '@/shared/lib/services/storageService';`
+**Batch 1 Gate Results**:
+- ✅ Unit tests: 111/111 PASSED
+- ✅ Auth integration: 18/18 PASSED
+- ✅ Duration: unit 239.76s, auth 289.82s (migrations 35/55 - known infrastructure issue, not blocking)
 
 ---
 
-### 6. VerifyEmail (MEDIUM PRIORITY)
-**File**: `app/pages/VerifyEmail.jsx`  
-**Calls**: 3 localStorage  
-**Keys**: `user`, `accessToken`  
-**Lines**: 53 (getItem), 57 (setItem), 64 (getItem)  
-**Actions**:
-- Line 53: `localStorage.getItem('user')` → `storageService.get('user')` (remove JSON.parse)
-- Line 57: `localStorage.setItem('user', JSON.stringify(...))` → `storageService.set('user', ...)`
-- Line 64: `localStorage.getItem('accessToken')` → `storageService.get('accessToken')`
-
-**Import**: Add `import storageService from '@/shared/lib/services/storageService';`
-
----
+## ⏳ Remaining (4/10 - Batch 2: UI State)
 
 ### 7. EmailVerificationBanner (LOW PRIORITY)
 **File**: `shared/ui/components/EmailVerificationBanner.jsx`  
