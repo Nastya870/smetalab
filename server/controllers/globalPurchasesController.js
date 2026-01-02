@@ -1,4 +1,5 @@
 import * as globalPurchasesRepository from '../repositories/globalPurchasesRepository.js';
+import { catchAsync, BadRequestError, NotFoundError } from '../utils/errors.js';
 
 /**
  * @swagger
@@ -134,81 +135,66 @@ import * as globalPurchasesRepository from '../repositories/globalPurchasesRepos
  *                 details:
  *                   type: string
  */
-export const createGlobalPurchase = async (req, res) => {
-  try {
-    const {
-      projectId,
-      estimateId,
-      materialId,
-      quantity,
-      purchasePrice,
-      purchaseDate,
-      sourcePurchaseId,
-      isExtraCharge
-    } = req.body;
+export const createGlobalPurchase = catchAsync(async (req, res) => {
+  const {
+    projectId,
+    estimateId,
+    materialId,
+    quantity,
+    purchasePrice,
+    purchaseDate,
+    sourcePurchaseId,
+    isExtraCharge
+  } = req.body;
 
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    // Отладочный вывод
-    console.log('[GLOBAL PURCHASES] Создание закупки, body:', req.body);
+  // Отладочный вывод
+  console.log('[GLOBAL PURCHASES] Создание закупки, body:', req.body);
 
-    // Валидация
-    if (!projectId || !estimateId || !materialId) {
-      console.error('[GLOBAL PURCHASES] Отсутствуют обязательные поля:', { projectId, estimateId, materialId });
-      return res.status(400).json({
-        error: 'projectId, estimateId и materialId обязательны'
-      });
-    }
-
-    const parsedQuantity = parseFloat(quantity);
-    if (!quantity || isNaN(parsedQuantity) || parsedQuantity <= 0) {
-      console.error('[GLOBAL PURCHASES] Некорректное количество:', quantity);
-      return res.status(400).json({
-        error: 'Количество должно быть больше 0'
-      });
-    }
-
-    const parsedPrice = parseFloat(purchasePrice);
-    if (purchasePrice === undefined || purchasePrice === null || purchasePrice === '' || isNaN(parsedPrice) || parsedPrice < 0) {
-      console.error('[GLOBAL PURCHASES] Некорректная цена:', purchasePrice);
-      return res.status(400).json({
-        error: 'Цена закупки не может быть отрицательной или пустой'
-      });
-    }
-
-    const purchaseData = {
-      projectId,
-      estimateId,
-      materialId,
-      quantity: parsedQuantity,
-      purchasePrice: parsedPrice,
-      purchaseDate: purchaseDate || new Date().toISOString().split('T')[0],
-      sourcePurchaseId,
-      isExtraCharge: isExtraCharge || false
-    };
-
-    console.log('[GLOBAL PURCHASES] Валидированные данные для создания:', purchaseData);
-
-    const purchase = await globalPurchasesRepository.createGlobalPurchase(
-      tenantId,
-      userId,
-      purchaseData
-    );
-
-    res.status(201).json({
-      success: true,
-      purchase
-    });
-
-  } catch (error) {
-    console.error('[GLOBAL PURCHASES] Ошибка создания закупки:', error);
-    res.status(500).json({
-      error: 'Ошибка сервера при создании закупки',
-      details: error.message
-    });
+  // Валидация
+  if (!projectId || !estimateId || !materialId) {
+    console.error('[GLOBAL PURCHASES] Отсутствуют обязательные поля:', { projectId, estimateId, materialId });
+    throw new BadRequestError('projectId, estimateId и materialId обязательны');
   }
-};
+
+  const parsedQuantity = parseFloat(quantity);
+  if (!quantity || isNaN(parsedQuantity) || parsedQuantity <= 0) {
+    console.error('[GLOBAL PURCHASES] Некорректное количество:', quantity);
+    throw new BadRequestError('Количество должно быть больше 0');
+  }
+
+  const parsedPrice = parseFloat(purchasePrice);
+  if (purchasePrice === undefined || purchasePrice === null || purchasePrice === '' || isNaN(parsedPrice) || parsedPrice < 0) {
+    console.error('[GLOBAL PURCHASES] Некорректная цена:', purchasePrice);
+    throw new BadRequestError('Цена закупки не может быть отрицательной или пустой');
+  }
+
+  const purchaseData = {
+    projectId,
+    estimateId,
+    materialId,
+    quantity: parsedQuantity,
+    purchasePrice: parsedPrice,
+    purchaseDate: purchaseDate || new Date().toISOString().split('T')[0],
+    sourcePurchaseId,
+    isExtraCharge: isExtraCharge || false
+  };
+
+  console.log('[GLOBAL PURCHASES] Валидированные данные для создания:', purchaseData);
+
+  const purchase = await globalPurchasesRepository.createGlobalPurchase(
+    tenantId,
+    userId,
+    purchaseData
+  );
+
+  res.status(201).json({
+    success: true,
+    purchase
+  });
+});
 
 /**
  * @swagger
@@ -253,49 +239,40 @@ export const createGlobalPurchase = async (req, res) => {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export const getAllGlobalPurchases = async (req, res) => {
-  try {
-    const { projectId, estimateId, materialId, dateFrom, dateTo } = req.query;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const getAllGlobalPurchases = catchAsync(async (req, res) => {
+  const { projectId, estimateId, materialId, dateFrom, dateTo } = req.query;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    console.log('📊 [CONTROLLER] Получение закупок');
-    console.log('   Query params:', req.query);
-    console.log('   projectId:', projectId, '(type:', typeof projectId, ')');
-    console.log('   tenantId:', tenantId);
-    console.log('   userId:', userId);
+  console.log('📊 [CONTROLLER] Получение закупок');
+  console.log('   Query params:', req.query);
+  console.log('   projectId:', projectId, '(type:', typeof projectId, ')');
+  console.log('   tenantId:', tenantId);
+  console.log('   userId:', userId);
 
-    const filters = {};
-    if (projectId) filters.projectId = projectId;
-    if (estimateId) filters.estimateId = estimateId;
-    if (materialId) filters.materialId = parseInt(materialId);
-    if (dateFrom) filters.dateFrom = dateFrom;
-    if (dateTo) filters.dateTo = dateTo;
+  const filters = {};
+  if (projectId) filters.projectId = projectId;
+  if (estimateId) filters.estimateId = estimateId;
+  if (materialId) filters.materialId = parseInt(materialId);
+  if (dateFrom) filters.dateFrom = dateFrom;
+  if (dateTo) filters.dateTo = dateTo;
 
-    console.log('   Filters для repository:', filters);
+  console.log('   Filters для repository:', filters);
 
-    const purchases = await globalPurchasesRepository.findAllGlobalPurchases(
-      tenantId,
-      userId,
-      filters
-    );
+  const purchases = await globalPurchasesRepository.findAllGlobalPurchases(
+    tenantId,
+    userId,
+    filters
+  );
 
-    console.log('✅ Найдено закупок:', purchases.length);
+  console.log('✅ Найдено закупок:', purchases.length);
 
-    res.status(200).json({
-      success: true,
-      count: purchases.length,
-      purchases
-    });
-
-  } catch (error) {
-    console.error('❌ [GLOBAL PURCHASES] Ошибка получения закупок:', error);
-    res.status(500).json({
-      error: 'Ошибка сервера при получении закупок',
-      details: error.message
-    });
-  }
-};
+  res.status(200).json({
+    success: true,
+    count: purchases.length,
+    purchases
+  });
+});
 
 /**
  * @swagger
@@ -323,37 +300,26 @@ export const getAllGlobalPurchases = async (req, res) => {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export const getGlobalPurchaseById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const getGlobalPurchaseById = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    const purchase = await globalPurchasesRepository.findGlobalPurchaseById(
-      tenantId,
-      userId,
-      id
-    );
+  const purchase = await globalPurchasesRepository.findGlobalPurchaseById(
+    tenantId,
+    userId,
+    id
+  );
 
-    if (!purchase) {
-      return res.status(404).json({
-        error: 'Закупка не найдена'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      purchase
-    });
-
-  } catch (error) {
-    console.error('[GLOBAL PURCHASES] Ошибка получения закупки:', error);
-    res.status(500).json({
-      error: 'Ошибка сервера при получении закупки',
-      details: error.message
-    });
+  if (!purchase) {
+    throw new NotFoundError('Закупка не найдена');
   }
-};
+
+  res.status(200).json({
+    success: true,
+    purchase
+  });
+});
 
 /**
  * @swagger
@@ -394,57 +360,42 @@ export const getGlobalPurchaseById = async (req, res) => {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export const updateGlobalPurchase = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { quantity, purchasePrice, purchaseDate } = req.body;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const updateGlobalPurchase = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { quantity, purchasePrice, purchaseDate } = req.body;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    // Валидация
-    if (quantity !== undefined && quantity <= 0) {
-      return res.status(400).json({
-        error: 'Количество должно быть больше 0'
-      });
-    }
-
-    if (purchasePrice !== undefined && purchasePrice < 0) {
-      return res.status(400).json({
-        error: 'Цена закупки не может быть отрицательной'
-      });
-    }
-
-    const updateData = {};
-    if (quantity !== undefined) updateData.quantity = parseFloat(quantity);
-    if (purchasePrice !== undefined) updateData.purchasePrice = parseFloat(purchasePrice);
-    if (purchaseDate !== undefined) updateData.purchaseDate = purchaseDate;
-
-    if (Object.keys(updateData).length === 0) {
-      return res.status(400).json({
-        error: 'Нет данных для обновления'
-      });
-    }
-
-    const purchase = await globalPurchasesRepository.updateGlobalPurchase(
-      tenantId,
-      userId,
-      id,
-      updateData
-    );
-
-    res.status(200).json({
-      success: true,
-      purchase
-    });
-
-  } catch (error) {
-    console.error('[GLOBAL PURCHASES] Ошибка обновления закупки:', error);
-    res.status(500).json({
-      error: 'Ошибка сервера при обновлении закупки',
-      details: error.message
-    });
+  // Валидация
+  if (quantity !== undefined && quantity <= 0) {
+    throw new BadRequestError('Количество должно быть больше 0');
   }
-};
+
+  if (purchasePrice !== undefined && purchasePrice < 0) {
+    throw new BadRequestError('Цена закупки не может быть отрицательной');
+  }
+
+  const updateData = {};
+  if (quantity !== undefined) updateData.quantity = parseFloat(quantity);
+  if (purchasePrice !== undefined) updateData.purchasePrice = parseFloat(purchasePrice);
+  if (purchaseDate !== undefined) updateData.purchaseDate = purchaseDate;
+
+  if (Object.keys(updateData).length === 0) {
+    throw new BadRequestError('Нет данных для обновления');
+  }
+
+  const purchase = await globalPurchasesRepository.updateGlobalPurchase(
+    tenantId,
+    userId,
+    id,
+    updateData
+  );
+
+  res.status(200).json({
+    success: true,
+    purchase
+  });
+});
 
 /**
  * @swagger
@@ -472,31 +423,22 @@ export const updateGlobalPurchase = async (req, res) => {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export const deleteGlobalPurchase = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const deleteGlobalPurchase = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    await globalPurchasesRepository.deleteGlobalPurchase(
-      tenantId,
-      userId,
-      id
-    );
+  await globalPurchasesRepository.deleteGlobalPurchase(
+    tenantId,
+    userId,
+    id
+  );
 
-    res.status(200).json({
-      success: true,
-      message: 'Закупка успешно удалена'
-    });
-
-  } catch (error) {
-    console.error('[GLOBAL PURCHASES] Ошибка удаления закупки:', error);
-    res.status(500).json({
-      error: 'Ошибка сервера при удалении закупки',
-      details: error.message
-    });
-  }
-};
+  res.status(200).json({
+    success: true,
+    message: 'Закупка успешно удалена'
+  });
+});
 
 /**
  * @swagger
@@ -524,38 +466,27 @@ export const deleteGlobalPurchase = async (req, res) => {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export const getCalendarDates = async (req, res) => {
-  try {
-    const { year, month } = req.query;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const getCalendarDates = catchAsync(async (req, res) => {
+  const { year, month } = req.query;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    if (!year || !month) {
-      return res.status(400).json({
-        error: 'year и month обязательны'
-      });
-    }
-
-    const dates = await globalPurchasesRepository.getCalendarDates(
-      tenantId,
-      userId,
-      parseInt(year),
-      parseInt(month)
-    );
-
-    res.status(200).json({
-      success: true,
-      dates
-    });
-
-  } catch (error) {
-    console.error('[GLOBAL PURCHASES] Ошибка получения дат календаря:', error);
-    res.status(500).json({
-      error: 'Ошибка сервера при получении дат календаря',
-      details: error.message
-    });
+  if (!year || !month) {
+    throw new BadRequestError('year и month обязательны');
   }
-};
+
+  const dates = await globalPurchasesRepository.getCalendarDates(
+    tenantId,
+    userId,
+    parseInt(year),
+    parseInt(month)
+  );
+
+  res.status(200).json({
+    success: true,
+    dates
+  });
+});
 
 /**
  * @swagger
@@ -590,33 +521,24 @@ export const getCalendarDates = async (req, res) => {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export const getStatistics = async (req, res) => {
-  try {
-    const { projectId, dateFrom, dateTo } = req.query;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const getStatistics = catchAsync(async (req, res) => {
+  const { projectId, dateFrom, dateTo } = req.query;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    const filters = {};
-    if (projectId) filters.projectId = projectId;
-    if (dateFrom) filters.dateFrom = dateFrom;
-    if (dateTo) filters.dateTo = dateTo;
+  const filters = {};
+  if (projectId) filters.projectId = projectId;
+  if (dateFrom) filters.dateFrom = dateFrom;
+  if (dateTo) filters.dateTo = dateTo;
 
-    const statistics = await globalPurchasesRepository.getStatistics(
-      tenantId,
-      userId,
-      filters
-    );
+  const statistics = await globalPurchasesRepository.getStatistics(
+    tenantId,
+    userId,
+    filters
+  );
 
-    res.status(200).json({
-      success: true,
-      statistics
-    });
-
-  } catch (error) {
-    console.error('[GLOBAL PURCHASES] Ошибка получения статистики:', error);
-    res.status(500).json({
-      error: 'Ошибка сервера при получении статистики',
-      details: error.message
-    });
-  }
-};
+  res.status(200).json({
+    success: true,
+    statistics
+  });
+});

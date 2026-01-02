@@ -1,4 +1,5 @@
 import * as purchasesRepository from '../repositories/purchasesRepository.js';
+import { catchAsync, BadRequestError, NotFoundError } from '../utils/errors.js';
 
 /**
  * @swagger
@@ -35,45 +36,33 @@ import * as purchasesRepository from '../repositories/purchasesRepository.js';
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export const generatePurchases = async (req, res) => {
-  try {
-    const { estimateId, projectId } = req.body;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const generatePurchases = catchAsync(async (req, res) => {
+  const { estimateId, projectId } = req.body;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    console.log('[PURCHASES] Generate request:', { estimateId, projectId, tenantId, userId });
+  console.log('[PURCHASES] Generate request:', { estimateId, projectId, tenantId, userId });
 
-    if (!estimateId || !projectId) {
-      return res.status(400).json({ 
-        error: 'estimateId и projectId обязательны' 
-      });
-    }
-
-    // Генерируем закупки (группируем материалы)
-    console.log('[PURCHASES] Calling generatePurchases...');
-    const purchases = await purchasesRepository.generatePurchases(
-      tenantId,
-      projectId,
-      estimateId,
-      userId
-    );
-    console.log('[PURCHASES] Generated materials:', purchases.length);
-
-    res.status(200).json({
-      success: true,
-      totalMaterials: purchases.length,
-      purchases
-    });
-
-  } catch (error) {
-    console.error('[PURCHASES] Ошибка при формировании закупок:', error);
-    console.error('[PURCHASES] Error stack:', error.stack);
-    res.status(500).json({ 
-      error: 'Ошибка сервера при формировании закупок',
-      details: error.message 
-    });
+  if (!estimateId || !projectId) {
+    throw new BadRequestError('estimateId и projectId обязательны');
   }
-};
+
+  // Генерируем закупки (группируем материалы)
+  console.log('[PURCHASES] Calling generatePurchases...');
+  const purchases = await purchasesRepository.generatePurchases(
+    tenantId,
+    projectId,
+    estimateId,
+    userId
+  );
+  console.log('[PURCHASES] Generated materials:', purchases.length);
+
+  res.status(200).json({
+    success: true,
+    totalMaterials: purchases.length,
+    purchases
+  });
+});
 
 /**
  * @swagger
@@ -99,39 +88,27 @@ export const generatePurchases = async (req, res) => {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export const getPurchasesByEstimate = async (req, res) => {
-  try {
-    const { estimateId } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const getPurchasesByEstimate = catchAsync(async (req, res) => {
+  const { estimateId } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    const purchases = await purchasesRepository.getPurchasesByEstimate(
-      tenantId, 
-      estimateId,
-      userId
-    );
+  const purchases = await purchasesRepository.getPurchasesByEstimate(
+    tenantId, 
+    estimateId,
+    userId
+  );
 
-    if (purchases.length === 0) {
-      return res.status(404).json({
-        error: 'Закупки не найдены',
-        message: 'Закупки для данной сметы еще не сформированы'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      totalMaterials: purchases.length,
-      purchases
-    });
-
-  } catch (error) {
-    console.error('[PURCHASES] Ошибка при получении закупок:', error);
-    res.status(500).json({ 
-      error: 'Ошибка сервера при получении закупок',
-      details: error.message 
-    });
+  if (purchases.length === 0) {
+    throw new NotFoundError('Закупки не найдены');
   }
-};
+
+  res.status(200).json({
+    success: true,
+    totalMaterials: purchases.length,
+    purchases
+  });
+});
 
 /**
  * @swagger
@@ -157,27 +134,18 @@ export const getPurchasesByEstimate = async (req, res) => {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export const deletePurchases = async (req, res) => {
-  try {
-    const { estimateId } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const deletePurchases = catchAsync(async (req, res) => {
+  const { estimateId } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    await purchasesRepository.deletePurchases(tenantId, estimateId, userId);
+  await purchasesRepository.deletePurchases(tenantId, estimateId, userId);
 
-    res.status(200).json({
-      success: true,
-      message: 'Закупки успешно удалены'
-    });
-
-  } catch (error) {
-    console.error('[PURCHASES] Ошибка при удалении закупок:', error);
-    res.status(500).json({ 
-      error: 'Ошибка сервера при удалении закупок',
-      details: error.message 
-    });
-  }
-};
+  res.status(200).json({
+    success: true,
+    message: 'Закупки успешно удалены'
+  });
+});
 
 /**
  * @swagger
@@ -226,47 +194,35 @@ export const deletePurchases = async (req, res) => {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export const createExtraCharge = async (req, res) => {
-  try {
-    const { estimateId, projectId, materialId, quantity, price, isExtraCharge } = req.body;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const createExtraCharge = catchAsync(async (req, res) => {
+  const { estimateId, projectId, materialId, quantity, price, isExtraCharge } = req.body;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    console.log('[PURCHASES] Create Extra Charge request:', { 
-      estimateId, projectId, materialId, quantity, price, isExtraCharge, tenantId, userId 
-    });
+  console.log('[PURCHASES] Create Extra Charge request:', { 
+    estimateId, projectId, materialId, quantity, price, isExtraCharge, tenantId, userId 
+  });
 
-    if (!estimateId || !projectId || !materialId || !quantity || !price) {
-      return res.status(400).json({ 
-        error: 'estimateId, projectId, materialId, quantity и price обязательны' 
-      });
-    }
-
-    // Создаем запись О/Ч в таблице purchases
-    const purchase = await purchasesRepository.createExtraCharge(
-      tenantId,
-      projectId,
-      estimateId,
-      materialId,
-      parseFloat(quantity),
-      parseFloat(price),
-      userId
-    );
-
-    console.log('[PURCHASES] Extra Charge created:', purchase);
-
-    res.status(201).json({
-      success: true,
-      message: 'Материал О/Ч успешно добавлен в закупки проекта',
-      purchase
-    });
-
-  } catch (error) {
-    console.error('[PURCHASES] Ошибка при создании О/Ч:', error);
-    console.error('[PURCHASES] Error stack:', error.stack);
-    res.status(500).json({ 
-      error: 'Ошибка сервера при создании О/Ч',
-      details: error.message 
-    });
+  if (!estimateId || !projectId || !materialId || !quantity || !price) {
+    throw new BadRequestError('estimateId, projectId, materialId, quantity и price обязательны');
   }
-};
+
+  // Создаем запись О/Ч в таблице purchases
+  const purchase = await purchasesRepository.createExtraCharge(
+    tenantId,
+    projectId,
+    estimateId,
+    materialId,
+    parseFloat(quantity),
+    parseFloat(price),
+    userId
+  );
+
+  console.log('[PURCHASES] Extra Charge created:', purchase);
+
+  res.status(201).json({
+    success: true,
+    message: 'Материал О/Ч успешно добавлен в закупки проекта',
+    purchase
+  });
+});
