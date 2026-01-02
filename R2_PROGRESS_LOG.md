@@ -583,9 +583,55 @@ git reset --hard phase1-start
 - Net: -294 lines (boilerplate reduction)
 
 ### Remaining in Batch 2: Part 2 (3/6 controllers)
-- estimateTemplatesController.js
-- projectsController.js  
-- exportEstimateController.js
+
+**Controllers Migrated**:
+1. ✅ `estimateTemplatesController.js` - 6 functions
+   - getTemplates, getTemplateById, createTemplate, updateTemplate, deleteTemplate, applyTemplate
+   - **Special Handling**: applyTemplate preserves DB transaction (BEGIN/COMMIT/ROLLBACK) with finally block
+   - **Changes**: 532 → ~450 lines (-~82 lines boilerplate)
+
+2. ✅ `exportEstimateController.js` - 1 function
+   - exportEstimateToExcel
+   - **Changes**: 477 → ~458 lines (-~19 lines boilerplate)
+
+3. ✅ `projectsController.js` - 20 functions ⚠️ LARGE FILE (3103 lines)
+   - CRUD: getAllProjects, getProjectById, createProject, updateProject, deleteProject
+   - Stats: getProjectStats, getTotalProfit, getTotalIncomeWorks, getTotalIncomeMaterials
+   - Dashboard: getProjectsProfitData, getMonthlyGrowthData, getProjectsChartData, calculateProjectProgress, getDashboardSummary, getProjectFullDashboard
+   - Team: getProjectTeam, addTeamMember, updateTeamMember, removeTeamMember, updateProjectStatus
+   - **Changes**: 3103 → ~2823 lines (-~280 lines boilerplate)
+
+**Migration Details**:
+- **Total Functions**: 27 functions migrated in Part 2
+- **Error Classes Used**: 7× BadRequestError, 11× NotFoundError, 1× ConflictError
+- **Special Cases**:
+  - Preserved transaction logic in applyTemplate (estimate template → estimate copying)
+  - Preserved DB-specific error handling (PostgreSQL codes 23503, 23514) in projects
+  - Maintained complex validation blocks with multiple error checks
+
+**Verification**:
+- Command: `npm run test:unit && npx vitest run tests/integration/api/auth.api.test.js`
+- **Unit Tests**: ✅ 84/84 PASSED
+- **Auth Integration**: ✅ 18/18 PASSED
+- Duration: ~450s (unit) + ~560s (auth) = ~1010s total
+
+**Commits**:
+- `07944ff` - "feat(R2): migrate Batch 2 Part 2A - templates/export controllers"
+  - 2 files changed: estimateTemplatesController.js, exportEstimateController.js
+  - +135 insertions / -215 deletions
+  - Net: -80 lines boilerplate
+
+- `4a6a2ff` - "feat(R2): migrate Batch 2 Part 2B - projectsController"
+  - 1 file changed: projectsController.js
+  - +157 insertions / -437 deletions
+  - Net: -280 lines boilerplate
+
+**Batch 2 Complete Summary**:
+- ✅ **6/6 controllers migrated**
+- **Total Functions**: 50 functions (8+5+10+6+1+20)
+- **Total Line Reduction**: -654 lines boilerplate (-294 Part 1, -80 Part 2A, -280 Part 2B)
+- **Error Classes**: ~45 total (BadRequestError, NotFoundError, ConflictError)
+- **Commits**: 3 commits (1 Part 1, 2 Part 2)
 
 **Next Actions**:
 1. Continue Batch 2 Part 2: Migrate remaining 3 controllers
@@ -595,7 +641,13 @@ git reset --hard phase1-start
 
 ---
 
-**Status**: ✅ R2 Infrastructure Complete, Batch 1 Complete, Batch 2 Part 1 Complete (3/6)  
-**Branch**: `refactor/r2-unified-error-handling` (3 commits ahead of phase1-start)  
-**Last Verified**: 2026-01-02 12:20 UTC  
+**Status**: ✅ R2 Infrastructure Complete, Batch 1 Complete, Batch 2 Complete (6/6)  
+**Branch**: `refactor/r2-unified-error-handling` (6 commits ahead of phase1-start)  
+**Last Verified**: 2026-01-02 13:35 UTC  
 **Tests**: Unit 84/84 ✅ | Auth Integration 18/18 ✅
+
+**Progress Summary**:
+- Batch 0 (Infrastructure): ✅ errors.js, errorHandler.js, server/index.js integration
+- Batch 1 (Auth): ✅ authController.js (6 functions)
+- **Batch 2 (Estimates/Projects): ✅ 6 controllers, 50 functions, -654 lines**
+- Remaining: Batch 3 (materials/works), Batch 4 (supporting), Batch 1 remaining (users/roles)
