@@ -2,6 +2,7 @@ import { query } from '../config/database.js';
 import { v4 as uuidv4 } from 'uuid';
 import { hashPassword, validatePassword } from '../utils/password.js';
 import emailService from '../services/emailService.js';
+import { catchAsync, BadRequestError, NotFoundError, UnauthorizedError } from '../utils/errors.js';
 
 /**
  * @swagger
@@ -54,25 +55,18 @@ import emailService from '../services/emailService.js';
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-export const forgotPassword = async (req, res) => {
-  try {
-    const { email } = req.body;
+export const forgotPassword = catchAsync(async (req, res) => {
+  const { email } = req.body;
 
-    // Валидация email
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email обязателен'
-      });
-    }
+  // Валидация email
+  if (!email) {
+    throw new BadRequestError('Email обязателен');
+  }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Укажите корректный email адрес'
-      });
-    }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new BadRequestError('Укажите корректный email адрес');
+  }
 
     console.log(`🔐 [PasswordReset] Запрос сброса пароля для ${email}`);
 
@@ -140,15 +134,7 @@ export const forgotPassword = async (req, res) => {
       success: true,
       message: 'Если указанный email существует, на него отправлена ссылка для сброса пароля'
     });
-
-  } catch (error) {
-    console.error('Forgot password error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при обработке запроса'
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -229,25 +215,18 @@ export const forgotPassword = async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-export const resetPassword = async (req, res) => {
-  try {
-    const { token, password } = req.body;
+export const resetPassword = catchAsync(async (req, res) => {
+  const { token, password } = req.body;
 
-    if (!token || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Токен и пароль обязательны'
-      });
-    }
+  if (!token || !password) {
+    throw new BadRequestError('Токен и пароль обязательны');
+  }
 
-    // Валидация пароля
-    const passwordValidation = validatePassword(password);
-    if (!passwordValidation.valid) {
-      return res.status(400).json({
-        success: false,
-        message: passwordValidation.message
-      });
-    }
+  // Валидация пароля
+  const passwordValidation = validatePassword(password);
+  if (!passwordValidation.valid) {
+    throw new BadRequestError(passwordValidation.message);
+  }
 
     console.log(`🔐 [PasswordReset] Сброс пароля по токену: ${token.substring(0, 8)}...`);
 
@@ -262,10 +241,7 @@ export const resetPassword = async (req, res) => {
 
     if (tokenResult.rows.length === 0) {
       console.log(`❌ [PasswordReset] Токен не найден или уже использован`);
-      return res.status(400).json({
-        success: false,
-        message: 'Недействительный или уже использованный токен'
-      });
+      throw new BadRequestError('Недействительный или уже использованный токен');
     }
 
     const resetData = tokenResult.rows[0];
@@ -280,19 +256,13 @@ export const resetPassword = async (req, res) => {
         [resetData.id]
       );
 
-      return res.status(400).json({
-        success: false,
-        message: 'Токен просрочен. Запросите новую ссылку для сброса пароля'
-      });
+      throw new BadRequestError('Токен просрочен. Запросите новую ссылку для сброса пароля');
     }
 
     // Проверяем статус пользователя
     if (resetData.status !== 'active') {
       console.log(`❌ [PasswordReset] Пользователь неактивен`);
-      return res.status(400).json({
-        success: false,
-        message: 'Пользователь деактивирован'
-      });
+      throw new BadRequestError('Пользователь деактивирован');
     }
 
     console.log(`✅ [PasswordReset] Токен валиден, обновляем пароль для ${resetData.email}`);
@@ -327,15 +297,7 @@ export const resetPassword = async (req, res) => {
         email: resetData.email
       }
     });
-
-  } catch (error) {
-    console.error('Reset password error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при сбросе пароля'
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -406,16 +368,12 @@ export const resetPassword = async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-export const validateResetToken = async (req, res) => {
-  try {
-    const { token } = req.body;
+export const validateResetToken = catchAsync(async (req, res) => {
+  const { token } = req.body;
 
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: 'Токен обязателен'
-      });
-    }
+  if (!token) {
+    throw new BadRequestError('Токен обязателен');
+  }
 
     console.log(`🔍 [PasswordReset] Проверка токена: ${token.substring(0, 8)}...`);
 
@@ -430,10 +388,7 @@ export const validateResetToken = async (req, res) => {
 
     if (tokenResult.rows.length === 0) {
       console.log(`❌ [PasswordReset] Токен не найден или уже использован`);
-      return res.status(400).json({
-        success: false,
-        message: 'Недействительный или уже использованный токен'
-      });
+      throw new BadRequestError('Недействительный или уже использованный токен');
     }
 
     const resetData = tokenResult.rows[0];
@@ -441,19 +396,13 @@ export const validateResetToken = async (req, res) => {
     // Проверяем срок действия
     if (new Date(resetData.expires_at) < new Date()) {
       console.log(`❌ [PasswordReset] Токен просрочен`);
-      return res.status(400).json({
-        success: false,
-        message: 'Токен просрочен. Запросите новую ссылку для сброса пароля'
-      });
+      throw new BadRequestError('Токен просрочен. Запросите новую ссылку для сброса пароля');
     }
 
     // Проверяем статус пользователя
     if (resetData.status !== 'active') {
       console.log(`❌ [PasswordReset] Пользователь неактивен`);
-      return res.status(400).json({
-        success: false,
-        message: 'Пользователь деактивирован'
-      });
+      throw new BadRequestError('Пользователь деактивирован');
     }
 
     // Маскируем email для безопасности
@@ -473,15 +422,7 @@ export const validateResetToken = async (req, res) => {
         expiresAt: resetData.expires_at
       }
     });
-
-  } catch (error) {
-    console.error('Validate reset token error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при проверке токена'
-    });
-  }
-};
+});
 
 export default {
   forgotPassword,

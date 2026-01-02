@@ -1,5 +1,6 @@
 import { toCamelCase } from '../utils/helpers.js';
 import * as tenantsRepository from '../repositories/tenantsRepository.js';
+import { catchAsync, BadRequestError, NotFoundError, ConflictError } from '../utils/errors.js';
 
 /**
  * @swagger
@@ -66,19 +67,18 @@ import * as tenantsRepository from '../repositories/tenantsRepository.js';
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function updateTenant(req, res) {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const updateTenant = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    // Проверка прав: можно обновлять только свою компанию
-    if (id !== tenantId) {
-      return res.status(403).json({
-        success: false,
-        message: 'Нет прав для обновления этой компании'
-      });
-    }
+  // Проверка прав: можно обновлять только свою компанию
+  if (id !== tenantId) {
+    return res.status(403).json({
+      success: false,
+      message: 'Нет прав для обновления этой компании'
+    });
+  }
 
     const {
       companyFullName,
@@ -130,10 +130,7 @@ export async function updateTenant(req, res) {
     const updatedTenant = await tenantsRepository.update(id, updateData, userId);
 
     if (!updatedTenant) {
-      return res.status(404).json({
-        success: false,
-        message: 'Компания не найдена'
-      });
+      throw new NotFoundError('Компания не найдена');
     }
 
     console.log('[TENANTS] Update successful:', { 
@@ -147,23 +144,7 @@ export async function updateTenant(req, res) {
       message: 'Данные компании обновлены',
       data: { tenant: toCamelCase(updatedTenant) }
     });
-
-  } catch (error) {
-    console.error('[TENANTS] Error updating tenant:', {
-      error: error.message,
-      stack: error.stack,
-      tenantId: id,
-      userId,
-      data: updateData
-    });
-    console.error('[TENANTS] PostgreSQL Error Code:', error.code);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при обновлении данных компании',
-      error: error.message
-    });
-  }
-}
+});
 
 /**
  * @swagger
@@ -226,20 +207,19 @@ export async function updateTenant(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function getTenant(req, res) {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
+export const getTenant = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
 
-    console.log('[TENANTS] GET request:', { requestId: id, userTenantId: tenantId });
+  console.log('[TENANTS] GET request:', { requestId: id, userTenantId: tenantId });
 
-    // Проверка прав
-    if (id !== tenantId) {
-      return res.status(403).json({
-        success: false,
-        message: 'Нет прав для просмотра этой компании'
-      });
-    }
+  // Проверка прав
+  if (id !== tenantId) {
+    return res.status(403).json({
+      success: false,
+      message: 'Нет прав для просмотра этой компании'
+    });
+  }
 
     const tenant = await tenantsRepository.findById(id);
 
@@ -261,10 +241,7 @@ export async function getTenant(req, res) {
     });
 
     if (!tenant) {
-      return res.status(404).json({
-        success: false,
-        message: 'Компания не найдена'
-      });
+      throw new NotFoundError('Компания не найдена');
     }
 
     const camelCaseTenant = toCamelCase(tenant);
@@ -281,16 +258,7 @@ export async function getTenant(req, res) {
       success: true,
       data: { tenant: camelCaseTenant }
     });
-
-  } catch (error) {
-    console.error('[TENANTS] Error fetching tenant:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при получении данных компании',
-      error: error.message
-    });
-  }
-}
+});
 
 /**
  * @swagger
@@ -350,27 +318,23 @@ export async function getTenant(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function uploadLogo(req, res) {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const uploadLogo = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    // Проверка прав
-    if (id !== tenantId) {
-      return res.status(403).json({
-        success: false,
-        message: 'Нет прав для обновления логотипа этой компании'
-      });
-    }
+  // Проверка прав
+  if (id !== tenantId) {
+    return res.status(403).json({
+      success: false,
+      message: 'Нет прав для обновления логотипа этой компании'
+    });
+  }
 
-    // Получаем файл из req.file (multer)
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'Файл не предоставлен'
-      });
-    }
+  // Получаем файл из req.file (multer)
+  if (!req.file) {
+    throw new BadRequestError('Файл не предоставлен');
+  }
 
     // Конвертируем в base64 для хранения
     const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
@@ -379,10 +343,7 @@ export async function uploadLogo(req, res) {
     const updatedTenant = await tenantsRepository.update(id, { logoUrl: base64Image }, userId);
 
     if (!updatedTenant) {
-      return res.status(404).json({
-        success: false,
-        message: 'Компания не найдена'
-      });
+      throw new NotFoundError('Компания не найдена');
     }
 
     res.json({
@@ -390,16 +351,7 @@ export async function uploadLogo(req, res) {
       message: 'Логотип успешно загружен',
       logoUrl: base64Image
     });
-
-  } catch (error) {
-    console.error('[TENANTS] Error uploading logo:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при загрузке логотипа',
-      error: error.message
-    });
-  }
-}
+});
 
 export default {
   updateTenant,
