@@ -4,6 +4,7 @@
 
 import objectParametersRepository from '../repositories/objectParametersRepository.js';
 import { StatusCodes } from 'http-status-codes';
+import { catchAsync, BadRequestError, NotFoundError } from '../utils/errors.js';
 
 /**
  * @swagger
@@ -59,22 +60,14 @@ import { StatusCodes } from 'http-status-codes';
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function getParametersByEstimate(req, res) {
-  try {
-    const { estimateId } = req.params;
-    const tenantId = req.user.tenantId;
+export const getParametersByEstimate = catchAsync(async (req, res) => {
+  const { estimateId } = req.params;
+  const tenantId = req.user.tenantId;
 
-    const parameters = await objectParametersRepository.findByEstimateId(estimateId, tenantId);
+  const parameters = await objectParametersRepository.findByEstimateId(estimateId, tenantId);
 
-    res.status(StatusCodes.OK).json(parameters);
-  } catch (error) {
-    console.error('Error fetching parameters:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при получении параметров помещений',
-      message: error.message
-    });
-  }
-}
+  res.status(StatusCodes.OK).json(parameters);
+});
 
 /**
  * @swagger
@@ -124,29 +117,14 @@ export async function getParametersByEstimate(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function getParameterById(req, res) {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
+export const getParameterById = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
 
-    const parameter = await objectParametersRepository.findById(id, tenantId);
+  const parameter = await objectParametersRepository.findById(id, tenantId);
 
-    res.status(StatusCodes.OK).json(parameter);
-  } catch (error) {
-    console.error('Error fetching parameter:', error);
-    
-    if (error.message === 'Параметр помещения не найден') {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        error: error.message
-      });
-    }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при получении параметра помещения',
-      message: error.message
-    });
-  }
-}
+  res.status(StatusCodes.OK).json(parameter);
+});
 
 /**
  * @swagger
@@ -221,30 +199,28 @@ export async function getParameterById(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function saveParameters(req, res) {
+export const saveParameters = catchAsync(async (req, res) => {
+  const { estimateId } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
+  const { parameters } = req.body;
+
+  console.log('📊 saveParameters called:', {
+    estimateId,
+    tenantId,
+    userId,
+    parametersCount: parameters?.length
+  });
+
+  // Валидация
+  if (!Array.isArray(parameters)) {
+    throw new BadRequestError('Параметры должны быть массивом');
+  }
+
+  console.log('📝 Parameters data:', JSON.stringify(parameters, null, 2));
+
+  // Сохранение всех параметров
   try {
-    const { estimateId } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
-    const { parameters } = req.body;
-
-    console.log('📊 saveParameters called:', {
-      estimateId,
-      tenantId,
-      userId,
-      parametersCount: parameters?.length
-    });
-
-    // Валидация
-    if (!Array.isArray(parameters)) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'Параметры должны быть массивом'
-      });
-    }
-
-    console.log('📝 Parameters data:', JSON.stringify(parameters, null, 2));
-
-    // Сохранение всех параметров
     const saved = await objectParametersRepository.saveAll(estimateId, parameters, tenantId, userId);
 
     console.log('✅ Parameters saved successfully:', saved.length);
@@ -265,17 +241,11 @@ export async function saveParameters(req, res) {
     
     // Обработка ошибок foreign key constraint
     if (error.code === '23503') {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'Смета не найдена или нет доступа'
-      });
+      throw new BadRequestError('Смета не найдена или нет доступа');
     }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при сохранении параметров',
-      message: error.message
-    });
+    throw error;
   }
-}
+});
 
 /**
  * @swagger
@@ -339,30 +309,15 @@ export async function saveParameters(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function updateParameter(req, res) {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const updateParameter = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    const updated = await objectParametersRepository.update(id, req.body, tenantId, userId);
+  const updated = await objectParametersRepository.update(id, req.body, tenantId, userId);
 
-    res.status(StatusCodes.OK).json(updated);
-  } catch (error) {
-    console.error('Error updating parameter:', error);
-    
-    if (error.message === 'Параметр помещения не найден или нет доступа') {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        error: error.message
-      });
-    }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при обновлении параметра',
-      message: error.message
-    });
-  }
-}
+  res.status(StatusCodes.OK).json(updated);
+});
 
 /**
  * @swagger
@@ -402,32 +357,17 @@ export async function updateParameter(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function deleteParameter(req, res) {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
+export const deleteParameter = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
 
-    await objectParametersRepository.deleteParameter(id, tenantId);
+  await objectParametersRepository.deleteParameter(id, tenantId);
 
-    res.status(StatusCodes.OK).json({
-      success: true,
-      message: 'Параметр помещения удален'
-    });
-  } catch (error) {
-    console.error('Error deleting parameter:', error);
-    
-    if (error.message === 'Параметр помещения не найден или нет доступа') {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        error: error.message
-      });
-    }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при удалении параметра',
-      message: error.message
-    });
-  }
-}
+  res.status(StatusCodes.OK).json({
+    success: true,
+    message: 'Параметр помещения удален'
+  });
+});
 
 /**
  * @swagger
@@ -480,19 +420,11 @@ export async function deleteParameter(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function getStatistics(req, res) {
-  try {
-    const { estimateId } = req.params;
-    const tenantId = req.user.tenantId;
+export const getStatistics = catchAsync(async (req, res) => {
+  const { estimateId } = req.params;
+  const tenantId = req.user.tenantId;
 
-    const stats = await objectParametersRepository.getStatistics(estimateId, tenantId);
+  const stats = await objectParametersRepository.getStatistics(estimateId, tenantId);
 
-    res.status(StatusCodes.OK).json(stats);
-  } catch (error) {
-    console.error('Error fetching statistics:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при получении статистики',
-      message: error.message
-    });
-  }
-}
+  res.status(StatusCodes.OK).json(stats);
+});
