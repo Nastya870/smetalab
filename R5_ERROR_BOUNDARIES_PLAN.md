@@ -6,7 +6,30 @@
 **Date**: January 2, 2026  
 **Branch**: `refactor/r5-error-boundaries`  
 **Parent**: `refactor/phase1-security` (tag: `r2-complete`, commit: `ed61cf2`)  
-**Status**: 🔄 IN PROGRESS - Planning
+**Status**: 🔄 IN PROGRESS - Phase A+B Complete, Phase C BLOCKED
+
+---
+
+## 🚦 Implementation Status
+
+### ✅ Phase A: Infrastructure (Complete)
+- **Commit**: `dba74fa` - "feat(R5): add ErrorBoundary infrastructure (Phase A)"
+- **Files Created**: ErrorBoundary.jsx, ErrorFallback.jsx, ErrorBoundary.test.jsx
+- **Tests**: 8/8 passing
+
+### ✅ Phase B: Integration (Complete)
+- **Commit**: `6660341` - "feat(R5): integrate ErrorBoundary into app and critical routes (Phase B)"
+- **Modified**: App.jsx, EstimateView.jsx, ProjectsPage.jsx
+- **Tests**: 92/92 passing (unit gate GREEN)
+
+### ⏸️ Phase C: Storage Persistence (BLOCKED)
+- **Status**: BLOCKED pending R3 merge into `refactor/phase1-security`
+- **Blocker**: Requires `storageService` from R3 PR #2
+- **Reason**: Phase C adds error loop protection (tracking error count/timestamps via storage)
+- **Action**: Will implement AFTER R3 merge to parent branch
+- **ETA**: Follow-up PR after R3 lands
+
+**Current Gate**: ✅ 92/92 unit tests passing (Phase A+B only)
 
 ---
 
@@ -16,8 +39,8 @@ Implement React Error Boundaries to gracefully handle component errors in produc
 
 ### Dependencies
 - ✅ **R2 Complete**: Backend unified error handling ready
-- ✅ **R3 Complete**: Storage service for error logging ready
-- → **R5**: Add React Error Boundaries
+- ⏸️ **R3 Complete**: Storage service ready on `refactor/r3-storage-service` branch (NOT merged to parent)
+- 🔄 **R5**: Add React Error Boundaries (Phase A+B done, Phase C blocked)
 
 ### Objectives
 1. Prevent component errors from crashing entire app
@@ -296,15 +319,22 @@ storageService.remove('errorBoundary_lastError');
 
 ---
 
-**Next Steps**:
-1. Implement ErrorBoundary component
-2. Add unit tests
-3. Integrate into App.jsx
-4. Add route-level boundaries
-5. Test and verify
+**Completed Steps**:
+1. ✅ Implement ErrorBoundary component (Phase A)
+2. ✅ Add unit tests (8 tests passing)
+3. ✅ Integrate into App.jsx (Phase B)
+4. ✅ Add route-level boundaries (EstimateView, ProjectsPage)
+5. ✅ Test and verify (92/92 unit tests GREEN)
+
+**Pending Steps** (Phase C - BLOCKED):
+1. ⏸️ Add storage persistence (requires R3 merge)
+2. ⏸️ Implement error loop protection (3 errors in 60s)
+3. ⏸️ Add critical error UI mode
+4. ⏸️ Add persistence tests
 
 ---
 
-**Status**: 📝 Planning  
-**Ready to Start**: ✅ Dependencies met (R2 + R3 complete)
+**Status**: ✅ Phase A+B Complete | ⏸️ Phase C BLOCKED  
+**PR Ready**: Yes (Phase A+B can be merged independently)  
+**Blocker**: R3 PR #2 must merge to `refactor/phase1-security` before Phase C
 
