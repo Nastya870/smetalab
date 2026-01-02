@@ -14,6 +14,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from 'hooks/useAuth';
 import emailAPI from 'api/email';
+import storageService from '@/shared/lib/services/storageService';
 
 export default function EmailVerificationBanner() {
   const { user } = useAuth();
@@ -26,8 +27,8 @@ export default function EmailVerificationBanner() {
   useEffect(() => {
     // Показываем баннер только если email не подтвержден
     if (user && !user.emailVerified) {
-      // Проверяем localStorage - был ли баннер закрыт ранее
-      const dismissed = localStorage.getItem('email_banner_dismissed');
+      // Проверяем storage - был ли баннер закрыт ранее
+      const dismissed = storageService.get('email_banner_dismissed');
       const dismissedTime = dismissed ? parseInt(dismissed) : 0;
       const now = Date.now();
       
@@ -40,7 +41,7 @@ export default function EmailVerificationBanner() {
     }
 
     // Проверяем cooldown для повторной отправки
-    const lastSent = localStorage.getItem('email_verification_last_sent');
+    const lastSent = storageService.get('email_verification_last_sent');
     if (lastSent) {
       const timeSince = Math.floor((Date.now() - parseInt(lastSent)) / 1000);
       const remainingCooldown = 60 - timeSince; // 60 секунд cooldown
@@ -61,7 +62,7 @@ export default function EmailVerificationBanner() {
 
   const handleClose = () => {
     setOpen(false);
-    localStorage.setItem('email_banner_dismissed', Date.now().toString());
+    storageService.set('email_banner_dismissed', Date.now().toString());
   };
 
   const handleResend = async () => {
@@ -78,7 +79,7 @@ export default function EmailVerificationBanner() {
         setMessageType('success');
         
         // Устанавливаем cooldown
-        localStorage.setItem('email_verification_last_sent', Date.now().toString());
+        storageService.set('email_verification_last_sent', Date.now().toString());
         setCooldown(60);
       } else {
         setMessage(data.message || 'Ошибка при отправке письма');

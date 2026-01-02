@@ -21,6 +21,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import AnimateButton from 'ui-component/extended/AnimateButton';
 import authService from 'services/authService';
 import { useAuth } from 'contexts/AuthContext';
+import storageService from '@/shared/lib/services/storageService';
 
 // assets
 import Visibility from '@mui/icons-material/Visibility';
@@ -69,26 +70,27 @@ export default function AuthLogin() {
 
     try {
       // Сначала очищаем старые данные
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      localStorage.removeItem('tenant');
-      localStorage.removeItem('tenants');
-      localStorage.removeItem('roles');
+      storageService.remove('accessToken');
+      storageService.remove('refreshToken');
+      storageService.remove('user');
+      storageService.remove('tenant');
+      storageService.remove('tenants');
+      storageService.remove('roles');
 
       const result = await authService.login({
         email,
         password,
         rememberMe
       });
-// Дополнительно сохраняем роли если они есть
+
+      // Дополнительно сохраняем роли если они есть
       if (result.data?.roles) {
-        localStorage.setItem('roles', JSON.stringify(result.data.roles));
+        storageService.set('roles', result.data.roles);
       }
       
       // Проверяем что токены действительно сохранились
-      const savedToken = localStorage.getItem('accessToken');
-      const savedUser = localStorage.getItem('user');
+      const savedToken = storageService.get('accessToken');
+      const savedUser = storageService.get('user');
       
       if (!savedToken || !savedUser) {
         throw new Error('Ошибка сохранения данных авторизации');
@@ -98,8 +100,8 @@ export default function AuthLogin() {
       authLogin(result.data.user, result.data.tenant, result.data.tokens.accessToken);
       
       // Перенаправляем в приложение
-      const redirectPath = localStorage.getItem('redirectAfterLogin') || '/app';
-      localStorage.removeItem('redirectAfterLogin');
+      const redirectPath = storageService.get('redirectAfterLogin') || '/app';
+      storageService.remove('redirectAfterLogin');
       navigate(redirectPath, { replace: true });
     } catch (err) {
       console.error('Login error:', err);

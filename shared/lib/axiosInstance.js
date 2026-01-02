@@ -4,7 +4,7 @@
  */
 
 import axios from 'axios';
-import { refreshAccessToken, logout } from 'services/authService';
+import { refreshAccessToken, logout, getAccessToken } from 'services/authService';
 
 // API URL: в разработке - localhost, в production - Render backend
 const isProduction = window.location.hostname.includes('vercel.app') || 
@@ -46,7 +46,7 @@ const processQueue = (error, token = null) => {
 // Request interceptor - добавляем токен к каждому запросу
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
+    const token = getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

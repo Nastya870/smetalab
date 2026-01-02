@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import debounce from 'lodash.debounce';
+import storageService from '@/shared/lib/services/storageService';
 // InfiniteScroll больше не используется - собственная реализация через Intersection Observer
 
 // material-ui
@@ -138,9 +139,9 @@ const WorksReferencePage = () => {
   const [currentWork, setCurrentWork] = useState(emptyWork);
   const [searchInput, setSearchInput] = useState(''); // Для input (мгновенно)
   const [searchTerm, setSearchTerm] = useState(''); // Для фильтрации (debounced)
-  // Восстанавливаем фильтр из localStorage или используем 'global' по умолчанию
+  // Восстанавливаем фильтр из storage или используем 'global' по умолчанию
   const [globalFilter, setGlobalFilter] = useState(() => {
-    return localStorage.getItem('worksGlobalFilter') || 'global';
+    return storageService.get('worksGlobalFilter', 'global');
   });
   const { success, error: showError, info: showInfo } = useNotifications();
   const [openImportDialog, setOpenImportDialog] = useState(false);
@@ -184,9 +185,9 @@ const WorksReferencePage = () => {
     };
   }, [debouncedSearch]);
 
-  // Сохранение фильтра в localStorage при изменении
+  // Сохранение фильтра в storage при изменении
   useEffect(() => {
-    localStorage.setItem('worksGlobalFilter', globalFilter);
+    storageService.set('worksGlobalFilter', globalFilter);
   }, [globalFilter]);
 
   // 🚀 Загрузка первой страницы при изменении фильтра
