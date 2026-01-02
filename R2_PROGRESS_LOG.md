@@ -641,13 +641,165 @@ git reset --hard phase1-start
 
 ---
 
-**Status**: ✅ R2 Infrastructure Complete, Batch 1 Complete, Batch 2 Complete (6/6)  
-**Branch**: `refactor/r2-unified-error-handling` (6 commits ahead of phase1-start)  
-**Last Verified**: 2026-01-02 13:35 UTC  
+---
+
+## Batch 1 Remaining Progress (Auth/Users Ecosystem) - January 2, 2026
+
+### Completed: All 5 Controllers (Phase 1 Security Layer Priority)
+
+**Rationale**: Batch 1 remaining prioritized over Batch 3/4 due to:
+- Direct connection to already-stable authController.js (security layer consistency)
+- Critical impact on authentication/authorization flows (Phase 1 focus)
+- Smaller scope than materials/works (efficient testing iteration)
+
+**Controllers Migrated**:
+1. ✅ `usersController.js` - 10 functions
+   - **CRUD**: getAllUsers, getUserById, createUser, updateUser, deleteUser
+   - **Roles**: assignRoles, getAllRoles
+   - **Activation**: deactivateUser, activateUser
+   - **Upload**: uploadAvatar
+   - **Changes**: 1278 → 973 lines (-306 lines, -24% reduction)
+   - **Error Classes**: 32 total
+     - 19× UnauthorizedError (auth checks, permission validation)
+     - 6× BadRequestError (validation failures, invalid input)
+     - 5× NotFoundError (user not found)
+     - 2× ConflictError (duplicate email)
+
+2. ✅ `permissionsController.js` - 5 functions
+   - **Read**: getAllPermissions, getRolePermissions, getUserPermissions
+   - **Write**: updateRolePermissions
+   - **UI**: checkUIVisibility
+   - **Special Handling**: updateRolePermissions preserves internal DB transaction try/catch for atomic permission updates
+   - **Error Classes**: BadRequestError (permissions array validation), NotFoundError (role not found)
+
+3. ✅ `rolesController.js` - 5 functions
+   - **CRUD**: getAllRoles, getRoleById, createRole, updateRole, deleteRole
+   - **Special Handling**: 
+     - Preserved 403 checks for super_admin-only operations (NOT converted to ForbiddenError per operational decision)
+     - Tenant boundary enforcement (isSuperAdmin logic determines visibility scope)
+     - Global role protection in deleteRole (prevent deletion of system roles)
+   - **Error Classes**: BadRequestError (missing key/name), NotFoundError (role not found), ConflictError (duplicate role key)
+
+4. ✅ `tenantsController.js` - 3 functions
+   - **CRUD**: updateTenant, getTenant
+   - **Upload**: uploadLogo
+   - **Syntax Conversion**: Changed from `export async function` → `export const = catchAsync(async)` for consistency
+   - **Special Handling**: Preserved 403 tenant ownership checks, maintained multer file upload integration
+   - **Error Classes**: BadRequestError (file upload validation), NotFoundError (tenant not found)
+
+5. ✅ `passwordResetController.js` - 3 functions
+   - **Flow**: forgotPassword, resetPassword, validateResetToken
+   - **Special Handling**:
+     - Preserved email enumeration protection (generic "email sent" response regardless of user existence)
+     - Maintained token expiration logic (24h TTL)
+     - Preserved bcrypt password hashing
+     - Transaction safety for token invalidation (prevent race conditions)
+   - **Error Classes**: BadRequestError (token/password validation, status checks), UnauthorizedError (invalid/expired tokens)
+
+**Migration Pattern Applied**:
+```javascript
+// BEFORE (example from usersController.js):
+export async function createUser(req, res) {
+  try {
+    const { email, fullName, password } = req.body;
+    
+    if (!email || !fullName || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Заполните все обязательные поля'
+      });
+    }
+    
+    const existingUser = await db.query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    );
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'Пользователь с таким email уже существует'
+      });
+    }
+    
+    // ... business logic
+    res.json({ success: true, data: newUser });
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({
+      success: false,
+      message: sanitizeErrorMessage(error.message)
+    });
+  }
+}
+
+// AFTER:
+export const createUser = catchAsync(async (req, res) => {
+  const { email, fullName, password } = req.body;
+  
+  if (!email || !fullName || !password) {
+    throw new BadRequestError('Заполните все обязательные поля');
+  }
+  
+  const existingUser = await db.query(
+    'SELECT id FROM users WHERE email = $1',
+    [email]
+  );
+  if (existingUser.rows.length > 0) {
+    throw new ConflictError('Пользователь с таким email уже существует');
+  }
+  
+  // ... business logic
+  res.json({ success: true, data: newUser });
+});
+// catchAsync wrapper + errorHandler middleware handle all errors
+```
+
+**Verification**:
+- Command: `npm run test:unit && npx vitest run tests/integration/api/auth.api.test.js`
+- **Unit Tests**: ✅ 84/84 PASSED (verified after each controller group)
+- **Auth Integration**: ✅ 18/18 PASSED (final verification after all 5)
+- Duration: ~400-520s (unit) + ~520-570s (auth) = ~1000s total
+- **Special Note**: DB migration warnings (35/55 applied) documented in TEST_QUARANTINE.md as environmental/RLS setup issues - NOT related to controller code changes
+
+**Commits**:
+- `cd5746d` - "feat(R2): migrate Batch 1 remaining - users/roles/permissions/tenants/passwordReset controllers"
+  - 5 files changed: usersController.js, permissionsController.js, rolesController.js, tenantsController.js, passwordResetController.js
+  - +659 insertions / -1072 deletions
+  - Net: -413 lines boilerplate removed
+
+**Batch 1 Remaining Complete Summary**:
+- ✅ **5/5 controllers migrated**
+- **Total Functions**: 26 functions (10+5+5+3+3)
+- **Total Line Reduction**: -413 lines boilerplate (largest reduction: -306 lines usersController.js)
+- **Error Classes**: ~50+ total instances (UnauthorizedError dominant, BadRequestError/NotFoundError/ConflictError distributed)
+- **Commits**: 1 comprehensive commit covering all 5 controllers
+- **Migration Method**: 3 runSubagent calls (1× usersController, 1× permissions+roles, 1× tenants+passwordReset) - efficient automation vs manual editing
+
+**Key Decisions Preserved**:
+1. **403 Authorization Checks**: NOT converted to ForbiddenError class
+   - Remain as `res.status(403).json()` responses (operational decision)
+   - Example: super_admin-only role operations, tenant ownership checks
+   
+2. **Internal DB Transactions**: Preserved where needed
+   - Example: `updateRolePermissions()` maintains try/catch for atomic permission updates (BEGIN/COMMIT/ROLLBACK)
+   
+3. **Email Enumeration Protection**: Maintained in passwordResetController
+   - Generic success responses prevent user existence disclosure
+   
+4. **Syntax Normalization**: Converted legacy patterns
+   - `export async function` → `export const = catchAsync(async)` (tenantsController.js)
+
+---
+
+**Status**: ✅ R2 Infrastructure Complete, Batch 1 Complete, Batch 2 Complete (6/6), Batch 1 Remaining Complete (5/5)  
+**Branch**: `refactor/r2-unified-error-handling` (7 commits ahead of phase1-start)  
+**Last Verified**: 2026-01-02 14:25 UTC  
 **Tests**: Unit 84/84 ✅ | Auth Integration 18/18 ✅
 
 **Progress Summary**:
 - Batch 0 (Infrastructure): ✅ errors.js, errorHandler.js, server/index.js integration
 - Batch 1 (Auth): ✅ authController.js (6 functions)
-- **Batch 2 (Estimates/Projects): ✅ 6 controllers, 50 functions, -654 lines**
-- Remaining: Batch 3 (materials/works), Batch 4 (supporting), Batch 1 remaining (users/roles)
+- Batch 2 (Estimates/Projects): ✅ 6 controllers, 50 functions, -654 lines
+- **Batch 1 Remaining (Users/Roles/Permissions/Tenants/PasswordReset): ✅ 5 controllers, 26 functions, -413 lines**
+- **Total Migrated**: 12 controllers, 82 functions, -1067+ lines boilerplate
+- Remaining: Batch 3 (materials/works/purchases - 8 controllers), Batch 4 (supporting - 7 controllers)
