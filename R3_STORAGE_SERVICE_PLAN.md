@@ -5,7 +5,45 @@
 **Task**: R3 - Centralized Storage Service  
 **Date**: January 2, 2026  
 **Branch**: `refactor/r3-storage-service`  
-**Parent**: `refactor/phase1-security` (tag: `r2-complete`, commit: `ed61cf2`)
+**Parent**: `refactor/phase1-security` (tag: `r2-complete`, commit: `ed61cf2`)  
+**Status**: 🔄 IN PROGRESS (Batch 1 Complete - 60%)
+
+---
+
+## Progress Summary
+
+### ✅ Completed (6/10 files - 60%)
+
+#### Infrastructure (100%)
+- ✅ `shared/lib/services/storageService.js` (217 lines)
+- ✅ `tests/unit/services/storageService.test.js` (27/27 tests PASSED)
+- ✅ Commit: `0b67dfe` - feat(R3): add storageService with safe error handling
+
+#### Auth Layer Migration (100%)
+- ✅ `shared/lib/contexts/AuthContext.jsx` (8 calls → storageService)
+- ✅ `shared/lib/services/authService.js` (21 calls → storageService)
+- ✅ Commits:
+  - `407f753` - refactor(R3): migrate AuthContext to storageService
+  - `ed9252c` - refactor(R3): migrate authService to storageService
+
+#### Batch 1: Critical Auth Flow (100%)
+- ✅ `app/routes/ProtectedRoute.jsx` (4 calls → storageService)
+- ✅ `app/pages/auth-forms/AuthLogin.jsx` (12 calls → storageService)
+- ✅ `app/pages/VerifyEmail.jsx` (3 calls → storageService)
+- ✅ Commits:
+  - `e4befb0` - refactor(R3): migrate ProtectedRoute to storageService
+  - `8ff5038` - refactor(R3): migrate AuthLogin to storageService
+  - `830220a` - refactor(R3): migrate VerifyEmail to storageService
+
+**Test Results**:
+- Unit: 111/111 PASSED ✅
+- Auth Integration: 18/18 PASSED ✅
+
+### ⏳ Remaining (4 files - Batch 2: UI State)
+- `shared/ui/components/EmailVerificationBanner.jsx` (4 calls)
+- `app/references/materials/index.jsx` (2 calls)
+- `app/references/works/index.jsx` (2 calls)
+- `shared/lib/axiosInstance.js` (verify only - likely uses authService already)
 
 ---
 
@@ -71,33 +109,56 @@ const storageService = {
 
 ### 2. Migration Targets (Priority Order)
 
-#### Phase A: Auth Layer (Critical)
+#### ✅ Phase A: Auth Layer (Critical) - COMPLETE
 **Files**:
-1. `shared/lib/contexts/AuthContext.jsx`
-   - `localStorage.getItem('accessToken')` → `storageService.get('accessToken')`
-   - `localStorage.setItem('accessToken', token)` → `storageService.set('accessToken', token)`
-   - `localStorage.removeItem('accessToken')` → `storageService.remove('accessToken')`
-   - Same for `refreshToken`, `user`, `permissions`
+1. ✅ `shared/lib/contexts/AuthContext.jsx`
+   - Replaced: `localStorage.getItem/setItem/removeItem` → `storageService.get/set/remove`
+   - Keys: `accessToken`, `refreshToken`, `user`, `tenant`
+   - Commit: `407f753`
 
-2. `shared/lib/axiosInstance.js`
-   - Token retrieval logic
+2. ✅ `shared/lib/services/authService.js`
+   - Replaced: 21 localStorage calls → storageService
+   - Keys: `accessToken`, `refreshToken`, `user`, `tenant`, `tenants`, `roles`, `redirectAfterLogin`
+   - Commit: `ed9252c`
 
-**Verification**: `npm run test:unit && npx vitest run tests/integration/api/auth.api.test.js`
+3. ✅ `app/routes/ProtectedRoute.jsx`
+   - Replaced: 4 localStorage calls → storageService
+   - Keys: `accessToken`, `user`, `redirectAfterLogin`
+   - Commit: `e4befb0`
 
-#### Phase B: UI Components (Medium Priority)
-**Search Patterns**:
+4. ✅ `app/pages/auth-forms/AuthLogin.jsx`
+   - Replaced: 12 localStorage calls → storageService
+   - Keys: `accessToken`, `refreshToken`, `user`, `tenant`, `tenants`, `roles`, `redirectAfterLogin`
+   - Commit: `8ff5038`
+
+5. ✅ `app/pages/VerifyEmail.jsx`
+   - Replaced: 3 localStorage calls → storageService
+   - Keys: `user`, `accessToken`
+   - Commit: `830220a`
+
+**Verification**: ✅ `npm run test:unit` (111/111) && `npx vitest run tests/integration/api/auth.api.test.js` (18/18)
+
+#### ⏳ Phase B: UI Components (Medium Priority) - PENDING
+**Files**:
+1. `shared/ui/components/EmailVerificationBanner.jsx` (4 calls)
+   - Keys: `email_banner_dismissed`, `email_verification_last_sent`
+
+2. `app/references/materials/index.jsx` (2 calls)
+   - Keys: `materialsGlobalFilter`
+
+3. `app/references/works/index.jsx` (2 calls)
+   - Keys: `worksGlobalFilter`
+
+4. `shared/lib/axiosInstance.js` (verify only)
+   - Should use `authService.getAccessToken()` already
+
+**Search Completed**:
 ```bash
-# Find all localStorage/sessionStorage usage
-grep -r "localStorage\." app/ shared/
-grep -r "sessionStorage\." app/ shared/
+# All localStorage/sessionStorage usage found and categorized
+# Total: 38 calls across 10 files
+# Migrated: 30 calls (6 files) ✅
+# Remaining: 8 calls (4 files) ⏳
 ```
-
-**Expected Locations**:
-- Sidebar state persistence
-- Filter/search preferences
-- Table column visibility
-- Theme preferences (if any)
-- Recent items cache
 
 #### Phase C: Utility Hooks (Low Priority)
 Custom hooks using storage:
