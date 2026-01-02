@@ -3,6 +3,8 @@
  * Взаимодействие с API аутентификации
  */
 
+import storageService from './storageService';
+
 // API URL: в разработке - localhost, в production - Render backend
 const isProduction = typeof window !== 'undefined' && 
                      (window.location.hostname.includes('vercel.app') || 
@@ -40,18 +42,18 @@ export const register = async (data) => {
 
     // Сохраняем токены в localStorage
     if (result.data?.tokens) {
-      localStorage.setItem('accessToken', result.data.tokens.accessToken);
-      localStorage.setItem('refreshToken', result.data.tokens.refreshToken);
+      storageService.set('accessToken', result.data.tokens.accessToken);
+      storageService.set('refreshToken', result.data.tokens.refreshToken);
     }
 
     // Сохраняем данные пользователя
     if (result.data?.user) {
-      localStorage.setItem('user', JSON.stringify(result.data.user));
+      storageService.set('user', result.data.user);
     }
 
     // Сохраняем данные компании
     if (result.data?.tenant) {
-      localStorage.setItem('tenant', JSON.stringify(result.data.tenant));
+      storageService.set('tenant', result.data.tenant);
     }
 
     return result;
@@ -87,28 +89,28 @@ export const login = async (credentials) => {
 
     // Сохраняем токены
     if (result.data?.tokens) {
-      localStorage.setItem('accessToken', result.data.tokens.accessToken);
-      localStorage.setItem('refreshToken', result.data.tokens.refreshToken);
+      storageService.set('accessToken', result.data.tokens.accessToken);
+      storageService.set('refreshToken', result.data.tokens.refreshToken);
     }
 
     // Сохраняем данные пользователя
     if (result.data?.user) {
-      localStorage.setItem('user', JSON.stringify(result.data.user));
+      storageService.set('user', result.data.user);
     }
 
     // Сохраняем текущую компанию
     if (result.data?.tenant) {
-      localStorage.setItem('tenant', JSON.stringify(result.data.tenant));
+      storageService.set('tenant', result.data.tenant);
     }
 
     // Сохраняем список всех компаний
     if (result.data?.tenants) {
-      localStorage.setItem('tenants', JSON.stringify(result.data.tenants));
+      storageService.set('tenants', result.data.tenants);
     }
 
     // Сохраняем роли
     if (result.data?.roles) {
-      localStorage.setItem('roles', JSON.stringify(result.data.roles));
+      storageService.set('roles', result.data.roles);
     }
 
     return result;
@@ -124,7 +126,7 @@ export const login = async (credentials) => {
  */
 export const logout = async () => {
   try {
-    const refreshToken = localStorage.getItem('refreshToken');
+    const refreshToken = storageService.get('refreshToken');
 
     if (refreshToken) {
       await fetch(`${API_BASE_URL}/auth/logout`, {
@@ -139,12 +141,12 @@ export const logout = async () => {
     console.error('Logout error:', error);
   } finally {
     // Очищаем все данные из localStorage
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('tenant');
-    localStorage.removeItem('tenants');
-    localStorage.removeItem('roles');
+    storageService.remove('accessToken');
+    storageService.remove('refreshToken');
+    storageService.remove('user');
+    storageService.remove('tenant');
+    storageService.remove('tenants');
+    storageService.remove('roles');
   }
 };
 
@@ -154,7 +156,7 @@ export const logout = async () => {
  */
 export const refreshAccessToken = async () => {
   try {
-    const refreshToken = localStorage.getItem('refreshToken');
+    const refreshToken = storageService.get('refreshToken');
 
     if (!refreshToken) {
       throw new Error('No refresh token');
@@ -176,10 +178,10 @@ export const refreshAccessToken = async () => {
 
     // Обновляем токены
     if (result.data?.accessToken) {
-      localStorage.setItem('accessToken', result.data.accessToken);
+      storageService.set('accessToken', result.data.accessToken);
     }
     if (result.data?.refreshToken) {
-      localStorage.setItem('refreshToken', result.data.refreshToken);
+      storageService.set('refreshToken', result.data.refreshToken);
     }
 
     return result.data.accessToken;
@@ -197,7 +199,7 @@ export const refreshAccessToken = async () => {
  */
 export const getMe = async () => {
   try {
-    const accessToken = localStorage.getItem('accessToken');
+    const accessToken = storageService.get('accessToken');
 
     if (!accessToken) {
       throw new Error('No access token');
@@ -234,7 +236,7 @@ export const getMe = async () => {
  * @returns {boolean}
  */
 export const isAuthenticated = () => {
-  return !!localStorage.getItem('accessToken');
+  return !!storageService.get('accessToken');
 };
 
 /**
@@ -242,7 +244,7 @@ export const isAuthenticated = () => {
  * @returns {string|null}
  */
 export const getAccessToken = () => {
-  return localStorage.getItem('accessToken');
+  return storageService.get('accessToken');
 };
 
 /**
@@ -250,8 +252,7 @@ export const getAccessToken = () => {
  * @returns {Object|null}
  */
 export const getCurrentUser = () => {
-  const userStr = localStorage.getItem('user');
-  return userStr ? JSON.parse(userStr) : null;
+  return storageService.get('user');
 };
 
 /**
@@ -259,8 +260,7 @@ export const getCurrentUser = () => {
  * @returns {Object|null}
  */
 export const getCurrentTenant = () => {
-  const tenantStr = localStorage.getItem('tenant');
-  return tenantStr ? JSON.parse(tenantStr) : null;
+  return storageService.get('tenant');
 };
 
 /**
@@ -268,8 +268,8 @@ export const getCurrentTenant = () => {
  * @returns {Array}
  */
 export const getUserRoles = () => {
-  const rolesStr = localStorage.getItem('roles');
-  return rolesStr ? JSON.parse(rolesStr) : [];
+  const roles = storageService.get('roles');
+  return roles || [];
 };
 
 /**
@@ -277,9 +277,9 @@ export const getUserRoles = () => {
  * @returns {string}
  */
 export const getRedirectPath = () => {
-  const redirectPath = localStorage.getItem('redirectAfterLogin');
+  const redirectPath = storageService.get('redirectAfterLogin');
   if (redirectPath) {
-    localStorage.removeItem('redirectAfterLogin');
+    storageService.remove('redirectAfterLogin');
     return redirectPath;
   }
   return '/app'; // По умолчанию на dashboard
