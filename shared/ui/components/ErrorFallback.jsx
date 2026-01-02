@@ -1,11 +1,15 @@
 /**
  * Error Fallback UI
  * Default fallback component displayed when ErrorBoundary catches an error
+ * 
+ * Phase C: Supports critical error mode (error loops)
+ * - isCritical=true: Shows reload button, hides retry button
+ * - isCritical=false: Normal mode with retry button
  */
 
 import React from 'react';
 
-const ErrorFallback = ({ error, errorInfo, resetError }) => {
+const ErrorFallback = ({ error, errorInfo, resetError, isCritical = false }) => {
   const isDevelopment = import.meta.env.MODE === 'development';
 
   return (
@@ -20,14 +24,17 @@ const ErrorFallback = ({ error, errorInfo, resetError }) => {
         color: '#721c24'
       }}
     >
-      <h2 style={{ marginTop: 0 }}>⚠️ Что-то пошло не так</h2>
+      <h2 style={{ marginTop: 0 }}>
+        {isCritical ? '🚨 Критическая ошибка' : '⚠️ Что-то пошло не так'}
+      </h2>
       
       <p>
-        Произошла ошибка при отображении этого компонента. 
-        Попробуйте перезагрузить страницу или вернуться назад.
+        {isCritical
+          ? 'Обнаружена повторяющаяся ошибка. Пожалуйста, обновите страницу для сброса состояния приложения.'
+          : 'Произошла ошибка при отображении этого компонента. Попробуйте перезагрузить страницу или вернуться назад.'}
       </p>
 
-      {resetError && (
+      {!isCritical && resetError && (
         <button
           onClick={resetError}
           style={{
@@ -41,6 +48,23 @@ const ErrorFallback = ({ error, errorInfo, resetError }) => {
           }}
         >
           Попробовать снова
+        </button>
+      )}
+
+      {isCritical && (
+        <button
+          onClick={() => window.location.reload()}
+          style={{
+            padding: '0.5rem 1rem',
+            marginRight: '0.5rem',
+            backgroundColor: '#721c24',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          Обновить страницу
         </button>
       )}
 
