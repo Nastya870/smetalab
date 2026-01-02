@@ -4,6 +4,7 @@
 
 import estimatesRepository from '../repositories/estimatesRepository.js';
 import { StatusCodes } from 'http-status-codes';
+import { catchAsync, BadRequestError, NotFoundError, InternalServerError } from '../utils/errors.js';
 
 /**
  * @swagger
@@ -23,22 +24,14 @@ import { StatusCodes } from 'http-status-codes';
  *       200:
  *         description: Список смет
  */
-export async function getEstimatesByProject(req, res) {
-  try {
-    const { projectId } = req.params;
-    const tenantId = req.user.tenantId;
+export const getEstimatesByProject = catchAsync(async (req, res) => {
+  const { projectId } = req.params;
+  const tenantId = req.user.tenantId;
 
-    const estimates = await estimatesRepository.findByProjectId(projectId, tenantId);
+  const estimates = await estimatesRepository.findByProjectId(projectId, tenantId);
 
-    res.status(StatusCodes.OK).json(estimates);
-  } catch (error) {
-    console.error('Error fetching estimates:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при получении смет',
-      message: error.message
-    });
-  }
-}
+  res.status(StatusCodes.OK).json(estimates);
+});
 
 /**
  * @swagger
@@ -60,39 +53,29 @@ export async function getEstimatesByProject(req, res) {
  *       404:
  *         description: Смета не найдена
  */
-export async function getEstimateById(req, res) {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
+export const getEstimateById = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
 
-    const estimate = await estimatesRepository.findByIdWithDetails(id, tenantId);
+  const estimate = await estimatesRepository.findByIdWithDetails(id, tenantId);
 
-    if (!estimate) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        error: 'Смета не найдена'
-      });
-    }
-
-    // ✅ Логируем данные проекта для отладки
-    console.log('📊 Estimate controller - returning data:', {
-      estimate_id: estimate.id,
-      project_id: estimate.project_id,
-      client_name: estimate.client_name,
-      contractor_name: estimate.contractor_name,
-      object_address: estimate.object_address,
-      contract_number: estimate.contract_number,
-      items_count: estimate.items?.length || 0
-    });
-
-    res.status(StatusCodes.OK).json(estimate);
-  } catch (error) {
-    console.error('Error fetching estimate:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при получении сметы',
-      message: error.message
-    });
+  if (!estimate) {
+    throw new NotFoundError('Смета не найдена');
   }
-}
+
+  // ✅ Логируем данные проекта для отладки
+  console.log('📊 Estimate controller - returning data:', {
+    estimate_id: estimate.id,
+    project_id: estimate.project_id,
+    client_name: estimate.client_name,
+    contractor_name: estimate.contractor_name,
+    object_address: estimate.object_address,
+    contract_number: estimate.contract_number,
+    items_count: estimate.items?.length || 0
+  });
+
+  res.status(StatusCodes.OK).json(estimate);
+});
 
 /**
  * @swagger
@@ -227,36 +210,29 @@ export async function getEstimateById(req, res) {
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-export async function createEstimate(req, res) {
+export const createEstimate = catchAsync(async (req, res) => {
+  const { projectId } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
+
+  // Валидация обязательных полей
+  const { name, estimateType } = req.body;
+
+  if (!name || !name.trim()) {
+    throw new BadRequestError('Название сметы обязательно');
+  }
+
+  if (!estimateType) {
+    throw new BadRequestError('Тип сметы обязателен');
+  }
+
+  // Проверяем допустимые типы смет
+  const validTypes = ['строительство', 'реконструкция', 'капремонт', 'проектные работы', 'другое'];
+  if (!validTypes.includes(estimateType)) {
+    throw new BadRequestError('Недопустимый тип сметы');
+  }
+
   try {
-    const { projectId } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
-
-    // Валидация обязательных полей
-    const { name, estimateType } = req.body;
-
-    if (!name || !name.trim()) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'Название сметы обязательно'
-      });
-    }
-
-    if (!estimateType) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'Тип сметы обязателен'
-      });
-    }
-
-    // Проверяем допустимые типы смет
-    const validTypes = ['строительство', 'реконструкция', 'капремонт', 'проектные работы', 'другое'];
-    if (!validTypes.includes(estimateType)) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'Недопустимый тип сметы',
-        validTypes
-      });
-    }
-
     // Создаём смету
     const estimateData = {
       projectId,
@@ -267,21 +243,13 @@ export async function createEstimate(req, res) {
 
     res.status(StatusCodes.CREATED).json(newEstimate);
   } catch (error) {
-    console.error('Error creating estimate:', error);
-    
     // Обработка ошибок foreign key constraint (несуществующий проект)
     if (error.code === '23503') {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'Проект не найден или нет доступа'
-      });
+      throw new BadRequestError('Проект не найден или нет доступа');
     }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при создании сметы',
-      message: error.message
-    });
+    throw error;
   }
-}
+});
 
 /**
  * @swagger
@@ -388,52 +356,37 @@ export async function createEstimate(req, res) {
  *       500:
  *         description: Ошибка сервера
  */
-export async function updateEstimate(req, res) {
+export const updateEstimate = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
+
+  // Валидация типа сметы, если он передан
+  if (req.body.estimateType) {
+    const validTypes = ['строительство', 'реконструкция', 'капремонт', 'проектные работы', 'другое'];
+    if (!validTypes.includes(req.body.estimateType)) {
+      throw new BadRequestError('Недопустимый тип сметы');
+    }
+  }
+
+  // Валидация статуса, если он передан
+  if (req.body.status) {
+    const validStatuses = ['draft', 'in_review', 'approved', 'rejected', 'completed'];
+    if (!validStatuses.includes(req.body.status)) {
+      throw new BadRequestError('Недопустимый статус');
+    }
+  }
+
   try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
-
-    // Валидация типа сметы, если он передан
-    if (req.body.estimateType) {
-      const validTypes = ['строительство', 'реконструкция', 'капремонт', 'проектные работы', 'другое'];
-      if (!validTypes.includes(req.body.estimateType)) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          error: 'Недопустимый тип сметы',
-          validTypes
-        });
-      }
-    }
-
-    // Валидация статуса, если он передан
-    if (req.body.status) {
-      const validStatuses = ['draft', 'in_review', 'approved', 'rejected', 'completed'];
-      if (!validStatuses.includes(req.body.status)) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          error: 'Недопустимый статус',
-          validStatuses
-        });
-      }
-    }
-
     const updatedEstimate = await estimatesRepository.update(id, req.body, tenantId, userId);
-
     res.status(StatusCodes.OK).json(updatedEstimate);
   } catch (error) {
-    console.error('Error updating estimate:', error);
-
     if (error.message === 'Смета не найдена или нет доступа') {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        error: error.message
-      });
+      throw new NotFoundError(error.message);
     }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при обновлении сметы',
-      message: error.message
-    });
+    throw error;
   }
-}
+});
 
 /**
  * @swagger
@@ -486,31 +439,23 @@ export async function updateEstimate(req, res) {
  *       500:
  *         description: Ошибка сервера
  */
-export async function deleteEstimate(req, res) {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
+export const deleteEstimate = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
 
+  try {
     await estimatesRepository.deleteEstimate(id, tenantId);
 
     res.status(StatusCodes.OK).json({
       message: 'Смета успешно удалена'
     });
   } catch (error) {
-    console.error('Error deleting estimate:', error);
-
     if (error.message === 'Смета не найдена или нет доступа') {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        error: error.message
-      });
+      throw new NotFoundError(error.message);
     }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при удалении сметы',
-      message: error.message
-    });
+    throw error;
   }
-}
+});
 
 /**
  * @swagger
@@ -576,22 +521,14 @@ export async function deleteEstimate(req, res) {
  *       500:
  *         description: Ошибка сервера
  */
-export async function getEstimateStatistics(req, res) {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
+export const getEstimateStatistics = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
 
-    const statistics = await estimatesRepository.getStatistics(id, tenantId);
+  const statistics = await estimatesRepository.getStatistics(id, tenantId);
 
-    res.status(StatusCodes.OK).json(statistics);
-  } catch (error) {
-    console.error('Error fetching estimate statistics:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при получении статистики',
-      message: error.message
-    });
-  }
-}
+  res.status(StatusCodes.OK).json(statistics);
+});
 
 /**
  * @swagger
@@ -671,28 +608,18 @@ export async function getEstimateStatistics(req, res) {
  *       500:
  *         description: Ошибка сервера
  */
-export async function getEstimateFullDetails(req, res) {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user?.tenantId || '00000000-0000-0000-0000-000000000000';
+export const getEstimateFullDetails = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user?.tenantId || '00000000-0000-0000-0000-000000000000';
 
-    const estimate = await estimatesRepository.findByIdWithDetails(id, tenantId);
+  const estimate = await estimatesRepository.findByIdWithDetails(id, tenantId);
 
-    if (!estimate) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        error: 'Смета не найдена'
-      });
-    }
-
-    res.status(StatusCodes.OK).json(estimate);
-  } catch (error) {
-    console.error('Error fetching full estimate:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при получении полной сметы',
-      message: error.message
-    });
+  if (!estimate) {
+    throw new NotFoundError('Смета не найдена');
   }
-}
+
+  res.status(StatusCodes.OK).json(estimate);
+});
 
 /**
  * @swagger
@@ -838,43 +765,29 @@ export async function getEstimateFullDetails(req, res) {
  *       500:
  *         description: Ошибка сервера
  */
-export async function createEstimateWithDetails(req, res) {
-  try {
-    const tenantId = req.user?.tenantId || '00000000-0000-0000-0000-000000000000';
-    const userId = req.user?.userId || '00000000-0000-0000-0000-000000000000';
+export const createEstimateWithDetails = catchAsync(async (req, res) => {
+  const tenantId = req.user?.tenantId || '00000000-0000-0000-0000-000000000000';
+  const userId = req.user?.userId || '00000000-0000-0000-0000-000000000000';
 
-    // Валидация обязательных полей
-    const { name, projectId, estimateType } = req.body;
+  // Валидация обязательных полей
+  const { name, projectId, estimateType } = req.body;
 
-    if (!name || !name.trim()) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'Название сметы обязательно'
-      });
-    }
-
-    if (!projectId) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'ID проекта обязателен'
-      });
-    }
-
-    if (!estimateType) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'Тип сметы обязателен'
-      });
-    }
-
-    const newEstimate = await estimatesRepository.createWithDetails(req.body, tenantId, userId);
-
-    res.status(StatusCodes.CREATED).json(newEstimate);
-  } catch (error) {
-    console.error('Error creating full estimate:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при создании сметы',
-      message: error.message
-    });
+  if (!name || !name.trim()) {
+    throw new BadRequestError('Название сметы обязательно');
   }
-}
+
+  if (!projectId) {
+    throw new BadRequestError('ID проекта обязателен');
+  }
+
+  if (!estimateType) {
+    throw new BadRequestError('Тип сметы обязателен');
+  }
+
+  const newEstimate = await estimatesRepository.createWithDetails(req.body, tenantId, userId);
+
+  res.status(StatusCodes.CREATED).json(newEstimate);
+});
 
 export default {
   getEstimatesByProject,
