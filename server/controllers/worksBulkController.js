@@ -1,38 +1,32 @@
 import { StatusCodes } from 'http-status-codes';
 import db from '../config/database.js';
 import { invalidateWorksCache } from '../cache/referencesCache.js';
+import { catchAsync, BadRequestError, ConflictError } from '../utils/errors.js';
 
 /**
  * Массовое создание работ (bulk import)
  * POST /api/works/bulk
  */
-export async function bulkCreateWorks(req, res) {
-  try {
-    console.log('📦 Bulk import works started');
-    const { tenantId, isSuperAdmin } = req.user;
-    const { works, mode = 'add', isGlobal = false } = req.body;
-    
-    console.log(`📊 Import params: mode=${mode}, isGlobal=${isGlobal}, works count=${works?.length}, tenantId=${tenantId}`);
+export const bulkCreateWorks = catchAsync(async (req, res) => {
+  console.log('📦 Bulk import works started');
+  const { tenantId, isSuperAdmin } = req.user;
+  const { works, mode = 'add', isGlobal = false } = req.body;
+  
+  console.log(`📊 Import params: mode=${mode}, isGlobal=${isGlobal}, works count=${works?.length}, tenantId=${tenantId}`);
 
-    if (!works || !Array.isArray(works)) {
-      console.log('❌ Invalid data format');
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        message: 'Неверный формат данных. Ожидается массив работ.'
-      });
-    }
+  if (!works || !Array.isArray(works)) {
+    console.log('❌ Invalid data format');
+    throw new BadRequestError('Неверный формат данных. Ожидается массив работ.');
+  }
 
-    if (works.length === 0) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        message: 'Массив работ пуст'
-      });
-    }
+  if (works.length === 0) {
+    throw new BadRequestError('Массив работ пуст');
+  }
 
-    // Проверка прав для глобальных работ
-    if (isGlobal && !isSuperAdmin) {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        message: 'Только суперадмин может импортировать глобальные работы'
-      });
-    }
+  // Проверка прав для глобальных работ
+  if (isGlobal && !isSuperAdmin) {
+    throw new BadRequestError('Только суперадмин может импортировать глобальные работы');
+  }
 
     // Если режим "replace" - удаляем существующие работы
     if (mode === 'replace') {
@@ -103,24 +97,16 @@ export async function bulkCreateWorks(req, res) {
       }
     }
 
-    // Инвалидируем кэш
-    invalidateWorksCache();
+  // Инвалидируем кэш
+  invalidateWorksCache();
 
-    console.log(`✅ Import completed: ${imported.length} success, ${importErrors.length} errors`);
+  console.log(`✅ Import completed: ${imported.length} success, ${importErrors.length} errors`);
 
-    res.status(StatusCodes.OK).json({
-      message: 'Импорт завершен',
-      successCount: imported.length,
-      errorCount: importErrors.length,
-      errors: importErrors.length > 0 ? importErrors : undefined,
-      mode: mode
-    });
-
-  } catch (error) {
-    console.error('❌ Bulk import works error:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      message: 'Ошибка при импорте работ',
-      error: error.message
-    });
-  }
-}
+  res.status(StatusCodes.OK).json({
+    message: 'Импорт завершен',
+    successCount: imported.length,
+    errorCount: importErrors.length,
+    errors: importErrors.length > 0 ? importErrors : undefined,
+    mode: mode
+  });
+});
