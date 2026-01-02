@@ -5,130 +5,110 @@
 
 import db from '../config/database.js';
 import { StatusCodes } from 'http-status-codes';
+import { catchAsync, BadRequestError, NotFoundError, ConflictError } from '../utils/errors.js';
 
 /**
  * Получить все шаблоны текущего пользователя (tenant)
  * GET /api/estimate-templates
  */
-export async function getTemplates(req, res) {
-  try {
-    const { tenantId } = req.user;
+export const getTemplates = catchAsync(async (req, res) => {
+  const { tenantId } = req.user;
 
-    const query = `
-      SELECT 
-        et.*,
-        u.email as created_by_email,
-        (SELECT COUNT(*) FROM estimate_template_works WHERE template_id = et.id) as works_count,
-        (SELECT COUNT(*) FROM estimate_template_materials WHERE template_id = et.id) as materials_count
-      FROM estimate_templates et
-      LEFT JOIN users u ON et.created_by = u.id
-      WHERE et.tenant_id = $1
-      ORDER BY et.created_at DESC
-    `;
+  const query = `
+    SELECT 
+      et.*,
+      u.email as created_by_email,
+      (SELECT COUNT(*) FROM estimate_template_works WHERE template_id = et.id) as works_count,
+      (SELECT COUNT(*) FROM estimate_template_materials WHERE template_id = et.id) as materials_count
+    FROM estimate_templates et
+    LEFT JOIN users u ON et.created_by = u.id
+    WHERE et.tenant_id = $1
+    ORDER BY et.created_at DESC
+  `;
 
-    const result = await db.query(query, [tenantId]);
+  const result = await db.query(query, [tenantId]);
 
-    res.status(StatusCodes.OK).json({
-      success: true,
-      data: result.rows
-    });
-  } catch (error) {
-    console.error('❌ Error getting templates:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при получении шаблонов',
-      error: error.message
-    });
-  }
-}
+  res.status(StatusCodes.OK).json({
+    success: true,
+    data: result.rows
+  });
+});
 
 /**
  * Получить один шаблон по ID с полными данными (работы и материалы)
  * GET /api/estimate-templates/:id
  */
-export async function getTemplateById(req, res) {
-  try {
-    const { id } = req.params;
-    const { tenantId } = req.user;
+export const getTemplateById = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { tenantId } = req.user;
 
-    // Получаем шаблон
-    const templateQuery = `
-      SELECT et.*, u.email as created_by_email
-      FROM estimate_templates et
-      LEFT JOIN users u ON et.created_by = u.id
-      WHERE et.id = $1 AND et.tenant_id = $2
-    `;
-    const templateResult = await db.query(templateQuery, [id, tenantId]);
+  // Получаем шаблон
+  const templateQuery = `
+    SELECT et.*, u.email as created_by_email
+    FROM estimate_templates et
+    LEFT JOIN users u ON et.created_by = u.id
+    WHERE et.id = $1 AND et.tenant_id = $2
+  `;
+  const templateResult = await db.query(templateQuery, [id, tenantId]);
 
-    if (templateResult.rows.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Шаблон не найден'
-      });
-    }
-
-    const template = templateResult.rows[0];
-
-    // Получаем работы шаблона
-    const worksQuery = `
-      SELECT 
-        etw.*,
-        w.code, w.name, w.unit, w.base_price
-      FROM estimate_template_works etw
-      JOIN works w ON etw.work_id = w.id
-      WHERE etw.template_id = $1
-      ORDER BY etw.sort_order, etw.created_at
-    `;
-    const worksResult = await db.query(worksQuery, [id]);
-
-    // Получаем все материалы шаблона с привязкой к работам
-    const materialsQuery = `
-      SELECT 
-        etm.*,
-        m.sku, m.name, m.unit, m.price, m.supplier,
-        etw.work_id
-      FROM estimate_template_materials etm
-      JOIN materials m ON etm.material_id = m.id
-      LEFT JOIN estimate_template_works etw ON etm.template_work_id = etw.id
-      WHERE etm.template_id = $1
-      ORDER BY etm.sort_order, etm.created_at
-    `;
-    const materialsResult = await db.query(materialsQuery, [id]);
-
-    // Группируем материалы по работам
-    const works = worksResult.rows.map(work => ({
-      ...work,
-      materials: materialsResult.rows.filter(mat => mat.work_id === work.work_id)
-    }));
-
-    // Общее количество материалов
-    const totalMaterials = materialsResult.rows.length;
-
-    res.status(StatusCodes.OK).json({
-      success: true,
-      data: {
-        ...template,
-        works: works,
-        totalWorks: worksResult.rows.length,
-        totalMaterials: totalMaterials
-      }
-    });
-  } catch (error) {
-    console.error('❌ Error getting template by ID:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при получении шаблона',
-      error: error.message
-    });
+  if (templateResult.rows.length === 0) {
+    throw new NotFoundError('Шаблон не найден');
   }
-}
+
+  const template = templateResult.rows[0];
+
+  // Получаем работы шаблона
+  const worksQuery = `
+    SELECT 
+      etw.*,
+      w.code, w.name, w.unit, w.base_price
+    FROM estimate_template_works etw
+    JOIN works w ON etw.work_id = w.id
+    WHERE etw.template_id = $1
+    ORDER BY etw.sort_order, etw.created_at
+  `;
+  const worksResult = await db.query(worksQuery, [id]);
+
+  // Получаем все материалы шаблона с привязкой к работам
+  const materialsQuery = `
+    SELECT 
+      etm.*,
+      m.sku, m.name, m.unit, m.price, m.supplier,
+      etw.work_id
+    FROM estimate_template_materials etm
+    JOIN materials m ON etm.material_id = m.id
+    LEFT JOIN estimate_template_works etw ON etm.template_work_id = etw.id
+    WHERE etm.template_id = $1
+    ORDER BY etm.sort_order, etm.created_at
+  `;
+  const materialsResult = await db.query(materialsQuery, [id]);
+
+  // Группируем материалы по работам
+  const works = worksResult.rows.map(work => ({
+    ...work,
+    materials: materialsResult.rows.filter(mat => mat.work_id === work.work_id)
+  }));
+
+  // Общее количество материалов
+  const totalMaterials = materialsResult.rows.length;
+
+  res.status(StatusCodes.OK).json({
+    success: true,
+    data: {
+      ...template,
+      works: works,
+      totalWorks: worksResult.rows.length,
+      totalMaterials: totalMaterials
+    }
+  });
+});
 
 /**
  * Создать новый шаблон из существующей сметы
  * POST /api/estimate-templates
  * Body: { estimateId, name, description, category }
  */
-export async function createTemplate(req, res) {
+export const createTemplate = catchAsync(async (req, res) => {
   const client = await db.pool.connect();
   
   try {
@@ -136,10 +116,7 @@ export async function createTemplate(req, res) {
     const { tenantId, userId } = req.user;
 
     if (!estimateId || !name) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: 'Необходимо указать estimateId и name'
-      });
+      throw new BadRequestError('Необходимо указать estimateId и name');
     }
 
     await client.query('BEGIN');
@@ -244,40 +221,30 @@ export async function createTemplate(req, res) {
     console.error('❌ Error creating template:', error);
     
     if (error.code === '23505') { // Unique constraint violation
-      return res.status(StatusCodes.CONFLICT).json({
-        success: false,
-        message: 'Шаблон с таким названием уже существует'
-      });
+      throw new ConflictError('Шаблон с таким названием уже существует');
     }
 
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при создании шаблона',
-      error: error.message
-    });
+    throw error;
   } finally {
     client.release();
   }
-}
+});
 
 /**
  * Обновить шаблон
  * PUT /api/estimate-templates/:id
  * Body: { name, description, category }
  */
-export async function updateTemplate(req, res) {
+export const updateTemplate = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { name, description, category } = req.body;
+  const { tenantId } = req.user;
+
+  if (!name) {
+    throw new BadRequestError('Необходимо указать name');
+  }
+
   try {
-    const { id } = req.params;
-    const { name, description, category } = req.body;
-    const { tenantId } = req.user;
-
-    if (!name) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: 'Необходимо указать name'
-      });
-    }
-
     const query = `
       UPDATE estimate_templates
       SET 
@@ -292,10 +259,7 @@ export async function updateTemplate(req, res) {
     const result = await db.query(query, [name, description, category, id, tenantId]);
 
     if (result.rows.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Шаблон не найден'
-      });
+      throw new NotFoundError('Шаблон не найден');
     }
 
     res.status(StatusCodes.OK).json({
@@ -307,66 +271,47 @@ export async function updateTemplate(req, res) {
     console.error('❌ Error updating template:', error);
 
     if (error.code === '23505') {
-      return res.status(StatusCodes.CONFLICT).json({
-        success: false,
-        message: 'Шаблон с таким названием уже существует'
-      });
+      throw new ConflictError('Шаблон с таким названием уже существует');
     }
 
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при обновлении шаблона',
-      error: error.message
-    });
+    throw error;
   }
-}
+});
 
 /**
  * Удалить шаблон
  * DELETE /api/estimate-templates/:id
  */
-export async function deleteTemplate(req, res) {
-  try {
-    const { id } = req.params;
-    const { tenantId } = req.user;
+export const deleteTemplate = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { tenantId } = req.user;
 
-    const query = `
-      DELETE FROM estimate_templates
-      WHERE id = $1 AND tenant_id = $2
-      RETURNING id, name
-    `;
+  const query = `
+    DELETE FROM estimate_templates
+    WHERE id = $1 AND tenant_id = $2
+    RETURNING id, name
+  `;
 
-    const result = await db.query(query, [id, tenantId]);
+  const result = await db.query(query, [id, tenantId]);
 
-    if (result.rows.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Шаблон не найден'
-      });
-    }
-
-    console.log(`✅ Template deleted: ${result.rows[0].name}`);
-
-    res.status(StatusCodes.OK).json({
-      success: true,
-      message: 'Шаблон успешно удален'
-    });
-  } catch (error) {
-    console.error('❌ Error deleting template:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при удалении шаблона',
-      error: error.message
-    });
+  if (result.rows.length === 0) {
+    throw new NotFoundError('Шаблон не найден');
   }
-}
+
+  console.log(`✅ Template deleted: ${result.rows[0].name}`);
+
+  res.status(StatusCodes.OK).json({
+    success: true,
+    message: 'Шаблон успешно удален'
+  });
+});
 
 /**
  * Применить шаблон к смете (создать работы и материалы)
  * POST /api/estimate-templates/:id/apply
  * Body: { estimateId }
  */
-export async function applyTemplate(req, res) {
+export const applyTemplate = catchAsync(async (req, res) => {
   const client = await db.pool.connect();
 
   try {
@@ -382,10 +327,7 @@ export async function applyTemplate(req, res) {
 
     if (!estimateId) {
       console.error('❌ estimateId is missing or undefined');
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: 'Необходимо указать estimateId'
-      });
+      throw new BadRequestError('Необходимо указать estimateId');
     }
 
     await client.query('BEGIN');
@@ -398,10 +340,7 @@ export async function applyTemplate(req, res) {
 
     if (templateCheck.rows.length === 0) {
       await client.query('ROLLBACK');
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Шаблон не найден'
-      });
+      throw new NotFoundError('Шаблон не найден');
     }
 
     // Проверяем существование сметы
@@ -412,10 +351,7 @@ export async function applyTemplate(req, res) {
 
     if (estimateCheck.rows.length === 0) {
       await client.query('ROLLBACK');
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Смета не найдена'
-      });
+      throw new NotFoundError('Смета не найдена');
     }
 
     // Копируем работы из шаблона в смету (в estimate_items с актуальными ценами)
@@ -450,7 +386,7 @@ export async function applyTemplate(req, res) {
       ) as template_work_id
     `;
     
-    console.log('� Copying works from template:', templateId, 'to estimate:', estimateId);
+    console.log('📋 Copying works from template:', templateId, 'to estimate:', estimateId);
     
     const worksResult = await client.query(copyWorksQuery, [estimateId, templateId]);
 
@@ -519,13 +455,8 @@ export async function applyTemplate(req, res) {
     });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('❌ Error applying template:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при применении шаблона',
-      error: error.message
-    });
+    throw error;
   } finally {
     client.release();
   }
-}
+});
