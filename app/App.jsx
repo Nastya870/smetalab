@@ -22,9 +22,22 @@ import { AuthProvider } from 'contexts/AuthContext';
 import { PermissionsProvider } from 'shared/lib/contexts/PermissionsContext';
 import { NotificationsProvider } from 'shared/lib/contexts/NotificationsContext';
 
+// error boundary
+import ErrorBoundary from 'shared/ui/components/ErrorBoundary';
+import ErrorFallback from 'shared/ui/components/ErrorFallback';
+
 // ==============================|| APP ||============================== //
 
 export default function App() {
+  // Error handler для глобального ErrorBoundary
+  const handleError = (error, errorInfo) => {
+    console.error('[App] Global error caught:', {
+      error: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack
+    });
+  };
+
   return (
     <ThemeCustomization>
       <SnackbarProvider 
@@ -43,13 +56,15 @@ export default function App() {
       >
         <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="ru">
           <NavigationScroll>
-            <AuthProvider>
-              <PermissionsProvider>
-                <NotificationsProvider>
-                  <RouterProvider router={router} />
-                </NotificationsProvider>
-              </PermissionsProvider>
-            </AuthProvider>
+            <ErrorBoundary fallback={<ErrorFallback />} onError={handleError}>
+              <AuthProvider>
+                <PermissionsProvider>
+                  <NotificationsProvider>
+                    <RouterProvider router={router} />
+                  </NotificationsProvider>
+                </PermissionsProvider>
+              </AuthProvider>
+            </ErrorBoundary>
           </NavigationScroll>
         </LocalizationProvider>
       </SnackbarProvider>
