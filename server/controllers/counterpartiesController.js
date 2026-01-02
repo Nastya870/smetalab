@@ -1,5 +1,6 @@
 import { StatusCodes } from 'http-status-codes';
 import * as counterpartiesRepository from '../repositories/counterpartiesRepository.js';
+import { catchAsync, BadRequestError, NotFoundError, ConflictError } from '../utils/errors.js';
 
 // Helper: snake_case → camelCase
 const toCamelCase = (counterparty) => ({
@@ -101,33 +102,24 @@ const toSnakeCase = (data) => ({
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function getAllCounterparties(req, res) {
-  try {
-    const { entityType, search } = req.query;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const getAllCounterparties = catchAsync(async (req, res) => {
+  const { entityType, search } = req.query;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    const counterparties = await counterpartiesRepository.findAll(
-      tenantId,
-      userId,
-      { entityType, search }
-    );
+  const counterparties = await counterpartiesRepository.findAll(
+    tenantId,
+    userId,
+    { entityType, search }
+  );
 
-    const formatted = counterparties.map(toCamelCase);
+  const formatted = counterparties.map(toCamelCase);
 
-    res.status(StatusCodes.OK).json({
-      counterparties: formatted,
-      count: formatted.length
-    });
-
-  } catch (error) {
-    console.error('[COUNTERPARTIES] Error fetching counterparties:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при получении контрагентов',
-      message: error.message
-    });
-  }
-}
+  res.status(StatusCodes.OK).json({
+    counterparties: formatted,
+    count: formatted.length
+  });
+});
 
 /**
  * @swagger
@@ -159,30 +151,19 @@ export async function getAllCounterparties(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function getCounterpartyById(req, res) {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const getCounterpartyById = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    const counterparty = await counterpartiesRepository.findById(id, tenantId, userId);
+  const counterparty = await counterpartiesRepository.findById(id, tenantId, userId);
 
-    if (!counterparty) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        error: 'Контрагент не найден'
-      });
-    }
-
-    res.status(StatusCodes.OK).json(toCamelCase(counterparty));
-
-  } catch (error) {
-    console.error('[COUNTERPARTIES] Error fetching counterparty:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при получении контрагента',
-      message: error.message
-    });
+  if (!counterparty) {
+    throw new NotFoundError('Контрагент не найден');
   }
-}
+
+  res.status(StatusCodes.OK).json(toCamelCase(counterparty));
+});
 
 /**
  * @swagger
@@ -267,58 +248,43 @@ export async function getCounterpartyById(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function createCounterparty(req, res) {
+export const createCounterparty = catchAsync(async (req, res) => {
+  const data = toSnakeCase(req.body);
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
+
+  // Валидация обязательных полей
+  if (!data.entityType || !['individual', 'legal'].includes(data.entityType)) {
+    throw new BadRequestError('Необходимо указать тип контрагента: individual или legal');
+  }
+
+  if (data.entityType === 'individual') {
+    if (!data.fullName || !data.birthDate || !data.birthPlace || !data.passportSeriesNumber || 
+        !data.passportIssuedBy || !data.passportIssueDate || !data.registrationAddress) {
+      throw new BadRequestError('Для физического лица обязательны поля: ФИО, дата рождения, место рождения, паспортные данные, адрес регистрации');
+    }
+  }
+
+  if (data.entityType === 'legal') {
+    if (!data.companyName || !data.inn || !data.ogrn || !data.kpp || !data.legalAddress) {
+      throw new BadRequestError('Для юридического лица обязательны поля: наименование, ИНН, ОГРН, КПП, юридический адрес');
+    }
+  }
+
   try {
-    const data = toSnakeCase(req.body);
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
-
-    // Валидация обязательных полей
-    if (!data.entityType || !['individual', 'legal'].includes(data.entityType)) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'Необходимо указать тип контрагента: individual или legal'
-      });
-    }
-
-    if (data.entityType === 'individual') {
-      if (!data.fullName || !data.birthDate || !data.birthPlace || !data.passportSeriesNumber || 
-          !data.passportIssuedBy || !data.passportIssueDate || !data.registrationAddress) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          error: 'Для физического лица обязательны поля: ФИО, дата рождения, место рождения, паспортные данные, адрес регистрации'
-        });
-      }
-    }
-
-    if (data.entityType === 'legal') {
-      if (!data.companyName || !data.inn || !data.ogrn || !data.kpp || !data.legalAddress) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          error: 'Для юридического лица обязательны поля: наименование, ИНН, ОГРН, КПП, юридический адрес'
-        });
-      }
-    }
-
     const counterparty = await counterpartiesRepository.create(data, tenantId, userId);
 
     res.status(StatusCodes.CREATED).json({
       message: 'Контрагент успешно создан',
       counterparty: toCamelCase(counterparty)
     });
-
   } catch (error) {
-    console.error('[COUNTERPARTIES] Error creating counterparty:', error);
-    
     if (error.code === '23505') {
-      return res.status(StatusCodes.CONFLICT).json({
-        error: 'Контрагент с такими данными уже существует'
-      });
+      throw new ConflictError('Контрагент с такими данными уже существует');
     }
-    
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при создании контрагента',
-      message: error.message
-    });
+    throw error;
   }
-}
+});
 
 /**
  * @swagger
@@ -362,34 +328,23 @@ export async function createCounterparty(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function updateCounterparty(req, res) {
-  try {
-    const { id } = req.params;
-    const data = toSnakeCase(req.body);
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const updateCounterparty = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const data = toSnakeCase(req.body);
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    const counterparty = await counterpartiesRepository.update(id, data, tenantId, userId);
+  const counterparty = await counterpartiesRepository.update(id, data, tenantId, userId);
 
-    if (!counterparty) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        error: 'Контрагент не найден'
-      });
-    }
-
-    res.status(StatusCodes.OK).json({
-      message: 'Контрагент успешно обновлен',
-      counterparty: toCamelCase(counterparty)
-    });
-
-  } catch (error) {
-    console.error('[COUNTERPARTIES] Error updating counterparty:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при обновлении контрагента',
-      message: error.message
-    });
+  if (!counterparty) {
+    throw new NotFoundError('Контрагент не найден');
   }
-}
+
+  res.status(StatusCodes.OK).json({
+    message: 'Контрагент успешно обновлен',
+    counterparty: toCamelCase(counterparty)
+  });
+});
 
 /**
  * @swagger
@@ -424,32 +379,21 @@ export async function updateCounterparty(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function deleteCounterparty(req, res) {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const deleteCounterparty = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    const deleted = await counterpartiesRepository.deleteById(id, tenantId, userId);
+  const deleted = await counterpartiesRepository.deleteById(id, tenantId, userId);
 
-    if (!deleted) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        error: 'Контрагент не найден'
-      });
-    }
-
-    res.status(StatusCodes.OK).json({
-      message: 'Контрагент успешно удален'
-    });
-
-  } catch (error) {
-    console.error('[COUNTERPARTIES] Error deleting counterparty:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при удалении контрагента',
-      message: error.message
-    });
+  if (!deleted) {
+    throw new NotFoundError('Контрагент не найден');
   }
-}
+
+  res.status(StatusCodes.OK).json({
+    message: 'Контрагент успешно удален'
+  });
+});
 
 export default {
   getAllCounterparties,
