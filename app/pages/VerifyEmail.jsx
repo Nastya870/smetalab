@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
@@ -16,6 +16,7 @@ import {
   HourglassEmpty as LoadingIcon
 } from '@mui/icons-material';
 import emailAPI from 'api/email';
+import storageService from '@/shared/lib/services/storageService';
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
@@ -29,7 +30,7 @@ export default function VerifyEmail() {
 
     if (!token) {
       setStatus('error');
-      setMessage('Токен верификации не найден в URL');
+      setMessage('╨в╨╛╨║╨╡╨╜ ╨▓╨╡╤А╨╕╤Д╨╕╨║╨░╤Ж╨╕╨╕ ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜ ╨▓ URL');
       return;
     }
 
@@ -39,37 +40,37 @@ export default function VerifyEmail() {
   const verifyEmail = async (token) => {
     try {
       setStatus('loading');
-      setMessage('Проверяем ваш email...');
+      setMessage('╨Я╤А╨╛╨▓╨╡╤А╤П╨╡╨╝ ╨▓╨░╤И email...');
 
       const data = await emailAPI.verify(token);
 
       if (data.success) {
         setStatus('success');
-        setMessage('Email успешно подтвержден!');
+        setMessage('Email ╤Г╤Б╨┐╨╡╤И╨╜╨╛ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜!');
         setEmail(data.data?.email || '');
 
-        // Обновляем emailVerified в localStorage если пользователь уже залогинен
+        // ╨Ю╨▒╨╜╨╛╨▓╨╗╤П╨╡╨╝ emailVerified ╨▓ storage ╨╡╤Б╨╗╨╕ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М ╤Г╨╢╨╡ ╨╖╨░╨╗╨╛╨│╨╕╨╜╨╡╨╜
         try {
-          const storedUser = localStorage.getItem('user');
+          const storedUser = storageService.get('user');
           if (storedUser) {
-            const userData = JSON.parse(storedUser);
-            userData.emailVerified = true;
-            localStorage.setItem('user', JSON.stringify(userData));}
+            storedUser.emailVerified = true;
+            storageService.set('user', storedUser);
+          }
         } catch (error) {
-          console.error('❌ [VerifyEmail] Ошибка обновления localStorage:', error);
+          console.error('тЭМ [VerifyEmail] ╨Ю╤И╨╕╨▒╨║╨░ ╨╛╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨╕╤П storage:', error);
         }
 
-        // Перенаправляем на dashboard если залогинен, иначе на login
+        // ╨Я╨╡╤А╨╡╨╜╨░╨┐╤А╨░╨▓╨╗╤П╨╡╨╝ ╨╜╨░ dashboard ╨╡╤Б╨╗╨╕ ╨╖╨░╨╗╨╛╨│╨╕╨╜╨╡╨╜, ╨╕╨╜╨░╤З╨╡ ╨╜╨░ login
         setTimeout(() => {
-          const accessToken = localStorage.getItem('accessToken');
+          const accessToken = storageService.get('accessToken');
           if (accessToken) {
-            // Пользователь залогинен - перезагружаем страницу для обновления контекста
+            // ╨Я╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М ╨╖╨░╨╗╨╛╨│╨╕╨╜╨╡╨╜ - ╨┐╨╡╤А╨╡╨╖╨░╨│╤А╤Г╨╢╨░╨╡╨╝ ╤Б╤В╤А╨░╨╜╨╕╤Ж╤Г ╨┤╨╗╤П ╨╛╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨╕╤П ╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨░
             window.location.href = '/app';
           } else {
-            // Пользователь не залогинен - на страницу входа с сообщением
+            // ╨Я╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М ╨╜╨╡ ╨╖╨░╨╗╨╛╨│╨╕╨╜╨╡╨╜ - ╨╜╨░ ╤Б╤В╤А╨░╨╜╨╕╤Ж╤Г ╨▓╤Е╨╛╨┤╨░ ╤Б ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡╨╝
             navigate('/pages/login', { 
               state: { 
-                message: 'Email подтвержден! Войдите в систему.',
+                message: 'Email ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜! ╨Т╨╛╨╣╨┤╨╕╤В╨╡ ╨▓ ╤Б╨╕╤Б╤В╨╡╨╝╤Г.',
                 email: data.data?.email
               } 
             });
@@ -77,7 +78,7 @@ export default function VerifyEmail() {
         }, 2000);
       } else {
         setStatus('error');
-        setMessage(data.message || 'Ошибка при подтверждении email');
+        setMessage(data.message || '╨Ю╤И╨╕╨▒╨║╨░ ╨┐╤А╨╕ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╨╕ email');
       }
     } catch (error) {
       console.error('Verification error:', error);
@@ -87,9 +88,9 @@ export default function VerifyEmail() {
       if (error.response?.data?.message) {
         setMessage(error.response.data.message);
       } else if (error.response?.status === 400) {
-        setMessage('Недействительный или истекший токен верификации');
+        setMessage('╨Э╨╡╨┤╨╡╨╣╤Б╤В╨▓╨╕╤В╨╡╨╗╤М╨╜╤Л╨╣ ╨╕╨╗╨╕ ╨╕╤Б╤В╨╡╨║╤И╨╕╨╣ ╤В╨╛╨║╨╡╨╜ ╨▓╨╡╤А╨╕╤Д╨╕╨║╨░╤Ж╨╕╨╕');
       } else {
-        setMessage('Произошла ошибка при подтверждении email. Попробуйте позже.');
+        setMessage('╨Я╤А╨╛╨╕╨╖╨╛╤И╨╗╨░ ╨╛╤И╨╕╨▒╨║╨░ ╨┐╤А╨╕ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╨╕ email. ╨Я╨╛╨┐╤А╨╛╨▒╤Г╨╣╤В╨╡ ╨┐╨╛╨╖╨╢╨╡.');
       }
     }
   };
@@ -140,7 +141,7 @@ export default function VerifyEmail() {
             textAlign: 'center'
           }}
         >
-          {/* Иконка статуса */}
+          {/* ╨Ш╨║╨╛╨╜╨║╨░ ╤Б╤В╨░╤В╤Г╤Б╨░ */}
           <Box sx={{ mb: 3 }}>
             {status === 'loading' ? (
               <CircularProgress size={80} thickness={4} />
@@ -149,14 +150,14 @@ export default function VerifyEmail() {
             )}
           </Box>
 
-          {/* Заголовок */}
+          {/* ╨Ч╨░╨│╨╛╨╗╨╛╨▓╨╛╨║ */}
           <Typography variant="h4" fontWeight="bold" gutterBottom>
-            {status === 'loading' && 'Подтверждение Email'}
-            {status === 'success' && 'Успешно!'}
-            {status === 'error' && 'Ошибка'}
+            {status === 'loading' && '╨Я╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╨╡ Email'}
+            {status === 'success' && '╨г╤Б╨┐╨╡╤И╨╜╨╛!'}
+            {status === 'error' && '╨Ю╤И╨╕╨▒╨║╨░'}
           </Typography>
 
-          {/* Сообщение */}
+          {/* ╨б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ */}
           <Typography 
             variant="body1" 
             color="text.secondary" 
@@ -165,7 +166,7 @@ export default function VerifyEmail() {
             {message}
           </Typography>
 
-          {/* Email (только при успехе) */}
+          {/* Email (╤В╨╛╨╗╤М╨║╨╛ ╨┐╤А╨╕ ╤Г╤Б╨┐╨╡╤Е╨╡) */}
           {status === 'success' && email && (
             <Alert 
               severity="success" 
@@ -173,25 +174,25 @@ export default function VerifyEmail() {
               sx={{ mb: 3, justifyContent: 'center' }}
             >
               <Typography variant="body2">
-                Email <strong>{email}</strong> подтвержден
+                Email <strong>{email}</strong> ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜
               </Typography>
             </Alert>
           )}
 
-          {/* Дополнительная информация */}
+          {/* ╨Ф╨╛╨┐╨╛╨╗╨╜╨╕╤В╨╡╨╗╤М╨╜╨░╤П ╨╕╨╜╤Д╨╛╤А╨╝╨░╤Ж╨╕╤П */}
           {status === 'loading' && (
             <Typography variant="body2" color="text.secondary">
-              Пожалуйста, подождите...
+              ╨Я╨╛╨╢╨░╨╗╤Г╨╣╤Б╤В╨░, ╨┐╨╛╨┤╨╛╨╢╨┤╨╕╤В╨╡...
             </Typography>
           )}
 
           {status === 'success' && (
             <Alert severity="info" sx={{ mb: 2 }}>
-              Вы будете перенаправлены на страницу входа через несколько секунд
+              ╨Т╤Л ╨▒╤Г╨┤╨╡╤В╨╡ ╨┐╨╡╤А╨╡╨╜╨░╨┐╤А╨░╨▓╨╗╨╡╨╜╤Л ╨╜╨░ ╤Б╤В╤А╨░╨╜╨╕╤Ж╤Г ╨▓╤Е╨╛╨┤╨░ ╤З╨╡╤А╨╡╨╖ ╨╜╨╡╤Б╨║╨╛╨╗╤М╨║╨╛ ╤Б╨╡╨║╤Г╨╜╨┤
             </Alert>
           )}
 
-          {/* Кнопки */}
+          {/* ╨Ъ╨╜╨╛╨┐╨║╨╕ */}
           <Stack spacing={2} sx={{ mt: 4 }}>
             {status === 'success' && (
               <Button
@@ -205,7 +206,7 @@ export default function VerifyEmail() {
                   }
                 }}
               >
-                Войти в систему
+                ╨Т╨╛╨╣╤В╨╕ ╨▓ ╤Б╨╕╤Б╤В╨╡╨╝╤Г
               </Button>
             )}
 
@@ -222,14 +223,14 @@ export default function VerifyEmail() {
                     }
                   }}
                 >
-                  Вернуться к входу
+                  ╨Т╨╡╤А╨╜╤Г╤В╤М╤Б╤П ╨║ ╨▓╤Е╨╛╨┤╤Г
                 </Button>
                 <Button
                   variant="outlined"
                   size="large"
                   onClick={() => navigate('/pages/register')}
                 >
-                  Зарегистрироваться заново
+                  ╨Ч╨░╤А╨╡╨│╨╕╤Б╤В╤А╨╕╤А╨╛╨▓╨░╤В╤М╤Б╤П ╨╖╨░╨╜╨╛╨▓╨╛
                 </Button>
               </>
             )}
@@ -240,16 +241,16 @@ export default function VerifyEmail() {
                 onClick={() => navigate('/')}
                 sx={{ mt: 2 }}
               >
-                На главную
+                ╨Э╨░ ╨│╨╗╨░╨▓╨╜╤Г╤О
               </Button>
             )}
           </Stack>
         </Paper>
 
-        {/* Дополнительная информация внизу */}
+        {/* ╨Ф╨╛╨┐╨╛╨╗╨╜╨╕╤В╨╡╨╗╤М╨╜╨░╤П ╨╕╨╜╤Д╨╛╤А╨╝╨░╤Ж╨╕╤П ╨▓╨╜╨╕╨╖╤Г */}
         <Box sx={{ mt: 3, textAlign: 'center' }}>
           <Typography variant="body2" sx={{ color: 'white', opacity: 0.9 }}>
-            © 2025 Smeta Lab. Система управления сметами
+            ┬й 2025 Smeta Lab. ╨б╨╕╤Б╤В╨╡╨╝╨░ ╤Г╨┐╤А╨░╨▓╨╗╨╡╨╜╨╕╤П ╤Б╨╝╨╡╤В╨░╨╝╨╕
           </Typography>
         </Box>
       </Container>
