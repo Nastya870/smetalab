@@ -1,5 +1,6 @@
 import { StatusCodes } from 'http-status-codes';
 import * as workCompletionActsRepository from '../repositories/workCompletionActsRepository.js';
+import { catchAsync, BadRequestError, NotFoundError } from '../utils/errors.js';
 
 /**
  * @swagger
@@ -51,44 +52,38 @@ import * as workCompletionActsRepository from '../repositories/workCompletionAct
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function generateAct(req, res) {
+export const generateAct = catchAsync(async (req, res) => {
+  const { estimateId, projectId, actType, periodFrom, periodTo, actDate } = req.body;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
+
+  console.log('[ACT CONTROLLER] Generate request:', { estimateId, projectId, actType, tenantId, userId });
+
+  // Валидация
+  if (!estimateId) {
+    throw new BadRequestError('ID сметы обязателен');
+  }
+
+  if (!projectId) {
+    throw new BadRequestError('ID проекта обязателен');
+  }
+
+  if (!actType || !['client', 'specialist', 'both'].includes(actType)) {
+    throw new BadRequestError('Тип акта должен быть: client, specialist или both');
+  }
+
+  const options = {
+    periodFrom,
+    periodTo,
+    actDate: actDate || new Date(),
+    status: 'draft'
+  };
+
+  let clientAct = null;
+  let specialistAct = null;
+
+  // Генерируем акт(ы) в зависимости от типа
   try {
-    const { estimateId, projectId, actType, periodFrom, periodTo, actDate } = req.body;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
-
-    console.log('[ACT CONTROLLER] Generate request:', { estimateId, projectId, actType, tenantId, userId });
-
-    // Валидация
-    if (!estimateId) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'ID сметы обязателен'
-      });
-    }
-
-    if (!projectId) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'ID проекта обязателен'
-      });
-    }
-
-    if (!actType || !['client', 'specialist', 'both'].includes(actType)) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'Тип акта должен быть: client, specialist или both'
-      });
-    }
-
-    const options = {
-      periodFrom,
-      periodTo,
-      actDate: actDate || new Date(),
-      status: 'draft'
-    };
-
-    let clientAct = null;
-    let specialistAct = null;
-
-    // Генерируем акт(ы) в зависимости от типа
     if (actType === 'client' || actType === 'both') {
       console.log('[ACT CONTROLLER] Generating CLIENT act...');
       clientAct = await workCompletionActsRepository.generateClientAct(
@@ -110,54 +105,46 @@ export async function generateAct(req, res) {
         options
       );
     }
-
-    // Формируем ответ
-    const response = {
-      message: actType === 'both' 
-        ? 'Акты успешно сформированы' 
-        : 'Акт успешно сформирован'
-    };
-
-    if (clientAct) {
-      response.clientAct = {
-        id: clientAct.id,
-        actNumber: clientAct.act_number,
-        actDate: clientAct.act_date,
-        totalAmount: clientAct.total_amount,
-        workCount: clientAct.work_count,
-        status: clientAct.status
-      };
-    }
-
-    if (specialistAct) {
-      response.specialistAct = {
-        id: specialistAct.id,
-        actNumber: specialistAct.act_number,
-        actDate: specialistAct.act_date,
-        totalAmount: specialistAct.total_amount,
-        workCount: specialistAct.work_count,
-        status: specialistAct.status
-      };
-    }
-
-    res.status(StatusCodes.CREATED).json(response);
-
   } catch (error) {
     console.error('[ACT CONTROLLER] Error generating act:', error);
-    
     // Проверяем, если это ошибка отсутствия выполненных работ
     if (error.code === 'NO_COMPLETED_WORKS') {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: error.message
-      });
+      throw new BadRequestError(error.message);
     }
-    
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при формировании акта',
-      message: error.message
-    });
+    throw error;
   }
-}
+
+  // Формируем ответ
+  const response = {
+    message: actType === 'both' 
+      ? 'Акты успешно сформированы' 
+      : 'Акт успешно сформирован'
+  };
+
+  if (clientAct) {
+    response.clientAct = {
+      id: clientAct.id,
+      actNumber: clientAct.act_number,
+      actDate: clientAct.act_date,
+      totalAmount: clientAct.total_amount,
+      workCount: clientAct.work_count,
+      status: clientAct.status
+    };
+  }
+
+  if (specialistAct) {
+    response.specialistAct = {
+      id: specialistAct.id,
+      actNumber: specialistAct.act_number,
+      actDate: specialistAct.act_date,
+      totalAmount: specialistAct.total_amount,
+      workCount: specialistAct.work_count,
+      status: specialistAct.status
+    };
+  }
+
+  res.status(StatusCodes.CREATED).json(response);
+});
 
 /**
  * @swagger
@@ -189,50 +176,41 @@ export async function generateAct(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function getActsByEstimate(req, res) {
-  try {
-    const { estimateId } = req.params;
-    const { actType } = req.query;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const getActsByEstimate = catchAsync(async (req, res) => {
+  const { estimateId } = req.params;
+  const { actType } = req.query;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    const acts = await workCompletionActsRepository.findByEstimateId(
-      estimateId,
-      tenantId,
-      userId,
-      actType
-    );
+  const acts = await workCompletionActsRepository.findByEstimateId(
+    estimateId,
+    tenantId,
+    userId,
+    actType
+  );
 
-    // ✅ Преобразуем snake_case → camelCase
-    const formattedActs = acts.map(act => ({
-      id: act.id,
-      actType: act.act_type,
-      actNumber: act.act_number,
-      actDate: act.act_date,
-      periodFrom: act.period_from,
-      periodTo: act.period_to,
-      totalAmount: act.total_amount,
-      totalQuantity: act.total_quantity,
-      workCount: act.work_count,
-      status: act.status,
-      notes: act.notes,
-      createdAt: act.created_at,
-      updatedAt: act.updated_at
-    }));
+  // ✅ Преобразуем snake_case → camelCase
+  const formattedActs = acts.map(act => ({
+    id: act.id,
+    actType: act.act_type,
+    actNumber: act.act_number,
+    actDate: act.act_date,
+    periodFrom: act.period_from,
+    periodTo: act.period_to,
+    totalAmount: act.total_amount,
+    totalQuantity: act.total_quantity,
+    workCount: act.work_count,
+    status: act.status,
+    notes: act.notes,
+    createdAt: act.created_at,
+    updatedAt: act.updated_at
+  }));
 
-    res.status(StatusCodes.OK).json({
-      acts: formattedActs,
-      count: formattedActs.length
-    });
-
-  } catch (error) {
-    console.error('[ACT CONTROLLER] Error fetching acts:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при получении актов',
-      message: error.message
-    });
-  }
-}
+  res.status(StatusCodes.OK).json({
+    acts: formattedActs,
+    count: formattedActs.length
+  });
+});
 
 /**
  * @swagger
@@ -260,70 +238,59 @@ export async function getActsByEstimate(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function getActById(req, res) {
-  try {
-    const { actId } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const getActById = catchAsync(async (req, res) => {
+  const { actId } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    const actWithItems = await workCompletionActsRepository.findById(actId, tenantId, userId);
+  const actWithItems = await workCompletionActsRepository.findById(actId, tenantId, userId);
 
-    if (!actWithItems) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        error: 'Акт не найден'
-      });
-    }
-
-    // ✅ Преобразуем items в camelCase
-    const formattedItems = actWithItems.items.map(item => ({
-      id: item.id,
-      actId: item.act_id,
-      estimateItemId: item.estimate_item_id,
-      workId: item.work_id,
-      workCode: item.work_code,
-      workName: item.work_name,
-      section: item.section,
-      subsection: item.subsection,
-      unit: item.unit,
-      plannedQuantity: item.planned_quantity,
-      actualQuantity: item.actual_quantity,
-      unitPrice: item.unit_price,
-      totalPrice: item.total_price,
-      positionNumber: item.position_number,
-      createdAt: item.created_at
-    }));
-
-    // Группируем позиции по разделам для удобного отображения
-    const groupedItems = workCompletionActsRepository.groupItemsBySection(formattedItems);
-
-    res.status(StatusCodes.OK).json({
-      act: {
-        id: actWithItems.id,
-        actType: actWithItems.act_type,
-        actNumber: actWithItems.act_number,
-        actDate: actWithItems.act_date,
-        periodFrom: actWithItems.period_from,
-        periodTo: actWithItems.period_to,
-        totalAmount: actWithItems.total_amount,
-        totalQuantity: actWithItems.total_quantity,
-        workCount: actWithItems.work_count,
-        status: actWithItems.status,
-        notes: actWithItems.notes,
-        createdAt: actWithItems.created_at,
-        updatedAt: actWithItems.updated_at
-      },
-      items: formattedItems,
-      groupedItems: groupedItems
-    });
-
-  } catch (error) {
-    console.error('[ACT CONTROLLER] Error fetching act:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при получении акта',
-      message: error.message
-    });
+  if (!actWithItems) {
+    throw new NotFoundError('Акт не найден');
   }
-}
+
+  // ✅ Преобразуем items в camelCase
+  const formattedItems = actWithItems.items.map(item => ({
+    id: item.id,
+    actId: item.act_id,
+    estimateItemId: item.estimate_item_id,
+    workId: item.work_id,
+    workCode: item.work_code,
+    workName: item.work_name,
+    section: item.section,
+    subsection: item.subsection,
+    unit: item.unit,
+    plannedQuantity: item.planned_quantity,
+    actualQuantity: item.actual_quantity,
+    unitPrice: item.unit_price,
+    totalPrice: item.total_price,
+    positionNumber: item.position_number,
+    createdAt: item.created_at
+  }));
+
+  // Группируем позиции по разделам для удобного отображения
+  const groupedItems = workCompletionActsRepository.groupItemsBySection(formattedItems);
+
+  res.status(StatusCodes.OK).json({
+    act: {
+      id: actWithItems.id,
+      actType: actWithItems.act_type,
+      actNumber: actWithItems.act_number,
+      actDate: actWithItems.act_date,
+      periodFrom: actWithItems.period_from,
+      periodTo: actWithItems.period_to,
+      totalAmount: actWithItems.total_amount,
+      totalQuantity: actWithItems.total_quantity,
+      workCount: actWithItems.work_count,
+      status: actWithItems.status,
+      notes: actWithItems.notes,
+      createdAt: actWithItems.created_at,
+      updatedAt: actWithItems.updated_at
+    },
+    items: formattedItems,
+    groupedItems: groupedItems
+  });
+});
 
 /**
  * @swagger
@@ -351,32 +318,21 @@ export async function getActById(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function deleteAct(req, res) {
-  try {
-    const { actId } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const deleteAct = catchAsync(async (req, res) => {
+  const { actId } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    const deleted = await workCompletionActsRepository.deleteById(actId, tenantId, userId);
+  const deleted = await workCompletionActsRepository.deleteById(actId, tenantId, userId);
 
-    if (!deleted) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        error: 'Акт не найден'
-      });
-    }
-
-    res.status(StatusCodes.OK).json({
-      message: 'Акт успешно удален'
-    });
-
-  } catch (error) {
-    console.error('[ACT CONTROLLER] Error deleting act:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при удалении акта',
-      message: error.message
-    });
+  if (!deleted) {
+    throw new NotFoundError('Акт не найден');
   }
-}
+
+  res.status(StatusCodes.OK).json({
+    message: 'Акт успешно удален'
+  });
+});
 
 /**
  * @swagger
@@ -420,52 +376,38 @@ export async function deleteAct(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function updateActStatus(req, res) {
-  try {
-    const { actId } = req.params;
-    const { status } = req.body;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const updateActStatus = catchAsync(async (req, res) => {
+  const { actId } = req.params;
+  const { status } = req.body;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    // Валидация статуса
-    const validStatuses = ['draft', 'pending', 'approved', 'paid'];
-    if (!validStatuses.includes(status)) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'Недопустимый статус',
-        validStatuses
-      });
-    }
-
-    const updatedAct = await workCompletionActsRepository.updateStatus(
-      actId,
-      status,
-      tenantId,
-      userId
-    );
-
-    if (!updatedAct) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        error: 'Акт не найден'
-      });
-    }
-
-    res.status(StatusCodes.OK).json({
-      message: 'Статус акта обновлен',
-      act: {
-        id: updatedAct.id,
-        status: updatedAct.status,
-        updatedAt: updatedAct.updated_at
-      }
-    });
-
-  } catch (error) {
-    console.error('[ACT CONTROLLER] Error updating act status:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при обновлении статуса акта',
-      message: error.message
-    });
+  // Валидация статуса
+  const validStatuses = ['draft', 'pending', 'approved', 'paid'];
+  if (!validStatuses.includes(status)) {
+    throw new BadRequestError('Недопустимый статус');
   }
-}
+
+  const updatedAct = await workCompletionActsRepository.updateStatus(
+    actId,
+    status,
+    tenantId,
+    userId
+  );
+
+  if (!updatedAct) {
+    throw new NotFoundError('Акт не найден');
+  }
+
+  res.status(StatusCodes.OK).json({
+    message: 'Статус акта обновлен',
+    act: {
+      id: updatedAct.id,
+      status: updatedAct.status,
+      updatedAt: updatedAct.updated_at
+    }
+  });
+});
 
 /**
  * @swagger
@@ -635,35 +577,26 @@ export async function updateActStatus(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function getFormKS2(req, res) {
+export const getFormKS2 = catchAsync(async (req, res) => {
   console.log('🟢 [CONTROLLER KS2] Entered getFormKS2');
   console.log('🟢 [CONTROLLER KS2] actId:', req.params.actId);
   console.log('🟢 [CONTROLLER KS2] user:', req.user);
   
-  try {
-    const { actId } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+  const { actId } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    console.log('🟢 [CONTROLLER KS2] Calling repository with:', { actId, tenantId, userId });
+  console.log('🟢 [CONTROLLER KS2] Calling repository with:', { actId, tenantId, userId });
 
-    const ks2Data = await workCompletionActsRepository.getFormKS2Data(
-      actId,
-      tenantId,
-      userId
-    );
+  const ks2Data = await workCompletionActsRepository.getFormKS2Data(
+    actId,
+    tenantId,
+    userId
+  );
 
-    console.log('🟢 [CONTROLLER KS2] Success! Returning data');
-    res.status(StatusCodes.OK).json(ks2Data);
-
-  } catch (error) {
-    console.error('🔴 [ACT CONTROLLER] Error fetching KS-2:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при получении данных формы КС-2',
-      message: error.message
-    });
-  }
-}
+  console.log('🟢 [CONTROLLER KS2] Success! Returning data');
+  res.status(StatusCodes.OK).json(ks2Data);
+});
 
 /**
  * @swagger
@@ -824,28 +757,19 @@ export async function getFormKS2(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function getFormKS3(req, res) {
-  try {
-    const { actId } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const getFormKS3 = catchAsync(async (req, res) => {
+  const { actId } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    const ks3Data = await workCompletionActsRepository.getFormKS3Data(
-      actId,
-      tenantId,
-      userId
-    );
+  const ks3Data = await workCompletionActsRepository.getFormKS3Data(
+    actId,
+    tenantId,
+    userId
+  );
 
-    res.status(StatusCodes.OK).json(ks3Data);
-
-  } catch (error) {
-    console.error('[ACT CONTROLLER] Error fetching KS-3:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при получении данных формы КС-3',
-      message: error.message
-    });
-  }
-}
+  res.status(StatusCodes.OK).json(ks3Data);
+});
 
 /**
  * @swagger
@@ -893,40 +817,31 @@ export async function getFormKS3(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function updateActDetails(req, res) {
-  try {
-    const { actId } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const updateActDetails = catchAsync(async (req, res) => {
+  const { actId } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    const updatedAct = await workCompletionActsRepository.updateActDetails(
-      actId,
-      req.body,
-      tenantId,
-      userId
-    );
+  const updatedAct = await workCompletionActsRepository.updateActDetails(
+    actId,
+    req.body,
+    tenantId,
+    userId
+  );
 
-    res.status(StatusCodes.OK).json({
-      message: 'Детали акта обновлены',
-      act: {
-        id: updatedAct.id,
-        contractorId: updatedAct.contractor_id,
-        customerId: updatedAct.customer_id,
-        contractNumber: updatedAct.contract_number,
-        contractDate: updatedAct.contract_date,
-        constructionObject: updatedAct.construction_object,
-        updatedAt: updatedAct.updated_at
-      }
-    });
-
-  } catch (error) {
-    console.error('[ACT CONTROLLER] Error updating act details:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при обновлении деталей акта',
-      message: error.message
-    });
-  }
-}
+  res.status(StatusCodes.OK).json({
+    message: 'Детали акта обновлены',
+    act: {
+      id: updatedAct.id,
+      contractorId: updatedAct.contractor_id,
+      customerId: updatedAct.customer_id,
+      contractNumber: updatedAct.contract_number,
+      contractDate: updatedAct.contract_date,
+      constructionObject: updatedAct.construction_object,
+      updatedAt: updatedAct.updated_at
+    }
+  });
+});
 
 /**
  * @swagger
@@ -983,61 +898,45 @@ export async function updateActDetails(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function updateSignatories(req, res) {
-  try {
-    const { actId } = req.params;
-    const { signatories } = req.body;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const updateSignatories = catchAsync(async (req, res) => {
+  const { actId } = req.params;
+  const { signatories } = req.body;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    // Валидация
-    if (!Array.isArray(signatories)) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'signatories должен быть массивом'
-      });
-    }
-
-    // Валидация ролей
-    const validRoles = [
-      'contractor_chief',
-      'contractor_accountant',
-      'customer_chief',
-      'customer_inspector',
-      'technical_supervisor'
-    ];
-
-    for (const signatory of signatories) {
-      if (!validRoles.includes(signatory.role)) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          error: `Недопустимая роль подписанта: ${signatory.role}`,
-          validRoles
-        });
-      }
-
-      if (!signatory.fullName) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          error: 'ФИО подписанта обязательно'
-        });
-      }
-    }
-
-    await workCompletionActsRepository.updateSignatories(
-      actId,
-      signatories,
-      tenantId,
-      userId
-    );
-
-    res.status(StatusCodes.OK).json({
-      message: 'Подписанты обновлены',
-      count: signatories.length
-    });
-
-  } catch (error) {
-    console.error('[ACT CONTROLLER] Error updating signatories:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при обновлении подписантов',
-      message: error.message
-    });
+  // Валидация
+  if (!Array.isArray(signatories)) {
+    throw new BadRequestError('signatories должен быть массивом');
   }
-}
+
+  // Валидация ролей
+  const validRoles = [
+    'contractor_chief',
+    'contractor_accountant',
+    'customer_chief',
+    'customer_inspector',
+    'technical_supervisor'
+  ];
+
+  for (const signatory of signatories) {
+    if (!validRoles.includes(signatory.role)) {
+      throw new BadRequestError(`Недопустимая роль подписанта: ${signatory.role}`);
+    }
+
+    if (!signatory.fullName) {
+      throw new BadRequestError('ФИО подписанта обязательно');
+    }
+  }
+
+  await workCompletionActsRepository.updateSignatories(
+    actId,
+    signatories,
+    tenantId,
+    userId
+  );
+
+  res.status(StatusCodes.OK).json({
+    message: 'Подписанты обновлены',
+    count: signatories.length
+  });
+});

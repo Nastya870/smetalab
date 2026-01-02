@@ -4,6 +4,7 @@ import {
   getCachedAllMaterials,
   invalidateMaterialsCache 
 } from '../cache/referencesCache.js';
+import { catchAsync, BadRequestError, NotFoundError, ConflictError } from '../utils/errors.js';
 
 /**
  * Нормализует поисковый запрос для унифицированного поиска
@@ -153,19 +154,18 @@ const normalizeSearchQuery = (query) => {
  *       500:
  *         description: Ошибка сервера
  */
-export const getAllMaterials = async (req, res) => {
-  try {
-    const { 
-      category, 
-      search, 
-      supplier, 
-      isGlobal, 
-      sort = 'sku', 
-      order = 'ASC',
-      page = 1,
-      pageSize = 50, // По умолчанию 50 записей на страницу
-      skipCount = 'false' // Пропустить COUNT(*) для ускорения последующих запросов
-    } = req.query;
+export const getAllMaterials = catchAsync(async (req, res) => {
+  const { 
+    category, 
+    search, 
+    supplier, 
+    isGlobal, 
+    sort = 'sku', 
+    order = 'ASC',
+    page = 1,
+    pageSize = 50, // По умолчанию 50 записей на страницу
+    skipCount = 'false' // Пропустить COUNT(*) для ускорения последующих запросов
+  } = req.query;
     
     // Pagination parameters
     const pageNum = parseInt(page, 10);
@@ -423,15 +423,7 @@ export const getAllMaterials = async (req, res) => {
         totalTime: `${queryDuration + transformDuration}ms`
       }
     });
-  } catch (error) {
-    console.error('Error fetching materials:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при получении списка материалов',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -488,44 +480,32 @@ export const getAllMaterials = async (req, res) => {
  *       500:
  *         description: Ошибка сервера
  */
-export const getMaterialById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user?.tenantId;
-    
-    // 🔒 Tenant Isolation: глобальные материалы доступны всем, тенантные - только своей компании
-    let query, params;
-    if (tenantId) {
-      query = 'SELECT * FROM materials WHERE id = $1 AND (is_global = TRUE OR tenant_id = $2)';
-      params = [id, tenantId];
-    } else {
-      // Неавторизованные видят только глобальные
-      query = 'SELECT * FROM materials WHERE id = $1 AND is_global = TRUE';
-      params = [id];
-    }
-    
-    const result = await db.query(query, params);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Материал не найден'
-      });
-    }
-    
-    res.status(200).json({
-      success: true,
-      data: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Error fetching material:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при получении материала',
-      error: error.message
-    });
+export const getMaterialById = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user?.tenantId;
+  
+  // 🔒 Tenant Isolation: глобальные материалы доступны всем, тенантные - только своей компании
+  let query, params;
+  if (tenantId) {
+    query = 'SELECT * FROM materials WHERE id = $1 AND (is_global = TRUE OR tenant_id = $2)';
+    params = [id, tenantId];
+  } else {
+    // Неавторизованные видят только глобальные
+    query = 'SELECT * FROM materials WHERE id = $1 AND is_global = TRUE';
+    params = [id];
   }
-};
+  
+  const result = await db.query(query, params);
+  
+  if (result.rows.length === 0) {
+    throw new NotFoundError('Материал не найден');
+  }
+  
+  res.status(200).json({
+    success: true,
+    data: result.rows[0]
+  });
+});
 
 /**
  * @swagger
@@ -660,52 +640,42 @@ export const getMaterialById = async (req, res) => {
  *       500:
  *         description: Ошибка сервера
  */
-export const createMaterial = async (req, res) => {
-  try {
-    const { 
-      sku, 
-      name, 
-      image, 
-      unit, 
-      price, 
-      supplier, 
-      weight, 
-      category, 
-      productUrl, 
-      showImage,
-      isGlobal, // Новый параметр для создания глобальных материалов
-      autoCalculate, // ✅ Флаг автоматического расчёта
-      consumption // ✅ Расход материала на единицу работы
-    } = req.body;
-    
-    // Валидация обязательных полей
-    if (!sku || !name || !unit || price === undefined || !supplier || !category) {
-      return res.status(400).json({
-        success: false,
-        message: 'Обязательные поля: SKU, название, единица измерения, цена, поставщик, категория'
-      });
-    }
+export const createMaterial = catchAsync(async (req, res) => {
+  const { 
+    sku, 
+    name, 
+    image, 
+    unit, 
+    price, 
+    supplier, 
+    weight, 
+    category, 
+    productUrl, 
+    showImage,
+    isGlobal, // Новый параметр для создания глобальных материалов
+    autoCalculate, // ✅ Флаг автоматического расчёта
+    consumption // ✅ Расход материала на единицу работы
+  } = req.body;
+  
+  // Валидация обязательных полей
+  if (!sku || !name || !unit || price === undefined || !supplier || !category) {
+    throw new BadRequestError('Обязательные поля: SKU, название, единица измерения, цена, поставщик, категория');
+  }
 
-    // ✅ Валидация: если autoCalculate = true, consumption обязателен
-    if (autoCalculate === true && (!consumption || consumption <= 0)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Для автоматического расчёта необходимо указать расход (consumption > 0)'
-      });
-    }
-    
-    // Проверка уникальности SKU
-    const existing = await db.query(
-      'SELECT id FROM materials WHERE sku = $1',
-      [sku]
-    );
-    
-    if (existing.rows.length > 0) {
-      return res.status(409).json({
-        success: false,
-        message: 'Материал с таким SKU уже существует'
-      });
-    }
+  // ✅ Валидация: если autoCalculate = true, consumption обязателен
+  if (autoCalculate === true && (!consumption || consumption <= 0)) {
+    throw new BadRequestError('Для автоматического расчёта необходимо указать расход (consumption > 0)');
+  }
+  
+  // Проверка уникальности SKU
+  const existing = await db.query(
+    'SELECT id FROM materials WHERE sku = $1',
+    [sku]
+  );
+  
+  if (existing.rows.length > 0) {
+    throw new ConflictError('Материал с таким SKU уже существует');
+  }
     
     // Проверка прав для создания глобальных материалов
     // TODO: В будущем проверять роль пользователя (только админ может создавать глобальные)
@@ -721,10 +691,7 @@ export const createMaterial = async (req, res) => {
     // Для тенантных материалов получаем tenant_id из req.user (от auth middleware)
     if (isGlobal !== true) {
       if (!req.user || !req.user.userId || !req.user.tenantId) {
-        return res.status(401).json({
-          success: false,
-          message: 'Требуется аутентификация для создания тенантного материала'
-        });
+        throw new BadRequestError('Требуется аутентификация для создания тенантного материала');
       }
       
       // Используем данные из JWT токена
@@ -775,15 +742,7 @@ export const createMaterial = async (req, res) => {
       message: `Материал успешно создан${isGlobal ? ' (глобальный)' : ''}`,
       data: result.rows[0]
     });
-  } catch (error) {
-    console.error('Error creating material:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при создании материала',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -865,75 +824,59 @@ export const createMaterial = async (req, res) => {
  *       500:
  *         description: Ошибка сервера
  */
-export const updateMaterial = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user?.tenantId;
-    const { 
-      sku, 
-      name, 
-      image, 
-      unit, 
-      price, 
-      supplier, 
-      weight, 
-      category, 
-      productUrl, 
-      showImage,
-      autoCalculate, // ✅ Флаг автоматического расчёта
-      consumption // ✅ Расход материала
-    } = req.body;
-    
-    // 🔒 Tenant Isolation: проверка существования и прав доступа
-    if (!tenantId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Требуется аутентификация для обновления материала'
-      });
-    }
-    
-    const existing = await db.query(
-      'SELECT id, is_global, tenant_id FROM materials WHERE id = $1 AND (is_global = TRUE OR tenant_id = $2)',
-      [id, tenantId]
+export const updateMaterial = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user?.tenantId;
+  const { 
+    sku, 
+    name, 
+    image, 
+    unit, 
+    price, 
+    supplier, 
+    weight, 
+    category, 
+    productUrl, 
+    showImage,
+    autoCalculate, // ✅ Флаг автоматического расчёта
+    consumption // ✅ Расход материала
+  } = req.body;
+  
+  // 🔒 Tenant Isolation: проверка существования и прав доступа
+  if (!tenantId) {
+    throw new BadRequestError('Требуется аутентификация для обновления материала');
+  }
+  
+  const existing = await db.query(
+    'SELECT id, is_global, tenant_id FROM materials WHERE id = $1 AND (is_global = TRUE OR tenant_id = $2)',
+    [id, tenantId]
+  );
+  
+  if (existing.rows.length === 0) {
+    throw new NotFoundError('Материал не найден или у вас нет прав для его редактирования');
+  }
+  
+  // Запрет редактирования глобальных материалов обычными пользователями
+  if (existing.rows[0].is_global && req.user?.isSuperAdmin !== true) {
+    throw new BadRequestError('Только суперадминистратор может редактировать глобальные материалы');
+  }
+  
+  // Проверка уникальности SKU (если SKU изменился)
+  if (sku) {
+    const skuCheck = await db.query(
+      'SELECT id FROM materials WHERE sku = $1 AND id != $2',
+      [sku, id]
     );
     
-    if (existing.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Материал не найден или у вас нет прав для его редактирования'
-      });
+    if (skuCheck.rows.length > 0) {
+      throw new ConflictError('Материал с таким SKU уже существует');
     }
-    
-    // Запрет редактирования глобальных материалов обычными пользователями
-    if (existing.rows[0].is_global && req.user?.isSuperAdmin !== true) {
-      return res.status(403).json({
-        success: false,
-        message: 'Только суперадминистратор может редактировать глобальные материалы'
-      });
-    }
-    
-    // Проверка уникальности SKU (если SKU изменился)
-    if (sku) {
-      const skuCheck = await db.query(
-        'SELECT id FROM materials WHERE sku = $1 AND id != $2',
-        [sku, id]
-      );
-      
-      if (skuCheck.rows.length > 0) {
-        return res.status(409).json({
-          success: false,
-          message: 'Материал с таким SKU уже существует'
-        });
-      }
-    }
-    
-    // ✅ Валидация: если autoCalculate = true, consumption обязателен
-    if (autoCalculate === true && consumption !== undefined && consumption <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Для автоматического расчёта необходимо указать расход (consumption > 0)'
-      });
-    }
+  }
+  
+  // ✅ Валидация: если autoCalculate = true, consumption обязателен
+  if (autoCalculate === true && consumption !== undefined && consumption <= 0) {
+    throw new BadRequestError('Для автоматического расчёта необходимо указать расход (consumption > 0)');
+  }
 
     // Обновление материала
     const result = await db.query(
@@ -965,15 +908,7 @@ export const updateMaterial = async (req, res) => {
       message: 'Материал успешно обновлен',
       data: result.rows[0]
     });
-  } catch (error) {
-    console.error('Error updating material:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при обновлении материала',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -1019,38 +954,28 @@ export const updateMaterial = async (req, res) => {
  *       500:
  *         description: Ошибка сервера
  */
-export const deleteMaterial = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user?.tenantId;
-    
-    if (!tenantId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Требуется аутентификация для удаления материала'
-      });
-    }
-    
-    // 🔒 Tenant Isolation: проверка существования материала и прав доступа
-    const existing = await db.query(
-      'SELECT id, sku, name, is_global, tenant_id FROM materials WHERE id = $1 AND (is_global = TRUE OR tenant_id = $2)',
-      [id, tenantId]
-    );
-    
-    if (existing.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Материал не найден или у вас нет прав для его удаления'
-      });
-    }
-    
-    // Запрет удаления глобальных материалов обычными пользователями
-    if (existing.rows[0].is_global && req.user?.isSuperAdmin !== true) {
-      return res.status(403).json({
-        success: false,
-        message: 'Только суперадминистратор может удалять глобальные материалы'
-      });
-    }
+export const deleteMaterial = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user?.tenantId;
+  
+  if (!tenantId) {
+    throw new BadRequestError('Требуется аутентификация для удаления материала');
+  }
+  
+  // 🔒 Tenant Isolation: проверка существования материала и прав доступа
+  const existing = await db.query(
+    'SELECT id, sku, name, is_global, tenant_id FROM materials WHERE id = $1 AND (is_global = TRUE OR tenant_id = $2)',
+    [id, tenantId]
+  );
+  
+  if (existing.rows.length === 0) {
+    throw new NotFoundError('Материал не найден или у вас нет прав для его удаления');
+  }
+  
+  // Запрет удаления глобальных материалов обычными пользователями
+  if (existing.rows[0].is_global && req.user?.isSuperAdmin !== true) {
+    throw new BadRequestError('Только суперадминистратор может удалять глобальные материалы');
+  }
     
     // Удаление материала
     const deletedMaterial = existing.rows[0];
@@ -1070,15 +995,7 @@ export const deleteMaterial = async (req, res) => {
       message: `Материал успешно удален${deletedMaterial.is_global ? ' (глобальный)' : ''}`,
       data: deletedMaterial
     });
-  } catch (error) {
-    console.error('Error deleting material:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при удалении материала',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -1182,61 +1099,52 @@ export const deleteMaterial = async (req, res) => {
  *       500:
  *         description: Ошибка сервера
  */
-export const getMaterialsStats = async (req, res) => {
-  try {
-    const categoryStats = await db.query(`
-      SELECT 
-        category,
-        COUNT(*) as count,
-        MIN(price) as min_price,
-        MAX(price) as max_price,
-        AVG(price)::numeric(10,2) as avg_price,
-        SUM(weight * price)::numeric(10,2) as total_value
-      FROM materials
-      GROUP BY category
-      ORDER BY category
-    `);
-    
-    const supplierStats = await db.query(`
-      SELECT 
-        supplier,
-        COUNT(*) as count,
-        AVG(price)::numeric(10,2) as avg_price
-      FROM materials
-      GROUP BY supplier
-      ORDER BY count DESC
-      LIMIT 10
-    `);
-    
-    const totalStats = await db.query(`
-      SELECT 
-        COUNT(*) as total_materials,
-        COUNT(DISTINCT category) as total_categories,
-        COUNT(DISTINCT supplier) as total_suppliers,
-        MIN(price) as min_price,
-        MAX(price) as max_price,
-        AVG(price)::numeric(10,2) as avg_price,
-        SUM(CASE WHEN show_image AND image != '' THEN 1 ELSE 0 END) as with_images
-      FROM materials
-    `);
-    
-    res.status(200).json({
-      success: true,
-      data: {
-        byCategory: categoryStats.rows,
-        bySupplier: supplierStats.rows,
-        total: totalStats.rows[0]
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching materials stats:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при получении статистики',
-      error: error.message
-    });
-  }
-};
+export const getMaterialsStats = catchAsync(async (req, res) => {
+  const categoryStats = await db.query(`
+    SELECT 
+      category,
+      COUNT(*) as count,
+      MIN(price) as min_price,
+      MAX(price) as max_price,
+      AVG(price)::numeric(10,2) as avg_price,
+      SUM(weight * price)::numeric(10,2) as total_value
+    FROM materials
+    GROUP BY category
+    ORDER BY category
+  `);
+  
+  const supplierStats = await db.query(`
+    SELECT 
+      supplier,
+      COUNT(*) as count,
+      AVG(price)::numeric(10,2) as avg_price
+    FROM materials
+    GROUP BY supplier
+    ORDER BY count DESC
+    LIMIT 10
+  `);
+  
+  const totalStats = await db.query(`
+    SELECT 
+      COUNT(*) as total_materials,
+      COUNT(DISTINCT category) as total_categories,
+      COUNT(DISTINCT supplier) as total_suppliers,
+      MIN(price) as min_price,
+      MAX(price) as max_price,
+      AVG(price)::numeric(10,2) as avg_price,
+      SUM(CASE WHEN show_image AND image != '' THEN 1 ELSE 0 END) as with_images
+    FROM materials
+  `);
+  
+  res.status(200).json({
+    success: true,
+    data: {
+      byCategory: categoryStats.rows,
+      bySupplier: supplierStats.rows,
+      total: totalStats.rows[0]
+    }
+  });
+});
 
 /**
  * @swagger
@@ -1278,28 +1186,19 @@ export const getMaterialsStats = async (req, res) => {
  *       500:
  *         description: Ошибка сервера
  */
-export const getMaterialCategories = async (req, res) => {
-  try {
-    const result = await db.query(`
-      SELECT DISTINCT category, COUNT(*) as count
-      FROM materials
-      GROUP BY category
-      ORDER BY category
-    `);
-    
-    res.status(200).json({
-      success: true,
-      data: result.rows
-    });
-  } catch (error) {
-    console.error('Error fetching categories:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при получении списка категорий',
-      error: error.message
-    });
-  }
-};
+export const getMaterialCategories = catchAsync(async (req, res) => {
+  const result = await db.query(`
+    SELECT DISTINCT category, COUNT(*) as count
+    FROM materials
+    GROUP BY category
+    ORDER BY category
+  `);
+  
+  res.status(200).json({
+    success: true,
+    data: result.rows
+  });
+});
 
 /**
  * @swagger
@@ -1341,28 +1240,19 @@ export const getMaterialCategories = async (req, res) => {
  *       500:
  *         description: Ошибка сервера
  */
-export const getMaterialSuppliers = async (req, res) => {
-  try {
-    const result = await db.query(`
-      SELECT DISTINCT supplier, COUNT(*) as count
-      FROM materials
-      GROUP BY supplier
-      ORDER BY supplier
-    `);
-    
-    res.status(200).json({
-      success: true,
-      data: result.rows
-    });
-  } catch (error) {
-    console.error('Error fetching suppliers:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при получении списка поставщиков',
-      error: error.message
-    });
-  }
-};
+export const getMaterialSuppliers = catchAsync(async (req, res) => {
+  const result = await db.query(`
+    SELECT DISTINCT supplier, COUNT(*) as count
+    FROM materials
+    GROUP BY supplier
+    ORDER BY supplier
+  `);
+  
+  res.status(200).json({
+    success: true,
+    data: result.rows
+  });
+});
 
 /**
  * @swagger
@@ -1515,41 +1405,31 @@ export const getMaterialSuppliers = async (req, res) => {
 // Максимальное количество элементов в одном bulk import запросе
 const BULK_IMPORT_LIMIT = 500;
 
-export const bulkImportMaterials = async (req, res) => {
-  try {
-    const { materials, mode = 'add', isGlobal = false } = req.body;
+export const bulkImportMaterials = catchAsync(async (req, res) => {
+  const { materials, mode = 'add', isGlobal = false } = req.body;
 
-    if (!materials || !Array.isArray(materials) || materials.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Необходимо передать массив материалов'
-      });
+  if (!materials || !Array.isArray(materials) || materials.length === 0) {
+    throw new BadRequestError('Необходимо передать массив материалов');
+  }
+
+  // 🛡️ Защита от DoS: лимит на количество элементов
+  if (materials.length > BULK_IMPORT_LIMIT) {
+    throw new BadRequestError(`Превышен лимит импорта: максимум ${BULK_IMPORT_LIMIT} материалов за раз. Получено: ${materials.length}`);
+  }
+
+  console.log(`[BULK IMPORT] Начало импорта ${materials.length} материалов, mode: ${mode}, isGlobal: ${isGlobal}`);
+
+  let tenant_id = null;
+  let created_by = null;
+
+  // Для тенантных материалов получаем tenant_id из req.user
+  if (isGlobal !== true) {
+    if (!req.user || !req.user.userId || !req.user.tenantId) {
+      throw new BadRequestError('Требуется аутентификация для импорта тенантных материалов');
     }
-
-    // 🛡️ Защита от DoS: лимит на количество элементов
-    if (materials.length > BULK_IMPORT_LIMIT) {
-      return res.status(400).json({
-        success: false,
-        message: `Превышен лимит импорта: максимум ${BULK_IMPORT_LIMIT} материалов за раз. Получено: ${materials.length}`
-      });
-    }
-
-    console.log(`[BULK IMPORT] Начало импорта ${materials.length} материалов, mode: ${mode}, isGlobal: ${isGlobal}`);
-
-    let tenant_id = null;
-    let created_by = null;
-
-    // Для тенантных материалов получаем tenant_id из req.user
-    if (isGlobal !== true) {
-      if (!req.user || !req.user.userId || !req.user.tenantId) {
-        return res.status(401).json({
-          success: false,
-          message: 'Требуется аутентификация для импорта тенантных материалов'
-        });
-      }
-      tenant_id = req.user.tenantId;
-      created_by = req.user.userId;
-    }
+    tenant_id = req.user.tenantId;
+    created_by = req.user.userId;
+  }
 
     // Если режим replace - удаляем существующие материалы
     if (mode === 'replace') {
@@ -1646,16 +1526,7 @@ export const bulkImportMaterials = async (req, res) => {
       successfulImports,
       failedImports
     });
-
-  } catch (error) {
-    console.error('[BULK IMPORT] Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при импорте материалов',
-      error: error.message
-    });
-  }
-};
+});
 
 export default {
   getAllMaterials,

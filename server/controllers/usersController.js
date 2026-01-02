@@ -1,6 +1,7 @@
 import db from '../config/database.js';
 import bcrypt from 'bcrypt';
 import { generateEmailVerificationToken, sendVerificationEmail } from '../services/emailService.js';
+import { catchAsync, BadRequestError, NotFoundError, ConflictError, UnauthorizedError } from '../utils/errors.js';
 
 /**
  * Контроллер для управления пользователями (только для администраторов)
@@ -93,18 +94,14 @@ import { generateEmailVerificationToken, sendVerificationEmail } from '../servic
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-export const getAllUsers = async (req, res) => {
-  try {
-    const { search, page = 1, pageSize = 25 } = req.query;
-    const tenantId = req.user?.tenantId;
-    const userId = req.user?.userId;
+export const getAllUsers = catchAsync(async (req, res) => {
+  const { search, page = 1, pageSize = 25 } = req.query;
+  const tenantId = req.user?.tenantId;
+  const userId = req.user?.userId;
 
-    if (!tenantId || !userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Требуется аутентификация'
-      });
-    }
+  if (!tenantId || !userId) {
+    throw new UnauthorizedError('Требуется аутентификация');
+  }
 
     // Проверка прав администратора
     const adminCheck = await db.query(
@@ -119,10 +116,7 @@ export const getAllUsers = async (req, res) => {
     );
 
     if (!adminCheck.rows[0]?.isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: 'Доступ запрещен. Требуются права администратора.'
-      });
+      throw new UnauthorizedError('Доступ запрещен. Требуются права администратора.');
     }
 
     // Pagination
@@ -213,15 +207,7 @@ export const getAllUsers = async (req, res) => {
       pageSize: pageSizeNum,
       totalPages: Math.ceil(total / pageSizeNum)
     });
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при получении пользователей',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -252,18 +238,14 @@ export const getAllUsers = async (req, res) => {
  *       404:
  *         description: Пользователь не найден
  */
-export const getUserById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user?.tenantId;
-    const userId = req.user?.userId;
+export const getUserById = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user?.tenantId;
+  const userId = req.user?.userId;
 
-    if (!tenantId || !userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Требуется аутентификация'
-      });
-    }
+  if (!tenantId || !userId) {
+    throw new UnauthorizedError('Требуется аутентификация');
+  }
 
     // Проверка прав администратора
     const adminCheck = await db.query(
@@ -278,10 +260,7 @@ export const getUserById = async (req, res) => {
     );
 
     if (!adminCheck.rows[0]?.isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: 'Доступ запрещен'
-      });
+      throw new UnauthorizedError('Доступ запрещен');
     }
 
     const result = await db.query(
@@ -314,10 +293,7 @@ export const getUserById = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Пользователь не найден'
-      });
+      throw new NotFoundError('Пользователь не найден');
     }
 
     const user = result.rows[0];
@@ -327,15 +303,7 @@ export const getUserById = async (req, res) => {
       success: true,
       data: user
     });
-  } catch (error) {
-    console.error('Error fetching user:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при получении пользователя',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -377,18 +345,14 @@ export const getUserById = async (req, res) => {
  *       409:
  *         description: Email уже существует
  */
-export const createUser = async (req, res) => {
-  try {
-    const { fullName, email, phone, password, roleIds, requireEmailVerification = false } = req.body;
-    const tenantId = req.user?.tenantId;
-    const userId = req.user?.userId;
+export const createUser = catchAsync(async (req, res) => {
+  const { fullName, email, phone, password, roleIds, requireEmailVerification = false } = req.body;
+  const tenantId = req.user?.tenantId;
+  const userId = req.user?.userId;
 
-    if (!tenantId || !userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Требуется аутентификация'
-      });
-    }
+  if (!tenantId || !userId) {
+    throw new UnauthorizedError('Требуется аутентификация');
+  }
 
     // Проверка прав администратора
     const adminCheck = await db.query(
@@ -403,18 +367,12 @@ export const createUser = async (req, res) => {
     );
 
     if (!adminCheck.rows[0]?.isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: 'Доступ запрещен'
-      });
+      throw new UnauthorizedError('Доступ запрещен');
     }
 
     // Validation
     if (!fullName || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Заполните обязательные поля: fullName, email, password'
-      });
+      throw new BadRequestError('Заполните обязательные поля: fullName, email, password');
     }
 
     // Check if email already exists
@@ -424,10 +382,7 @@ export const createUser = async (req, res) => {
     );
 
     if (existingUser.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Пользователь с таким email уже существует'
-      });
+      throw new ConflictError('Пользователь с таким email уже существует');
     }
 
     // Hash password
@@ -485,15 +440,7 @@ export const createUser = async (req, res) => {
         : 'Пользователь успешно создан',
       data: newUser
     });
-  } catch (error) {
-    console.error('Error creating user:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при создании пользователя',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -531,19 +478,15 @@ export const createUser = async (req, res) => {
  *       403:
  *         description: Доступ запрещен
  */
-export const updateUser = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { fullName, email, phone, password } = req.body;
-    const tenantId = req.user?.tenantId;
-    const userId = req.user?.userId;
+export const updateUser = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { fullName, email, phone, password } = req.body;
+  const tenantId = req.user?.tenantId;
+  const userId = req.user?.userId;
 
-    if (!tenantId || !userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Требуется аутентификация'
-      });
-    }
+  if (!tenantId || !userId) {
+    throw new UnauthorizedError('Требуется аутентификация');
+  }
 
     // Проверка прав администратора
     const adminCheck = await db.query(
@@ -558,10 +501,7 @@ export const updateUser = async (req, res) => {
     );
 
     if (!adminCheck.rows[0]?.isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: 'Доступ запрещен'
-      });
+      throw new UnauthorizedError('Доступ запрещен');
     }
 
     // Check if user exists in tenant
@@ -573,10 +513,7 @@ export const updateUser = async (req, res) => {
     );
 
     if (userCheck.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Пользователь не найден'
-      });
+      throw new NotFoundError('Пользователь не найден');
     }
 
     // Build update query
@@ -598,10 +535,7 @@ export const updateUser = async (req, res) => {
       );
 
       if (emailCheck.rows.length > 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email уже используется другим пользователем'
-        });
+        throw new ConflictError('Email уже используется другим пользователем');
       }
 
       paramCount++;
@@ -623,10 +557,7 @@ export const updateUser = async (req, res) => {
     }
 
     if (updates.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Нет данных для обновления'
-      });
+      throw new BadRequestError('Нет данных для обновления');
     }
 
     paramCount++;
@@ -650,15 +581,7 @@ export const updateUser = async (req, res) => {
       message: 'Пользователь успешно обновлен',
       data: updatedUser
     });
-  } catch (error) {
-    console.error('Error updating user:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при обновлении пользователя',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -682,18 +605,14 @@ export const updateUser = async (req, res) => {
  *       403:
  *         description: Доступ запрещен
  */
-export const deleteUser = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user?.tenantId;
-    const userId = req.user?.userId;
+export const deleteUser = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user?.tenantId;
+  const userId = req.user?.userId;
 
-    if (!tenantId || !userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Требуется аутентификация'
-      });
-    }
+  if (!tenantId || !userId) {
+    throw new UnauthorizedError('Требуется аутентификация');
+  }
 
     // Проверка прав администратора
     const adminCheck = await db.query(
@@ -708,18 +627,12 @@ export const deleteUser = async (req, res) => {
     );
 
     if (!adminCheck.rows[0]?.isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: 'Доступ запрещен'
-      });
+      throw new UnauthorizedError('Доступ запрещен');
     }
 
     // Prevent self-deletion
     if (id === userId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Вы не можете удалить свой собственный аккаунт'
-      });
+      throw new BadRequestError('Вы не можете удалить свой собственный аккаунт');
     }
 
     // Check if user exists
@@ -731,10 +644,7 @@ export const deleteUser = async (req, res) => {
     );
 
     if (userCheck.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Пользователь не найден'
-      });
+      throw new NotFoundError('Пользователь не найден');
     }
 
     // Delete user role assignments for this tenant
@@ -764,15 +674,7 @@ export const deleteUser = async (req, res) => {
       success: true,
       message: 'Пользователь успешно удален'
     });
-  } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при удалении пользователя',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -808,19 +710,15 @@ export const deleteUser = async (req, res) => {
  *       403:
  *         description: Доступ запрещен
  */
-export const assignRoles = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { roleIds } = req.body;
-    const tenantId = req.user?.tenantId;
-    const userId = req.user?.userId;
+export const assignRoles = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { roleIds } = req.body;
+  const tenantId = req.user?.tenantId;
+  const userId = req.user?.userId;
 
-    if (!tenantId || !userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Требуется аутентификация'
-      });
-    }
+  if (!tenantId || !userId) {
+    throw new UnauthorizedError('Требуется аутентификация');
+  }
 
     // Получаем роли текущего пользователя
     const userRolesResult = await db.query(
@@ -837,17 +735,11 @@ export const assignRoles = async (req, res) => {
 
     // Проверка минимальных прав
     if (!isAdmin && !isSuperAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: 'Доступ запрещен. Требуются права администратора.'
-      });
+      throw new UnauthorizedError('Доступ запрещен. Требуются права администратора.');
     }
 
     if (!roleIds || !Array.isArray(roleIds)) {
-      return res.status(400).json({
-        success: false,
-        message: 'roleIds должен быть массивом'
-      });
+      throw new BadRequestError('roleIds должен быть массивом');
     }
 
     // Проверяем назначаемые роли
@@ -860,10 +752,7 @@ export const assignRoles = async (req, res) => {
 
     // КРИТИЧЕСКАЯ ПРОВЕРКА: только super_admin может назначать super_admin
     if (assigningRoles.includes('super_admin') && !isSuperAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: 'Только super_admin может назначать роль super_admin'
-      });
+      throw new UnauthorizedError('Только super_admin может назначать роль super_admin');
     }
 
     // Delete existing role assignments for this tenant
@@ -885,15 +774,7 @@ export const assignRoles = async (req, res) => {
       success: true,
       message: 'Роли успешно назначены'
     });
-  } catch (error) {
-    console.error('Error assigning roles:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при назначении ролей',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -910,10 +791,9 @@ export const assignRoles = async (req, res) => {
  *       403:
  *         description: Доступ запрещен
  */
-export const getAllRoles = async (req, res) => {
-  try {
-    const tenantId = req.user?.tenantId;
-    const userId = req.user?.userId;
+export const getAllRoles = catchAsync(async (req, res) => {
+  const tenantId = req.user?.tenantId;
+  const userId = req.user?.userId;
 
     // Проверяем, является ли пользователь super_admin
     const userRolesResult = await db.query(
@@ -988,15 +868,7 @@ export const getAllRoles = async (req, res) => {
       success: true,
       data: result.rows
     });
-  } catch (error) {
-    console.error('Error fetching roles:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при получении ролей',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -1020,18 +892,14 @@ export const getAllRoles = async (req, res) => {
  *       403:
  *         description: Доступ запрещен
  */
-export const deactivateUser = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user?.tenantId;
-    const userId = req.user?.userId;
+export const deactivateUser = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user?.tenantId;
+  const userId = req.user?.userId;
 
-    if (!tenantId || !userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Требуется аутентификация'
-      });
-    }
+  if (!tenantId || !userId) {
+    throw new UnauthorizedError('Требуется аутентификация');
+  }
 
     // Проверка прав администратора
     const adminCheck = await db.query(
@@ -1046,17 +914,11 @@ export const deactivateUser = async (req, res) => {
     );
 
     if (!adminCheck.rows[0]?.isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: 'Доступ запрещен'
-      });
+      throw new UnauthorizedError('Доступ запрещен');
     }
 
     if (id === userId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Вы не можете деактивировать свой собственный аккаунт'
-      });
+      throw new BadRequestError('Вы не можете деактивировать свой собственный аккаунт');
     }
 
     // 🔒 Tenant Isolation: проверяем что пользователь принадлежит к тому же tenant
@@ -1068,10 +930,7 @@ export const deactivateUser = async (req, res) => {
     );
 
     if (userCheck.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Пользователь не найден в вашей компании'
-      });
+      throw new NotFoundError('Пользователь не найден в вашей компании');
     }
 
     await db.query(
@@ -1083,15 +942,7 @@ export const deactivateUser = async (req, res) => {
       success: true,
       message: 'Пользователь деактивирован'
     });
-  } catch (error) {
-    console.error('Error deactivating user:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при деактивации пользователя',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -1115,18 +966,14 @@ export const deactivateUser = async (req, res) => {
  *       403:
  *         description: Доступ запрещен
  */
-export const activateUser = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user?.tenantId;
-    const userId = req.user?.userId;
+export const activateUser = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user?.tenantId;
+  const userId = req.user?.userId;
 
-    if (!tenantId || !userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Требуется аутентификация'
-      });
-    }
+  if (!tenantId || !userId) {
+    throw new UnauthorizedError('Требуется аутентификация');
+  }
 
     // Проверка прав администратора
     const adminCheck = await db.query(
@@ -1141,10 +988,7 @@ export const activateUser = async (req, res) => {
     );
 
     if (!adminCheck.rows[0]?.isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: 'Доступ запрещен'
-      });
+      throw new UnauthorizedError('Доступ запрещен');
     }
 
     // 🔒 Tenant Isolation: проверяем что пользователь принадлежит к тому же tenant
@@ -1156,10 +1000,7 @@ export const activateUser = async (req, res) => {
     );
 
     if (userCheck.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Пользователь не найден в вашей компании'
-      });
+      throw new NotFoundError('Пользователь не найден в вашей компании');
     }
 
     await db.query(
@@ -1171,15 +1012,7 @@ export const activateUser = async (req, res) => {
       success: true,
       message: 'Пользователь активирован'
     });
-  } catch (error) {
-    console.error('Error activating user:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при активации пользователя',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -1214,31 +1047,21 @@ export const activateUser = async (req, res) => {
  *       400:
  *         description: Неверный формат
  */
-export const uploadAvatar = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user?.userId;
+export const uploadAvatar = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.userId;
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Требуется аутентификация'
-      });
-    }
+  if (!userId) {
+    throw new UnauthorizedError('Требуется аутентификация');
+  }
 
     // Проверяем, что пользователь редактирует свой аватар
     if (id !== userId) {
-      return res.status(403).json({
-        success: false,
-        message: 'Вы можете изменять только свой аватар'
-      });
+      throw new UnauthorizedError('Вы можете изменять только свой аватар');
     }
 
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'Файл не загружен'
-      });
+      throw new BadRequestError('Файл не загружен');
     }
 
     // Конвертируем файл в base64
@@ -1260,15 +1083,7 @@ export const uploadAvatar = async (req, res) => {
       message: 'Аватар успешно загружен',
       avatar_url
     });
-  } catch (error) {
-    console.error('[uploadAvatar] Error uploading avatar:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при загрузке аватара',
-      error: error.message
-    });
-  }
-};
+});
 
 
 

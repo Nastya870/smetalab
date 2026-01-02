@@ -1,5 +1,6 @@
 import { StatusCodes } from 'http-status-codes';
 import * as schedulesRepository from '../repositories/schedulesRepository.js';
+import { catchAsync, BadRequestError, NotFoundError } from '../utils/errors.js';
 
 /**
  * @swagger
@@ -56,56 +57,41 @@ import * as schedulesRepository from '../repositories/schedulesRepository.js';
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function generateSchedule(req, res) {
-  try {
-    const { estimateId, projectId } = req.body;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const generateSchedule = catchAsync(async (req, res) => {
+  const { estimateId, projectId } = req.body;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    console.log('[SCHEDULES] Generate request:', { estimateId, projectId, tenantId, userId });
+  console.log('[SCHEDULES] Generate request:', { estimateId, projectId, tenantId, userId });
 
-    if (!estimateId) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'ID сметы обязателен'
-      });
-    }
-
-    if (!projectId) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        error: 'ID проекта обязателен'
-      });
-    }
-
-    // Генерируем график из сметы
-    console.log('[SCHEDULES] Calling generateFromEstimate...');
-    const scheduleWorks = await schedulesRepository.generateFromEstimate(
-      estimateId,
-      projectId,
-      tenantId,
-      userId
-    );
-    console.log('[SCHEDULES] Generated works:', scheduleWorks.length);
-
-    // Группируем по фазам для ответа
-    const groupedSchedule = schedulesRepository.groupByPhases(scheduleWorks);
-    console.log('[SCHEDULES] Grouped into phases:', groupedSchedule.length);
-
-    res.status(StatusCodes.CREATED).json({
-      message: 'График успешно сформирован',
-      schedule: groupedSchedule,
-      totalWorks: scheduleWorks.length
-    });
-
-  } catch (error) {
-    console.error('[SCHEDULES] Error generating schedule:', error);
-    console.error('[SCHEDULES] Error stack:', error.stack);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при формировании графика',
-      message: error.message,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+  if (!estimateId) {
+    throw new BadRequestError('ID сметы обязателен');
   }
-}
+
+  if (!projectId) {
+    throw new BadRequestError('ID проекта обязателен');
+  }
+
+  // Генерируем график из сметы
+  console.log('[SCHEDULES] Calling generateFromEstimate...');
+  const scheduleWorks = await schedulesRepository.generateFromEstimate(
+    estimateId,
+    projectId,
+    tenantId,
+    userId
+  );
+  console.log('[SCHEDULES] Generated works:', scheduleWorks.length);
+
+  // Группируем по фазам для ответа
+  const groupedSchedule = schedulesRepository.groupByPhases(scheduleWorks);
+  console.log('[SCHEDULES] Grouped into phases:', groupedSchedule.length);
+
+  res.status(StatusCodes.CREATED).json({
+    message: 'График успешно сформирован',
+    schedule: groupedSchedule,
+    totalWorks: scheduleWorks.length
+  });
+});
 
 /**
  * @swagger
@@ -157,37 +143,25 @@ export async function generateSchedule(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function getScheduleByEstimate(req, res) {
-  try {
-    const { estimateId } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const getScheduleByEstimate = catchAsync(async (req, res) => {
+  const { estimateId } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    const scheduleWorks = await schedulesRepository.findByEstimateId(estimateId, tenantId, userId);
+  const scheduleWorks = await schedulesRepository.findByEstimateId(estimateId, tenantId, userId);
 
-    if (scheduleWorks.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        error: 'График не найден',
-        message: 'График для данной сметы еще не сформирован'
-      });
-    }
-
-    // Группируем по фазам
-    const groupedSchedule = schedulesRepository.groupByPhases(scheduleWorks);
-
-    res.status(StatusCodes.OK).json({
-      schedule: groupedSchedule,
-      totalWorks: scheduleWorks.length
-    });
-
-  } catch (error) {
-    console.error('Error fetching schedule:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при получении графика',
-      message: error.message
-    });
+  if (scheduleWorks.length === 0) {
+    throw new NotFoundError('График для данной сметы еще не сформирован');
   }
-}
+
+  // Группируем по фазам
+  const groupedSchedule = schedulesRepository.groupByPhases(scheduleWorks);
+
+  res.status(StatusCodes.OK).json({
+    schedule: groupedSchedule,
+    totalWorks: scheduleWorks.length
+  });
+});
 
 /**
  * @swagger
@@ -224,32 +198,21 @@ export async function getScheduleByEstimate(req, res) {
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-export async function deleteSchedule(req, res) {
-  try {
-    const { estimateId } = req.params;
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
+export const deleteSchedule = catchAsync(async (req, res) => {
+  const { estimateId } = req.params;
+  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-    const deleted = await schedulesRepository.deleteByEstimateId(estimateId, tenantId, userId);
+  const deleted = await schedulesRepository.deleteByEstimateId(estimateId, tenantId, userId);
 
-    if (!deleted) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        error: 'График не найден'
-      });
-    }
-
-    res.status(StatusCodes.OK).json({
-      message: 'График успешно удален'
-    });
-
-  } catch (error) {
-    console.error('Error deleting schedule:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      error: 'Ошибка при удалении графика',
-      message: error.message
-    });
+  if (!deleted) {
+    throw new NotFoundError('График не найден');
   }
-}
+
+  res.status(StatusCodes.OK).json({
+    message: 'График успешно удален'
+  });
+});
 
 export default {
   generateSchedule,

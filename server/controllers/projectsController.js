@@ -18,6 +18,7 @@
  */
 
 import pool from '../config/database.js';
+import { catchAsync, BadRequestError, NotFoundError, ConflictError } from '../utils/errors.js';
 
 // HTTP Status Codes
 const StatusCodes = {
@@ -68,31 +69,30 @@ const StatusCodes = {
  *             schema:
  *               $ref: '#/components/schemas/PaginatedResponse'
  */
-export const getAllProjects = async (req, res) => {
-  try {
-    // optionalAuth: req.user может быть null если пользователь не авторизован
-    const userId = req.user?.userId || null;
-    const tenantId = req.user?.tenantId || null;
-    const isSuperAdmin = req.user?.role === 'super_admin';
+export const getAllProjects = catchAsync(async (req, res) => {
+  // optionalAuth: req.user может быть null если пользователь не авторизован
+  const userId = req.user?.userId || null;
+  const tenantId = req.user?.tenantId || null;
+  const isSuperAdmin = req.user?.role === 'super_admin';
 
-    // Параметры пагинации
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const offset = (page - 1) * limit;
+  // Параметры пагинации
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
 
-    // Параметры поиска
-    const search = req.query.search || '';
-    
-    // Параметры фильтрации
-    const status = req.query.status || '';
-    const startDateFrom = req.query.startDateFrom || '';
-    const startDateTo = req.query.startDateTo || '';
-    const endDateFrom = req.query.endDateFrom || '';
-    const endDateTo = req.query.endDateTo || '';
+  // Параметры поиска
+  const search = req.query.search || '';
+  
+  // Параметры фильтрации
+  const status = req.query.status || '';
+  const startDateFrom = req.query.startDateFrom || '';
+  const startDateTo = req.query.startDateTo || '';
+  const endDateFrom = req.query.endDateFrom || '';
+  const endDateTo = req.query.endDateTo || '';
 
-    // Сортировка
-    const sortBy = req.query.sortBy || 'created_at';
-    const sortOrder = req.query.sortOrder === 'asc' ? 'ASC' : 'DESC';
+  // Сортировка
+  const sortBy = req.query.sortBy || 'created_at';
+  const sortOrder = req.query.sortOrder === 'asc' ? 'ASC' : 'DESC';
 
     // Строим SQL запрос с использованием расширенного представления
     let query = `
@@ -189,27 +189,19 @@ export const getAllProjects = async (req, res) => {
 
     const result = await pool.query(query, params);
 
-    res.status(StatusCodes.OK).json({
-      success: true,
-      data: result.rows,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(totalItems / limit),
-        totalItems,
-        itemsPerPage: limit,
-        hasNextPage: page * limit < totalItems,
-        hasPreviousPage: page > 1
-      }
-    });
-  } catch (error) {
-    console.error('Error in getAllProjects:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при получении списка проектов',
-      error: error.message
-    });
-  }
-};
+  res.status(StatusCodes.OK).json({
+    success: true,
+    data: result.rows,
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(totalItems / limit),
+      totalItems,
+      itemsPerPage: limit,
+      hasNextPage: page * limit < totalItems,
+      hasPreviousPage: page > 1
+    }
+  });
+});
 
 /**
  * @swagger
@@ -224,11 +216,10 @@ export const getAllProjects = async (req, res) => {
  *       200:
  *         description: Статистика получена
  */
-export const getProjectStats = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const tenantId = req.user.tenantId;
-    const isSuperAdmin = req.user.role === 'super_admin';
+export const getProjectStats = catchAsync(async (req, res) => {
+  const userId = req.user.userId;
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
 
     let query = `
       SELECT 
@@ -270,25 +261,16 @@ export const getProjectStats = async (req, res) => {
         averageProgress: parseFloat(stats.average_progress).toFixed(2)
       }
     });
-  } catch (error) {
-    console.error('Error in getProjectStats:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при получении статистики проектов',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * Get total profit from all projects' estimates
  * @description Calculates total profit from all estimate items with profit percentages
  */
-export const getTotalProfit = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const tenantId = req.user.tenantId || '4eded664-27ac-4d7f-a9d8-f8340751ceab'; // Fallback для тестирования
-    const isSuperAdmin = req.user.role === 'super_admin';
+export const getTotalProfit = catchAsync(async (req, res) => {
+  const userId = req.user.userId;
+  const tenantId = req.user.tenantId || '4eded664-27ac-4d7f-a9d8-f8340751ceab'; // Fallback для тестирования
+  const isSuperAdmin = req.user.role === 'super_admin';
 
     let query = `
       WITH project_profits AS (
@@ -350,15 +332,7 @@ export const getTotalProfit = async (req, res) => {
         }
       }
     });
-  } catch (error) {
-    console.error('Error in getTotalProfit:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при получении общей прибыли',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -392,11 +366,10 @@ export const getTotalProfit = async (req, res) => {
  *       500:
  *         description: Внутренняя ошибка сервера
  */
-export const getTotalIncomeWorks = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const tenantId = req.user.tenantId;
-    const isSuperAdmin = req.user.role === 'super_admin';
+export const getTotalIncomeWorks = catchAsync(async (req, res) => {
+  const userId = req.user.userId;
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
 
     let query = `
       SELECT 
@@ -427,15 +400,7 @@ export const getTotalIncomeWorks = async (req, res) => {
         totalIncomeWorks: parseFloat(data.total_income_works) || 0
       }
     });
-  } catch (error) {
-    console.error('Error in getTotalIncomeWorks:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при получении общего дохода по работам',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -469,11 +434,10 @@ export const getTotalIncomeWorks = async (req, res) => {
  *       500:
  *         description: Внутренняя ошибка сервера
  */
-export const getTotalIncomeMaterials = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const tenantId = req.user.tenantId;
-    const isSuperAdmin = req.user.role === 'super_admin';
+export const getTotalIncomeMaterials = catchAsync(async (req, res) => {
+  const userId = req.user.userId;
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
 
     let query = `
       SELECT 
@@ -504,15 +468,7 @@ export const getTotalIncomeMaterials = async (req, res) => {
         totalIncomeMaterials: parseFloat(data.total_income_materials) || 0
       }
     });
-  } catch (error) {
-    console.error('Error in getTotalIncomeMaterials:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при получении общего дохода по материалам',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -581,12 +537,11 @@ export const getTotalIncomeMaterials = async (req, res) => {
  *       500:
  *         description: Внутренняя ошибка сервера
  */
-export const getProjectsProfitData = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const tenantId = req.user.tenantId;
-    const isSuperAdmin = req.user.role === 'super_admin';
-    const limit = parseInt(req.query.limit) || 5; // Ограничиваем количество проектов
+export const getProjectsProfitData = catchAsync(async (req, res) => {
+  const userId = req.user.userId;
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
+  const limit = parseInt(req.query.limit) || 5; // Ограничиваем количество проектов
 
     let query = `
       WITH project_financials AS (
@@ -688,15 +643,7 @@ export const getProjectsProfitData = async (req, res) => {
       success: true,
       data: projects
     });
-  } catch (error) {
-    console.error('Error in getProjectsProfitData:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при получении данных прибыли проектов',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -755,11 +702,10 @@ export const getProjectsProfitData = async (req, res) => {
  *       500:
  *         description: Внутренняя ошибка сервера
  */
-export const getMonthlyGrowthData = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const tenantId = req.user.tenantId;
-    const isSuperAdmin = req.user.role === 'super_admin';
+export const getMonthlyGrowthData = catchAsync(async (req, res) => {
+  const userId = req.user.userId;
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
 
     let query = `
       WITH month_series AS (
@@ -915,15 +861,7 @@ export const getMonthlyGrowthData = async (req, res) => {
       success: true,
       data: chartData
     });
-  } catch (error) {
-    console.error('Error in getMonthlyGrowthData:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при получении данных роста по месяцам',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -1051,12 +989,11 @@ export const getMonthlyGrowthData = async (req, res) => {
  *       500:
  *         description: Внутренняя ошибка сервера
  */
-export const getProjectsChartData = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const tenantId = req.user.tenantId;
-    const isSuperAdmin = req.user.role === 'super_admin';
-    const { period = 'year' } = req.query; // 'month' or 'year'
+export const getProjectsChartData = catchAsync(async (req, res) => {
+  const userId = req.user.userId;
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
+  const { period = 'year' } = req.query; // 'month' or 'year'
 
     let query, timeFormat, interval;
     
@@ -1254,15 +1191,7 @@ export const getProjectsChartData = async (req, res) => {
         months: monthNames // Добавляем массив русских названий месяцев
       }
     });
-  } catch (error) {
-    console.error('Error in getProjectsChartData:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при получении данных графика проектов',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -1286,12 +1215,11 @@ export const getProjectsChartData = async (req, res) => {
  *       404:
  *         description: Проект не найден
  */
-export const getProjectById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user?.userId || null;
-    const tenantId = req.user?.tenantId || null;
-    const isSuperAdmin = req.user?.role === 'super_admin';
+export const getProjectById = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.userId || null;
+  const tenantId = req.user?.tenantId || null;
+  const isSuperAdmin = req.user?.role === 'super_admin';
 
     // Получаем проект с использованием расширенного представления
     let query = `
@@ -1334,10 +1262,7 @@ export const getProjectById = async (req, res) => {
     const result = await pool.query(query, params);
 
     if (result.rows.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Проект не найден'
-      });
+      throw new NotFoundError('Проект не найден');
     }
 
     // Получаем команду проекта
@@ -1360,15 +1285,7 @@ export const getProjectById = async (req, res) => {
       success: true,
       data: project
     });
-  } catch (error) {
-    console.error('Error in getProjectById:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при получении проекта',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -1410,10 +1327,9 @@ export const getProjectById = async (req, res) => {
  *       201:
  *         description: Проект создан
  */
-export const createProject = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const tenantId = req.user.tenantId;
+export const createProject = catchAsync(async (req, res) => {
+  const userId = req.user.userId;
+  const tenantId = req.user.tenantId;
 
     const {
       name,
@@ -1433,18 +1349,12 @@ export const createProject = async (req, res) => {
 
     // Валидация обязательных полей
     if (!objectName || !client || !contractor || !address) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: 'Обязательные поля: objectName, client, contractor, address'
-      });
+      throw new BadRequestError('Обязательные поля: objectName, client, contractor, address');
     }
 
     // Валидация дат (только если обе указаны)
     if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: 'Дата начала должна быть раньше даты окончания'
-      });
+      throw new BadRequestError('Дата начала должна быть раньше даты окончания');
     }
 
     // Если name не указан, используем objectName
@@ -1491,31 +1401,7 @@ export const createProject = async (req, res) => {
       message: 'Проект успешно создан',
       data: newProject
     });
-  } catch (error) {
-    console.error('Error in createProject:', error);
-    
-    // Обработка специфичных ошибок PostgreSQL
-    if (error.code === '23503') { // Foreign key violation
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: 'Указан несуществующий пользователь или тенант'
-      });
-    }
-    
-    if (error.code === '23514') { // Check constraint violation
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: 'Некорректные значения полей (проверьте progress, budget, даты)'
-      });
-    }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при создании проекта',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -1540,12 +1426,11 @@ export const createProject = async (req, res) => {
  *       200:
  *         description: Проект обновлен
  */
-export const updateProject = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.userId;
-    const tenantId = req.user.tenantId;
-    const isSuperAdmin = req.user.role === 'super_admin';
+export const updateProject = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.userId;
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
 
     // Проверяем, существует ли проект и есть ли права на редактирование
     let checkQuery = `SELECT * FROM projects WHERE id = $1`;
@@ -1559,10 +1444,7 @@ export const updateProject = async (req, res) => {
     const checkResult = await pool.query(checkQuery, checkParams);
     
     if (checkResult.rows.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Проект не найден или нет прав на редактирование'
-      });
+      throw new NotFoundError('Проект не найден или нет прав на редактирование');
     }
 
     const {
@@ -1583,10 +1465,7 @@ export const updateProject = async (req, res) => {
 
     // Валидация дат если они обновляются
     if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: 'Дата начала должна быть раньше даты окончания'
-      });
+      throw new BadRequestError('Дата начала должна быть раньше даты окончания');
     }
 
     // Строим динамический UPDATE запрос
@@ -1661,10 +1540,7 @@ export const updateProject = async (req, res) => {
     }
 
     if (updates.length === 0) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: 'Нет данных для обновления'
-      });
+      throw new BadRequestError('Нет данных для обновления');
     }
 
     // Всегда обновляем updated_by
@@ -1686,30 +1562,7 @@ export const updateProject = async (req, res) => {
       message: 'Проект успешно обновлен',
       data: result.rows[0]
     });
-  } catch (error) {
-    console.error('Error in updateProject:', error);
-    
-    if (error.code === '23503') {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: 'Указан несуществующий пользователь'
-      });
-    }
-    
-    if (error.code === '23514') {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: 'Некорректные значения полей (проверьте progress, budget, даты)'
-      });
-    }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при обновлении проекта',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -1730,11 +1583,10 @@ export const updateProject = async (req, res) => {
  *       200:
  *         description: Проект удален
  */
-export const deleteProject = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
-    const isSuperAdmin = req.user.role === 'super_admin';
+export const deleteProject = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
 
     // Проверяем существование и права
     let checkQuery = `SELECT * FROM projects WHERE id = $1`;
@@ -1748,10 +1600,7 @@ export const deleteProject = async (req, res) => {
     const checkResult = await pool.query(checkQuery, checkParams);
     
     if (checkResult.rows.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Проект не найден или нет прав на удаление'
-      });
+      throw new NotFoundError('Проект не найден или нет прав на удаление');
     }
 
     // Удаляем проект (CASCADE удалит связанные записи в project_team_members)
@@ -1761,15 +1610,7 @@ export const deleteProject = async (req, res) => {
       success: true,
       message: 'Проект успешно удален'
     });
-  } catch (error) {
-    console.error('Error in deleteProject:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при удалении проекта',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -1799,21 +1640,17 @@ export const deleteProject = async (req, res) => {
  *       200:
  *         description: Статус обновлен
  */
-export const updateProjectStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-    const userId = req.user.userId;
-    const tenantId = req.user.tenantId;
-    const isSuperAdmin = req.user.role === 'super_admin';
+export const updateProjectStatus = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const userId = req.user.userId;
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
 
     // Валидация статуса
     const validStatuses = ['planning', 'approval', 'in_progress', 'rejected', 'completed'];
     if (!status || !validStatuses.includes(status)) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: 'Недопустимый статус. Допустимые значения: ' + validStatuses.join(', ')
-      });
+      throw new BadRequestError('Недопустимый статус. Допустимые значения: ' + validStatuses.join(', '));
     }
 
     // Проверяем существование проекта и права
@@ -1828,10 +1665,7 @@ export const updateProjectStatus = async (req, res) => {
     const checkResult = await pool.query(checkQuery, checkParams);
     
     if (checkResult.rows.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Проект не найден или нет прав на редактирование'
-      });
+      throw new NotFoundError('Проект не найден или нет прав на редактирование');
     }
 
     // Обновляем только статус
@@ -1852,15 +1686,7 @@ export const updateProjectStatus = async (req, res) => {
       message: 'Статус проекта успешно обновлен',
       data: result.rows[0]
     });
-  } catch (error) {
-    console.error('Error in updateProjectStatus:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при обновлении статуса проекта',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -1880,11 +1706,10 @@ export const updateProjectStatus = async (req, res) => {
  *       200:
  *         description: Команда получена
  */
-export const getProjectTeam = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
-    const isSuperAdmin = req.user.role === 'super_admin';
+export const getProjectTeam = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
 
     // Проверяем доступ к проекту
     let checkQuery = `SELECT * FROM projects WHERE id = $1`;
@@ -1898,10 +1723,7 @@ export const getProjectTeam = async (req, res) => {
     const checkResult = await pool.query(checkQuery, checkParams);
     
     if (checkResult.rows.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Проект не найден'
-      });
+      throw new NotFoundError('Проект не найден');
     }
 
     // Получаем всех участников команды (включая покинувших)
@@ -1929,15 +1751,7 @@ export const getProjectTeam = async (req, res) => {
       success: true,
       data: result.rows
     });
-  } catch (error) {
-    console.error('Error in getProjectTeam:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при получении команды проекта',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -1972,12 +1786,11 @@ export const getProjectTeam = async (req, res) => {
  *       201:
  *         description: Участник добавлен
  */
-export const addTeamMember = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.userId;
-    const tenantId = req.user.tenantId;
-    const isSuperAdmin = req.user.role === 'super_admin';
+export const addTeamMember = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.userId;
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
 
     const {
       userId: newUserId,
@@ -1987,10 +1800,7 @@ export const addTeamMember = async (req, res) => {
     } = req.body;
 
     if (!newUserId) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: 'Обязательное поле: userId'
-      });
+      throw new BadRequestError('Обязательное поле: userId');
     }
 
     // Проверяем доступ к проекту
@@ -2005,10 +1815,7 @@ export const addTeamMember = async (req, res) => {
     const checkResult = await pool.query(checkQuery, checkParams);
     
     if (checkResult.rows.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Проект не найден'
-      });
+      throw new NotFoundError('Проект не найден');
     }
 
     // Проверяем, не состоит ли пользователь уже в команде
@@ -2018,10 +1825,7 @@ export const addTeamMember = async (req, res) => {
     );
 
     if (memberCheck.rows.length > 0) {
-      return res.status(StatusCodes.CONFLICT).json({
-        success: false,
-        message: 'Пользователь уже состоит в команде проекта'
-      });
+      throw new ConflictError('Пользователь уже состоит в команде проекта');
     }
 
     // Добавляем участника
@@ -2046,23 +1850,7 @@ export const addTeamMember = async (req, res) => {
       message: 'Участник успешно добавлен в команду',
       data: result.rows[0]
     });
-  } catch (error) {
-    console.error('Error in addTeamMember:', error);
-    
-    if (error.code === '23503') {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: 'Указан несуществующий пользователь'
-      });
-    }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при добавлении участника в команду',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -2099,11 +1887,10 @@ export const addTeamMember = async (req, res) => {
  *       200:
  *         description: Роль обновлена
  */
-export const updateTeamMember = async (req, res) => {
-  try {
-    const { id, memberId } = req.params;
-    const tenantId = req.user.tenantId;
-    const isSuperAdmin = req.user.role === 'super_admin';
+export const updateTeamMember = catchAsync(async (req, res) => {
+  const { id, memberId } = req.params;
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
 
     const { role, canEdit, canViewFinancials } = req.body;
 
@@ -2119,10 +1906,7 @@ export const updateTeamMember = async (req, res) => {
     const checkResult = await pool.query(checkQuery, checkParams);
     
     if (checkResult.rows.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Проект не найден'
-      });
+      throw new NotFoundError('Проект не найден');
     }
 
     // Строим динамический UPDATE
@@ -2147,10 +1931,7 @@ export const updateTeamMember = async (req, res) => {
     }
 
     if (updates.length === 0) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: 'Нет данных для обновления'
-      });
+      throw new BadRequestError('Нет данных для обновления');
     }
 
     const query = `
@@ -2163,10 +1944,7 @@ export const updateTeamMember = async (req, res) => {
     const result = await pool.query(query, params);
 
     if (result.rows.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Участник команды не найден'
-      });
+      throw new NotFoundError('Участник команды не найден');
     }
 
     res.status(StatusCodes.OK).json({
@@ -2174,15 +1952,7 @@ export const updateTeamMember = async (req, res) => {
       message: 'Данные участника команды обновлены',
       data: result.rows[0]
     });
-  } catch (error) {
-    console.error('Error in updateTeamMember:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при обновлении участника команды',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -2207,11 +1977,10 @@ export const updateTeamMember = async (req, res) => {
  *       200:
  *         description: Участник удален
  */
-export const removeTeamMember = async (req, res) => {
-  try {
-    const { id, memberId } = req.params;
-    const tenantId = req.user.tenantId;
-    const isSuperAdmin = req.user.role === 'super_admin';
+export const removeTeamMember = catchAsync(async (req, res) => {
+  const { id, memberId } = req.params;
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
 
     // Проверяем доступ к проекту
     let checkQuery = `SELECT * FROM projects WHERE id = $1`;
@@ -2225,10 +1994,7 @@ export const removeTeamMember = async (req, res) => {
     const checkResult = await pool.query(checkQuery, checkParams);
     
     if (checkResult.rows.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Проект не найден'
-      });
+      throw new NotFoundError('Проект не найден');
     }
 
     // Soft delete - устанавливаем left_at
@@ -2242,25 +2008,14 @@ export const removeTeamMember = async (req, res) => {
     const result = await pool.query(query, [memberId, id]);
 
     if (result.rows.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Участник команды не найден или уже удален'
-      });
+      throw new NotFoundError('Участник команды не найден или уже удален');
     }
 
     res.status(StatusCodes.OK).json({
       success: true,
       message: 'Участник удален из команды проекта'
     });
-  } catch (error) {
-    console.error('Error in removeTeamMember:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при удалении участника из команды',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -2355,15 +2110,14 @@ export const removeTeamMember = async (req, res) => {
  *       500:
  *         description: Ошибка сервера
  */
-export const calculateProjectProgress = async (req, res) => {
+export const calculateProjectProgress = catchAsync(async (req, res) => {
   console.log('🔵 calculateProjectProgress called');
   console.log('🔵 Project ID:', req.params.id);
   console.log('🔵 User:', req.user?.email, 'Role:', req.user?.role);
   
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
-    const isSuperAdmin = req.user.role === 'super_admin';
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
 
     // Проверяем доступ к проекту
     let checkQuery = `SELECT * FROM projects WHERE id = $1`;
@@ -2378,10 +2132,7 @@ export const calculateProjectProgress = async (req, res) => {
     
     if (checkResult.rows.length === 0) {
       console.log('❌ Project not found or no access');
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Проект не найден'
-      });
+      throw new NotFoundError('Проект не найден');
     }
 
     console.log('✅ Project found:', checkResult.rows[0].name);
@@ -2461,16 +2212,7 @@ export const calculateProjectProgress = async (req, res) => {
       totalWorks: parseInt(total_works),
       message: `Прогресс обновлен: ${completed_works} из ${total_works} работ выполнено`
     });
-
-  } catch (error) {
-    console.error('Error calculating project progress:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при расчете прогресса проекта',
-      error: error.message
-    });
-  }
-};
+});
 
 /**
  * @swagger
@@ -2521,12 +2263,11 @@ export const calculateProjectProgress = async (req, res) => {
  *       500:
  *         description: Внутренняя ошибка сервера
  */
-export const getDashboardSummary = async (req, res) => {
+export const getDashboardSummary = catchAsync(async (req, res) => {
   const startTime = Date.now();
   
-  try {
-    const tenantId = req.user.tenantId;
-    const isSuperAdmin = req.user.role === 'super_admin';
+  const tenantId = req.user.tenantId;
+  const isSuperAdmin = req.user.role === 'super_admin';
 
     // Параллельно выполняем все запросы к БД
     const [
@@ -2573,16 +2314,7 @@ export const getDashboardSummary = async (req, res) => {
         timestamp: new Date().toISOString()
       }
     });
-
-  } catch (error) {
-    console.error('Error in getDashboardSummary:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при загрузке данных дашборда',
-      error: error.message
-    });
-  }
-};
+});
 
 // ============= Internal helper functions for getDashboardSummary =============
 
@@ -2935,11 +2667,10 @@ async function getProjectsProfitInternal(tenantId, isSuperAdmin, limit) {
  *       500:
  *         description: Внутренняя ошибка сервера
  */
-export const getProjectFullDashboard = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user?.tenantId || null;
-    const isSuperAdmin = req.user?.role === 'super_admin';
+export const getProjectFullDashboard = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user?.tenantId || null;
+  const isSuperAdmin = req.user?.role === 'super_admin';
 
     // 1. Получаем проект с расширенной информацией
     let projectQuery = `
@@ -2980,10 +2711,7 @@ export const getProjectFullDashboard = async (req, res) => {
     const projectResult = await pool.query(projectQuery, projectParams);
 
     if (projectResult.rows.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'Проект не найден'
-      });
+      throw new NotFoundError('Проект не найден');
     }
 
     const project = projectResult.rows[0];
@@ -3068,15 +2796,7 @@ export const getProjectFullDashboard = async (req, res) => {
         }
       }
     });
-  } catch (error) {
-    console.error('Error in getProjectFullDashboard:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'Ошибка при получении данных дашборда проекта',
-      error: error.message
-    });
-  }
-};
+});
 
 export default {
   getAllProjects,

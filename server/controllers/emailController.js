@@ -1,6 +1,7 @@
 import { query } from '../config/database.js';
 import { v4 as uuidv4 } from 'uuid';
 import emailService from '../services/emailService.js';
+import { catchAsync, BadRequestError, NotFoundError } from '../utils/errors.js';
 
 /**
  * @swagger
@@ -67,86 +68,67 @@ import emailService from '../services/emailService.js';
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-export const sendVerificationEmail = async (req, res) => {
-  try {
-    const { userId } = req.user; // Из JWT токена (middleware)
-    
-    // Получаем данные пользователя
-    const userResult = await query(
-      'SELECT id, email, email_verified, full_name FROM users WHERE id = $1',
-      [userId]
-    );
+export const sendVerificationEmail = catchAsync(async (req, res) => {
+  const { userId } = req.user; // Из JWT токена (middleware)
+  
+  // Получаем данные пользователя
+  const userResult = await query(
+    'SELECT id, email, email_verified, full_name FROM users WHERE id = $1',
+    [userId]
+  );
 
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Пользователь не найден'
-      });
-    }
-
-    const user = userResult.rows[0];
-
-    if (user.email_verified) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email уже подтвержден'
-      });
-    }
-
-    // Удаляем старые неиспользованные токены
-    await query(
-      'DELETE FROM email_verifications WHERE user_id = $1 AND verified_at IS NULL',
-      [userId]
-    );
-
-    // Создаем токен подтверждения
-    const token = uuidv4();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 часа
-
-    await query(
-      `INSERT INTO email_verifications (user_id, email, token, expires_at)
-       VALUES ($1, $2, $3, $4)`,
-      [userId, user.email, token, expiresAt]
-    );
-
-    // Получаем имя пользователя для персонализации письма
-    const userName = user.full_name || user.email.split('@')[0];
-
-    // Отправка email через UniSender
-    try {
-      await emailService.sendVerificationEmail(user.email, token, userName);
-      
-      console.log(`✅ [EmailController] Письмо подтверждения отправлено на ${user.email}`);
-      
-      res.json({
-        success: true,
-        message: 'Письмо с подтверждением отправлено',
-        data: {
-          email: user.email,
-          expiresAt,
-          // В dev-режиме возвращаем токен для тестирования
-          ...(process.env.NODE_ENV === 'development' && { token })
-        }
-      });
-    } catch (emailError) {
-      console.error('❌ [EmailController] Ошибка отправки email:', emailError.message);
-      
-      // Email не отправлен, но токен создан - пользователь может попробовать позже
-      res.status(500).json({
-        success: false,
-        message: 'Ошибка при отправке письма. Попробуйте позже',
-        error: process.env.NODE_ENV === 'development' ? emailError.message : undefined
-      });
-    }
-
-  } catch (error) {
-    console.error('Send verification email error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при отправке письма'
-    });
+  if (userResult.rows.length === 0) {
+    throw new NotFoundError('Пользователь не найден');
   }
-};
+
+  const user = userResult.rows[0];
+
+  if (user.email_verified) {
+    throw new BadRequestError('Email уже подтвержден');
+  }
+
+  // Удаляем старые неиспользованные токены
+  await query(
+    'DELETE FROM email_verifications WHERE user_id = $1 AND verified_at IS NULL',
+    [userId]
+  );
+
+  // Создаем токен подтверждения
+  const token = uuidv4();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 часа
+
+  await query(
+    `INSERT INTO email_verifications (user_id, email, token, expires_at)
+     VALUES ($1, $2, $3, $4)`,
+    [userId, user.email, token, expiresAt]
+  );
+
+  // Получаем имя пользователя для персонализации письма
+  const userName = user.full_name || user.email.split('@')[0];
+
+  // Отправка email через UniSender
+  try {
+    await emailService.sendVerificationEmail(user.email, token, userName);
+    
+    console.log(`✅ [EmailController] Письмо подтверждения отправлено на ${user.email}`);
+    
+    res.json({
+      success: true,
+      message: 'Письмо с подтверждением отправлено',
+      data: {
+        email: user.email,
+        expiresAt,
+        // В dev-режиме возвращаем токен для тестирования
+        ...(process.env.NODE_ENV === 'development' && { token })
+      }
+    });
+  } catch (emailError) {
+    console.error('❌ [EmailController] Ошибка отправки email:', emailError.message);
+    
+    // Email не отправлен, но токен создан - пользователь может попробовать позже
+    throw new Error('Ошибка при отправке письма. Попробуйте позже');
+  }
+});
 
 /**
  * @swagger
@@ -220,79 +202,58 @@ export const sendVerificationEmail = async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-export const verifyEmail = async (req, res) => {
-  try {
-    const { token } = req.body;
+export const verifyEmail = catchAsync(async (req, res) => {
+  const { token } = req.body;
 
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: 'Токен не предоставлен'
-      });
-    }
-
-    // Находим токен
-    const tokenResult = await query(
-      `SELECT ev.*, u.email_verified
-       FROM email_verifications ev
-       JOIN users u ON u.id = ev.user_id
-       WHERE ev.token = $1 AND ev.verified_at IS NULL`,
-      [token]
-    );
-
-    if (tokenResult.rows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Недействительный или уже использованный токен'
-      });
-    }
-
-    const verification = tokenResult.rows[0];
-
-    // Проверяем истечение токена
-    if (new Date(verification.expires_at) < new Date()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Токен истек. Запросите новое письмо подтверждения'
-      });
-    }
-
-    // Если email уже подтвержден
-    if (verification.email_verified) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email уже подтвержден'
-      });
-    }
-
-    // Подтверждаем email
-    await query(
-      'UPDATE users SET email_verified = true, updated_at = NOW() WHERE id = $1',
-      [verification.user_id]
-    );
-
-    // Отмечаем токен как использованный
-    await query(
-      'UPDATE email_verifications SET verified_at = NOW() WHERE id = $1',
-      [verification.id]
-    );
-
-    res.json({
-      success: true,
-      message: 'Email успешно подтвержден',
-      data: {
-        email: verification.email
-      }
-    });
-
-  } catch (error) {
-    console.error('Verify email error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при подтверждении email'
-    });
+  if (!token) {
+    throw new BadRequestError('Токен не предоставлен');
   }
-};
+
+  // Находим токен
+  const tokenResult = await query(
+    `SELECT ev.*, u.email_verified
+     FROM email_verifications ev
+     JOIN users u ON u.id = ev.user_id
+     WHERE ev.token = $1 AND ev.verified_at IS NULL`,
+    [token]
+  );
+
+  if (tokenResult.rows.length === 0) {
+    throw new BadRequestError('Недействительный или уже использованный токен');
+  }
+
+  const verification = tokenResult.rows[0];
+
+  // Проверяем истечение токена
+  if (new Date(verification.expires_at) < new Date()) {
+    throw new BadRequestError('Токен истек. Запросите новое письмо подтверждения');
+  }
+
+  // Если email уже подтвержден
+  if (verification.email_verified) {
+    throw new BadRequestError('Email уже подтвержден');
+  }
+
+  // Подтверждаем email
+  await query(
+    'UPDATE users SET email_verified = true, updated_at = NOW() WHERE id = $1',
+    [verification.user_id]
+  );
+
+  // Отмечаем токен как использованный
+  await query(
+    'UPDATE email_verifications SET verified_at = NOW() WHERE id = $1',
+    [verification.id]
+  );
+
+  res.json({
+    success: true,
+    message: 'Email успешно подтвержден',
+    data: {
+      email: verification.email
+    }
+  });
+});
 
 /**
  * @swagger
@@ -376,56 +337,44 @@ export const verifyEmail = async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-export const getVerificationStatus = async (req, res) => {
-  try {
-    const { userId } = req.user; // Из JWT токена
+export const getVerificationStatus = catchAsync(async (req, res) => {
+  const { userId } = req.user; // Из JWT токена
 
-    const userResult = await query(
-      'SELECT email, email_verified FROM users WHERE id = $1',
-      [userId]
-    );
+  const userResult = await query(
+    'SELECT email, email_verified FROM users WHERE id = $1',
+    [userId]
+  );
 
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Пользователь не найден'
-      });
-    }
-
-    const user = userResult.rows[0];
-
-    // Проверяем наличие активного токена
-    const tokenResult = await query(
-      `SELECT token, expires_at, created_at
-       FROM email_verifications
-       WHERE user_id = $1 
-         AND verified_at IS NULL 
-         AND expires_at > NOW()
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [userId]
-    );
-
-    res.json({
-      success: true,
-      data: {
-        email: user.email,
-        emailVerified: user.email_verified,
-        hasPendingVerification: tokenResult.rows.length > 0,
-        ...(tokenResult.rows.length > 0 && {
-          pendingVerification: {
-            expiresAt: tokenResult.rows[0].expires_at,
-            createdAt: tokenResult.rows[0].created_at
-          }
-        })
-      }
-    });
-
-  } catch (error) {
-    console.error('Get verification status error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при получении статуса'
-    });
+  if (userResult.rows.length === 0) {
+    throw new NotFoundError('Пользователь не найден');
   }
-};
+
+  const user = userResult.rows[0];
+
+  // Проверяем наличие активного токена
+  const tokenResult = await query(
+    `SELECT token, expires_at, created_at
+     FROM email_verifications
+     WHERE user_id = $1 
+       AND verified_at IS NULL 
+       AND expires_at > NOW()
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [userId]
+  );
+
+  res.json({
+    success: true,
+    data: {
+      email: user.email,
+      emailVerified: user.email_verified,
+      hasPendingVerification: tokenResult.rows.length > 0,
+      ...(tokenResult.rows.length > 0 && {
+        pendingVerification: {
+          expiresAt: tokenResult.rows[0].expires_at,
+          createdAt: tokenResult.rows[0].created_at
+        }
+      })
+    }
+  });
+});

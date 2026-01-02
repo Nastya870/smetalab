@@ -4,6 +4,7 @@
 
 import estimateItemsRepository from '../repositories/estimateItemsRepository.js';
 import { StatusCodes } from 'http-status-codes';
+import { catchAsync, BadRequestError, NotFoundError } from '../utils/errors.js';
 
 /**
  * @swagger
@@ -29,27 +30,18 @@ import { StatusCodes } from 'http-status-codes';
  *       500:
  *         description: Ошибка сервера
  */
-export async function getEstimateItems(req, res) {
-  try {
-    const { estimateId } = req.params;
-    const tenantId = req.user.tenantId;
+export const getEstimateItems = catchAsync(async (req, res) => {
+  const { estimateId } = req.params;
+  const tenantId = req.user.tenantId;
 
-    const items = await estimateItemsRepository.findByEstimateId(estimateId, tenantId);
+  const items = await estimateItemsRepository.findByEstimateId(estimateId, tenantId);
 
-    res.status(StatusCodes.OK).json({
-      success: true,
-      count: items.length,
-      data: items
-    });
-  } catch (error) {
-    console.error('Error fetching estimate items:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      error: 'Ошибка при получении позиций сметы',
-      message: error.message
-    });
-  }
-}
+  res.status(StatusCodes.OK).json({
+    success: true,
+    count: items.length,
+    data: items
+  });
+});
 
 /**
  * @swagger
@@ -75,33 +67,21 @@ export async function getEstimateItems(req, res) {
  *       500:
  *         description: Ошибка сервера
  */
-export async function getEstimateItemById(req, res) {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
+export const getEstimateItemById = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
 
-    const item = await estimateItemsRepository.findById(id, tenantId);
+  const item = await estimateItemsRepository.findById(id, tenantId);
 
-    if (!item) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        error: 'Позиция не найдена'
-      });
-    }
-
-    res.status(StatusCodes.OK).json({
-      success: true,
-      data: item
-    });
-  } catch (error) {
-    console.error('Error fetching estimate item:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      error: 'Ошибка при получении позиции',
-      message: error.message
-    });
+  if (!item) {
+    throw new NotFoundError('Позиция не найдена');
   }
-}
+
+  res.status(StatusCodes.OK).json({
+    success: true,
+    data: item
+  });
+});
 
 /**
  * @swagger
@@ -158,42 +138,30 @@ export async function getEstimateItemById(req, res) {
  *       500:
  *         description: Ошибка сервера
  */
-export async function createEstimateItem(req, res) {
+export const createEstimateItem = catchAsync(async (req, res) => {
+  const { estimateId } = req.params;
+  const tenantId = req.user.tenantId;
+
+  // Валидация обязательных полей
+  const { name, unit, quantity, unit_price } = req.body;
+
+  if (!name || !name.trim()) {
+    throw new BadRequestError('Название позиции обязательно');
+  }
+
+  if (!unit || !unit.trim()) {
+    throw new BadRequestError('Единица измерения обязательна');
+  }
+
+  if (quantity === undefined || quantity <= 0) {
+    throw new BadRequestError('Количество должно быть больше 0');
+  }
+
+  if (unit_price === undefined || unit_price < 0) {
+    throw new BadRequestError('Цена должна быть неотрицательной');
+  }
+
   try {
-    const { estimateId } = req.params;
-    const tenantId = req.user.tenantId;
-
-    // Валидация обязательных полей
-    const { name, unit, quantity, unit_price } = req.body;
-
-    if (!name || !name.trim()) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        error: 'Название позиции обязательно'
-      });
-    }
-
-    if (!unit || !unit.trim()) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        error: 'Единица измерения обязательна'
-      });
-    }
-
-    if (quantity === undefined || quantity <= 0) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        error: 'Количество должно быть больше 0'
-      });
-    }
-
-    if (unit_price === undefined || unit_price < 0) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        error: 'Цена должна быть неотрицательной'
-      });
-    }
-
     // Создаём позицию
     const newItem = await estimateItemsRepository.create(req.body, estimateId, tenantId);
 
@@ -203,22 +171,12 @@ export async function createEstimateItem(req, res) {
       data: newItem
     });
   } catch (error) {
-    console.error('Error creating estimate item:', error);
-
     if (error.message === 'Смета не найдена или нет доступа') {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        error: error.message
-      });
+      throw new NotFoundError(error.message);
     }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      error: 'Ошибка при создании позиции',
-      message: error.message
-    });
+    throw error;
   }
-}
+});
 
 /**
  * @swagger
@@ -260,26 +218,20 @@ export async function createEstimateItem(req, res) {
  *       500:
  *         description: Ошибка сервера
  */
-export async function updateEstimateItem(req, res) {
+export const updateEstimateItem = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
+
+  // Валидация quantity и unit_price, если они передаются
+  if (req.body.quantity !== undefined && req.body.quantity <= 0) {
+    throw new BadRequestError('Количество должно быть больше 0');
+  }
+
+  if (req.body.unit_price !== undefined && req.body.unit_price < 0) {
+    throw new BadRequestError('Цена должна быть неотрицательной');
+  }
+
   try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
-
-    // Валидация quantity и unit_price, если они передаются
-    if (req.body.quantity !== undefined && req.body.quantity <= 0) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        error: 'Количество должно быть больше 0'
-      });
-    }
-
-    if (req.body.unit_price !== undefined && req.body.unit_price < 0) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        error: 'Цена должна быть неотрицательной'
-      });
-    }
-
     const updatedItem = await estimateItemsRepository.update(id, req.body, tenantId);
 
     res.status(StatusCodes.OK).json({
@@ -288,22 +240,12 @@ export async function updateEstimateItem(req, res) {
       data: updatedItem
     });
   } catch (error) {
-    console.error('Error updating estimate item:', error);
-
     if (error.message === 'Позиция не найдена или нет доступа') {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        error: error.message
-      });
+      throw new NotFoundError(error.message);
     }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      error: 'Ошибка при обновлении позиции',
-      message: error.message
-    });
+    throw error;
   }
-}
+});
 
 /**
  * @swagger
@@ -329,11 +271,11 @@ export async function updateEstimateItem(req, res) {
  *       500:
  *         description: Ошибка сервера
  */
-export async function deleteEstimateItem(req, res) {
-  try {
-    const { id } = req.params;
-    const tenantId = req.user.tenantId;
+export const deleteEstimateItem = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenantId;
 
+  try {
     await estimateItemsRepository.deleteItem(id, tenantId);
 
     res.status(StatusCodes.OK).json({
@@ -341,22 +283,12 @@ export async function deleteEstimateItem(req, res) {
       message: 'Позиция успешно удалена'
     });
   } catch (error) {
-    console.error('Error deleting estimate item:', error);
-
     if (error.message === 'Позиция не найдена или нет доступа') {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        error: error.message
-      });
+      throw new NotFoundError(error.message);
     }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      error: 'Ошибка при удалении позиции',
-      message: error.message
-    });
+    throw error;
   }
-}
+});
 
 /**
  * @swagger
@@ -399,27 +331,24 @@ export async function deleteEstimateItem(req, res) {
  *       500:
  *         description: Ошибка сервера
  */
-export async function bulkAddFromWorks(req, res) {
+export const bulkAddFromWorks = catchAsync(async (req, res) => {
+  const { estimateId } = req.params;
+  const tenantId = req.user.tenantId;
+  const { workIds, quantities } = req.body;
+
+  console.log('[bulkAddFromWorks] Request:', { 
+    estimateId, 
+    tenantId, 
+    workIds: workIds?.length, 
+    quantities: Object.keys(quantities || {}).length 
+  });
+
+  if (!workIds || !Array.isArray(workIds) || workIds.length === 0) {
+    console.error('[bulkAddFromWorks] Invalid workIds:', workIds);
+    throw new BadRequestError('Массив workIds обязателен и должен содержать хотя бы один элемент');
+  }
+
   try {
-    const { estimateId } = req.params;
-    const tenantId = req.user.tenantId;
-    const { workIds, quantities } = req.body;
-
-    console.log('[bulkAddFromWorks] Request:', { 
-      estimateId, 
-      tenantId, 
-      workIds: workIds?.length, 
-      quantities: Object.keys(quantities || {}).length 
-    });
-
-    if (!workIds || !Array.isArray(workIds) || workIds.length === 0) {
-      console.error('[bulkAddFromWorks] Invalid workIds:', workIds);
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        error: 'Массив workIds обязателен и должен содержать хотя бы один элемент'
-      });
-    }
-
     const result = await estimateItemsRepository.bulkCreateFromWorks(
       estimateId,
       workIds,
@@ -447,26 +376,16 @@ export async function bulkAddFromWorks(req, res) {
     console.error('[bulkAddFromWorks] Error:', error);
 
     if (error.message === 'Смета не найдена или нет доступа') {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        error: error.message
-      });
+      throw new NotFoundError(error.message);
     }
 
     if (error.message === 'Работы не найдены') {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        error: error.message
-      });
+      throw new NotFoundError(error.message);
     }
 
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      error: 'Ошибка при массовом добавлении работ',
-      message: error.message
-    });
+    throw error;
   }
-}
+});
 
 /**
  * @swagger
@@ -510,19 +429,16 @@ export async function bulkAddFromWorks(req, res) {
  *       500:
  *         description: Ошибка сервера
  */
-export async function reorderEstimateItems(req, res) {
+export const reorderEstimateItems = catchAsync(async (req, res) => {
+  const { estimateId } = req.params;
+  const tenantId = req.user.tenantId;
+  const { items } = req.body;
+
+  if (!items || !Array.isArray(items)) {
+    throw new BadRequestError('Массив items обязателен');
+  }
+
   try {
-    const { estimateId } = req.params;
-    const tenantId = req.user.tenantId;
-    const { items } = req.body;
-
-    if (!items || !Array.isArray(items)) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        error: 'Массив items обязателен'
-      });
-    }
-
     const reorderedItems = await estimateItemsRepository.reorderItems(estimateId, items, tenantId);
 
     res.status(StatusCodes.OK).json({
@@ -531,22 +447,12 @@ export async function reorderEstimateItems(req, res) {
       data: reorderedItems
     });
   } catch (error) {
-    console.error('Error reordering items:', error);
-
     if (error.message === 'Смета не найдена или нет доступа') {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        error: error.message
-      });
+      throw new NotFoundError(error.message);
     }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      error: 'Ошибка при изменении порядка позиций',
-      message: error.message
-    });
+    throw error;
   }
-}
+});
 
 /**
  * @swagger
@@ -602,55 +508,40 @@ export async function reorderEstimateItems(req, res) {
  *       500:
  *         description: Ошибка сервера
  */
-export async function bulkCreateItems(req, res) {
+export const bulkCreateItems = catchAsync(async (req, res) => {
+  const { estimateId } = req.params;
+  const tenantId = req.user.tenantId;
+  const { items } = req.body;
+
+  console.log(`[bulkCreateItems] Received ${items?.length || 0} items for estimate ${estimateId}`);
+
+  // Валидация
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    throw new BadRequestError('Массив items обязателен и должен содержать хотя бы один элемент');
+  }
+
+  // Валидация обязательных полей для каждой позиции
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    
+    if (!item.name || !item.name.trim()) {
+      throw new BadRequestError(`Позиция #${i + 1}: название обязательно`);
+    }
+
+    if (!item.unit || !item.unit.trim()) {
+      throw new BadRequestError(`Позиция #${i + 1}: единица измерения обязательна`);
+    }
+
+    if (item.quantity === undefined || item.quantity <= 0) {
+      throw new BadRequestError(`Позиция #${i + 1}: количество должно быть больше 0`);
+    }
+
+    if (item.unit_price === undefined || item.unit_price < 0) {
+      throw new BadRequestError(`Позиция #${i + 1}: цена должна быть неотрицательной`);
+    }
+  }
+
   try {
-    const { estimateId } = req.params;
-    const tenantId = req.user.tenantId;
-    const { items } = req.body;
-
-    console.log(`[bulkCreateItems] Received ${items?.length || 0} items for estimate ${estimateId}`);
-
-    // Валидация
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        error: 'Массив items обязателен и должен содержать хотя бы один элемент'
-      });
-    }
-
-    // Валидация обязательных полей для каждой позиции
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      
-      if (!item.name || !item.name.trim()) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          error: `Позиция #${i + 1}: название обязательно`
-        });
-      }
-
-      if (!item.unit || !item.unit.trim()) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          error: `Позиция #${i + 1}: единица измерения обязательна`
-        });
-      }
-
-      if (item.quantity === undefined || item.quantity <= 0) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          error: `Позиция #${i + 1}: количество должно быть больше 0`
-        });
-      }
-
-      if (item.unit_price === undefined || item.unit_price < 0) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          error: `Позиция #${i + 1}: цена должна быть неотрицательной`
-        });
-      }
-    }
-
     // Создаём позиции в транзакции
     const createdItems = await estimateItemsRepository.bulkCreate(estimateId, items, tenantId);
 
@@ -664,19 +555,11 @@ export async function bulkCreateItems(req, res) {
     console.error('[bulkCreateItems] Error:', error);
 
     if (error.message === 'Смета не найдена или нет доступа') {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        error: error.message
-      });
+      throw new NotFoundError(error.message);
     }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      error: 'Ошибка при массовом создании позиций',
-      message: error.message
-    });
+    throw error;
   }
-}
+});
 
 /**
  * @swagger
@@ -700,11 +583,11 @@ export async function bulkCreateItems(req, res) {
  *       500:
  *         description: Ошибка сервера
  */
-export async function deleteAllEstimateItems(req, res) {
-  try {
-    const { estimateId } = req.params;
-    const tenantId = req.user.tenantId;
+export const deleteAllEstimateItems = catchAsync(async (req, res) => {
+  const { estimateId } = req.params;
+  const tenantId = req.user.tenantId;
 
+  try {
     const deletedCount = await estimateItemsRepository.deleteAllByEstimateId(estimateId, tenantId);
 
     res.status(StatusCodes.OK).json({
@@ -716,80 +599,57 @@ export async function deleteAllEstimateItems(req, res) {
     console.error('[deleteAllEstimateItems] Error:', error);
 
     if (error.message === 'Смета не найдена или нет доступа') {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        error: error.message
-      });
+      throw new NotFoundError(error.message);
     }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      error: 'Ошибка при удалении позиций',
-      message: error.message
-    });
+    throw error;
   }
-}
+});
 
 /**
  * Заменить все позиции сметы (удалить старые + создать новые в одной транзакции)
  * PUT /api/estimates/:estimateId/items/replace
  * Body: { items: [{ name, unit, quantity, unit_price, materials: [...] }, ...] }
  */
-export async function replaceAllEstimateItems(req, res) {
+export const replaceAllEstimateItems = catchAsync(async (req, res) => {
+  const { estimateId } = req.params;
+  const tenantId = req.user.tenantId;
+  const { items } = req.body;
+
+  console.log(`[replaceAllEstimateItems] Replacing all items for estimate ${estimateId} with ${items?.length || 0} new items`);
+
+  // Валидация
+  if (!items || !Array.isArray(items)) {
+    throw new BadRequestError('Массив items обязателен');
+  }
+
+  // Разрешаем пустой массив (удалить все позиции)
+  if (items.length === 0) {
+    console.log('[replaceAllEstimateItems] Empty items array - will delete all items');
+  }
+
+  // Валидация обязательных полей для каждой позиции
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    
+    if (!item.name || !item.name.trim()) {
+      throw new BadRequestError(`Позиция #${i + 1}: название обязательно`);
+    }
+
+    if (!item.unit || !item.unit.trim()) {
+      throw new BadRequestError(`Позиция #${i + 1}: единица измерения обязательна`);
+    }
+
+    // ✅ Разрешаем quantity = 0 (пользователь увидит красную подсветку в UI)
+    if (item.quantity === undefined || item.quantity < 0) {
+      throw new BadRequestError(`Позиция #${i + 1}: количество должно быть неотрицательным (>= 0)`);
+    }
+
+    if (item.unit_price === undefined || item.unit_price < 0) {
+      throw new BadRequestError(`Позиция #${i + 1}: цена должна быть неотрицательной`);
+    }
+  }
+
   try {
-    const { estimateId } = req.params;
-    const tenantId = req.user.tenantId;
-    const { items } = req.body;
-
-    console.log(`[replaceAllEstimateItems] Replacing all items for estimate ${estimateId} with ${items?.length || 0} new items`);
-
-    // Валидация
-    if (!items || !Array.isArray(items)) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        error: 'Массив items обязателен'
-      });
-    }
-
-    // Разрешаем пустой массив (удалить все позиции)
-    if (items.length === 0) {
-      console.log('[replaceAllEstimateItems] Empty items array - will delete all items');
-    }
-
-    // Валидация обязательных полей для каждой позиции
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      
-      if (!item.name || !item.name.trim()) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          error: `Позиция #${i + 1}: название обязательно`
-        });
-      }
-
-      if (!item.unit || !item.unit.trim()) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          error: `Позиция #${i + 1}: единица измерения обязательна`
-        });
-      }
-
-      // ✅ Разрешаем quantity = 0 (пользователь увидит красную подсветку в UI)
-      if (item.quantity === undefined || item.quantity < 0) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          error: `Позиция #${i + 1}: количество должно быть неотрицательным (>= 0)`
-        });
-      }
-
-      if (item.unit_price === undefined || item.unit_price < 0) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          error: `Позиция #${i + 1}: цена должна быть неотрицательной`
-        });
-      }
-    }
-
     // Заменяем все позиции в транзакции
     const createdItems = await estimateItemsRepository.replaceAllItems(estimateId, items, tenantId);
 
@@ -803,19 +663,11 @@ export async function replaceAllEstimateItems(req, res) {
     console.error('[replaceAllEstimateItems] Error:', error);
 
     if (error.message === 'Смета не найдена или нет доступа') {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        error: error.message
-      });
+      throw new NotFoundError(error.message);
     }
-
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      error: 'Ошибка при замене позиций сметы',
-      message: error.message
-    });
+    throw error;
   }
-}
+});
 
 export default {
   getEstimateItems,

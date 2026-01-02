@@ -1,204 +1,165 @@
 import db from '../config/database.js';
+import { catchAsync, BadRequestError, NotFoundError } from '../utils/errors.js';
 
 /**
  * Получить договор по ID сметы
  * @route GET /api/contracts/estimate/:estimateId
  */
-export const getContractByEstimate = async (req, res) => {
-  try {
-    const { estimateId } = req.params;
+export const getContractByEstimate = catchAsync(async (req, res) => {
+  const { estimateId } = req.params;
 
-    const result = await db.query(
-      `SELECT 
-        c.*,
-        row_to_json(customer.*) as customer,
-        row_to_json(contractor.*) as contractor,
-        p.name as project_name,
-        p.address as project_address,
-        e.name as estimate_name
-      FROM contracts c
-      LEFT JOIN counterparties customer ON c.customer_id = customer.id
-      LEFT JOIN counterparties contractor ON c.contractor_id = contractor.id
-      LEFT JOIN projects p ON c.project_id = p.id
-      LEFT JOIN estimates e ON c.estimate_id = e.id
-      WHERE c.estimate_id = $1`,
-      [estimateId]
-    );
+  const result = await db.query(
+    `SELECT 
+      c.*,
+      row_to_json(customer.*) as customer,
+      row_to_json(contractor.*) as contractor,
+      p.name as project_name,
+      p.address as project_address,
+      e.name as estimate_name
+    FROM contracts c
+    LEFT JOIN counterparties customer ON c.customer_id = customer.id
+    LEFT JOIN counterparties contractor ON c.contractor_id = contractor.id
+    LEFT JOIN projects p ON c.project_id = p.id
+    LEFT JOIN estimates e ON c.estimate_id = e.id
+    WHERE c.estimate_id = $1`,
+    [estimateId]
+  );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Договор не найден'
-      });
-    }
-
-    res.json({
-      success: true,
-      contract: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Error getting contract by estimate:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при получении договора',
-      error: error.message
-    });
+  if (result.rows.length === 0) {
+    throw new NotFoundError('Договор не найден');
   }
-};
+
+  res.json({
+    success: true,
+    contract: result.rows[0]
+  });
+});
 
 /**
  * Получить договор по ID
  * @route GET /api/contracts/:id
  */
-export const getById = async (req, res) => {
-  try {
-    const { id } = req.params;
+export const getById = catchAsync(async (req, res) => {
+  const { id } = req.params;
 
-    const result = await db.query(
-      `SELECT 
-        c.*,
-        row_to_json(customer.*) as customer,
-        row_to_json(contractor.*) as contractor,
-        p.name as project_name,
-        p.address as project_address,
-        e.name as estimate_name
-      FROM contracts c
-      LEFT JOIN counterparties customer ON c.customer_id = customer.id
-      LEFT JOIN counterparties contractor ON c.contractor_id = contractor.id
-      LEFT JOIN projects p ON c.project_id = p.id
-      LEFT JOIN estimates e ON c.estimate_id = e.id
-      WHERE c.id = $1`,
-      [id]
-    );
+  const result = await db.query(
+    `SELECT 
+      c.*,
+      row_to_json(customer.*) as customer,
+      row_to_json(contractor.*) as contractor,
+      p.name as project_name,
+      p.address as project_address,
+      e.name as estimate_name
+    FROM contracts c
+    LEFT JOIN counterparties customer ON c.customer_id = customer.id
+    LEFT JOIN counterparties contractor ON c.contractor_id = contractor.id
+    LEFT JOIN projects p ON c.project_id = p.id
+    LEFT JOIN estimates e ON c.estimate_id = e.id
+    WHERE c.id = $1`,
+    [id]
+  );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Договор не найден'
-      });
-    }
-
-    res.json({
-      success: true,
-      contract: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Error getting contract:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при получении договора',
-      error: error.message
-    });
+  if (result.rows.length === 0) {
+    throw new NotFoundError('Договор не найден');
   }
-};
+
+  res.json({
+    success: true,
+    contract: result.rows[0]
+  });
+});
 
 /**
  * Сгенерировать договор с автозаполнением
  * @route POST /api/contracts/generate
  */
-export const generateContract = async (req, res) => {
-  try {
-    const { estimateId, projectId, customerId, contractorId } = req.body;
+export const generateContract = catchAsync(async (req, res) => {
+  const { estimateId, projectId, customerId, contractorId } = req.body;
 
-    // Валидация входных данных
-    if (!estimateId || !projectId || !customerId || !contractorId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Все поля обязательны: estimateId, projectId, customerId, contractorId'
-      });
+  // Валидация входных данных
+  if (!estimateId || !projectId || !customerId || !contractorId) {
+    throw new BadRequestError('Все поля обязательны: estimateId, projectId, customerId, contractorId');
+  }
+
+  // Получаем данные сметы
+  const estimateResult = await db.query(
+    'SELECT * FROM estimates WHERE id = $1',
+    [estimateId]
+  );
+
+  if (estimateResult.rows.length === 0) {
+    throw new NotFoundError('Смета не найдена');
+  }
+
+  const estimate = estimateResult.rows[0];
+
+  // Получаем данные проекта
+  const projectResult = await db.query(
+    'SELECT * FROM projects WHERE id = $1',
+    [projectId]
+  );
+
+  if (projectResult.rows.length === 0) {
+    throw new NotFoundError('Проект не найден');
+  }
+
+  const project = projectResult.rows[0];
+
+  // Получаем данные заказчика
+  const customerResult = await db.query(
+    'SELECT * FROM counterparties WHERE id = $1 AND entity_type = $2',
+    [customerId, 'individual']
+  );
+
+  if (customerResult.rows.length === 0) {
+    throw new NotFoundError('Заказчик не найден или не является физическим лицом');
+  }
+
+  const customer = customerResult.rows[0];
+
+  // Получаем данные подрядчика
+  const contractorResult = await db.query(
+    'SELECT * FROM counterparties WHERE id = $1 AND entity_type = $2',
+    [contractorId, 'legal']
+  );
+
+  if (contractorResult.rows.length === 0) {
+    throw new NotFoundError('Подрядчик не найден или не является юридическим лицом');
+  }
+
+  const contractor = contractorResult.rows[0];
+
+  // Генерация номера договора (формат: Д-YYYY-NNN)
+  const year = new Date().getFullYear();
+  
+  // Находим максимальный номер договора для этого tenant в текущем году
+  const maxNumberResult = await db.query(
+    `SELECT contract_number 
+     FROM contracts 
+     WHERE tenant_id = $1 
+       AND EXTRACT(YEAR FROM contract_date) = $2
+       AND contract_number LIKE $3
+     ORDER BY contract_number DESC
+     LIMIT 1`,
+    [req.user.tenantId, year, `Д-${year}-%`]
+  );
+
+  let nextNumber = 1;
+  if (maxNumberResult.rows.length > 0) {
+    const lastNumber = maxNumberResult.rows[0].contract_number;
+    const match = lastNumber.match(/Д-\d{4}-(\d{3})/);
+    if (match) {
+      nextNumber = parseInt(match[1]) + 1;
     }
+  }
 
-    // Получаем данные сметы
-    const estimateResult = await db.query(
-      'SELECT * FROM estimates WHERE id = $1',
-      [estimateId]
-    );
+  const contractNumber = `Д-${year}-${String(nextNumber).padStart(3, '0')}`;
 
-    if (estimateResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Смета не найдена'
-      });
-    }
+  // Получаем стоимость сметы
+  const totalAmount = estimate.total_cost || 0;
 
-    const estimate = estimateResult.rows[0];
-
-    // Получаем данные проекта
-    const projectResult = await db.query(
-      'SELECT * FROM projects WHERE id = $1',
-      [projectId]
-    );
-
-    if (projectResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Проект не найден'
-      });
-    }
-
-    const project = projectResult.rows[0];
-
-    // Получаем данные заказчика
-    const customerResult = await db.query(
-      'SELECT * FROM counterparties WHERE id = $1 AND entity_type = $2',
-      [customerId, 'individual']
-    );
-
-    if (customerResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Заказчик не найден или не является физическим лицом'
-      });
-    }
-
-    const customer = customerResult.rows[0];
-
-    // Получаем данные подрядчика
-    const contractorResult = await db.query(
-      'SELECT * FROM counterparties WHERE id = $1 AND entity_type = $2',
-      [contractorId, 'legal']
-    );
-
-    if (contractorResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Подрядчик не найден или не является юридическим лицом'
-      });
-    }
-
-    const contractor = contractorResult.rows[0];
-
-    // Генерация номера договора (формат: Д-YYYY-NNN)
-    const year = new Date().getFullYear();
-    
-    // Находим максимальный номер договора для этого tenant в текущем году
-    const maxNumberResult = await db.query(
-      `SELECT contract_number 
-       FROM contracts 
-       WHERE tenant_id = $1 
-         AND EXTRACT(YEAR FROM contract_date) = $2
-         AND contract_number LIKE $3
-       ORDER BY contract_number DESC
-       LIMIT 1`,
-      [req.user.tenantId, year, `Д-${year}-%`]
-    );
-
-    let nextNumber = 1;
-    if (maxNumberResult.rows.length > 0) {
-      const lastNumber = maxNumberResult.rows[0].contract_number;
-      const match = lastNumber.match(/Д-\d{4}-(\d{3})/);
-      if (match) {
-        nextNumber = parseInt(match[1]) + 1;
-      }
-    }
-
-    const contractNumber = `Д-${year}-${String(nextNumber).padStart(3, '0')}`;
-
-    // Получаем стоимость сметы
-    const totalAmount = estimate.total_cost || 0;
-
-    // Формируем template_data с автозаполненными полями
-    const templateData = {
+  // Формируем template_data с автозаполненными полями
+  const templateData = {
       // Данные договора
       contractNumber,
       contractDate: new Date().toISOString().split('T')[0],
@@ -249,345 +210,268 @@ export const generateContract = async (req, res) => {
         materialsCost: estimate.materials_cost || 0,
         overheadPercent: estimate.overhead_percent || 0,
         profitPercent: estimate.profit_percent || 0
-      }
-    };
-
-    // Проверяем, нет ли уже договора для этой сметы
-    const existingContract = await db.query(
-      'SELECT id FROM contracts WHERE estimate_id = $1',
-      [estimateId]
-    );
-
-    if (existingContract.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Договор для этой сметы уже существует'
-      });
     }
+  };
 
-    // Создаем договор
-    const result = await db.query(
-      `INSERT INTO contracts (
-        tenant_id, estimate_id, project_id, customer_id, contractor_id,
-        contract_number, contract_date, total_amount, status, template_data
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING *`,
-      [
-        req.user.tenantId,
-        estimateId,
-        projectId,
-        customerId,
-        contractorId,
-        contractNumber,
-        new Date(),
-        totalAmount,
-        'draft',
-        JSON.stringify(templateData)
-      ]
-    );
+  // Проверяем, нет ли уже договора для этой сметы
+  const existingContract = await db.query(
+    'SELECT id FROM contracts WHERE estimate_id = $1',
+    [estimateId]
+  );
 
-    // Обновляем номер договора в проекте
-    await db.query(
-      `UPDATE projects SET contract_number = $1 WHERE id = $2`,
-      [contractNumber, projectId]
-    );
-
-    // Получаем полную информацию о созданном договоре
-    const fullContractResult = await db.query(
-      `SELECT 
-        c.*,
-        row_to_json(customer.*) as customer,
-        row_to_json(contractor.*) as contractor
-      FROM contracts c
-      LEFT JOIN counterparties customer ON c.customer_id = customer.id
-      LEFT JOIN counterparties contractor ON c.contractor_id = contractor.id
-      WHERE c.id = $1`,
-      [result.rows[0].id]
-    );
-
-    res.status(201).json({
-      success: true,
-      message: 'Договор успешно создан',
-      contract: fullContractResult.rows[0]
-    });
-  } catch (error) {
-    console.error('Error generating contract:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при создании договора',
-      error: error.message
-    });
+  if (existingContract.rows.length > 0) {
+    throw new BadRequestError('Договор для этой сметы уже существует');
   }
-};
+
+  // Создаем договор
+  const result = await db.query(
+    `INSERT INTO contracts (
+      tenant_id, estimate_id, project_id, customer_id, contractor_id,
+      contract_number, contract_date, total_amount, status, template_data
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    RETURNING *`,
+    [
+      req.user.tenantId,
+      estimateId,
+      projectId,
+      customerId,
+      contractorId,
+      contractNumber,
+      new Date(),
+      totalAmount,
+      'draft',
+      JSON.stringify(templateData)
+    ]
+  );
+
+  // Обновляем номер договора в проекте
+  await db.query(
+    `UPDATE projects SET contract_number = $1 WHERE id = $2`,
+    [contractNumber, projectId]
+  );
+
+  // Получаем полную информацию о созданном договоре
+  const fullContractResult = await db.query(
+    `SELECT 
+      c.*,
+      row_to_json(customer.*) as customer,
+      row_to_json(contractor.*) as contractor
+    FROM contracts c
+    LEFT JOIN counterparties customer ON c.customer_id = customer.id
+    LEFT JOIN counterparties contractor ON c.contractor_id = contractor.id
+    WHERE c.id = $1`,
+    [result.rows[0].id]
+  );
+
+  res.status(201).json({
+    success: true,
+    message: 'Договор успешно создан',
+    contract: fullContractResult.rows[0]
+  });
+});
 
 /**
  * Обновить договор
  * @route PUT /api/contracts/:id
  */
-export const updateContract = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { contractDate, totalAmount, status, templateData } = req.body;
+export const updateContract = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { contractDate, totalAmount, status, templateData } = req.body;
 
-    const updates = [];
-    const values = [];
-    let paramCount = 1;
+  const updates = [];
+  const values = [];
+  let paramCount = 1;
 
-    if (contractDate) {
-      updates.push(`contract_date = $${paramCount++}`);
-      values.push(contractDate);
-    }
-
-    if (totalAmount !== undefined) {
-      updates.push(`total_amount = $${paramCount++}`);
-      values.push(totalAmount);
-    }
-
-    if (status) {
-      updates.push(`status = $${paramCount++}`);
-      values.push(status);
-    }
-
-    if (templateData) {
-      updates.push(`template_data = $${paramCount++}`);
-      values.push(JSON.stringify(templateData));
-    }
-
-    if (updates.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Нет данных для обновления'
-      });
-    }
-
-    values.push(id);
-
-    const result = await db.query(
-      `UPDATE contracts 
-       SET ${updates.join(', ')}
-       WHERE id = $${paramCount}
-       RETURNING *`,
-      values
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Договор не найден'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Договор успешно обновлен',
-      contract: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Error updating contract:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при обновлении договора',
-      error: error.message
-    });
+  if (contractDate) {
+    updates.push(`contract_date = $${paramCount++}`);
+    values.push(contractDate);
   }
-};
+
+  if (totalAmount !== undefined) {
+    updates.push(`total_amount = $${paramCount++}`);
+    values.push(totalAmount);
+  }
+
+  if (status) {
+    updates.push(`status = $${paramCount++}`);
+    values.push(status);
+  }
+
+  if (templateData) {
+    updates.push(`template_data = $${paramCount++}`);
+    values.push(JSON.stringify(templateData));
+  }
+
+  if (updates.length === 0) {
+    throw new BadRequestError('Нет данных для обновления');
+  }
+
+  values.push(id);
+
+  const result = await db.query(
+    `UPDATE contracts 
+     SET ${updates.join(', ')}
+     WHERE id = $${paramCount}
+     RETURNING *`,
+    values
+  );
+
+  if (result.rows.length === 0) {
+    throw new NotFoundError('Договор не найден');
+  }
+
+  res.json({
+    success: true,
+    message: 'Договор успешно обновлен',
+    contract: result.rows[0]
+  });
+});
 
 /**
  * Удалить договор
  * @route DELETE /api/contracts/:id
  */
-export const deleteContract = async (req, res) => {
-  try {
-    const { id } = req.params;
+export const deleteContract = catchAsync(async (req, res) => {
+  const { id } = req.params;
 
-    const result = await db.query(
-      'DELETE FROM contracts WHERE id = $1 RETURNING *',
-      [id]
-    );
+  const result = await db.query(
+    'DELETE FROM contracts WHERE id = $1 RETURNING *',
+    [id]
+  );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Договор не найден'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Договор успешно удален'
-    });
-  } catch (error) {
-    console.error('Error deleting contract:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при удалении договора',
-      error: error.message
-    });
+  if (result.rows.length === 0) {
+    throw new NotFoundError('Договор не найден');
   }
-};
+
+  res.json({
+    success: true,
+    message: 'Договор успешно удален'
+  });
+});
 
 /**
  * Скачать договор в формате DOCX
  * @route GET /api/contracts/:id/docx
  */
-export const getContractDOCX = async (req, res) => {
-  try {
-    const { id } = req.params;
+export const getContractDOCX = catchAsync(async (req, res) => {
+  const { id } = req.params;
 
-    // Получаем данные договора с полной информацией
-    const result = await db.query(
-      `SELECT 
-        c.*,
-        row_to_json(customer.*) as customer,
-        row_to_json(contractor.*) as contractor,
-        row_to_json(p.*) as project,
-        row_to_json(e.*) as estimate
-      FROM contracts c
-      LEFT JOIN counterparties customer ON c.customer_id = customer.id
-      LEFT JOIN counterparties contractor ON c.contractor_id = contractor.id
-      LEFT JOIN projects p ON c.project_id = p.id
-      LEFT JOIN estimates e ON c.estimate_id = e.id
-      WHERE c.id = $1`,
-      [id]
-    );
+  // Получаем данные договора с полной информацией
+  const result = await db.query(
+    `SELECT 
+      c.*,
+      row_to_json(customer.*) as customer,
+      row_to_json(contractor.*) as contractor,
+      row_to_json(p.*) as project,
+      row_to_json(e.*) as estimate
+    FROM contracts c
+    LEFT JOIN counterparties customer ON c.customer_id = customer.id
+    LEFT JOIN counterparties contractor ON c.contractor_id = contractor.id
+    LEFT JOIN projects p ON c.project_id = p.id
+    LEFT JOIN estimates e ON c.estimate_id = e.id
+    WHERE c.id = $1`,
+    [id]
+  );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Договор не найден'
-      });
-    }
-
-    const contract = result.rows[0];
-
-    // Получаем данные графика (фазы работ)
-    let schedulePhases = [];
-    if (contract.estimate_id) {
-      const scheduleResult = await db.query(
-        `SELECT 
-          phase,
-          SUM(total_price) as phase_total
-        FROM schedules
-        WHERE estimate_id = $1
-        GROUP BY phase
-        ORDER BY MIN(position_number)`,
-        [contract.estimate_id]
-      );
-      
-      schedulePhases = scheduleResult.rows.map(row => ({
-        phase: row.phase,
-        amount: parseFloat(row.phase_total)
-      }));
-    }
-
-    // Импортируем генератор DOCX
-    const { generateContractDOCX } = await import('../utils/contractDocxGenerator.js');
-
-    // Генерируем DOCX с данными графика
-    const buffer = await generateContractDOCX(contract, schedulePhases);
-
-    // Кодируем имя файла для корректной работы с кириллицей
-    const filename = `Договор_${contract.contract_number}.docx`;
-    const encodedFilename = encodeURIComponent(filename);
-
-    // Отправляем файл
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodedFilename}`);
-    res.send(buffer);
-  } catch (error) {
-    console.error('Error generating DOCX:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при генерации DOCX',
-      error: error.message
-    });
+  if (result.rows.length === 0) {
+    throw new NotFoundError('Договор не найден');
   }
-};
+
+  const contract = result.rows[0];
+
+  // Получаем данные графика (фазы работ)
+  let schedulePhases = [];
+  if (contract.estimate_id) {
+    const scheduleResult = await db.query(
+      `SELECT 
+        phase,
+        SUM(total_price) as phase_total
+      FROM schedules
+      WHERE estimate_id = $1
+      GROUP BY phase
+      ORDER BY MIN(position_number)`,
+      [contract.estimate_id]
+    );
+    
+    schedulePhases = scheduleResult.rows.map(row => ({
+      phase: row.phase,
+      amount: parseFloat(row.phase_total)
+    }));
+  }
+
+  // Импортируем генератор DOCX
+  const { generateContractDOCX } = await import('../utils/contractDocxGenerator.js');
+
+  // Генерируем DOCX с данными графика
+  const buffer = await generateContractDOCX(contract, schedulePhases);
+
+  // Кодируем имя файла для корректной работы с кириллицей
+  const filename = `Договор_${contract.contract_number}.docx`;
+  const encodedFilename = encodeURIComponent(filename);
+
+  // Отправляем файл
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodedFilename}`);
+  res.send(buffer);
+});
 
 /**
  * Изменить статус договора
  * @route PATCH /api/contracts/:id/status
  */
-export const updateStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
+export const updateStatus = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
 
-    if (!status) {
-      return res.status(400).json({
-        success: false,
-        message: 'Статус обязателен'
-      });
-    }
-
-    const allowedStatuses = ['draft', 'active', 'completed', 'cancelled'];
-    if (!allowedStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Недопустимый статус. Допустимые значения: ${allowedStatuses.join(', ')}`
-      });
-    }
-
-    const result = await db.query(
-      'UPDATE contracts SET status = $1 WHERE id = $2 RETURNING *',
-      [status, id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Договор не найден'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Статус успешно обновлен',
-      contract: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Error updating status:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при обновлении статуса',
-      error: error.message
-    });
+  if (!status) {
+    throw new BadRequestError('Статус обязателен');
   }
-};
+
+  const allowedStatuses = ['draft', 'active', 'completed', 'cancelled'];
+  if (!allowedStatuses.includes(status)) {
+    throw new BadRequestError(`Недопустимый статус. Допустимые значения: ${allowedStatuses.join(', ')}`);
+  }
+
+  const result = await db.query(
+    'UPDATE contracts SET status = $1 WHERE id = $2 RETURNING *',
+    [status, id]
+  );
+
+  if (result.rows.length === 0) {
+    throw new NotFoundError('Договор не найден');
+  }
+
+  res.json({
+    success: true,
+    message: 'Статус успешно обновлен',
+    contract: result.rows[0]
+  });
+});
 
 /**
  * Получить все договоры проекта
  * @route GET /api/contracts/project/:projectId
  */
-export const getContractsByProject = async (req, res) => {
-  try {
-    const { projectId } = req.params;
+export const getContractsByProject = catchAsync(async (req, res) => {
+  const { projectId } = req.params;
 
-    const result = await db.query(
-      `SELECT 
-        c.*,
-        row_to_json(customer.*) as customer,
-        row_to_json(contractor.*) as contractor,
-        e.name as estimate_name
-      FROM contracts c
-      LEFT JOIN counterparties customer ON c.customer_id = customer.id
-      LEFT JOIN counterparties contractor ON c.contractor_id = contractor.id
-      LEFT JOIN estimates e ON c.estimate_id = e.id
-      WHERE c.project_id = $1
-      ORDER BY c.created_at DESC`,
-      [projectId]
-    );
+  const result = await db.query(
+    `SELECT 
+      c.*,
+      row_to_json(customer.*) as customer,
+      row_to_json(contractor.*) as contractor,
+      e.name as estimate_name
+    FROM contracts c
+    LEFT JOIN counterparties customer ON c.customer_id = customer.id
+    LEFT JOIN counterparties contractor ON c.contractor_id = contractor.id
+    LEFT JOIN estimates e ON c.estimate_id = e.id
+    WHERE c.project_id = $1
+    ORDER BY c.created_at DESC`,
+    [projectId]
+  );
 
-    res.json({
-      success: true,
-      contracts: result.rows
-    });
-  } catch (error) {
-    console.error('Error getting contracts by project:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Ошибка при получении договоров проекта',
-      error: error.message
-    });
-  }
-};
+  res.json({
+    success: true,
+    contracts: result.rows
+  });
+});

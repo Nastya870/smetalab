@@ -4,6 +4,7 @@
 
 import ExcelJS from 'exceljs';
 import db from '../config/database.js';
+import { catchAsync, BadRequestError } from '../utils/errors.js';
 
 // Вспомогательная функция для загрузки изображения
 async function fetchImage(url) {
@@ -23,14 +24,13 @@ async function fetchImage(url) {
  * @desc    Экспорт сметы в Excel
  * @access  Private
  */
-export async function exportEstimateToExcel(req, res) {
-  try {
-    const { estimate } = req.body;
-    const tenantId = req.user?.tenantId;
+export const exportEstimateToExcel = catchAsync(async (req, res) => {
+  const { estimate } = req.body;
+  const tenantId = req.user?.tenantId;
 
-    if (!estimate) {
-      return res.status(400).json({ success: false, error: 'Missing estimate data' });
-    }
+  if (!estimate) {
+    throw new BadRequestError('Missing estimate data');
+  }
 
     console.log('📤 Excel export requested for estimate:', estimate.id || 'new');
     console.log('🔐 Tenant ID:', tenantId);
@@ -523,15 +523,4 @@ export async function exportEstimateToExcel(req, res) {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="estimate_${estimateNumber}.xlsx"`);
     res.send(Buffer.from(buffer));
-
-  } catch (error) {
-    console.error('Error generating Excel:', error);
-    if (!res.headersSent) {
-      res.status(500).json({
-        success: false,
-        error: 'Ошибка при экспорте сметы в Excel',
-        message: error.message
-      });
-    }
-  }
-}
+});

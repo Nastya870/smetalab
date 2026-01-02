@@ -2,6 +2,7 @@ import csvParser from 'csv-parser';
 import { Readable } from 'stream';
 import { StatusCodes } from 'http-status-codes';
 import * as worksRepository from '../repositories/worksRepository.js';
+import { catchAsync, BadRequestError } from '../utils/errors.js';
 
 // Максимальное количество элементов в одном import запросе
 const BULK_IMPORT_LIMIT = 500;
@@ -10,17 +11,16 @@ const BULK_IMPORT_LIMIT = 500;
  * Экспорт работ в CSV
  * GET /api/works/export
  */
-export async function exportToCSV(req, res) {
-  try {
-    const { tenantId } = req.user;
-    const { isGlobal } = req.query;
+export const exportToCSV = catchAsync(async (req, res) => {
+  const { tenantId } = req.user;
+  const { isGlobal } = req.query;
 
-    // Получаем работы
-    const params = {};
-    if (isGlobal === 'true') params.isGlobal = 'true';
-    if (isGlobal === 'false') params.isGlobal = 'false';
+  // Получаем работы
+  const params = {};
+  if (isGlobal === 'true') params.isGlobal = 'true';
+  if (isGlobal === 'false') params.isGlobal = 'false';
 
-    const works = await worksRepository.findAll(params, tenantId);
+  const works = await worksRepository.findAll(params, tenantId);
 
     // Формируем CSV
     const csvHeader = 'Код,Наименование,Категория,Ед. изм.,Базовая цена,Фаза,Раздел,Подраздел\n';
@@ -45,31 +45,22 @@ export async function exportToCSV(req, res) {
       ? 'works_global_template.csv' 
       : `works_tenant_${tenantId}.csv`;
 
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-Length', Buffer.byteLength(csv, 'utf8'));
-    
-    // Добавляем BOM для корректного отображения кириллицы в Excel
-    res.write('\ufeff');
-    res.write(csv);
-    res.end();
-
-  } catch (error) {
-    console.error('Export works error:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      message: 'Ошибка при экспорте работ',
-      error: error.message
-    });
-  }
-}
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Content-Length', Buffer.byteLength(csv, 'utf8'));
+  
+  // Добавляем BOM для корректного отображения кириллицы в Excel
+  res.write('\ufeff');
+  res.write(csv);
+  res.end();
+});
 
 /**
  * Экспорт шаблона CSV (пустой файл с заголовками)
  * GET /api/works/export/template
  */
-export async function exportTemplate(req, res) {
-  try {
-    const csvHeader = 'Код,Наименование,Категория,Ед. изм.,Базовая цена,Фаза,Раздел,Подраздел\n';
+export const exportTemplate = catchAsync(async (req, res) => {
+  const csvHeader = 'Код,Наименование,Категория,Ед. изм.,Базовая цена,Фаза,Раздел,Подраздел\n';
     
     // Примеры строк для шаблона
     const examples = [
@@ -80,45 +71,32 @@ export async function exportTemplate(req, res) {
 
     const csv = csvHeader + examples;
 
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="works_import_template.csv"');
-    res.setHeader('Content-Length', Buffer.byteLength(csv, 'utf8'));
-    
-    res.write('\ufeff'); // BOM для Excel
-    res.write(csv);
-    res.end();
-
-  } catch (error) {
-    console.error('Export template error:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      message: 'Ошибка при создании шаблона',
-      error: error.message
-    });
-  }
-}
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="works_import_template.csv"');
+  res.setHeader('Content-Length', Buffer.byteLength(csv, 'utf8'));
+  
+  res.write('\ufeff'); // BOM для Excel
+  res.write(csv);
+  res.end();
+});
 
 /**
  * Импорт работ из CSV
  * POST /api/works/import
  */
-export async function importFromCSV(req, res) {
-  try {
-    const { tenantId, isSuperAdmin } = req.user;
-    const { file } = req;
-    const { mode = 'add', isGlobal = false } = req.body; // mode: 'add' | 'replace'
+export const importFromCSV = catchAsync(async (req, res) => {
+  const { tenantId, isSuperAdmin } = req.user;
+  const { file } = req;
+  const { mode = 'add', isGlobal = false } = req.body; // mode: 'add' | 'replace'
 
-    if (!file) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        message: 'Файл не загружен'
-      });
-    }
+  if (!file) {
+    throw new BadRequestError('Файл не загружен');
+  }
 
-    // Проверка прав для глобальных работ
-    if (isGlobal && !isSuperAdmin) {
-      return res.status(StatusCodes.FORBIDDEN).json({
-        message: 'Только суперадмин может импортировать глобальные работы'
-      });
-    }
+  // Проверка прав для глобальных работ
+  if (isGlobal && !isSuperAdmin) {
+    throw new BadRequestError('Только суперадмин может импортировать глобальные работы');
+  }
 
     // Парсим CSV
     const results = [];
@@ -173,31 +151,27 @@ export async function importFromCSV(req, res) {
         .on('error', reject);
     });
 
-    // Если есть ошибки валидации, возвращаем их
-    if (errors.length > 0) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        message: 'Обнаружены ошибки в CSV файле',
-        errors: errors,
-        successCount: 0,
-        errorCount: errors.length
-      });
-    }
+  // Если есть ошибки валидации, возвращаем их
+  if (errors.length > 0) {
+    throw new BadRequestError('Обнаружены ошибки в CSV файле', {
+      errors: errors,
+      successCount: 0,
+      errorCount: errors.length
+    });
+  }
 
-    // Если нет данных
-    if (results.length === 0) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        message: 'CSV файл пустой или не содержит корректных данных'
-      });
-    }
+  // Если нет данных
+  if (results.length === 0) {
+    throw new BadRequestError('CSV файл пустой или не содержит корректных данных');
+  }
 
-    // 🛡️ Защита от DoS: лимит на количество элементов
-    if (results.length > BULK_IMPORT_LIMIT) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        message: `Превышен лимит импорта: максимум ${BULK_IMPORT_LIMIT} работ за раз. В файле: ${results.length}`,
-        limit: BULK_IMPORT_LIMIT,
-        received: results.length
-      });
-    }
+  // 🛡️ Защита от DoS: лимит на количество элементов
+  if (results.length > BULK_IMPORT_LIMIT) {
+    throw new BadRequestError(
+      `Превышен лимит импорта: максимум ${BULK_IMPORT_LIMIT} работ за раз. В файле: ${results.length}`,
+      { limit: BULK_IMPORT_LIMIT, received: results.length }
+    );
+  }
 
     // Если режим "replace" - удаляем существующие работы
     if (mode === 'replace') {
@@ -225,22 +199,14 @@ export async function importFromCSV(req, res) {
       }
     }
 
-    res.status(StatusCodes.OK).json({
-      message: 'Импорт завершен',
-      successCount: imported.length,
-      errorCount: importErrors.length,
-      errors: importErrors.length > 0 ? importErrors : undefined,
-      mode: mode
-    });
-
-  } catch (error) {
-    console.error('Import works error:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      message: 'Ошибка при импорте работ',
-      error: error.message
-    });
-  }
-}
+  res.status(StatusCodes.OK).json({
+    message: 'Импорт завершен',
+    successCount: imported.length,
+    errorCount: importErrors.length,
+    errors: importErrors.length > 0 ? importErrors : undefined,
+    mode: mode
+  });
+});
 
 /**
  * Экранирование полей CSV (обработка запятых, кавычек, переносов строк)
