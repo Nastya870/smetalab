@@ -76,6 +76,15 @@ import ObjectParametersSidebar from './ObjectParametersSidebar';
 // ✅ Мемоизированные компоненты строк для оптимизации производительности
 import WorkRow from './components/WorkRow';
 import MaterialRow from './components/MaterialRow';
+import EstimateHeader from './components/EstimateHeader';
+import EstimateTotals from './components/EstimateTotals';
+import WorksTabs from './components/WorksTabs';
+import WorksSearchAndFilterBar from './components/WorksSearchAndFilterBar';
+import WorksFiltersDrawer from './components/WorksFiltersDrawer';
+import WorksListPanel from './components/WorksListPanel';
+import MaterialsDialog from './components/MaterialsDialog';
+import SaveTemplateDialog from './components/SaveTemplateDialog';
+import EstimateTable from './components/EstimateTable';
 
 // ==============================|| HELPER FUNCTIONS ||============================== //
 
@@ -174,28 +183,30 @@ const findInsertPosition = (items, newItem) => {
 // ==============================|| ESTIMATE WITH SIDEBAR ||============================== //
 
 const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChanges }, ref) => {
-  // Notifications
+  // ==============================|| HOOKS & NOTIFICATIONS ||============================== //
+  
   const { success, error: showError, warning, info } = useNotifications();
   
-  // State
+  // ==============================|| STATE - UI ||============================== //
+  
   const [sidebarVisible, setSidebarVisible] = useState(false); // ✅ По умолчанию скрыт (режим просмотра)
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSection, setSelectedSection] = useState(null); // ✅ Фильтр по стадии (разделу)
   const [filtersPanelOpen, setFiltersPanelOpen] = useState(false); // ✅ Состояние панели фильтров
   const [workSourceTab, setWorkSourceTab] = useState('global'); // 'global' или 'tenant'
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false); // ✅ Флаг несохраненных изменений
+  const [parametersWidgetOpen, setParametersWidgetOpen] = useState(false); // ✅ State для виджета параметров объекта
   
-  // ✅ State для виджета параметров объекта
-  const [parametersWidgetOpen, setParametersWidgetOpen] = useState(false);
+  // ==============================|| STATE - WORKS SIDEBAR ||============================== //
   
-  // API state for availableWorks
   const [availableWorks, setAvailableWorks] = useState([]);
   const [loadingWorks, setLoadingWorks] = useState(true);
   const [errorWorks, setErrorWorks] = useState(null);
   const [transferringWorks, setTransferringWorks] = useState(false); // ✅ Индикатор переноса работ
   const [addingWorkId, setAddingWorkId] = useState(null); // ✅ ID работы, которая сейчас добавляется
   
-  // Modal states для действий с материалами
+  // ==============================|| STATE - MATERIALS DIALOG ||============================== //
+  
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
   const [materialDialogMode, setMaterialDialogMode] = useState('add'); // 'add' или 'replace'
   const [currentWorkItem, setCurrentWorkItem] = useState(null);
@@ -203,41 +214,40 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   const [allMaterialsForDialog, setAllMaterialsForDialog] = useState([]); // ✅ Материалы с Infinite Scroll
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [materialSearchQuery, setMaterialSearchQuery] = useState(''); // ✅ Для клиентского поиска
-  
-  // ✅ Пагинация для Infinite Scroll материалов
   const [materialsPage, setMaterialsPage] = useState(1);
   const [materialsHasMore, setMaterialsHasMore] = useState(true);
   const [materialsTotalRecords, setMaterialsTotalRecords] = useState(0);
+  
+  // ==============================|| CONSTANTS ||============================== //
+  
   const MATERIALS_PAGE_SIZE = 50;
+  const MATERIALS_CACHE_TTL = 5 * 60 * 1000; // 5 минут
+  const WORKS_CACHE_TTL = 10 * 60 * 1000; // 10 минут
   
-  // ✅ Ref для триггера Intersection Observer (автозагрузка при скролле)
-  const loadMoreMaterialsRef = useRef(null);
+  // ==============================|| STATE - COEFFICIENT MODAL ||============================== //
   
-  // ✅ Локальное хранилище для редактируемых полей (не вызывает ререндер)
-  const editingValuesRef = useRef({});
-  
-  // ✅ State для модального окна коэффициента цен
   const [coefficientModalOpen, setCoefficientModalOpen] = useState(false);
   const [currentCoefficient, setCurrentCoefficient] = useState(0);
   const [originalPrices, setOriginalPrices] = useState(new Map()); // Сохраняем оригинальные цены работ
   
-  // ✅ State для экспорта Excel
-  const [exportingExcel, setExportingExcel] = useState(false);
+  // ==============================|| STATE - TEMPLATE ||============================== //
   
-  // ✅ State для сохранения как шаблон
   const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false);
   const [templateFormData, setTemplateFormData] = useState({ name: '', description: '', category: '' });
   const [savingTemplate, setSavingTemplate] = useState(false);
   
-  // ✅ Кеш материалов для быстрого открытия модалки
-  const materialsCache = useRef(null);
-  const materialsCacheTimestamp = useRef(null);
-  const MATERIALS_CACHE_TTL = 5 * 60 * 1000; // 5 минут
+  // ==============================|| STATE - EXPORT ||============================== //
   
-  // ✅ Кеш для справочника работ (отдельно для global и tenant)
-  const worksCache = useRef({ global: null, tenant: null });
+  const [exportingExcel, setExportingExcel] = useState(false);
+  
+  // ==============================|| REFS ||============================== //
+  
+  const loadMoreMaterialsRef = useRef(null); // Триггер Intersection Observer (автозагрузка при скролле)
+  const editingValuesRef = useRef({}); // Локальное хранилище для редактируемых полей (не вызывает ререндер)
+  const materialsCache = useRef(null); // Кеш материалов для быстрого открытия модалки
+  const materialsCacheTimestamp = useRef(null);
+  const worksCache = useRef({ global: null, tenant: null }); // Кеш для справочника работ
   const worksCacheTimestamp = useRef({ global: null, tenant: null });
-  const WORKS_CACHE_TTL = 10 * 60 * 1000; // 10 минут
   
   // ✅ Загрузка материалов с пагинацией (аналогично основному справочнику)
   const loadMaterialsForDialog = useCallback(async (pageNumber = 1, resetData = false, search = '') => {
@@ -387,6 +397,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     loadWorksCached(sourceType);
   }, [workSourceTab, loadWorksCached]); // ★ Используем кешированную загрузку!
 
+  // ==============================|| STATE - ESTIMATE DATA ||============================== //
+  
   // Смета - данные загружаются из localStorage или начинаются с пустого состояния
   // ✅ ИСПРАВЛЕНИЕ: НЕ загружаем из localStorage при инициализации
   // Данные всегда загружаются из БД через useEffect
@@ -405,17 +417,10 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     currency: 'RUB'
   });
   
-  // ✅ Ref для хранения последнего сохраненного состояния
-  const savedEstimateDataRef = useRef(null);
-  
-  // ✅ Ref для предотвращения повторной загрузки
-  const isInitialLoadRef = useRef(false);
-  
-  // 🛡️ ЗАЩИТА: Флаг завершения начальной загрузки данных (предотвращает автосохранение пустой сметы)
-  const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
-  
-  // ✅ Ref для callback onUnsavedChanges (избегаем лишних зависимостей)
-  const onUnsavedChangesRef = useRef(onUnsavedChanges);
+  const savedEstimateDataRef = useRef(null); // Последнее сохраненное состояние
+  const isInitialLoadRef = useRef(false); // Предотвращение повторной загрузки
+  const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false); // 🛡️ ЗАЩИТА: Флаг завершения начальной загрузки данных
+  const onUnsavedChangesRef = useRef(onUnsavedChanges); // Ref для callback
   
   useEffect(() => {
     onUnsavedChangesRef.current = onUnsavedChanges;
@@ -441,6 +446,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     save: handleSaveToDatabase
   }));
 
+  // ==============================|| COMPUTED VALUES ||============================== //
+  
   // ❌ УБРАН useEffect отслеживания изменений - он вызывал лаги
   // Флаг hasUnsavedChanges теперь ставится напрямую при изменениях
 
@@ -508,6 +515,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
 
   // ❌ УДАЛЕНО: totalAmount не используется (дублирует calculateTotals)
 
+  // ==============================|| HANDLERS - WORKS SIDEBAR ||============================== //
+  
   // Перенести выбранные работы в смету
   const handleTransferToEstimate = useCallback(async (customWorks = null) => {
     // Используем только явно переданные работы (customWorks)
@@ -632,6 +641,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
 
   // ✅ Справочник работ теперь overlay - не требует cleanup
 
+  // ==============================|| HANDLERS - EXPORT/SAVE/CLEAR ||============================== //
+  
   // Очистить смету
   const handleClearEstimate = () => {
     if (window.confirm('Вы уверены, что хотите очистить всю смету?')) {
@@ -685,7 +696,9 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     }
   };
 
-  // ============ СОХРАНЕНИЕ КАК ШАБЛОН ============
+  // ==============================|| HANDLERS - TEMPLATE ||============================== //
+  
+  // Сохранение как шаблон
   const handleSaveAsTemplate = () => {
     if (!estimateId) {
       warning('Сначала сохраните смету в БД');
@@ -733,8 +746,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     });
   };
 
-  // ============ ДЕЙСТВИЯ С МАТЕРИАЛАМИ ============
-
+  // ==============================|| HANDLERS - MATERIALS DIALOG ||============================== //
+  
   // Открыть диалог добавления материала
   const handleOpenAddMaterial = useCallback(async (sectionIndex, itemIndex) => {
     setCurrentWorkItem({ sectionIndex, itemIndex });
@@ -926,6 +939,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     });
   }, []);
   
+  // ==============================|| HANDLERS - MATERIAL EDITING ||============================== //
+  
   // ❌ КАЛЬКУЛЯТОР ОТКЛЮЧЕН - теперь только прямой ввод чисел
   // const calculateExpression = ... (удалено для производительности)
   
@@ -1059,6 +1074,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     }, 50); // 50ms задержка для плавного перехода фокуса
   }, []);
 
+  // ==============================|| HANDLERS - WORK EDITING ||============================== //
+  
   // Удалить работу (блок) вместе со всеми материалами
   const handleDeleteWork = useCallback((sectionIndex, itemIndex) => {
     if (!window.confirm('Удалить эту работу и все связанные материалы?')) return;
@@ -1306,11 +1323,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     }
   };
 
-  // ============ КОНЕЦ ДЕЙСТВИЙ С ЦЕНОЙ РАБОТЫ ============
-
-  // ============ КОНЕЦ ДЕЙСТВИЙ С МАТЕРИАЛАМИ ============
-
-  // ============ КОЭФФИЦИЕНТ ЦЕН НА РАБОТЫ ============
+  // ==============================|| HANDLERS - COEFFICIENT ||============================== //
   
   // Сохранить оригинальные цены при первом добавлении работ
   const saveOriginalPrices = (sections) => {
@@ -1761,187 +1774,29 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     };
   }, [sortedEstimateData]); // ✅ Зависит от sortedEstimateData который уже deferred
 
+  // ==============================|| JSX ||============================== //
+  
   return (
     <Box>
-      {/* ✅ Заголовок компонента */}
-      <Box sx={{ mb: 3 }}>
-        <Typography 
-          sx={{ 
-            fontSize: '1.5rem', 
-            fontWeight: 600, 
-            color: '#111827',
-            mb: 0.5,
-            lineHeight: 1.3
-          }}
-        >
-          Смета: {estimateMetadata.name || 'Без названия'}
-        </Typography>
-        <Typography 
-          sx={{ 
-            fontSize: '0.8125rem', 
-            color: '#6B7280'
-          }}
-        >
-          ID: {estimateId?.slice(0, 8) || 'новая'}...
-        </Typography>
-      </Box>
-
-      {/* ✅ Панель действий - новый дизайн */}
-      <Box 
-        sx={{ 
-          mb: 2, 
-          display: 'flex', 
-          gap: 1, 
-          alignItems: 'center', 
-          flexWrap: 'wrap',
-          py: 1,
-          px: 1.5,
-          bgcolor: '#FFFFFF',
-          borderRadius: '10px',
-          border: '1px solid #E5E7EB'
-        }}
-      >
-        {/* Переключатель режима */}
-        <Button
-          variant={sidebarVisible ? "contained" : "outlined"}
-          startIcon={sidebarVisible ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-          onClick={toggleSidebar}
-          size="small"
-          sx={{ 
-            textTransform: 'none',
-            fontWeight: 500,
-            fontSize: '0.8125rem',
-            height: 34,
-            px: 1.5,
-            borderRadius: '8px',
-            ...(sidebarVisible ? {
-              bgcolor: '#635BFF',
-              '&:hover': { bgcolor: '#564EE6' }
-            } : {
-              color: '#374151',
-              borderColor: '#E5E7EB',
-              '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
-            })
-          }}
-        >
-          {sidebarVisible ? 'Режим просмотра' : 'Режим расчёта'}
-        </Button>
-
-        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-
-        {/* Сохранить в БД - фиолетовая primary */}
-        <Button
-          variant="contained"
-          startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <IconPlus size={16} />}
-          onClick={handleSaveToDatabase}
-          size="small"
-          disabled={estimateData.sections.length === 0 || saving}
-          sx={{ 
-            textTransform: 'none',
-            fontWeight: 500,
-            fontSize: '0.8125rem',
-            height: 34,
-            px: 1.5,
-            borderRadius: '8px',
-            bgcolor: '#635BFF',
-            '&:hover': { bgcolor: '#564EE6' },
-            '&:active': { bgcolor: '#453DCC' },
-            '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' }
-          }}
-        >
-          {saving ? 'Сохранение...' : 'Сохранить'}
-        </Button>
-
-        {/* Сохранить как шаблон - белая с фиолетовой обводкой */}
-        <Button
-          variant="outlined"
-          startIcon={<IconTemplate size={16} />}
-          onClick={handleSaveAsTemplate}
-          size="small"
-          disabled={!estimateId || estimateData.sections.length === 0}
-          sx={{ 
-            textTransform: 'none',
-            fontWeight: 500,
-            fontSize: '0.8125rem',
-            height: 34,
-            px: 1.5,
-            borderRadius: '8px',
-            color: '#635BFF',
-            borderColor: '#635BFF',
-            '&:hover': { borderColor: '#564EE6', bgcolor: '#F5F3FF' }
-          }}
-        >
-          Шаблон
-        </Button>
-
-        {/* Коэффициент цен - вторичная */}
-        <Button
-          variant="outlined"
-          startIcon={<IconPercentage size={16} />}
-          onClick={() => setCoefficientModalOpen(true)}
-          size="small"
-          disabled={estimateData.sections.length === 0}
-          sx={{ 
-            textTransform: 'none',
-            fontWeight: 500,
-            fontSize: '0.8125rem',
-            height: 34,
-            px: 1.5,
-            borderRadius: '8px',
-            color: '#374151',
-            borderColor: '#E5E7EB',
-            '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
-          }}
-        >
-          Коэффициент
-        </Button>
-
-        {/* Очистить смету - мягкий красный */}
-        <Button
-          variant="outlined"
-          startIcon={<IconTrash size={16} />}
-          onClick={handleClearEstimate}
-          size="small"
-          disabled={estimateData.sections.length === 0}
-          sx={{ 
-            textTransform: 'none',
-            fontWeight: 500,
-            fontSize: '0.8125rem',
-            height: 34,
-            px: 1.5,
-            borderRadius: '8px',
-            color: '#DC2626',
-            borderColor: '#FCA5A5',
-            '&:hover': { borderColor: '#F87171', bgcolor: '#FEF2F2' }
-          }}
-        >
-          Очистить
-        </Button>
-
-        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-
-        {/* Экспорт в Excel - зелёная */}
-        <Button
-          variant="outlined"
-          startIcon={exportingExcel ? <CircularProgress size={16} /> : <IconFileTypeXls size={16} />}
-          onClick={handleExportExcel}
-          size="small"
-          disabled={estimateData.sections.length === 0 || exportingExcel}
-          sx={{ 
-            textTransform: 'none',
-            fontWeight: 500,
-            fontSize: '0.8125rem',
-            height: 34,
-            px: 1.5,
-            borderRadius: '8px',
-            color: '#16A34A',
-            borderColor: '#86EFAC',
-            '&:hover': { borderColor: '#4ADE80', bgcolor: '#F0FDF4' }
-          }}
-        >
-          {exportingExcel ? 'Экспорт...' : 'Excel'}
-        </Button>
-      </Box>
+      {/* ✅ Заголовок компонента и панель действий */}
+      <EstimateHeader
+        estimateName={estimateMetadata.name}
+        estimateIdShort={estimateId?.slice(0, 8) || 'новая'}
+        sidebarVisible={sidebarVisible}
+        saving={saving}
+        exportingExcel={exportingExcel}
+        disableSave={estimateData.sections.length === 0 || saving}
+        disableTemplate={!estimateId || estimateData.sections.length === 0}
+        disableCoefficient={estimateData.sections.length === 0}
+        disableClear={estimateData.sections.length === 0}
+        disableExport={estimateData.sections.length === 0 || exportingExcel}
+        onToggleSidebar={toggleSidebar}
+        onSave={handleSaveToDatabase}
+        onSaveAsTemplate={handleSaveAsTemplate}
+        onOpenCoefficient={() => setCoefficientModalOpen(true)}
+        onClear={handleClearEstimate}
+        onExportExcel={handleExportExcel}
+      />
 
       {/* Основной контейнер - смета на всю ширину (справочник теперь overlay drawer) */}
       <Box sx={{ display: 'flex', gap: 2, height: 'calc(100vh - 280px)', minHeight: 500 }}>
@@ -2281,516 +2136,62 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
 
           {/* Таблица сметы */}
           {!loading && (
-            <Box sx={{ flex: 1, overflow: 'auto' }}>
-              <TableContainer 
-                component={Paper} 
-                elevation={0}
-                sx={{ 
-                  overflowX: 'auto', 
-                  maxWidth: '100%',
-                  maxHeight: 'calc(100vh - 340px)',
-                  '&::-webkit-scrollbar': { width: 6, height: 6 },
-                  '&::-webkit-scrollbar-track': { bgcolor: '#F1F5F9' },
-                  '&::-webkit-scrollbar-thumb': { bgcolor: '#CBD5E1', borderRadius: 3 },
-                  '&::-webkit-scrollbar-thumb:hover': { bgcolor: '#94A3B8' }
-                }}
-              >
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell 
-                      sx={{ 
-                        py: 1.25, 
-                        px: 1.5, 
-                        bgcolor: '#F9FAFB', 
-                        borderBottom: '1px solid #E5E7EB',
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 1
-                      }}
-                    >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Код
-                      </Typography>
-                    </TableCell>
-                    <TableCell 
-                      sx={{ 
-                        py: 1.25, 
-                        px: 1.5, 
-                        bgcolor: '#F9FAFB', 
-                        borderBottom: '1px solid #E5E7EB',
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 1
-                      }}
-                    >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Наименование
-                      </Typography>
-                    </TableCell>
-                    <TableCell
-                      align="center"
-                      sx={{ 
-                        py: 1.25, 
-                        px: 1.5, 
-                        bgcolor: '#F9FAFB', 
-                        borderBottom: '1px solid #E5E7EB',
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 1,
-                        minWidth: 70
-                      }}
-                    >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Фото
-                      </Typography>
-                    </TableCell>
-                    <TableCell
-                      align="center"
-                      sx={{ 
-                        py: 1.25, 
-                        px: 1.5, 
-                        bgcolor: '#F9FAFB', 
-                        borderBottom: '1px solid #E5E7EB',
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 1
-                      }}
-                    >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Ед.
-                      </Typography>
-                    </TableCell>
-                    <TableCell
-                      align="right"
-                      sx={{ 
-                        py: 1.25, 
-                        px: 1.5, 
-                        bgcolor: '#F9FAFB', 
-                        borderBottom: '1px solid #E5E7EB',
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 1
-                      }}
-                    >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Кол-во
-                      </Typography>
-                    </TableCell>
-                    <TableCell
-                      align="right"
-                      sx={{ 
-                        py: 1.25, 
-                        px: 1.5, 
-                        bgcolor: '#F9FAFB', 
-                        borderBottom: '1px solid #E5E7EB',
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 1
-                      }}
-                    >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Цена
-                      </Typography>
-                    </TableCell>
-                    <TableCell
-                      align="right"
-                      sx={{ 
-                        py: 1.25, 
-                        px: 1.5, 
-                        bgcolor: '#F9FAFB', 
-                        borderBottom: '1px solid #E5E7EB',
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 1
-                      }}
-                    >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Сумма
-                      </Typography>
-                    </TableCell>
-                    <TableCell
-                      align="center"
-                      sx={{ 
-                        py: 1.25, 
-                        px: 1.5, 
-                        bgcolor: '#F9FAFB', 
-                        borderBottom: '1px solid #E5E7EB',
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 1
-                      }}
-                    >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Расход
-                      </Typography>
-                    </TableCell>
-                    <TableCell 
-                      align="center" 
-                      sx={{ 
-                        py: 1.25, 
-                        px: 1.5, 
-                        bgcolor: '#F9FAFB', 
-                        borderBottom: '1px solid #E5E7EB',
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 1,
-                        minWidth: 100
-                      }}
-                    >
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Действия
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sortedEstimateData?.sections?.map((section, sectionIndex) => (
-                    <React.Fragment key={section.id || `section-${sectionIndex}`}>
-                      {/* Работы и материалы раздела */}
-                      {section.items?.map((item, itemIndex) => (
-                        <React.Fragment key={item.id || `item-${sectionIndex}-${itemIndex}`}>
-                          {/* ✅ МЕМОИЗИРОВАННАЯ СТРОКА РАБОТЫ */}
-                          <WorkRow
-                            item={item}
-                            sectionIndex={sectionIndex}
-                            itemIndex={itemIndex}
-                            onQuantityChange={handleWorkQuantityInputChange}
-                            onQuantityBlur={handleWorkQuantityBlur}
-                            onPriceChange={handleWorkPriceInputChange}
-                            onPriceBlur={handleWorkPriceBlur}
-                            onUpdateWorkPrice={handleUpdateWorkPriceInReference}
-                            onAddMaterial={handleOpenAddMaterial}
-                            onDeleteWork={handleDeleteWork}
-                          />
-
-                          {/* ✅ МЕМОИЗИРОВАННЫЕ СТРОКИ МАТЕРИАЛОВ */}
-                          {item.materials?.map((material, matIndex) => (
-                            <MaterialRow
-                              key={material.id}
-                              material={material}
-                              sectionIndex={sectionIndex}
-                              itemIndex={itemIndex}
-                              matIndex={matIndex}
-                              onQuantityChange={handleMaterialQuantityInputChange}
-                              onQuantityBlur={handleMaterialQuantityBlur}
-                              onConsumptionChange={handleMaterialConsumptionChange}
-                              onConsumptionBlur={handleMaterialConsumptionBlur}
-                              onReplaceMaterial={handleOpenReplaceMaterial}
-                              onDeleteMaterial={handleDeleteMaterial}
-                            />
-                          ))}
-                        </React.Fragment>
-                      ))}
-                    </React.Fragment>
-                  ))}
-
-                  {/* Итоги вынесены в отдельный sticky footer */}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            </Box>
+            <EstimateTable
+              sortedEstimateData={sortedEstimateData}
+              onWorkQuantityChange={handleWorkQuantityInputChange}
+              onWorkQuantityBlur={handleWorkQuantityBlur}
+              onWorkPriceChange={handleWorkPriceInputChange}
+              onWorkPriceBlur={handleWorkPriceBlur}
+              onUpdateWorkPrice={handleUpdateWorkPriceInReference}
+              onAddMaterial={handleOpenAddMaterial}
+              onDeleteWork={handleDeleteWork}
+              onMaterialQuantityChange={handleMaterialQuantityInputChange}
+              onMaterialQuantityBlur={handleMaterialQuantityBlur}
+              onMaterialConsumptionChange={handleMaterialConsumptionChange}
+              onMaterialConsumptionBlur={handleMaterialConsumptionBlur}
+              onReplaceMaterial={handleOpenReplaceMaterial}
+              onDeleteMaterial={handleDeleteMaterial}
+            />
           )}
 
           {/* ✅ STICKY FOOTER - Итоги прилипшие к низу */}
           {!loading && estimateData.sections.length > 0 && (
-            <Box
-              sx={{
-                borderTop: '2px solid #E5E7EB',
-                bgcolor: '#FFFFFF',
-                px: 2.5,
-                py: 1.5,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                gap: 4,
-                flexShrink: 0
-              }}
-            >
-              {/* Итого за работы */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Typography sx={{ fontSize: '0.7rem', color: '#6B7280' }}>
-                  Итого за работы:
-                </Typography>
-                <Box sx={{ 
-                  px: 1.5, 
-                  py: 0.5, 
-                  bgcolor: '#F0FDF4', 
-                  borderRadius: '6px',
-                  border: '1px solid #BBF7D0'
-                }}>
-                  <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: '#16A34A' }}>
-                    {formatCurrency(parseFloat(calculateTotals.totalWorks))}
-                  </Typography>
-                </Box>
-              </Box>
-
-              {/* Итого за материалы */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Typography sx={{ fontSize: '0.7rem', color: '#6B7280' }}>
-                  Итого за материалы:
-                </Typography>
-                <Box sx={{ 
-                  px: 1.5, 
-                  py: 0.5, 
-                  bgcolor: '#FEF3C7', 
-                  borderRadius: '6px',
-                  border: '1px solid #FCD34D'
-                }}>
-                  <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: '#D97706' }}>
-                    {formatCurrency(parseFloat(calculateTotals.totalMaterials))}
-                  </Typography>
-                </Box>
-              </Box>
-
-              {/* 🔥 Общий вес материалов - показываем всегда */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Typography sx={{ fontSize: '0.7rem', color: '#6B7280' }}>
-                  Вес:
-                </Typography>
-                <Box sx={{ 
-                  px: 1.5, 
-                  py: 0.5, 
-                  bgcolor: '#EFF6FF', 
-                  borderRadius: '6px',
-                  border: '1px solid #BFDBFE'
-                }}>
-                  <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: '#2563EB' }}>
-                    {parseFloat(calculateTotals.totalWeight || 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 3 })} кг
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
+            <EstimateTotals
+              worksTotal={parseFloat(calculateTotals.totalWorks)}
+              materialsTotal={parseFloat(calculateTotals.totalMaterials)}
+              totalWeight={parseFloat(calculateTotals.totalWeight || 0)}
+            />
           )}
         </Paper>
       </Box>
 
       {/* 🎨 Компактный диалог выбора материала */}
-      <Dialog 
-        open={materialDialogOpen} 
+      <MaterialsDialog
+        open={materialDialogOpen}
+        mode={materialDialogMode}
+        items={filteredMaterialsForDialog}
+        totalCountText={
+          materialsTotalRecords > 0 
+            ? `Найдено: ${materialsTotalRecords}${filteredMaterialsForDialog.length < materialsTotalRecords ? ` (показано ${filteredMaterialsForDialog.length})` : ''}`
+            : undefined
+        }
+        loading={loadingMaterials}
+        searchQuery={materialSearchQuery}
+        hasMore={materialsHasMore}
+        loadMoreRef={loadMoreMaterialsRef}
         onClose={() => {
           setMaterialDialogOpen(false);
           setMaterialSearchQuery('');
         }}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: { 
-            height: '80vh', 
-            maxHeight: '700px',
-            borderRadius: 2
+        onSearchChange={handleMaterialSearchChange}
+        onSelect={(material) => {
+          if (materialDialogMode === 'add') {
+            handleAddMaterialToWork(material);
+          } else {
+            handleReplaceMaterialConfirm(material);
           }
         }}
-      >
-        <DialogTitle sx={{ pb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-            <Box>
-              <Typography variant="h6" sx={{ fontSize: '1.1rem', mb: 0.5 }}>
-                {materialDialogMode === 'add' ? 'Добавить материал' : 'Заменить материал'}
-              </Typography>
-              {materialDialogMode === 'add' && (
-                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-                  💡 Добавьте несколько материалов подряд. Окно закроется при клике вне области.
-                </Typography>
-              )}
-            </Box>
-            <Stack direction="row" spacing={1} alignItems="center">
-              {loadingMaterials && (
-                <CircularProgress size={16} thickness={4} />
-              )}
-              <Chip 
-                label={materialsTotalRecords > 0 
-                  ? `Найдено: ${materialsTotalRecords}${filteredMaterialsForDialog.length < materialsTotalRecords ? ` (показано ${filteredMaterialsForDialog.length})` : ''}`
-                  : 'Загрузка...'
-                }
-                size="small"
-                color={materialSearchQuery ? "success" : "primary"}
-                variant="outlined"
-              />
-            </Stack>
-          </Box>
-          {/* ✅ НОВАЯ ЛОГИКА: Debounced серверный поиск (автоматически через 400ms) */}
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Начните вводить название, артикул или поставщика..."
-              value={materialSearchQuery}
-              onChange={(e) => handleMaterialSearchChange(e.target.value)}
-              autoFocus
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <IconSearch size={16} color={loadingMaterials ? '#9CA3AF' : '#3B82F6'} />
-                  </InputAdornment>
-                )
-              }}
-              sx={{ 
-                '& .MuiOutlinedInput-root': { 
-                  fontSize: '0.875rem',
-                  bgcolor: loadingMaterials ? '#F9FAFB' : 'white'
-                } 
-              }}
-            />
-          </Box>
-          {/* Подсказка для пользователя */}
-          {materialSearchQuery && materialSearchQuery.trim().length > 0 && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-              🔍 Поиск в базе 47,000 материалов...
-            </Typography>
-          )}
-        </DialogTitle>
-        <DialogContent sx={{ p: 0, height: '500px', overflow: 'auto' }}>
-          {loadingMaterials && filteredMaterialsForDialog.length === 0 ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <CircularProgress size={40} />
-            </Box>
-          ) : filteredMaterialsForDialog.length === 0 ? (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-              <Typography color="text.secondary" variant="body2" sx={{ mb: 1 }}>
-                {materialSearchQuery 
-                  ? `Материалы не найдены` 
-                  : 'Загрузка материалов...'}
-              </Typography>
-              {materialSearchQuery && (
-                <Typography color="text.secondary" variant="caption">
-                  Попробуйте изменить поисковый запрос
-                </Typography>
-              )}
-            </Box>
-          ) : (
-            /* ✅ Обычный список с Intersection Observer (без Virtuoso для избежания скачков скролла) */
-            <List sx={{ py: 0 }}>
-              {filteredMaterialsForDialog.map((material, index) => (
-                <ListItem 
-                  key={material.id}
-                  disablePadding
-                  sx={{ 
-                    borderBottom: index < filteredMaterialsForDialog.length - 1 ? '1px solid' : 'none',
-                    borderColor: 'divider'
-                  }}
-                >
-                  <ListItemButton
-                    onClick={() => {
-                      if (materialDialogMode === 'add') {
-                        handleAddMaterialToWork(material);
-                      } else {
-                        handleReplaceMaterialConfirm(material);
-                      }
-                    }}
-                    sx={{ py: 1, px: 2 }}
-                  >
-                    {/* ✅ Компактная иконка */}
-                    <ListItemIcon sx={{ minWidth: 36 }}>
-                      <IconPackage size={20} />
-                    </ListItemIcon>
-                    
-                    <ListItemText
-                      primary={
-                        <Typography variant="body2" fontWeight={500} sx={{ mb: 0.25 }}>
-                          {material.name}
-                        </Typography>
-                      }
-                      secondary={
-                        <Box component="span" sx={{ display: 'flex', flexDirection: 'row', gap: 1, alignItems: 'center', flexWrap: 'wrap', mt: 0.5 }}>
-                          {material.category && (
-                            <Chip 
-                              label={material.category} 
-                              size="small" 
-                              color="primary"
-                              variant="outlined"
-                              sx={{ height: 18, fontSize: '0.7rem', '& .MuiChip-label': { px: 0.75 } }}
-                            />
-                          )}
-                          {material.supplier && (
-                            <Chip 
-                              label={material.supplier} 
-                              size="small" 
-                              color="secondary"
-                              variant="outlined"
-                              sx={{ height: 18, fontSize: '0.7rem', '& .MuiChip-label': { px: 0.75 } }}
-                            />
-                          )}
-                          <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                            {material.sku || `#${material.id}`}
-                          </Typography>
-                          <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>•</Typography>
-                          <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                            {material.unit}
-                          </Typography>
-                          <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>•</Typography>
-                          <Typography component="span" variant="caption" fontWeight={600} color="primary.main" sx={{ fontSize: '0.75rem' }}>
-                            {formatCurrency(material.price)}
-                          </Typography>
-                        </Box>
-                      }
-                      secondaryTypographyProps={{ component: 'span' }}
-                    />
-                    
-                    {/* ✅ Компактное превью изображения */}
-                    {material.image && (
-                      <Box
-                        component="img"
-                        src={material.image}
-                        alt={material.name}
-                        sx={{
-                          width: 40,
-                          height: 40,
-                          objectFit: 'cover',
-                          borderRadius: 1,
-                          border: '1px solid',
-                          borderColor: 'divider',
-                          ml: 1,
-                          flexShrink: 0
-                        }}
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
-                    )}
-                  </ListItemButton>
-                </ListItem>
-              ))}
-              
-              {/* ✅ Триггер для автозагрузки через Intersection Observer */}
-              {materialsHasMore && (
-                <Box 
-                  ref={loadMoreMaterialsRef} 
-                  sx={{ height: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', py: 2 }}
-                >
-                  {loadingMaterials && <CircularProgress size={20} thickness={4} sx={{ color: '#3B82F6' }} />}
-                </Box>
-              )}
-              
-              {/* Сообщение когда всё загружено или при поиске */}
-              {!materialsHasMore && filteredMaterialsForDialog.length > 0 && (
-                <Typography sx={{ textAlign: 'center', py: 2, color: '#9CA3AF', fontSize: '0.875rem' }}>
-                  {materialSearchQuery 
-                    ? `✅ Найдено ${filteredMaterialsForDialog.length} материалов` 
-                    : `Показано ${filteredMaterialsForDialog.length} материалов`
-                  }
-                </Typography>
-              )}
-              
-              {/* Подсказка при большом количестве результатов */}
-              {materialsTotalRecords > 100 && !materialSearchQuery && (
-                <Typography sx={{ textAlign: 'center', py: 2, color: '#F59E0B', fontSize: '0.8125rem', px: 2 }}>
-                  💡 Найдено {materialsTotalRecords} материалов — используйте поиск для быстрого доступа
-                </Typography>
-              )}
-            </List>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Button 
-            onClick={() => {
-              setMaterialDialogOpen(false);
-              setMaterialSearchQuery('');
-            }}
-            size="small"
-          >
-            Отмена
-          </Button>
-        </DialogActions>
-      </Dialog>
+      />
 
       {/* Модальное окно коэффициента цен */}
       <PriceCoefficientModal
@@ -2808,206 +2209,20 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         onToggle={() => setParametersWidgetOpen(!parametersWidgetOpen)}
       />
 
-      {/* ✅ Диалог сохранения как шаблон - ОБНОВЛЁННЫЙ ДИЗАЙН */}
-      <Dialog
+      {/* ✅ Диалог сохранения как шаблон */}
+      <SaveTemplateDialog
         open={saveTemplateDialogOpen}
+        saving={savingTemplate}
+        formData={templateFormData}
         onClose={() => !savingTemplate && setSaveTemplateDialogOpen(false)}
-        maxWidth="sm"
-        PaperProps={{
-          sx: {
-            width: 540,
-            maxWidth: '90vw',
-            borderRadius: '12px',
-            overflow: 'hidden'
-          }
+        onChange={(field, value) => {
+          setTemplateFormData(prev => ({
+            ...prev,
+            [field]: value
+          }));
         }}
-      >
-        {/* ✅ Хедер - 56px, фон #F9FAFB */}
-        <Box
-          sx={{
-            height: 56,
-            px: 2.5,
-            bgcolor: '#F9FAFB',
-            borderBottom: '1px solid #E5E7EB',
-            display: 'flex',
-            alignItems: 'center'
-          }}
-        >
-          <Typography sx={{ 
-            fontSize: '1.125rem', 
-            fontWeight: 600, 
-            color: '#111827'
-          }}>
-            Сохранить как шаблон
-          </Typography>
-        </Box>
-
-        {/* ✅ Контент */}
-        <DialogContent sx={{ px: 2.5, py: 3 }}>
-          <Stack spacing={2.5}>
-            {/* Название шаблона */}
-            <Box>
-              <TextField
-                label="Название шаблона"
-                value={templateFormData.name}
-                onChange={handleTemplateFormChange('name')}
-                required
-                fullWidth
-                placeholder="Например: Ремонт квартиры"
-                error={!templateFormData.name.trim() && templateFormData.name !== ''}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    height: 44,
-                    borderRadius: '10px',
-                    '& fieldset': { borderColor: '#D1D5DB' },
-                    '&:hover fieldset': { borderColor: '#9CA3AF' },
-                    '&.Mui-focused fieldset': { borderColor: '#4F46E5', borderWidth: 2 },
-                    '&.Mui-error fieldset': { borderColor: '#DC2626' }
-                  },
-                  '& .MuiInputLabel-root': { 
-                    fontSize: '0.875rem',
-                    '&.Mui-focused': { color: '#4F46E5' }
-                  },
-                  '& .MuiOutlinedInput-input': {
-                    fontSize: '0.875rem',
-                    '&::placeholder': { color: '#9CA3AF', opacity: 1 }
-                  }
-                }}
-              />
-              {!templateFormData.name.trim() && templateFormData.name !== '' && (
-                <Typography sx={{ fontSize: '0.75rem', color: '#DC2626', mt: 0.5, ml: 0.5 }}>
-                  Название обязательно для заполнения
-                </Typography>
-              )}
-            </Box>
-
-            {/* Описание */}
-            <Box>
-              <TextField
-                label="Описание"
-                value={templateFormData.description}
-                onChange={handleTemplateFormChange('description')}
-                multiline
-                rows={3}
-                fullWidth
-                placeholder="Краткое описание шаблона"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '10px',
-                    minHeight: 90,
-                    alignItems: 'flex-start',
-                    padding: '10px 12px',
-                    '& fieldset': { borderColor: '#D1D5DB' },
-                    '&:hover fieldset': { borderColor: '#9CA3AF' },
-                    '&.Mui-focused fieldset': { borderColor: '#4F46E5', borderWidth: 2 }
-                  },
-                  '& .MuiInputLabel-root': { 
-                    fontSize: '0.875rem',
-                    '&.Mui-focused': { color: '#4F46E5' }
-                  },
-                  '& .MuiOutlinedInput-input': {
-                    fontSize: '0.875rem',
-                    padding: 0,
-                    '&::placeholder': { color: '#9CA3AF', opacity: 1 }
-                  }
-                }}
-              />
-              <Typography sx={{ fontSize: '0.75rem', color: '#6B7280', mt: 0.75, ml: 0.5 }}>
-                Необязательно. Поможет быстрее найти шаблон.
-              </Typography>
-            </Box>
-
-            {/* Разделитель и подзаголовок */}
-            <Box sx={{ pt: 1 }}>
-              <Typography sx={{ 
-                fontSize: '0.75rem', 
-                fontWeight: 500, 
-                color: '#6B7280',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                mb: 1.5
-              }}>
-                Дополнительно
-              </Typography>
-
-              {/* Категория */}
-              <TextField
-                label="Категория"
-                value={templateFormData.category}
-                onChange={handleTemplateFormChange('category')}
-                fullWidth
-                placeholder="Например: Квартиры, Офисы"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    height: 44,
-                    borderRadius: '10px',
-                    '& fieldset': { borderColor: '#D1D5DB' },
-                    '&:hover fieldset': { borderColor: '#9CA3AF' },
-                    '&.Mui-focused fieldset': { borderColor: '#4F46E5', borderWidth: 2 }
-                  },
-                  '& .MuiInputLabel-root': { 
-                    fontSize: '0.875rem',
-                    '&.Mui-focused': { color: '#4F46E5' }
-                  },
-                  '& .MuiOutlinedInput-input': {
-                    fontSize: '0.875rem',
-                    '&::placeholder': { color: '#9CA3AF', opacity: 1 }
-                  }
-                }}
-              />
-              <Typography sx={{ fontSize: '0.75rem', color: '#6B7280', mt: 0.75, ml: 0.5 }}>
-                Для группировки шаблонов в списке.
-              </Typography>
-            </Box>
-          </Stack>
-        </DialogContent>
-
-        {/* ✅ Футер с кнопками */}
-        <Box
-          sx={{
-            px: 2.5,
-            py: 2,
-            borderTop: '1px solid #E5E7EB',
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: 1.5
-          }}
-        >
-          <Button 
-            onClick={() => setSaveTemplateDialogOpen(false)} 
-            disabled={savingTemplate}
-            sx={{
-              textTransform: 'none',
-              fontSize: '0.875rem',
-              fontWeight: 500,
-              color: '#6B7280',
-              px: 2,
-              '&:hover': { bgcolor: '#F3F4F6' }
-            }}
-          >
-            Отмена
-          </Button>
-          <Button
-            onClick={handleSaveTemplateConfirm}
-            variant="contained"
-            disabled={savingTemplate || !templateFormData.name.trim()}
-            startIcon={savingTemplate ? <CircularProgress size={16} sx={{ color: '#FFFFFF' }} /> : <IconTemplate size={18} color="#FFFFFF" />}
-            sx={{
-              textTransform: 'none',
-              fontSize: '0.875rem',
-              fontWeight: 500,
-              bgcolor: '#4F46E5',
-              borderRadius: '8px',
-              px: 2.5,
-              height: 40,
-              '&:hover': { bgcolor: '#4338CA' },
-              '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' }
-            }}
-          >
-            {savingTemplate ? 'Сохранение...' : 'Сохранить шаблон'}
-          </Button>
-        </Box>
-      </Dialog>
+        onSave={handleSaveTemplateConfirm}
+      />
 
       {/* 📚 OVERLAY DRAWER - Справочник работ (ФИНАЛЬНЫЙ РЕДИЗАЙН) */}
       <Drawer
@@ -3067,546 +2282,50 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
             </IconButton>
           </Box>
 
-          {/* ✅ ВКЛАДКИ - с подчёркиванием */}
-          <Box sx={{ px: 2.5, pt: 2, pb: 1.5 }}>
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
-              <Button
-                fullWidth
-                size="small"
-                onClick={() => {
-                  setWorkSourceTab('global');
-                  setSearchTerm('');
-                }}
-                sx={{
-                  py: 1,
-                  borderRadius: '8px',
-                  textTransform: 'none',
-                  fontSize: '0.8125rem',
-                  fontWeight: 500,
-                  position: 'relative',
-                  color: workSourceTab === 'global' ? '#3B82F6' : '#6B7280',
-                  bgcolor: workSourceTab === 'global' ? '#EEF6FF' : 'transparent',
-                  '&:hover': { 
-                    bgcolor: workSourceTab === 'global' ? '#EEF6FF' : '#F3F4F6' 
-                  },
-                  '&::after': workSourceTab === 'global' ? {
-                    content: '""',
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 8,
-                    right: 8,
-                    height: 2,
-                    bgcolor: '#3B82F6',
-                    borderRadius: '1px'
-                  } : {}
-                }}
-              >
-                Глобальные работы
-              </Button>
-              <Button
-                fullWidth
-                size="small"
-                onClick={() => {
-                  setWorkSourceTab('tenant');
-                  setSearchTerm('');
-                }}
-                sx={{
-                  py: 1,
-                  borderRadius: '8px',
-                  textTransform: 'none',
-                  fontSize: '0.8125rem',
-                  fontWeight: 500,
-                  position: 'relative',
-                  color: workSourceTab === 'tenant' ? '#3B82F6' : '#6B7280',
-                  bgcolor: workSourceTab === 'tenant' ? '#EEF6FF' : 'transparent',
-                  '&:hover': { 
-                    bgcolor: workSourceTab === 'tenant' ? '#EEF6FF' : '#F3F4F6' 
-                  },
-                  '&::after': workSourceTab === 'tenant' ? {
-                    content: '""',
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 8,
-                    right: 8,
-                    height: 2,
-                    bgcolor: '#3B82F6',
-                    borderRadius: '1px'
-                  } : {}
-                }}
-              >
-                Мои работы
-              </Button>
-            </Box>
-          </Box>
+          {/* ✅ ВКЛАДКИ */}
+          <WorksTabs
+            value={workSourceTab}
+            onChange={(newTab) => {
+              setWorkSourceTab(newTab);
+              setSearchTerm('');
+            }}
+          />
 
           {/* ✅ ПОИСК + ФИЛЬТРЫ */}
-          <Box sx={{ px: 2.5, pb: 1.5, display: 'flex', gap: 1.5 }}>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Поиск работ..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <IconSearch size={18} color="#9CA3AF" />
-                  </InputAdornment>
-                )
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  height: 40,
-                  borderRadius: '8px',
-                  bgcolor: '#F9FAFB',
-                  '& fieldset': { borderColor: '#E5E7EB' },
-                  '&:hover fieldset': { borderColor: '#D1D5DB' },
-                  '&.Mui-focused fieldset': { borderColor: '#635BFF', borderWidth: '2px' }
-                },
-                '& .MuiInputBase-input': {
-                  fontSize: '0.875rem'
-                }
-              }}
-            />
-            {availableSections.length > 0 && (
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<IconFilter size={16} color="#6B7280" />}
-                onClick={() => setFiltersPanelOpen(true)}
-                sx={{ 
-                  minWidth: 'auto',
-                  height: 40,
-                  px: 1.5,
-                  borderRadius: '8px',
-                  textTransform: 'none',
-                  fontSize: '0.8125rem',
-                  fontWeight: 500,
-                  color: '#6B7280',
-                  bgcolor: '#F9FAFB',
-                  borderColor: '#E5E7EB',
-                  '&:hover': { 
-                    borderColor: '#D1D5DB',
-                    bgcolor: '#F3F4F6'
-                  }
-                }}
-              >
-                {selectedSection && (
-                  <Box sx={{
-                    width: 18,
-                    height: 18,
-                    borderRadius: '50%',
-                    bgcolor: '#3B82F6',
-                    color: '#FFFFFF',
-                    fontSize: '0.65rem',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    ml: 0.5
-                  }}>
-                    1
-                  </Box>
-                )}
-              </Button>
-            )}
-          </Box>
+          <WorksSearchAndFilterBar
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            hasAvailableFilters={availableSections.length > 0}
+            hasActiveFilter={selectedSection !== null}
+            onOpenFilters={() => setFiltersPanelOpen(true)}
+          />
 
           {/* ✅ Вложенный Drawer фильтров */}
-          <Drawer
-            anchor="left"
+          <WorksFiltersDrawer
             open={filtersPanelOpen}
-            onClose={() => setFiltersPanelOpen(false)}
-            sx={{
-              zIndex: (theme) => theme.zIndex.drawer + 3,
-              '& .MuiDrawer-paper': {
-                width: 320,
-                boxSizing: 'border-box',
-                bgcolor: '#FFFFFF',
-                boxShadow: '4px 0 24px rgba(0, 0, 0, 0.12)'
-              }
+            selectedSection={selectedSection}
+            availableSections={availableSections}
+            worksAfterSearch={worksAfterSearch}
+            onSectionChange={setSelectedSection}
+            onReset={() => {
+              setSelectedSection(null);
+              setFiltersPanelOpen(false);
             }}
-          >
-            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-              {/* Заголовок фильтров */}
-              <Box sx={{ 
-                px: 2.5, 
-                py: 2, 
-                borderBottom: '1px solid #E5E7EB',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
-                <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
-                  Фильтры
-                </Typography>
-                <IconButton 
-                  size="small" 
-                  onClick={() => setFiltersPanelOpen(false)}
-                  sx={{ color: '#6B7280', '&:hover': { bgcolor: '#F3F4F6' } }}
-                >
-                  <IconX size={18} />
-                </IconButton>
-              </Box>
-
-              {/* Контент фильтров */}
-              <Box sx={{ flex: 1, overflow: 'auto', p: 2.5 }}>
-                <Typography sx={{ 
-                  fontSize: '0.75rem', 
-                  fontWeight: 600, 
-                  color: '#6B7280',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  mb: 1.5 
-                }}>
-                  По стадии
-                </Typography>
-                <FormControl component="fieldset" fullWidth>
-                  <RadioGroup
-                    value={selectedSection || 'all'}
-                    onChange={(e) => setSelectedSection(e.target.value === 'all' ? null : e.target.value)}
-                  >
-                    <FormControlLabel
-                      value="all"
-                      control={<Radio size="small" sx={{ '&.Mui-checked': { color: '#635BFF' } }} />}
-                      label={
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 1 }}>
-                          <Typography sx={{ fontSize: '0.875rem', color: '#374151' }}>Все работы</Typography>
-                          <Box sx={{ 
-                            px: 1, 
-                            py: 0.25, 
-                            borderRadius: '6px', 
-                            bgcolor: '#F3F4F6',
-                            fontSize: '0.75rem',
-                            fontWeight: 500,
-                            color: '#6B7280'
-                          }}>
-                            {worksAfterSearch.length}
-                          </Box>
-                        </Box>
-                      }
-                      sx={{ 
-                        mb: 0.5,
-                        mx: 0,
-                        py: 0.75,
-                        px: 1,
-                        borderRadius: '8px',
-                        '&:hover': { bgcolor: '#F9FAFB' }
-                      }}
-                    />
-                    {availableSections.map(section => {
-                      const count = worksAfterSearch.filter(w => w.section === section).length;
-                      return (
-                        <FormControlLabel
-                          key={section}
-                          value={section}
-                          control={<Radio size="small" sx={{ '&.Mui-checked': { color: '#635BFF' } }} />}
-                          label={
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 1 }}>
-                              <Typography sx={{ fontSize: '0.875rem', color: '#374151' }}>
-                                {section}
-                              </Typography>
-                              <Box sx={{ 
-                                px: 1, 
-                                py: 0.25, 
-                                borderRadius: '6px', 
-                                bgcolor: '#F3F4F6',
-                                fontSize: '0.75rem',
-                                fontWeight: 500,
-                                color: '#6B7280'
-                              }}>
-                                {count}
-                              </Box>
-                            </Box>
-                          }
-                          sx={{ 
-                            mb: 0.5,
-                            mx: 0,
-                            py: 0.75,
-                            px: 1,
-                            borderRadius: '8px',
-                            '&:hover': { bgcolor: '#F9FAFB' }
-                          }}
-                        />
-                      );
-                    })}
-                  </RadioGroup>
-                </FormControl>
-              </Box>
-
-              {/* Кнопки действий */}
-              <Box sx={{ 
-                p: 2.5, 
-                borderTop: '1px solid #E5E7EB',
-                display: 'flex',
-                gap: 1.5
-              }}>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  size="small"
-                  onClick={() => {
-                    setSelectedSection(null);
-                    setFiltersPanelOpen(false);
-                  }}
-                  sx={{
-                    height: 40,
-                    borderRadius: '8px',
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    color: '#374151',
-                    borderColor: '#E5E7EB',
-                    '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
-                  }}
-                >
-                  Сбросить
-                </Button>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  size="small"
-                  onClick={() => setFiltersPanelOpen(false)}
-                  sx={{
-                    height: 40,
-                    borderRadius: '8px',
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    bgcolor: '#635BFF',
-                    '&:hover': { bgcolor: '#564EE6' }
-                  }}
-                >
-                  Применить
-                </Button>
-              </Box>
-            </Box>
-          </Drawer>
+            onApply={() => setFiltersPanelOpen(false)}
+            onClose={() => setFiltersPanelOpen(false)}
+          />
 
           {/* ✅ СПИСОК РАБОТ */}
           <Box sx={{ flex: 1, overflow: 'hidden' }}>
-            {/* Загрузка */}
-            {loadingWorks && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
-                <CircularProgress size={32} sx={{ color: '#635BFF' }} />
-              </Box>
-            )}
-
-            {/* Ошибка */}
-            {errorWorks && !loadingWorks && (
-              <Box sx={{ px: 2.5, py: 3 }}>
-                <Alert 
-                  severity="error"
-                  sx={{ 
-                    borderRadius: '10px',
-                    '& .MuiAlert-message': { fontSize: '0.875rem' }
-                  }}
-                >
-                  <Typography sx={{ fontSize: '0.875rem', mb: 1 }}>
-                    {errorWorks}
-                  </Typography>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    color="error"
-                    onClick={() => window.location.reload()}
-                    sx={{ borderRadius: '6px', textTransform: 'none' }}
-                  >
-                    Обновить страницу
-                  </Button>
-                </Alert>
-              </Box>
-            )}
-
-            {/* ✅ EMPTY STATE */}
-            {!loadingWorks && !errorWorks && filteredWorks.length === 0 && (
-              <Box sx={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                py: 8,
-                px: 3 
-              }}>
-                <Box sx={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: '16px',
-                  bgcolor: '#F3F4F6',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  mb: 2
-                }}>
-                  <IconSearch size={28} color="#9CA3AF" />
-                </Box>
-                <Typography sx={{ 
-                  fontSize: '0.9375rem', 
-                  fontWeight: 600, 
-                  color: '#374151',
-                  mb: 0.5 
-                }}>
-                  Работы не найдены
-                </Typography>
-                <Typography sx={{ 
-                  fontSize: '0.8125rem', 
-                  color: '#9CA3AF',
-                  textAlign: 'center'
-                }}>
-                  Измените фильтры или строку поиска
-                </Typography>
-              </Box>
-            )}
-
-            {/* ✅ Виртуализированный список работ - НОВЫЙ ДИЗАЙН */}
-            {!loadingWorks && !errorWorks && filteredWorks.length > 0 && (
-              <Virtuoso
-                style={{ height: '100%' }}
-                data={filteredWorks}
-                itemContent={(index, work) => {
-                  const isAdded = addedWorkIds.has(work.id);
-                  const isAdding = addingWorkId === work.id;
-                  const isDisabled = isAdded || isAdding || (addingWorkId && addingWorkId !== work.id);
-                  
-                  return (
-                    <Box
-                      key={work.id}
-                      onClick={() => !isDisabled && handleTransferToEstimate([work])}
-                      sx={{
-                        px: 2.5,
-                        py: 1.25,
-                        minHeight: 56,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        cursor: isDisabled ? 'default' : 'pointer',
-                        bgcolor: isAdding ? '#EEF6FF' : '#FFFFFF',
-                        transition: 'all 0.15s ease',
-                        position: 'relative',
-                        opacity: isAdded ? 0.5 : (addingWorkId && !isAdding ? 0.6 : 1),
-                        pointerEvents: addingWorkId ? 'none' : 'auto',
-                        '&::after': {
-                          content: '""',
-                          position: 'absolute',
-                          bottom: 0,
-                          left: 16,
-                          right: 16,
-                          height: '1px',
-                          bgcolor: '#E5E7EB'
-                        },
-                        '&:hover': !isDisabled ? {
-                          bgcolor: '#F9FAFB',
-                          '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            left: 0,
-                            top: 0,
-                            bottom: 0,
-                            width: 3,
-                            bgcolor: '#635BFF',
-                            borderRadius: '0 2px 2px 0'
-                          }
-                        } : {}
-                      }}
-                    >
-                      {/* Левая часть: код + название */}
-                      <Box sx={{ flex: 1, minWidth: 0, pr: 2 }}>
-                        <Typography sx={{ 
-                          fontSize: '0.6875rem', 
-                          color: '#9CA3AF',
-                          fontWeight: 500,
-                          mb: 0.25
-                        }}>
-                          {work.code}
-                        </Typography>
-                        <Typography sx={{ 
-                          fontSize: '0.8125rem', 
-                          fontWeight: 500, 
-                          color: '#111827',
-                          lineHeight: 1.4,
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden'
-                        }}>
-                          {work.name}
-                        </Typography>
-                        {/* Бейдж категории (опционально) */}
-                        {work.section && (
-                          <Typography sx={{ 
-                            fontSize: '0.75rem', 
-                            color: '#9CA3AF',
-                            mt: 0.5
-                          }}>
-                            {work.section}
-                          </Typography>
-                        )}
-                      </Box>
-
-                      {/* Правая часть: цена + стрелка/спиннер */}
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
-                        <Box sx={{ textAlign: 'right' }}>
-                          <Typography sx={{ 
-                            fontSize: '0.8125rem', 
-                            fontWeight: 600, 
-                            color: '#111827'
-                          }}>
-                            {formatCurrency(work.price)}
-                          </Typography>
-                          <Typography sx={{ 
-                            fontSize: '0.6875rem', 
-                            color: '#9CA3AF'
-                          }}>
-                            {work.unit}
-                          </Typography>
-                        </Box>
-                        {isAdding ? (
-                          /* ✅ Спиннер при добавлении */
-                          <Box sx={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: '6px',
-                            bgcolor: '#EEF6FF',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}>
-                            <CircularProgress size={16} thickness={5} sx={{ color: '#635BFF' }} />
-                          </Box>
-                        ) : !isAdded ? (
-                          <Box sx={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: '6px',
-                            bgcolor: '#F1F4F9',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.15s ease',
-                            '&:hover': {
-                              bgcolor: '#635BFF',
-                              '& svg': { color: '#FFFFFF' }
-                            }
-                          }}>
-                            <IconArrowRight size={16} color="#6B7280" />
-                          </Box>
-                        ) : (
-                          <Box sx={{
-                            px: 1,
-                            py: 0.25,
-                            borderRadius: '6px',
-                            bgcolor: '#DCFCE7',
-                            fontSize: '0.6875rem',
-                            fontWeight: 500,
-                            color: '#16A34A'
-                          }}>
-                            В смете
-                          </Box>
-                        )}
-                      </Box>
-                    </Box>
-                  );
-                }}
-              />
-            )}
+            <WorksListPanel
+              loading={loadingWorks}
+              error={errorWorks}
+              works={filteredWorks}
+              addedWorkIds={addedWorkIds}
+              addingWorkId={addingWorkId}
+              onAddWork={(work) => handleTransferToEstimate([work])}
+              onReload={() => window.location.reload()}
+            />
           </Box>
         </Box>
       </Drawer>
