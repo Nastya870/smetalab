@@ -90,6 +90,43 @@ export async function analyzeReceipt(imageBuffer, mimeType = 'image/jpeg') {
 }
 
 /**
+ * Нормализует текст для сравнения (убирает лишние символы, приводит к lowercase)
+ */
+function normalizeText(text) {
+  return text
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[^а-яa-z0-9\s]/g, '') // удаляем спецсимволы
+    .replace(/\s+/g, ' ') // множественные пробелы → один
+    .trim();
+}
+
+/**
+ * Вычисляет коэффициент схожести строк (0-1)
+ */
+function calculateSimilarity(str1, str2) {
+  const normalized1 = normalizeText(str1);
+  const normalized2 = normalizeText(str2);
+  
+  // Точное совпадение
+  if (normalized1 === normalized2) return 1.0;
+  
+  // Разбиваем на слова
+  const words1 = normalized1.split(' ');
+  const words2 = normalized2.split(' ');
+  
+  // Подсчитываем общие слова
+  const commonWords = words1.filter(word => 
+    words2.some(w2 => w2.includes(word) || word.includes(w2))
+  ).length;
+  
+  // Коэффициент = общие слова / максимум слов
+  const similarity = commonWords / Math.max(words1.length, words2.length);
+  
+  return similarity;
+}
+
+/**
  * Сопоставляет распознанные материалы с базой данных
  * @param {Array} rawMaterials - Материалы из OCR
  * @param {Array} dbMaterials - Материалы из БД
@@ -99,34 +136,30 @@ export function matchMaterialsWithDatabase(rawMaterials, dbMaterials) {
   console.log(`🔍 [Matching] Сопоставление ${rawMaterials.length} материалов с базой (${dbMaterials.length} записей)`);
   
   return rawMaterials.map(raw => {
-    // Простой поиск по названию (можно улучшить fuzzy matching)
-    const nameLower = raw.name.toLowerCase();
+    let bestMatch = null;
+    let bestScore = 0;
     
-    const matched = dbMaterials.find(db => {
-      const dbNameLower = db.name.toLowerCase();
+    // Ищем лучшее совпадение
+    for (const db of dbMaterials) {
+      const score = calculateSimilarity(raw.name, db.name);
       
-      // Точное совпадение
-      if (dbNameLower === nameLower) return true;
-      
-      // Частичное совпадение (название из OCR содержится в БД)
-      if (dbNameLower.includes(nameLower)) return true;
-      
-      // Обратное (название из БД содержится в OCR)
-      if (nameLower.includes(dbNameLower)) return true;
-      
-      return false;
-    });
-
-    if (matched) {
-      console.log(`  ✅ "${raw.name}" → "${matched.name}" (ID: ${matched.id})`);
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = db;
+      }
+    }
+    
+    // Порог совпадения: 0.5 (50%)
+    if (bestMatch && bestScore >= 0.5) {
+      console.log(`  ✅ "${raw.name}" → "${bestMatch.name}" (ID: ${bestMatch.id}, similarity: ${(bestScore * 100).toFixed(0)}%)`);
       return {
         ...raw,
-        material_id: matched.id,
-        matched_name: matched.name,
-        match_confidence: 0.9
+        material_id: bestMatch.id,
+        matched_name: bestMatch.name,
+        match_confidence: bestScore
       };
     } else {
-      console.log(`  ⚠️  "${raw.name}" → не найдено в БД`);
+      console.log(`  ⚠️  "${raw.name}" → не найдено в БД (лучший score: ${(bestScore * 100).toFixed(0)}%)`);
       return {
         ...raw,
         material_id: null,
