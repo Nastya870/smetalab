@@ -100,15 +100,18 @@ export async function matchMaterialsWithDatabase(rawMaterials, dbMaterials) {
   console.log(`🔍 [Matching] Сопоставление ${rawMaterials.length} материалов с базой (${dbMaterials.length} записей)`);
   
   try {
-    // Используем универсальный сервис batchSemanticMatch
+    // Используем универсальный сервис batchSemanticMatch с порогом 30%
     const queries = rawMaterials.map(m => m.name);
-    const matches = await batchSemanticMatch(queries, dbMaterials, 'name', 0.5);
+    console.log(`📝 [Matching] Запросы для сопоставления:`, queries);
+    
+    const matches = await batchSemanticMatch(queries, dbMaterials, 'name', 0.3);
     
     // Собираем результаты
-    return rawMaterials.map((raw, index) => {
+    const results = rawMaterials.map((raw, index) => {
       const matched = matches[index];
       
       if (matched) {
+        console.log(`✅ [Match] "${raw.name}" → "${matched.name}" (${(matched.similarity * 100).toFixed(1)}%)`);
         return {
           ...raw,
           material_id: matched.id,
@@ -116,6 +119,7 @@ export async function matchMaterialsWithDatabase(rawMaterials, dbMaterials) {
           match_confidence: matched.similarity
         };
       } else {
+        console.log(`❌ [No Match] "${raw.name}" - совпадений не найдено`);
         return {
           ...raw,
           material_id: null,
@@ -124,6 +128,11 @@ export async function matchMaterialsWithDatabase(rawMaterials, dbMaterials) {
         };
       }
     });
+    
+    const matchedCount = results.filter(r => r.material_id).length;
+    console.log(`📊 [Matching Summary] Сопоставлено: ${matchedCount}/${rawMaterials.length}`);
+    
+    return results;
   } catch (error) {
     console.error('❌ [Matching] Ошибка semantic matching, используем fallback:', error.message);
     
