@@ -342,8 +342,8 @@ export const analyzeReceiptOCR = catchAsync(async (req, res) => {
     const materialsResult = await db.query(materialsQuery, [tenantId]);
     const dbMaterials = materialsResult.rows;
 
-    // Шаг 3: Сопоставляем распознанные материалы с БД
-    const matchedMaterials = matchMaterialsWithDatabase(ocrResult.materials || [], dbMaterials);
+    // Шаг 3: Сопоставляем распознанные материалы с БД (используя Mixedbread semantic search)
+    const matchedMaterials = await matchMaterialsWithDatabase(ocrResult.materials || [], dbMaterials);
 
     // Статистика
     const stats = {
