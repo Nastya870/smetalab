@@ -85,18 +85,18 @@ const MainFinancialChart = ({ chartData, chartPeriod = 'year', onChartPeriodChan
       '#8B5CF6'  // Прибыль - фиолетовый
     ],
     stroke: {
-      width: [3, 2, 3, 2, 0], // Работы толще, материалы тоньше, прибыль - зона
+      width: [3, 2, 3, 2, 2.5], // Работы толще, материалы тоньше, прибыль - заметная обводка
       curve: 'smooth',
       dashArray: [0, 6, 0, 6, 0] // Материалы - пунктир
     },
     fill: {
       type: ['solid', 'solid', 'solid', 'solid', 'gradient'],
-      opacity: [1, 1, 1, 1, 0.1],
+      opacity: [1, 1, 1, 1, 0.25], // Прибыль более заметная
       gradient: {
         shade: 'light',
         type: 'vertical',
-        opacityFrom: 0.12,
-        opacityTo: 0.08,
+        opacityFrom: 0.35,
+        opacityTo: 0.15,
         stops: [0, 100]
       }
     },
