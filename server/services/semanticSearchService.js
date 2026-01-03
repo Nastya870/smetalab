@@ -52,13 +52,13 @@ export function cosineSimilarity(vec1, vec2) {
  * @param {number} limit - Максимальное количество результатов
  * @returns {Promise<Array<Object>>} - Отсортированные результаты с полем similarity
  */
-export async function semanticSearch(query, items, textField = 'name', threshold = 0.5, limit = 50) {
+export async function semanticSearch(query, items, textField = 'name', threshold = 0.3, limit = 50) {
   if (!query || !items || items.length === 0) {
     return [];
   }
 
   try {
-    console.log(`🔍 [Semantic Search] Поиск "${query}" среди ${items.length} записей (поле: ${textField})`);
+    console.log(`🔍 [Semantic Search] Поиск "${query}" среди ${items.length} записей (поле: ${textField}, порог: ${threshold})`);
     const startTime = Date.now();
 
     // Получаем embeddings для запроса и всех элементов
@@ -73,6 +73,13 @@ export async function semanticSearch(query, items, textField = 'name', threshold
       ...item,
       similarity: cosineSimilarity(queryEmbedding, itemEmbeddings[index])
     }));
+
+    // Логируем топ-5 результатов для отладки
+    const top5 = results
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 5);
+    console.log('📊 [Top 5 Matches]:');
+    top5.forEach(r => console.log(`  ${(r.similarity * 100).toFixed(1)}% - ${r[textField]}`));
 
     // Фильтруем по порогу и сортируем
     const filtered = results
@@ -185,7 +192,7 @@ function fallbackTextSearch(query, items, textField, limit) {
  * Batch semantic search для множественных запросов
  * Используется в OCR для сопоставления материалов
  */
-export async function batchSemanticMatch(queries, items, textField = 'name', threshold = 0.7) {
+export async function batchSemanticMatch(queries, items, textField = 'name', threshold = 0.5) {
   if (!queries || queries.length === 0 || !items || items.length === 0) {
     return queries.map(() => null);
   }

@@ -1533,7 +1533,7 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
  * Semantic search по материалам (AI-powered)
  */
 export const searchMaterialsSemantic = catchAsync(async (req, res) => {
-  const { query, threshold = 0.5, limit = 50 } = req.body;
+  const { query, threshold = 0.3, limit = 50 } = req.body;
   const tenantId = req.user?.tenantId;
 
   if (!query || query.trim() === '') {

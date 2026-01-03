@@ -102,7 +102,7 @@ export async function matchMaterialsWithDatabase(rawMaterials, dbMaterials) {
   try {
     // Используем универсальный сервис batchSemanticMatch
     const queries = rawMaterials.map(m => m.name);
-    const matches = await batchSemanticMatch(queries, dbMaterials, 'name', 0.7);
+    const matches = await batchSemanticMatch(queries, dbMaterials, 'name', 0.5);
     
     // Собираем результаты
     return rawMaterials.map((raw, index) => {

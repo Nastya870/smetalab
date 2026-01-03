@@ -20,7 +20,7 @@ import axiosInstance from 'shared/lib/axiosInstance';
  */
 export const useSemanticSearch = (entity, options = {}) => {
   const { 
-    threshold = 0.5, 
+    threshold = 0.3,  // Понижен порог с 0.5 до 0.3 (30%)
     limit = 50, 
     onSuccess, 
     onError 

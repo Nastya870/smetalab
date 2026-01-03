@@ -20,7 +20,7 @@ import { catchAsync, BadRequestError } from '../utils/errors.js';
  * }
  */
 export const universalSemanticSearch = catchAsync(async (req, res) => {
-  const { entity, query, threshold = 0.5, limit = 50 } = req.body;
+  const { entity, query, threshold = 0.3, limit = 50 } = req.body;
   const tenantId = req.user?.tenantId;
 
   if (!entity) {
