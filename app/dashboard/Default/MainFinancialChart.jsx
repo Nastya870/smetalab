@@ -1,4 +1,4 @@
-import { Card, CardContent, Box, Typography } from '@mui/material';
+import { Card, CardContent, Box, Typography, FormControl, Select, MenuItem } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import ReactApexChart from 'react-apexcharts';
 
@@ -12,11 +12,12 @@ import ReactApexChart from 'react-apexcharts';
  * 4. Расход (материалы) - красный пунктир
  * 5. Прибыль - зона (доход минус расход)
  * 
- * @param {Object} chartData - Данные графика из API (chartDataYear или chartDataMonth)
- * @param {string} period - Период для отображения ('year', 'month', 'quarter', 'all')
+ * @param {Object} chartData - Данные графика из API
+ * @param {string} chartPeriod - Период для отображения ('month', 'quarter', 'halfyear', 'year')
+ * @param {Function} onChartPeriodChange - Callback для изменения периода
  */
 
-const MainFinancialChart = ({ chartData, period = 'year', isLoading = false }) => {
+const MainFinancialChart = ({ chartData, chartPeriod = 'year', onChartPeriodChange, isLoading = false }) => {
   const theme = useTheme();
   
   // Подготовка данных из API
@@ -197,9 +198,58 @@ const MainFinancialChart = ({ chartData, period = 'year', isLoading = false }) =
         border: '1px solid #E8EBF1'
       }}
     >
-      <CardContent sx={{ p: 3 }}>
-        {/* Структурная легенда */}
-        <Box sx={{ mb: 3 }}>
+      <CardContent sx={{ p: 0 }}>
+        {/* Header с фильтром периода */}
+        <Box sx={{ 
+          p: 2.5, 
+          pb: 1.5,
+          borderBottom: '1px solid #F3F4F6',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem', color: '#111827' }}>
+              Финансовая динамика
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#6B7280', fontSize: '0.75rem' }}>
+              Доходы, расходы и прибыль за период
+            </Typography>
+          </Box>
+          
+          {/* Селектор периода графика */}
+          <FormControl size="small">
+            <Select
+              value={chartPeriod}
+              onChange={(e) => onChartPeriodChange?.(e.target.value)}
+              inputProps={{ 'aria-label': 'Выбор периода графика' }}
+              sx={{ 
+                bgcolor: '#F9FAFB',
+                fontSize: '0.8125rem',
+                borderRadius: '8px',
+                border: '1px solid #E5E7EB',
+                minWidth: 140,
+                '& .MuiOutlinedInput-notchedOutline': {
+                  border: 'none'
+                },
+                '&:hover': {
+                  bgcolor: '#F3F4F6'
+                },
+                transition: 'background-color 0.2s ease'
+              }}
+            >
+              <MenuItem value="month">Месяц</MenuItem>
+              <MenuItem value="quarter">Квартал</MenuItem>
+              <MenuItem value="halfyear">Полугодие</MenuItem>
+              <MenuItem value="year">Год</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+
+        {/* График */}
+        <Box sx={{ p: 2 }}>
+          {/* Структурная легенда */}
+          <Box sx={{ mb: 3 }}>
           <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {/* Блок "Доход" */}
             <Box>
@@ -280,14 +330,15 @@ const MainFinancialChart = ({ chartData, period = 'year', isLoading = false }) =
           </Box>
         </Box>
 
-        {/* График */}
-        <Box sx={{ mt: 2 }}>
-          <ReactApexChart
-            options={chartOptions}
-            series={data.series}
-            type="line"
-            height={420}
-          />
+          {/* График */}
+          <Box sx={{ mt: 2 }}>
+            <ReactApexChart
+              options={chartOptions}
+              series={data.series}
+              type="line"
+              height={420}
+            />
+          </Box>
         </Box>
       </CardContent>
     </Card>

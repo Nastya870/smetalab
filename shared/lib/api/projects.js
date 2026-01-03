@@ -107,11 +107,17 @@ export const projectsAPI = {
 
   /**
    * Get all dashboard data in a single request (optimized: 7 requests → 1)
-   * This endpoint combines: totalProfit, incomeWorks, incomeMaterials, chartData (month/year), growthData, projectsProfitData
+   * This endpoint combines: totalProfit, incomeWorks, incomeMaterials, chartData, growthData, projectsProfitData
+   * @param {string} period - Period filter for KPI (month, quarter, year, all)
+   * @param {string} chartPeriod - Period filter for chart (month, quarter, halfyear, year)
    * @returns {Promise} All dashboard data in one response
    */
-  getDashboardSummary: () => {
-    return axiosInstance.get('/projects/dashboard-summary').then((res) => res.data);
+  getDashboardSummary: (period = 'year', chartPeriod = 'year') => {
+    return axiosInstance
+      .get('/projects/dashboard-summary', {
+        params: { period, chartPeriod }
+      })
+      .then((res) => res.data);
   },
 
   /**

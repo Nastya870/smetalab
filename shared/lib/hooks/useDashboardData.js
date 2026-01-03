@@ -21,34 +21,39 @@
 import useSWR, { mutate as globalMutate } from 'swr';
 import { projectsAPI } from 'api/projects';
 
-// Ключ для SWR кеша
-const DASHBOARD_CACHE_KEY = '/api/projects/dashboard-summary';
-
 /**
- * Fetcher для SWR
- */
-const fetchDashboardData = async () => {
-  const response = await projectsAPI.getDashboardSummary();
-  if (!response.success) {
-    throw new Error(response.message || 'Ошибка загрузки данных дашборда');
-  }
-  return response.data;
-};
-
-/**
- * Хук для загрузки данных дашборда
+ * Хук для загрузки данных дашборда с фильтрами периода
  * 
+ * @param {Object} params - Параметры фильтрации
+ * @param {string} params.period - Период для KPI (month, quarter, year, all)
+ * @param {string} params.chartPeriod - Период для графика (month, quarter, halfyear, year)
  * @param {Object} options - Опции SWR
  * @returns {Object} { data, isLoading, error, refresh, isValidating }
  */
-export function useDashboardData(options = {}) {
+export function useDashboardData(params = {}, options = {}) {
+  const { period = 'year', chartPeriod = 'year' } = params;
+  
+  // Ключ для SWR кеша с параметрами
+  const cacheKey = `/api/projects/dashboard-summary?period=${period}&chartPeriod=${chartPeriod}`;
+  
+  /**
+   * Fetcher для SWR с параметрами
+   */
+  const fetchDashboardData = async () => {
+    const response = await projectsAPI.getDashboardSummary(period, chartPeriod);
+    if (!response.success) {
+      throw new Error(response.message || 'Ошибка загрузки данных дашборда');
+    }
+    return response.data;
+  };
+
   const {
     data,
     error,
     isLoading,
     isValidating,
     mutate
-  } = useSWR(DASHBOARD_CACHE_KEY, fetchDashboardData, {
+  } = useSWR(cacheKey, fetchDashboardData, {
     // Обновлять при возврате на страницу (решает проблему устаревших данных)
     revalidateOnFocus: true,
     // Обновлять при восстановлении соединения

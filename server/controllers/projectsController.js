@@ -2268,31 +2268,35 @@ export const getDashboardSummary = catchAsync(async (req, res) => {
   
   const tenantId = req.user.tenantId;
   const isSuperAdmin = req.user.role === 'super_admin';
+  
+  // Параметры фильтрации периода
+  const period = req.query.period || 'year'; // month, quarter, year, all
+  const chartPeriod = req.query.chartPeriod || 'year'; // month, quarter, halfyear, year
 
     // Параллельно выполняем все запросы к БД
     const [
       profitResult,
       incomeWorksResult,
       incomeMaterialsResult,
-      chartMonthResult,
-      chartYearResult,
+      activeProjectsResult,
+      chartDataResult,
       growthResult,
       projectsProfitResult
     ] = await Promise.all([
-      // 1. Общая прибыль
-      getTotalProfitData(tenantId, isSuperAdmin),
-      // 2. Доход от работ
-      getIncomeWorksData(tenantId, isSuperAdmin),
-      // 3. Доход от материалов
-      getIncomeMaterialsData(tenantId, isSuperAdmin),
-      // 4. Данные графика за месяц
-      getChartDataInternal(tenantId, isSuperAdmin, 'month'),
-      // 5. Данные графика за год
-      getChartDataInternal(tenantId, isSuperAdmin, 'year'),
+      // 1. Общая прибыль (с фильтром периода)
+      getTotalProfitData(tenantId, isSuperAdmin, period),
+      // 2. Доход от работ (с фильтром периода)
+      getIncomeWorksData(tenantId, isSuperAdmin, period),
+      // 3. Доход от материалов (с фильтром периода)
+      getIncomeMaterialsData(tenantId, isSuperAdmin, period),
+      // 4. Активные проекты (только статус 'in_progress')
+      getActiveProjectsCount(tenantId, isSuperAdmin),
+      // 5. Данные графика (с отдельным периодом)
+      getChartDataInternal(tenantId, isSuperAdmin, chartPeriod),
       // 6. Данные роста по месяцам
-      getMonthlyGrowthInternal(tenantId, isSuperAdmin),
-      // 7. Прибыльность проектов
-      getProjectsProfitInternal(tenantId, isSuperAdmin, 10)
+      getMonthlyGrowthInternal(tenantId, isSuperAdmin, period),
+      // 7. Прибыльность проектов (с фильтром периода)
+      getProjectsProfitInternal(tenantId, isSuperAdmin, 10, period)
     ]);
 
     const duration = Date.now() - startTime;
@@ -2304,37 +2308,115 @@ export const getDashboardSummary = catchAsync(async (req, res) => {
         totalProfit: profitResult,
         incomeWorks: incomeWorksResult,
         incomeMaterials: incomeMaterialsResult,
-        chartDataMonth: chartMonthResult,
-        chartDataYear: chartYearResult,
+        activeProjects: activeProjectsResult,
+        chartData: chartDataResult,
         growthData: growthResult,
         projectsProfitData: projectsProfitResult
       },
       meta: {
         loadTime: duration,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        filters: {
+          period,
+          chartPeriod
+        }
       }
     });
 });
+
+// ============= Helper Functions =============
+
+/**
+ * Получить SQL фильтр даты на основе периода
+ * @param {string} period - month, quarter, year, all
+ * @returns {string} SQL WHERE clause fragment или null
+ */
+function getDateFilter(period) {
+  switch (period) {
+    case 'month':
+      return "NOW() - INTERVAL '1 month'";
+    case 'quarter':
+      return "NOW() - INTERVAL '3 months'";
+    case 'year':
+      return "NOW() - INTERVAL '12 months'";
+    case 'all':
+    default:
+      return null;
+  }
+}
+
+/**
+ * Получить диапазон дат для графика
+ * @param {string} chartPeriod - month, quarter, halfyear, year
+ * @returns {Object} { startDate, endDate, interval }
+ */
+function getChartDateRange(chartPeriod) {
+  const now = new Date();
+  let startDate, endDate, interval;
+
+  switch (chartPeriod) {
+    case 'month':
+      // Текущий месяц
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      interval = 'day';
+      break;
+    case 'quarter':
+      // Текущий квартал
+      startDate = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+      endDate = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3 + 3, 0);
+      interval = 'week';
+      break;
+    case 'halfyear':
+      // Полугодие: -6 месяцев
+      startDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+      endDate = now;
+      interval = 'month';
+      break;
+    case 'year':
+    default:
+      // Год: -6 месяцев + 6 месяцев вперед
+      startDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 6, 0);
+      interval = 'month';
+      break;
+  }
+
+  return { 
+    startDate: startDate.toISOString(), 
+    endDate: endDate.toISOString(), 
+    interval,
+    sqlStart: `'${startDate.toISOString().split('T')[0]}'`,
+    sqlEnd: `'${endDate.toISOString().split('T')[0]}'`
+  };
+}
 
 // ============= Internal helper functions for getDashboardSummary =============
 
 /**
  * Получить общую прибыль (внутренняя функция)
+ * @param {string} period - month, quarter, year, all
  */
-async function getTotalProfitData(tenantId, isSuperAdmin) {
+async function getTotalProfitData(tenantId, isSuperAdmin, period = 'year') {
+  const dateFilter = getDateFilter(period);
+  
   let query = `
     WITH project_profits AS (
       SELECT 
         p.id as project_id,
         COALESCE(
-          (SELECT SUM(wca.total_amount) FROM work_completion_acts wca WHERE wca.estimate_id = e.id AND wca.act_type = 'client'), 0
+          (SELECT SUM(wca.total_amount) FROM work_completion_acts wca 
+           WHERE wca.estimate_id = e.id AND wca.act_type = 'client' ${dateFilter ? `AND wca.act_date >= ${dateFilter}` : ''}), 0
         ) - COALESCE(
-          (SELECT SUM(wca.total_amount) FROM work_completion_acts wca WHERE wca.estimate_id = e.id AND wca.act_type = 'specialist'), 0
+          (SELECT SUM(wca.total_amount) FROM work_completion_acts wca 
+           WHERE wca.estimate_id = e.id AND wca.act_type = 'specialist' ${dateFilter ? `AND wca.act_date >= ${dateFilter}` : ''}), 0
         ) as works_profit,
         COALESCE(
-          (SELECT SUM(pur.total_price) FROM purchases pur WHERE pur.estimate_id = e.id AND pur.total_price IS NOT NULL), 0
+          (SELECT SUM(pur.total_price) FROM purchases pur 
+           WHERE pur.estimate_id = e.id AND pur.total_price IS NOT NULL ${dateFilter ? `AND pur.created_at >= ${dateFilter}` : ''}), 0
         ) - COALESCE(
-          (SELECT SUM(gp.total_price) FROM global_purchases gp WHERE gp.estimate_id = e.id AND gp.total_price IS NOT NULL), 0
+          (SELECT SUM(gp.total_price) FROM global_purchases gp 
+           WHERE gp.estimate_id = e.id AND gp.total_price IS NOT NULL ${dateFilter ? `AND gp.created_at >= ${dateFilter}` : ''}), 0
         ) as materials_profit
       FROM projects p
       JOIN estimates e ON p.id = e.project_id
@@ -2356,15 +2438,36 @@ async function getTotalProfitData(tenantId, isSuperAdmin) {
 }
 
 /**
- * Получить доход от работ (внутренняя функция)
+ * Получить количество активных проектов (только статус 'in_progress')
  */
-async function getIncomeWorksData(tenantId, isSuperAdmin) {
+async function getActiveProjectsCount(tenantId, isSuperAdmin) {
+  let query = `
+    SELECT COUNT(*) as active_projects
+    FROM projects p
+    WHERE p.status = 'in_progress'
+    ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+  `;
+
+  const params = !isSuperAdmin ? [tenantId] : [];
+  const result = await pool.query(query, params);
+  
+  return parseInt(result.rows[0].active_projects) || 0;
+}
+
+/**
+ * Получить доход от работ (внутренняя функция)
+ * @param {string} period - month, quarter, year, all
+ */
+async function getIncomeWorksData(tenantId, isSuperAdmin, period = 'year') {
+  const dateFilter = getDateFilter(period);
+  
   let query = `
     SELECT COALESCE(SUM(wca.total_amount), 0) as total_income_works
     FROM work_completion_acts wca
     JOIN estimates e ON wca.estimate_id = e.id
     JOIN projects p ON e.project_id = p.id
     WHERE wca.act_type = 'client'
+    ${dateFilter ? `AND wca.act_date >= ${dateFilter}` : ''}
     ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
   `;
 
@@ -2376,14 +2479,18 @@ async function getIncomeWorksData(tenantId, isSuperAdmin) {
 
 /**
  * Получить доход от материалов (внутренняя функция)
+ * @param {string} period - month, quarter, year, all
  */
-async function getIncomeMaterialsData(tenantId, isSuperAdmin) {
+async function getIncomeMaterialsData(tenantId, isSuperAdmin, period = 'year') {
+  const dateFilter = getDateFilter(period);
+  
   let query = `
     SELECT COALESCE(SUM(pur.total_price), 0) as total_income_materials
     FROM purchases pur
     JOIN estimates e ON pur.estimate_id = e.id
     JOIN projects p ON e.project_id = p.id
     WHERE pur.total_price IS NOT NULL
+    ${dateFilter ? `AND pur.created_at >= ${dateFilter}` : ''}
     ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
   `;
 
@@ -2395,91 +2502,185 @@ async function getIncomeMaterialsData(tenantId, isSuperAdmin) {
 
 /**
  * Получить данные графика проектов (внутренняя функция)
+ * Заменено на getFinancialChartData для финансовых данных
+ * @param {string} chartPeriod - month, quarter, halfyear, year
  */
-async function getChartDataInternal(tenantId, isSuperAdmin, period) {
-  const isMonth = period === 'month';
-  const interval = isMonth ? '30 days' : '12 months';
-  const dateGroup = isMonth ? 'day' : 'month';
-  const dateFormat = isMonth ? 'DD Mon' : 'Mon YYYY';
+async function getChartDataInternal(tenantId, isSuperAdmin, chartPeriod = 'year') {
+  const dateRange = getChartDateRange(chartPeriod);
   
   let query;
-  
-  if (isMonth) {
-    // За последние 30 дней
-    query = `
-      WITH date_series AS (
-        SELECT generate_series(
-          DATE_TRUNC('day', CURRENT_DATE - INTERVAL '29 days'),
-          DATE_TRUNC('day', CURRENT_DATE),
-          INTERVAL '1 day'
-        )::date AS date_point
-      )
-      SELECT 
-        ds.date_point,
-        TO_CHAR(ds.date_point, 'DD') as label,
-        COUNT(DISTINCT CASE WHEN p.status = 'planning' THEN p.id END) as planning_projects,
-        COUNT(DISTINCT CASE WHEN p.status = 'approval' THEN p.id END) as approval_projects,
-        COUNT(DISTINCT CASE WHEN p.status = 'in_progress' THEN p.id END) as in_progress_projects,
-        COUNT(DISTINCT CASE WHEN p.status = 'rejected' THEN p.id END) as rejected_projects,
-        COUNT(DISTINCT CASE WHEN p.status = 'completed' THEN p.id END) as completed_projects,
-        COUNT(DISTINCT p.id) as total_projects
-      FROM date_series ds
-      LEFT JOIN projects p ON DATE_TRUNC('day', p.created_at) <= ds.date_point
-        ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
-      GROUP BY ds.date_point
-      ORDER BY ds.date_point
-    `;
-  } else {
-    // За последние 12 месяцев
-    query = `
-      WITH month_series AS (
-        SELECT generate_series(
-          DATE_TRUNC('month', CURRENT_DATE - INTERVAL '11 months'),
-          DATE_TRUNC('month', CURRENT_DATE),
-          INTERVAL '1 month'
-        )::date AS month_point
-      )
-      SELECT 
-        ms.month_point,
-        CASE TO_CHAR(ms.month_point, 'Mon')
-          WHEN 'Jan' THEN 'Янв' WHEN 'Feb' THEN 'Фев' WHEN 'Mar' THEN 'Мар'
-          WHEN 'Apr' THEN 'Апр' WHEN 'May' THEN 'Май' WHEN 'Jun' THEN 'Июн'
-          WHEN 'Jul' THEN 'Июл' WHEN 'Aug' THEN 'Авг' WHEN 'Sep' THEN 'Сен'
-          WHEN 'Oct' THEN 'Окт' WHEN 'Nov' THEN 'Ноя' WHEN 'Dec' THEN 'Дек'
-        END as label,
-        COUNT(DISTINCT CASE WHEN p.status = 'planning' AND DATE_TRUNC('month', p.created_at) <= ms.month_point THEN p.id END) as planning_projects,
-        COUNT(DISTINCT CASE WHEN p.status = 'approval' AND DATE_TRUNC('month', p.created_at) <= ms.month_point THEN p.id END) as approval_projects,
-        COUNT(DISTINCT CASE WHEN p.status = 'in_progress' AND DATE_TRUNC('month', p.created_at) <= ms.month_point THEN p.id END) as in_progress_projects,
-        COUNT(DISTINCT CASE WHEN p.status = 'rejected' AND DATE_TRUNC('month', p.created_at) <= ms.month_point THEN p.id END) as rejected_projects,
-        COUNT(DISTINCT CASE WHEN p.status = 'completed' AND DATE_TRUNC('month', p.created_at) <= ms.month_point THEN p.id END) as completed_projects,
-        COUNT(DISTINCT CASE WHEN DATE_TRUNC('month', p.created_at) <= ms.month_point THEN p.id END) as total_projects
-      FROM month_series ms
-      LEFT JOIN projects p ON 1=1 ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
-      GROUP BY ms.month_point
-      ORDER BY ms.month_point
-    `;
+  let interval, groupFormat, monthTranslate;
+
+  switch (chartPeriod) {
+    case 'month':
+      // Последние 30 дней
+      interval = '1 day';
+      groupFormat = 'DD';
+      query = `
+        WITH date_series AS (
+          SELECT generate_series(
+            DATE_TRUNC('day', ${dateRange.sqlStart}::date),
+            DATE_TRUNC('day', ${dateRange.sqlEnd}::date),
+            INTERVAL '${interval}'
+          )::date AS date_point
+        )
+        SELECT 
+          ds.date_point,
+          TO_CHAR(ds.date_point, '${groupFormat}') as label,
+          
+          -- Доход от работ
+          COALESCE((
+            SELECT SUM(wca.total_amount)
+            FROM work_completion_acts wca
+            JOIN estimates e ON wca.estimate_id = e.id
+            JOIN projects p ON e.project_id = p.id
+            WHERE wca.act_type = 'client'
+              AND DATE_TRUNC('day', wca.act_date) = ds.date_point
+              ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+          ), 0) as income_works,
+          
+          -- Доход от материалов
+          COALESCE((
+            SELECT SUM(pur.total_price)
+            FROM purchases pur
+            JOIN estimates e ON pur.estimate_id = e.id
+            JOIN projects p ON e.project_id = p.id
+            WHERE DATE_TRUNC('day', pur.created_at) = ds.date_point
+              ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+          ), 0) as income_materials,
+          
+          -- Расход от работ
+          COALESCE((
+            SELECT SUM(wca.total_amount)
+            FROM work_completion_acts wca
+            JOIN estimates e ON wca.estimate_id = e.id
+            JOIN projects p ON e.project_id = p.id
+            WHERE wca.act_type = 'specialist'
+              AND DATE_TRUNC('day', wca.act_date) = ds.date_point
+              ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+          ), 0) as expense_works,
+          
+          -- Расход от материалов
+          COALESCE((
+            SELECT SUM(gp.total_price)
+            FROM global_purchases gp
+            JOIN estimates e ON gp.estimate_id = e.id
+            JOIN projects p ON e.project_id = p.id
+            WHERE DATE_TRUNC('day', gp.created_at) = ds.date_point
+              ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+          ), 0) as expense_materials
+          
+        FROM date_series ds
+        ORDER BY ds.date_point
+      `;
+      break;
+
+    case 'quarter':
+    case 'halfyear':
+    case 'year':
+    default:
+      // По месяцам
+      interval = '1 month';
+      groupFormat = 'Mon';
+      monthTranslate = true;
+      
+      query = `
+        WITH month_series AS (
+          SELECT generate_series(
+            DATE_TRUNC('month', ${dateRange.sqlStart}::date),
+            DATE_TRUNC('month', ${dateRange.sqlEnd}::date),
+            INTERVAL '${interval}'
+          )::date AS month_point
+        )
+        SELECT 
+          ms.month_point,
+          CASE TO_CHAR(ms.month_point, 'Mon')
+            WHEN 'Jan' THEN 'Янв' WHEN 'Feb' THEN 'Фев' WHEN 'Mar' THEN 'Мар'
+            WHEN 'Apr' THEN 'Апр' WHEN 'May' THEN 'Май' WHEN 'Jun' THEN 'Июн'
+            WHEN 'Jul' THEN 'Июл' WHEN 'Aug' THEN 'Авг' WHEN 'Sep' THEN 'Сен'
+            WHEN 'Oct' THEN 'Окт' WHEN 'Nov' THEN 'Ноя' WHEN 'Dec' THEN 'Дек'
+          END as label,
+          
+          -- Доход от работ
+          COALESCE((
+            SELECT SUM(wca.total_amount)
+            FROM work_completion_acts wca
+            JOIN estimates e ON wca.estimate_id = e.id
+            JOIN projects p ON e.project_id = p.id
+            WHERE wca.act_type = 'client'
+              AND DATE_TRUNC('month', wca.act_date) = ms.month_point
+              ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+          ), 0) as income_works,
+          
+          -- Доход от материалов
+          COALESCE((
+            SELECT SUM(pur.total_price)
+            FROM purchases pur
+            JOIN estimates e ON pur.estimate_id = e.id
+            JOIN projects p ON e.project_id = p.id
+            WHERE DATE_TRUNC('month', pur.created_at) = ms.month_point
+              ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+          ), 0) as income_materials,
+          
+          -- Расход от работ
+          COALESCE((
+            SELECT SUM(wca.total_amount)
+            FROM work_completion_acts wca
+            JOIN estimates e ON wca.estimate_id = e.id
+            JOIN projects p ON e.project_id = p.id
+            WHERE wca.act_type = 'specialist'
+              AND DATE_TRUNC('month', wca.act_date) = ms.month_point
+              ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+          ), 0) as expense_works,
+          
+          -- Расход от материалов
+          COALESCE((
+            SELECT SUM(gp.total_price)
+            FROM global_purchases gp
+            JOIN estimates e ON gp.estimate_id = e.id
+            JOIN projects p ON e.project_id = p.id
+            WHERE DATE_TRUNC('month', gp.created_at) = ms.month_point
+              ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
+          ), 0) as expense_materials
+          
+        FROM month_series ms
+        ORDER BY ms.month_point
+      `;
+      break;
   }
 
   const params = !isSuperAdmin ? [tenantId] : [];
   const result = await pool.query(query, params);
 
-  return {
-    months: result.rows.map(r => r.label),
-    chartData: result.rows.map(r => ({
-      planningProjects: parseInt(r.planning_projects) || 0,
-      approvalProjects: parseInt(r.approval_projects) || 0,
-      inProgressProjects: parseInt(r.in_progress_projects) || 0,
-      rejectedProjects: parseInt(r.rejected_projects) || 0,
-      completedProjects: parseInt(r.completed_projects) || 0,
-      totalProjects: parseInt(r.total_projects) || 0
-    }))
-  };
+  // Формируем данные для ApexCharts
+  const categories = result.rows.map(row => row.label);
+  const series = [
+    {
+      name: 'income_works',
+      data: result.rows.map(row => parseFloat(row.income_works) || 0)
+    },
+    {
+      name: 'income_materials',
+      data: result.rows.map(row => parseFloat(row.income_materials) || 0)
+    },
+    {
+      name: 'expense_works',
+      data: result.rows.map(row => parseFloat(row.expense_works) || 0)
+    },
+    {
+      name: 'expense_materials',
+      data: result.rows.map(row => parseFloat(row.expense_materials) || 0)
+    }
+  ];
+
+  return { categories, series };
 }
 
 /**
  * Получить данные роста по месяцам (внутренняя функция)
+ * @param {string} period - month, quarter, year, all
  */
-async function getMonthlyGrowthInternal(tenantId, isSuperAdmin) {
+async function getMonthlyGrowthInternal(tenantId, isSuperAdmin, period = 'year') {
   const query = `
     WITH month_series AS (
       SELECT generate_series(
@@ -2561,16 +2762,44 @@ async function getMonthlyGrowthInternal(tenantId, isSuperAdmin) {
 
 /**
  * Получить прибыльность проектов (внутренняя функция)
+ * @param {number} limit - Количество проектов
+ * @param {string} period - month, quarter, year, all
  */
-async function getProjectsProfitInternal(tenantId, isSuperAdmin, limit) {
+async function getProjectsProfitInternal(tenantId, isSuperAdmin, limit, period = 'all') {
+  const dateFilter = getDateFilter(period);
+  
   let query = `
     WITH project_financials AS (
       SELECT 
         p.id, p.name, p.status,
-        COALESCE((SELECT SUM(wca.total_amount) FROM work_completion_acts wca JOIN estimates e ON wca.estimate_id = e.id WHERE e.project_id = p.id AND wca.act_type = 'client'), 0) as income_works,
-        COALESCE((SELECT SUM(wca.total_amount) FROM work_completion_acts wca JOIN estimates e ON wca.estimate_id = e.id WHERE e.project_id = p.id AND wca.act_type = 'specialist'), 0) as expense_works,
-        COALESCE((SELECT SUM(pur.total_price) FROM purchases pur JOIN estimates e ON pur.estimate_id = e.id WHERE e.project_id = p.id), 0) as income_materials,
-        COALESCE((SELECT SUM(gp.total_price) FROM global_purchases gp JOIN estimates e ON gp.estimate_id = e.id WHERE e.project_id = p.id), 0) as expense_materials
+        COALESCE((
+          SELECT SUM(wca.total_amount) 
+          FROM work_completion_acts wca 
+          JOIN estimates e ON wca.estimate_id = e.id 
+          WHERE e.project_id = p.id AND wca.act_type = 'client'
+          ${dateFilter ? `AND wca.act_date >= ${dateFilter}` : ''}
+        ), 0) as income_works,
+        COALESCE((
+          SELECT SUM(wca.total_amount) 
+          FROM work_completion_acts wca 
+          JOIN estimates e ON wca.estimate_id = e.id 
+          WHERE e.project_id = p.id AND wca.act_type = 'specialist'
+          ${dateFilter ? `AND wca.act_date >= ${dateFilter}` : ''}
+        ), 0) as expense_works,
+        COALESCE((
+          SELECT SUM(pur.total_price) 
+          FROM purchases pur 
+          JOIN estimates e ON pur.estimate_id = e.id 
+          WHERE e.project_id = p.id
+          ${dateFilter ? `AND pur.created_at >= ${dateFilter}` : ''}
+        ), 0) as income_materials,
+        COALESCE((
+          SELECT SUM(gp.total_price) 
+          FROM global_purchases gp 
+          JOIN estimates e ON gp.estimate_id = e.id 
+          WHERE e.project_id = p.id
+          ${dateFilter ? `AND gp.created_at >= ${dateFilter}` : ''}
+        ), 0) as expense_materials
       FROM projects p
       WHERE 1=1 ${!isSuperAdmin ? 'AND p.tenant_id = $1' : ''}
     )
@@ -2593,10 +2822,10 @@ async function getProjectsProfitInternal(tenantId, isSuperAdmin, limit) {
   const result = await pool.query(query, params);
 
   return result.rows.map(r => ({
-    id: r.id,
-    name: r.name,
+    project_id: r.id,
+    project_name: r.name,
     status: r.status,
-    totalProfit: parseFloat(r.total_profit) || 0,
+    total_profit: parseFloat(r.total_profit) || 0,
     totalIncome: parseFloat(r.total_income) || 0,
     profitPercentage: parseFloat(r.profit_percentage) || 0,
     isProfit: parseFloat(r.total_profit) > 0

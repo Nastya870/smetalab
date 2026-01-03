@@ -24,11 +24,12 @@ import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalance
 // ==============================|| DEFAULT DASHBOARD ||============================== //
 
 export default function Dashboard() {
-  // Используем единый хук для всех данных дашборда
-  const { data: dashboardData, isLoading, error } = useDashboardData();
-  
-  // Фильтры периода (пока статические, можно расширить)
-  const [period, setPeriod] = useState('year');
+  // Фильтры периода
+  const [period, setPeriod] = useState('year'); // Фильтр для KPI (верхний)
+  const [chartPeriod, setChartPeriod] = useState('year'); // Фильтр для графика (независимый)
+
+  // Используем единый хук для всех данных дашборда (с параметрами)
+  const { data: dashboardData, isLoading, error } = useDashboardData({ period, chartPeriod });
 
   // Маппинг данных из API для новых компонентов
   const profitData = {
@@ -36,7 +37,7 @@ export default function Dashboard() {
     change: 0 // TODO: Calculate change from previous period
   };
   const projectsCount = {
-    value: dashboardData?.totalProfit?.projectsWithProfit || 0,
+    value: dashboardData?.activeProjects || 0, // Только проекты со статусом 'in_progress'
     change: 0 // TODO: Calculate change from previous period
   };
   const incomeWorksData = {
@@ -151,8 +152,9 @@ export default function Dashboard() {
       <Grid size={12}>
         <MainFinancialChart 
           isLoading={isLoading} 
-          chartData={dashboardData?.chartDataYear}
-          period={period}
+          chartData={dashboardData?.chartData}
+          chartPeriod={chartPeriod}
+          onChartPeriodChange={setChartPeriod}
         />
       </Grid>
 
