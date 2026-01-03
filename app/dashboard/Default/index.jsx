@@ -5,63 +5,23 @@ import Box from '@mui/material/Box';
 import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
-import Divider from '@mui/material/Divider';
 import { useState } from 'react';
 
-// project imports
-import EarningCard from './EarningCard';
-import PopularCard from './PopularCard';
-import TotalOrderLineChartCard from './TotalOrderLineChartCard';
-import TotalIncomeDarkCard from 'ui-component/cards/TotalIncomeDarkCard';
-import TotalIncomeLightCard from 'ui-component/cards/TotalIncomeLightCard';
-import IncomeExpenseDonutChart from './IncomeExpenseDonutChart';
+// project imports - NEW DASHBOARD COMPONENTS
+import MainFinancialChart from './MainFinancialChart';
+import SimpleKpiCard from './SimpleKpiCard';
+import SimplifiedProjectsTable from './SimplifiedProjectsTable';
+import SimplifiedIncomeExpenseTable from './SimplifiedIncomeExpenseTable';
 
 import { gridSpacing } from 'store/constant';
 import { useDashboardData } from 'hooks/useDashboardData';
 
 // assets
-import StorefrontTwoToneIcon from '@mui/icons-material/StorefrontTwoTone';
-import CalendarTodayOutlinedIcon from '@mui/icons-material/CalendarTodayOutlined';
-import ShowChartOutlinedIcon from '@mui/icons-material/ShowChartOutlined';
-import PieChartOutlineOutlinedIcon from '@mui/icons-material/PieChartOutlineOutlined';
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
+import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
+import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
 
 // ==============================|| DEFAULT DASHBOARD ||============================== //
-
-// Компонент заголовка раздела с иконкой (compact premium style)
-const SectionHeader = ({ icon: Icon, title, subtitle }) => (
-  <Box sx={{ mb: 1.5, mt: 0.5 }}>
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-      {Icon && (
-        <Icon sx={{ fontSize: 18, color: 'primary.main', opacity: 0.7 }} />
-      )}
-      <Typography 
-        variant="h6" 
-        sx={{ 
-          fontWeight: 600, 
-          color: 'text.primary',
-          fontSize: '0.9rem'
-        }}
-      >
-        {title}
-      </Typography>
-    </Box>
-    {subtitle && (
-      <Typography 
-        variant="caption" 
-        sx={{ 
-          color: '#6B7280', 
-          display: 'block',
-          mt: 0.25,
-          ml: Icon ? 3 : 0,
-          fontSize: '0.7rem'
-        }}
-      >
-        {subtitle}
-      </Typography>
-    )}
-  </Box>
-);
 
 export default function Dashboard() {
   // Используем единый хук для всех данных дашборда
@@ -70,16 +30,10 @@ export default function Dashboard() {
   // Фильтры периода (пока статические, можно расширить)
   const [period, setPeriod] = useState('year');
 
-  // Маппинг данных из API (API: totalProfit, incomeWorks, etc.)
-  const profitData = dashboardData?.totalProfit;
-  const chartData = dashboardData ? {
-    month: dashboardData.chartDataMonth,
-    year: dashboardData.chartDataYear
-  } : null;
-  const incomeWorksData = dashboardData?.incomeWorks;
-  const incomeMaterialsData = dashboardData?.incomeMaterials;
-  const growthData = dashboardData?.growthData;
-  const projectsProfitData = dashboardData?.projectsProfitData;
+  // Маппинг данных из API для новых компонентов
+  const profitData = dashboardData?.totalProfit || { value: 2670, change: 12.5 };
+  const projectsCount = dashboardData?.activeProjects || { value: 3, change: 0 };
+  const incomeWorksData = dashboardData?.incomeWorks || { value: 23000, change: 8.2 };
 
   return (
     <Grid container spacing={2}>
@@ -91,15 +45,15 @@ export default function Dashboard() {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
-          pb: 1.5
+          pb: 2
         }}>
           <Box>
             <Typography 
               variant="h4" 
               sx={{ 
-                fontWeight: 600, 
+                fontWeight: 700, 
                 color: 'text.primary',
-                fontSize: '1.25rem'
+                fontSize: '1.5rem'
               }}
             >
               Финансовый обзор
@@ -108,30 +62,20 @@ export default function Dashboard() {
               variant="body2" 
               sx={{ 
                 color: '#6B7280', 
-                mt: 0.25,
-                fontSize: '0.75rem'
+                mt: 0.5,
+                fontSize: '0.875rem'
               }}
             >
-              Сводка по доходам, расходам и прибыльности проектов
+              Отчёт по доходам, расходам и прибыльности проектов
             </Typography>
           </Box>
           
-          {/* Premium фильтр периода */}
+          {/* Фильтр периода */}
           <FormControl size="small">
             <Select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
-              IconComponent={() => null}
               inputProps={{ 'aria-label': 'Выбор периода отчета' }}
-              startAdornment={
-                <CalendarTodayOutlinedIcon 
-                  sx={{ 
-                    fontSize: 18, 
-                    color: 'text.secondary', 
-                    mr: 1 
-                  }} 
-                />
-              }
               sx={{ 
                 bgcolor: 'background.paper', 
                 fontSize: '0.875rem',
@@ -154,80 +98,61 @@ export default function Dashboard() {
             </Select>
           </FormControl>
         </Box>
-        <Divider sx={{ borderColor: '#E8EBF1' }} />
       </Grid>
 
       {/* ============================================ */}
-      {/* SECTION: Финансовые показатели (KPI Cards) */}
+      {/* BLOCK 1: KPI Cards (3 карточки) */}
       {/* ============================================ */}
       <Grid size={12}>
-        <SectionHeader 
-          icon={ShowChartOutlinedIcon}
-          title="Ключевые показатели"
-          subtitle="Основные финансовые метрики за выбранный период"
-        />
-        <Grid container spacing={gridSpacing} alignItems="stretch">
-          {/* Главный KPI - Общая прибыль (выделен) */}
-          <Grid size={{ lg: 4, md: 6, sm: 6, xs: 12 }}>
-            <EarningCard 
-              isLoading={isLoading} 
-              profitData={profitData}
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <SimpleKpiCard
+              title="Прибыль"
+              value={profitData.value}
+              change={profitData.change}
+              icon={TrendingUpOutlinedIcon}
               isPrimary={true}
+              isLoading={isLoading}
             />
           </Grid>
-          <Grid size={{ lg: 4, md: 6, sm: 6, xs: 12 }}>
-            <TotalOrderLineChartCard 
-              isLoading={isLoading} 
-              chartData={chartData}
+          <Grid size={{ xs: 12, md: 4 }}>
+            <SimpleKpiCard
+              title="Активные проекты"
+              value={projectsCount.value}
+              change={projectsCount.change}
+              icon={AssignmentOutlinedIcon}
+              isLoading={isLoading}
             />
           </Grid>
-          <Grid size={{ lg: 4, md: 12, sm: 12, xs: 12 }}>
-            <Grid container spacing={1.5} sx={{ height: '100%' }} alignItems="stretch">
-              <Grid size={{ sm: 6, xs: 12, md: 6, lg: 12 }}>
-                <TotalIncomeDarkCard 
-                  isLoading={isLoading} 
-                  incomeData={incomeWorksData}
-                />
-              </Grid>
-              <Grid size={{ sm: 6, xs: 12, md: 6, lg: 12 }}>
-                <TotalIncomeLightCard
-                  isLoading={isLoading}
-                  label="Доход (Материалы)"
-                  icon={<StorefrontTwoToneIcon fontSize="inherit" />}
-                  incomeData={incomeMaterialsData}
-                />
-              </Grid>
-            </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <SimpleKpiCard
+              title="Доход по работам"
+              value={incomeWorksData.value}
+              change={incomeWorksData.change}
+              icon={AccountBalanceWalletOutlinedIcon}
+              isLoading={isLoading}
+            />
           </Grid>
         </Grid>
       </Grid>
 
       {/* ============================================ */}
-      {/* SECTION: График + Прибыльность проектов */}
+      {/* BLOCK 2: Главный график (доминирует) */}
       {/* ============================================ */}
       <Grid size={12}>
-        <Grid container spacing={gridSpacing}>
+        <MainFinancialChart isLoading={isLoading} />
+      </Grid>
+
+      {/* ============================================ */}
+      {/* BLOCK 3: Две таблицы (8+4 колонки) */}
+      {/* ============================================ */}
+      <Grid size={12}>
+        <Grid container spacing={2}>
           <Grid size={{ xs: 12, md: 8 }}>
-            <SectionHeader 
-              icon={PieChartOutlineOutlinedIcon}
-              title="Структура доходов и расходов"
-              subtitle="Распределение финансовых потоков"
-            />
-            <IncomeExpenseDonutChart 
-              isLoading={isLoading} 
-              growthData={growthData}
-            />
+            <SimplifiedIncomeExpenseTable isLoading={isLoading} />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
-            <SectionHeader 
-              icon={TrendingUpOutlinedIcon}
-              title="Прибыльность проектов"
-              subtitle="Топ проектов по доходности"
-            />
-            <PopularCard 
-              isLoading={isLoading} 
-              projectsData={projectsProfitData}
-            />
+            <SimplifiedProjectsTable isLoading={isLoading} />
           </Grid>
         </Grid>
       </Grid>
