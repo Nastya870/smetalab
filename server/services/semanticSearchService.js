@@ -18,14 +18,40 @@ export async function getEmbeddings(texts) {
   try {
     console.log(`🧠 [OpenAI Embeddings] Запрос для ${texts.length} текстов...`);
     
-    const response = await openai.embeddings.create({
-      model: 'text-embedding-3-small', // Дешевая модель: $0.00002/1K tokens
-      input: texts,
-      encoding_format: 'float'
-    });
-
-    console.log(`✅ [OpenAI Embeddings] Получено ${response.data.length} векторов`);
-    return response.data.map(item => item.embedding);
+    // OpenAI API лимит: 2048 текстов за запрос
+    const BATCH_SIZE = 2000;
+    
+    if (texts.length <= BATCH_SIZE) {
+      // Маленький запрос - отправляем сразу
+      const response = await openai.embeddings.create({
+        model: 'text-embedding-3-small', // Дешевая модель: $0.00002/1K tokens
+        input: texts,
+        encoding_format: 'float'
+      });
+      
+      console.log(`✅ [OpenAI Embeddings] Получено ${response.data.length} векторов`);
+      return response.data.map(item => item.embedding);
+    }
+    
+    // Большой запрос - разбиваем на батчи
+    console.log(`📦 [Batching] Разбиваем ${texts.length} текстов на батчи по ${BATCH_SIZE}`);
+    const allEmbeddings = [];
+    
+    for (let i = 0; i < texts.length; i += BATCH_SIZE) {
+      const batch = texts.slice(i, i + BATCH_SIZE);
+      console.log(`  🔄 Батч ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(texts.length / BATCH_SIZE)}: ${batch.length} текстов`);
+      
+      const response = await openai.embeddings.create({
+        model: 'text-embedding-3-small',
+        input: batch,
+        encoding_format: 'float'
+      });
+      
+      allEmbeddings.push(...response.data.map(item => item.embedding));
+    }
+    
+    console.log(`✅ [OpenAI Embeddings] Получено ${allEmbeddings.length} векторов (батчами)`);
+    return allEmbeddings;
   } catch (error) {
     console.error('❌ [Embeddings] Ошибка получения embeddings:', error.message);
     console.error('📋 [Embeddings] Error details:', error.response?.data || error);
