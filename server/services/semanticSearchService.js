@@ -1,39 +1,28 @@
 /**
- * Универсальный сервис для semantic search (Mixedbread AI)
+ * Универсальный сервис для semantic search (OpenAI Embeddings)
  * Используется во всех справочниках: материалы, работы, контрагенты и т.д.
  */
 
-const MIXEDBREAD_API_URL = 'https://api.mixedbread.ai/v1/embeddings';
-const MIXEDBREAD_API_KEY = process.env.MIXEDBREAD_API_KEY;
+import OpenAI from 'openai';
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 /**
- * Получает embeddings для текстов через Mixedbread API
+ * Получает embeddings для текстов через OpenAI API
  * @param {Array<string>} texts - Массив текстов
  * @returns {Promise<Array<Array<number>>>} - Массив векторов embeddings
  */
 export async function getEmbeddings(texts) {
   try {
-    const response = await fetch(MIXEDBREAD_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${MIXEDBREAD_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'mxbai-embed-large-v1',
-        input: texts,
-        encoding_format: 'float',
-        normalized: true
-      })
+    const response = await openai.embeddings.create({
+      model: 'text-embedding-3-small', // Дешевая модель: $0.00002/1K tokens
+      input: texts,
+      encoding_format: 'float'
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Mixedbread API error: ${response.status} - ${error}`);
-    }
-
-    const data = await response.json();
-    return data.data.map(item => item.embedding);
+    return response.data.map(item => item.embedding);
   } catch (error) {
     console.error('❌ [Embeddings] Ошибка получения embeddings:', error.message);
     throw error;
