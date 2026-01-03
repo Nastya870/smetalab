@@ -46,6 +46,7 @@ const SamplePage = Loadable(lazy(() => import('views/sample-page')));
 
 // test pages
 const NotificationTestPage = Loadable(lazy(() => import('views/test/NotificationTestPage')));
+const OCRTestPage = Loadable(lazy(() => import('views/test/OCRTest')));
 
 // ==============================|| MAIN ROUTING ||============================== //
 
@@ -137,6 +138,10 @@ const MainRoutes = {
     {
       path: '/app/test/notifications',
       element: <NotificationTestPage />
+    },
+    {
+      path: '/app/test/ocr',
+      element: <OCRTestPage />
     }
   ]
 };

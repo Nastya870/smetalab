@@ -25,12 +25,22 @@ const CounterpartyModal = ({ open, onClose, onSuccess, counterparty }) => {
   useEffect(() => {
     if (counterparty) {
       setEntityType(counterparty.entityType);
+      
+      // Разбиваем passportSeriesNumber на серию и номер для редактирования
+      let passportSeries = '';
+      let passportNumber = '';
+      if (counterparty.passportSeriesNumber) {
+        const parts = counterparty.passportSeriesNumber.split(' ');
+        passportSeries = parts[0] || '';
+        passportNumber = parts[1] || '';
+      }
+      
       setFormData({
         fullName: counterparty.fullName || '',
         birthDate: counterparty.birthDate || '',
         birthPlace: counterparty.birthPlace || '',
-        passportSeries: counterparty.passportSeries || '',
-        passportNumber: counterparty.passportNumber || '',
+        passportSeries: passportSeries,
+        passportNumber: passportNumber,
         passportIssuedByCode: counterparty.passportIssuedByCode || '',
         passportIssuedBy: counterparty.passportIssuedBy || '',
         passportIssueDate: counterparty.passportIssueDate || '',
@@ -71,7 +81,14 @@ const CounterpartyModal = ({ open, onClose, onSuccess, counterparty }) => {
     e.preventDefault();
     setLoading(true);
     try {
+      // Объединяем серию и номер паспорта для физлиц
       const data = { ...formData, entityType };
+      if (entityType === 'individual') {
+        data.passportSeriesNumber = `${formData.passportSeries || ''} ${formData.passportNumber || ''}`.trim();
+        delete data.passportSeries;
+        delete data.passportNumber;
+      }
+      
       if (isEdit) {
         await counterpartiesAPI.update(counterparty.id, data);
       } else {
@@ -80,7 +97,8 @@ const CounterpartyModal = ({ open, onClose, onSuccess, counterparty }) => {
       onSuccess();
     } catch (err) {
       console.error('Error saving counterparty:', err);
-      alert(err.response?.data?.error || 'Ошибка при сохранении');
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Ошибка при сохранении';
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }

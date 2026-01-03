@@ -137,7 +137,7 @@ setCounterparties(data || []);
             renderInput={(params) => (
               <TextField
                 {...params}
-                label="Заказчик"
+                label="Клиент"
                 required
                 placeholder="Поиск или ввод контрагента..."
                 size="small"
