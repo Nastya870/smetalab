@@ -105,47 +105,90 @@ export async function semanticSearch(query, items, textField = 'name', threshold
 }
 
 /**
- * Fallback: простой текстовый поиск (если Mixedbread недоступен)
+ * Нормализует текст для улучшенного сравнения
+ */
+function normalizeForSearch(text) {
+  return text
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[^а-яa-z0-9\s]/g, ' ') // спецсимволы → пробелы
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Fallback: улучшенный текстовый поиск (если Mixedbread недоступен)
  */
 function fallbackTextSearch(query, items, textField, limit) {
-  const queryLower = query.toLowerCase().trim();
+  const queryNorm = normalizeForSearch(query);
+  const queryWords = queryNorm.split(' ').filter(w => w.length > 2); // слова > 2 букв
   
   const results = items
     .map(item => {
-      const text = (item[textField] || '').toLowerCase();
+      const textNorm = normalizeForSearch(item[textField] || '');
+      const textWords = textNorm.split(' ');
       
-      // Точное совпадение
-      if (text === queryLower) {
+      // Точное совпадение нормализованного текста
+      if (textNorm === queryNorm) {
         return { ...item, similarity: 1.0 };
       }
       
       // Начинается с запроса
-      if (text.startsWith(queryLower)) {
-        return { ...item, similarity: 0.9 };
+      if (textNorm.startsWith(queryNorm)) {
+        return { ...item, similarity: 0.95 };
       }
       
-      // Содержит запрос
-      if (text.includes(queryLower)) {
-        return { ...item, similarity: 0.7 };
+      // Содержит весь запрос целиком
+      if (textNorm.includes(queryNorm)) {
+        return { ...item, similarity: 0.85 };
       }
       
-      // Пословное совпадение
-      const queryWords = queryLower.split(/\s+/);
-      const textWords = text.split(/\s+/);
-      const matchedWords = queryWords.filter(qw => 
-        textWords.some(tw => tw.includes(qw) || qw.includes(tw))
-      ).length;
+      // Пословное совпадение с весами
+      let matchScore = 0;
+      let matchedWords = 0;
+      
+      for (const qw of queryWords) {
+        for (const tw of textWords) {
+          // Точное совпадение слова
+          if (tw === qw) {
+            matchScore += 1.0;
+            matchedWords++;
+            break;
+          }
+          // Слово начинается с запроса
+          if (tw.startsWith(qw)) {
+            matchScore += 0.8;
+            matchedWords++;
+            break;
+          }
+          // Слово содержит запрос
+          if (tw.includes(qw)) {
+            matchScore += 0.6;
+            matchedWords++;
+            break;
+          }
+          // Запрос содержит слово (обратное)
+          if (qw.includes(tw) && tw.length > 2) {
+            matchScore += 0.5;
+            matchedWords++;
+            break;
+          }
+        }
+      }
       
       if (matchedWords > 0) {
-        return { ...item, similarity: matchedWords / queryWords.length * 0.6 };
+        // Similarity = средний вес совпадений
+        const similarity = (matchScore / queryWords.length) * 0.75;
+        return { ...item, similarity };
       }
       
       return null;
     })
-    .filter(item => item !== null)
+    .filter(item => item !== null && item.similarity >= 0.3) // порог 30%
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, limit);
   
+  console.log(`⚠️  [Fallback Search] Found ${results.length} results for "${query}"`);
   return results;
 }
 

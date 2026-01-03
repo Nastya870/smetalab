@@ -152,8 +152,8 @@ function matchMaterialsFallback(rawMaterials, dbMaterials) {
       }
     }
     
-    // Порог совпадения: 0.5 (50%)
-    if (bestMatch && bestScore >= 0.5) {
+    // Порог совпадения: 0.4 (40%) для fallback
+    if (bestMatch && bestScore >= 0.4) {
       console.log(`  ✅ "${raw.name}" → "${bestMatch.name}" (ID: ${bestMatch.id}, similarity: ${(bestScore * 100).toFixed(0)}%)`);
       return {
         ...raw,
@@ -180,28 +180,45 @@ function normalizeText(text) {
   return text
     .toLowerCase()
     .replace(/ё/g, 'е')
-    .replace(/[^а-яa-z0-9\s]/g, '')
+    .replace(/[^а-яa-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 /**
- * Вычисляет схожесть строк (fallback)
+ * Вычисляет схожесть строк (улучшенный fallback)
  */
 function calculateSimilarity(str1, str2) {
-  const normalized1 = normalizeText(str1);
-  const normalized2 = normalizeText(str2);
+  const norm1 = normalizeText(str1);
+  const norm2 = normalizeText(str2);
   
-  if (normalized1 === normalized2) return 1.0;
+  // Точное совпадение
+  if (norm1 === norm2) return 1.0;
   
-  const words1 = normalized1.split(' ');
-  const words2 = normalized2.split(' ');
+  // Одна строка содержится в другой
+  if (norm1.includes(norm2) || norm2.includes(norm1)) {
+    return 0.85;
+  }
   
-  const commonWords = words1.filter(word => 
-    words2.some(w2 => w2.includes(word) || word.includes(w2))
-  ).length;
+  const words1 = norm1.split(' ').filter(w => w.length > 2);
+  const words2 = norm2.split(' ').filter(w => w.length > 2);
   
-  return commonWords / Math.max(words1.length, words2.length);
+  if (words1.length === 0 || words2.length === 0) return 0;
+  
+  // Подсчитываем совпадения слов с весами
+  let matchScore = 0;
+  
+  for (const w1 of words1) {
+    for (const w2 of words2) {
+      if (w1 === w2) {
+        matchScore += 1.0; // точное совпадение
+      } else if (w1.includes(w2) || w2.includes(w1)) {
+        matchScore += 0.7; // частичное совпадение
+      }
+    }
+  }
+  
+  return Math.min(matchScore / Math.max(words1.length, words2.length), 1.0);
 }
 
 export default { analyzeReceipt, matchMaterialsWithDatabase };
