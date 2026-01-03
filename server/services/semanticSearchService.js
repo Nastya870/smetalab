@@ -16,15 +16,19 @@ const openai = new OpenAI({
  */
 export async function getEmbeddings(texts) {
   try {
+    console.log(`🧠 [OpenAI Embeddings] Запрос для ${texts.length} текстов...`);
+    
     const response = await openai.embeddings.create({
       model: 'text-embedding-3-small', // Дешевая модель: $0.00002/1K tokens
       input: texts,
       encoding_format: 'float'
     });
 
+    console.log(`✅ [OpenAI Embeddings] Получено ${response.data.length} векторов`);
     return response.data.map(item => item.embedding);
   } catch (error) {
     console.error('❌ [Embeddings] Ошибка получения embeddings:', error.message);
+    console.error('📋 [Embeddings] Error details:', error.response?.data || error);
     throw error;
   }
 }
@@ -93,9 +97,10 @@ export async function semanticSearch(query, items, textField = 'name', threshold
     return filtered;
   } catch (error) {
     console.error('❌ [Semantic Search] Ошибка поиска:', error.message);
+    console.error('📋 [Semantic Search] Error stack:', error.stack);
     
     // Fallback: простой текстовый поиск
-    console.log('⚠️  [Semantic Search] Используем fallback (текстовый поиск)');
+    console.log(`⚠️  [Semantic Search] Используем fallback (текстовый поиск) для "${query}"`);
     return fallbackTextSearch(query, items, textField, limit);
   }
 }
