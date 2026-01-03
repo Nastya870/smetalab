@@ -345,7 +345,7 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
           {/* Прогресс загрузки */}
           {loading && (
             <Box>
-              <LinearProgress />
+              <LinearProgress aria-label="Загрузка импорта материалов" />
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
                 Импортируем материалы...
               </Typography>

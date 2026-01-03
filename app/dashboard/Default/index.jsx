@@ -50,7 +50,7 @@ const SectionHeader = ({ icon: Icon, title, subtitle }) => (
       <Typography 
         variant="caption" 
         sx={{ 
-          color: '#9CA3AF', 
+          color: '#6B7280', 
           display: 'block',
           mt: 0.25,
           ml: Icon ? 3 : 0,
@@ -107,7 +107,7 @@ export default function Dashboard() {
             <Typography 
               variant="body2" 
               sx={{ 
-                color: '#9CA3AF', 
+                color: '#6B7280', 
                 mt: 0.25,
                 fontSize: '0.75rem'
               }}
@@ -122,6 +122,7 @@ export default function Dashboard() {
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
               IconComponent={() => null}
+              inputProps={{ 'aria-label': 'Выбор периода отчета' }}
               startAdornment={
                 <CalendarTodayOutlinedIcon 
                   sx={{ 

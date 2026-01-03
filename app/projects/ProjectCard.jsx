@@ -356,7 +356,9 @@ const ProjectCard = ({ project, onOpen, onEdit, onDelete, sx = {}, optimistic = 
         </Box>
         <LinearProgress 
           variant="determinate" 
-          value={project.progress} 
+          value={project.progress}
+          aria-label={`Прогресс проекта ${project.progress}%`}
+          aria-valuenow={project.progress}
           sx={{ 
             height: 6, 
             borderRadius: '3px',

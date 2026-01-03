@@ -134,7 +134,15 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
         selected={isSelected}
         onClick={() => itemHandler()}
       >
-        <ButtonBase aria-label="theme-icon" sx={{ borderRadius: '6px' }} disableRipple={drawerOpen}>
+        <ButtonBase 
+          aria-label={item.title || 'theme-icon'}
+          sx={{ 
+            borderRadius: '6px',
+            minWidth: 40,
+            minHeight: 40
+          }} 
+          disableRipple={drawerOpen}
+        >
           <ListItemIcon
             sx={{
               minWidth: 32,

@@ -124,6 +124,8 @@ export default function PopularCard({ isLoading, projectsData }) {
               variant="determinate"
               value={progressValue}
               color={progressColor}
+              aria-label={`Прогресс ${progressValue}%`}
+              aria-valuenow={progressValue}
               sx={{
                 flex: 1,
                 height: 6,
