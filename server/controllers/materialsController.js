@@ -264,22 +264,34 @@ export const getAllMaterials = catchAsync(async (req, res) => {
       paramIndex++;
     }
     
-    // ✅ ОПТИМИЗИРОВАННЫЙ ПОИСК - ТОЛЬКО префиксный LIKE
+    // ✅ ОПТИМИЗИРОВАННЫЙ ПОИСК с поддержкой множественных слов
     // Производительность: ~90-100ms на 47k записей
-    // similarity() вызывает Seq Scan и медленнее в 100x раз!
     if (search) {
       const searchLower = search.toLowerCase().trim();
       
-      // Используем ТОЛЬКО LIKE для префиксного и подстрочного поиска
-      // Это работает НАМНОГО быстрее, чем similarity()
-      whereConditions.push(`(
-        LOWER(name) LIKE $${paramIndex} OR
-        LOWER(sku) LIKE $${paramIndex} OR
-        LOWER(name) LIKE $${paramIndex + 1} OR
-        LOWER(sku) LIKE $${paramIndex + 1}
-      )`);
-      params.push(`${searchLower}%`, `%${searchLower}%`);
-      paramIndex += 2;
+      // Разбиваем поисковый запрос на слова
+      const words = searchLower.split(/\s+/).filter(w => w.length > 0);
+      
+      if (words.length === 1) {
+        // Одно слово → оригинальный префиксный/подстрочный поиск
+        whereConditions.push(`(
+          LOWER(name) LIKE $${paramIndex} OR
+          LOWER(sku) LIKE $${paramIndex} OR
+          LOWER(name) LIKE $${paramIndex + 1} OR
+          LOWER(sku) LIKE $${paramIndex + 1}
+        )`);
+        params.push(`${searchLower}%`, `%${searchLower}%`);
+        paramIndex += 2;
+      } else {
+        // Несколько слов → каждое слово должно присутствовать (AND)
+        const wordConditions = words.map(word => {
+          const wordParamIndex = paramIndex;
+          params.push(`%${word}%`);
+          paramIndex++;
+          return `(LOWER(name) LIKE $${wordParamIndex} OR LOWER(sku) LIKE $${wordParamIndex})`;
+        });
+        whereConditions.push(`(${wordConditions.join(' AND ')})`);
+      }
     }
     
     const whereClause = whereConditions.length > 0 
@@ -299,31 +311,39 @@ export const getAllMaterials = catchAsync(async (req, res) => {
     let orderByClause;
     if (search && search.trim().length > 0) {
       const searchLower = search.toLowerCase().trim();
+      const words = searchLower.split(/\s+/).filter(w => w.length > 0);
+      
       // Добавляем параметры для сортировки
-      params.push(searchLower); // Для CASE WHEN LOWER(sku) = $N
+      params.push(searchLower); // Для CASE WHEN LOWER(sku) = $N (полное совпадение)
       const skuExactParamIndex = paramIndex;
       paramIndex++;
       
-      params.push(searchLower); // Для CASE WHEN LOWER(name) = $N
+      params.push(searchLower); // Для CASE WHEN LOWER(name) = $N (полное совпадение)
       const nameExactParamIndex = paramIndex;
       paramIndex++;
       
-      params.push(`${searchLower}%`); // Для CASE WHEN LOWER(name) LIKE $N
+      params.push(`${searchLower}%`); // Для CASE WHEN LOWER(name) LIKE $N (префикс)
       const namePrefixParamIndex = paramIndex;
+      paramIndex++;
+      
+      params.push(`%${searchLower}%`); // Для CASE WHEN LOWER(name) LIKE $N (содержит всю фразу)
+      const nameContainsParamIndex = paramIndex;
       paramIndex++;
       
       // Сортируем по релевантности БЕЗ similarity (для скорости):
       // 1. Точное совпадение SKU
       // 2. Точное совпадение названия
       // 3. Префикс в названии
-      // 4. Остальные
+      // 4. Содержит всю поисковую фразу
+      // 5. Остальные (содержат все слова по отдельности)
       orderByClause = `
         ORDER BY 
           CASE 
             WHEN LOWER(sku) = $${skuExactParamIndex} THEN 1
             WHEN LOWER(name) = $${nameExactParamIndex} THEN 2
             WHEN LOWER(name) LIKE $${namePrefixParamIndex} THEN 3
-            ELSE 4
+            WHEN LOWER(name) LIKE $${nameContainsParamIndex} THEN 4
+            ELSE 5
           END,
           is_global DESC,
           ${sortField} ${sortOrder}
