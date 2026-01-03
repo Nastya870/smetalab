@@ -104,7 +104,45 @@ export async function matchMaterialsWithDatabase(rawMaterials, dbMaterials) {
     const queries = rawMaterials.map(m => m.name);
     console.log(`📝 [Matching] Запросы для сопоставления:`, queries);
     
-    const matches = await batchSemanticMatch(queries, dbMaterials, 'name', 0.3);
+    // 🎯 ОПТИМИЗАЦИЯ: предварительная фильтрация материалов по ключевым словам
+    // Вместо 10000 материалов, берем только релевантные по SQL поиску
+    const filteredDbMaterials = [];
+    
+    for (const query of queries) {
+      const queryLower = query.toLowerCase();
+      const words = queryLower.split(/\s+/).filter(w => w.length > 2);
+      
+      // Фильтруем материалы, содержащие хотя бы одно слово из запроса
+      const candidates = dbMaterials.filter(material => {
+        const nameLower = material.name.toLowerCase();
+        return words.some(word => nameLower.includes(word));
+      });
+      
+      console.log(`  🔎 "${query}": найдено ${candidates.length} кандидатов из ${dbMaterials.length} по SQL фильтру`);
+      
+      // Добавляем в общий список (без дубликатов)
+      for (const candidate of candidates) {
+        if (!filteredDbMaterials.find(m => m.id === candidate.id)) {
+          filteredDbMaterials.push(candidate);
+        }
+      }
+    }
+    
+    console.log(`📋 [Pre-filter] Отобрано ${filteredDbMaterials.length} материалов для AI-сопоставления`);
+    
+    // Если после фильтрации материалов все еще много (>1000), используем fallback
+    if (filteredDbMaterials.length > 1000) {
+      console.warn(`⚠️ [Pre-filter] Слишком много кандидатов (${filteredDbMaterials.length}), используем fallback`);
+      return matchMaterialsFallback(rawMaterials, dbMaterials);
+    }
+    
+    // Если кандидатов мало, используем fallback (нет смысла в AI)
+    if (filteredDbMaterials.length === 0) {
+      console.warn(`⚠️ [Pre-filter] Нет подходящих кандидатов, используем fallback`);
+      return matchMaterialsFallback(rawMaterials, dbMaterials);
+    }
+    
+    const matches = await batchSemanticMatch(queries, filteredDbMaterials, 'name', 0.3);
     
     // Собираем результаты
     const results = rawMaterials.map((raw, index) => {
