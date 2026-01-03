@@ -8,7 +8,8 @@ import {
   getMaterialsStats,
   getMaterialCategories,
   getMaterialSuppliers,
-  bulkImportMaterials // ✅ Добавили
+  bulkImportMaterials, // ✅ Добавили
+  searchMaterialsSemantic // 🧠 Semantic search
 } from '../controllers/materialsController.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import { checkPermission, checkAnyPermission } from '../middleware/checkPermission.js';
@@ -35,6 +36,16 @@ router.get('/categories', getMaterialCategories);
  * @access  Public
  */
 router.get('/suppliers', getMaterialSuppliers);
+
+/**
+ * @route   POST /api/materials/search
+ * @desc    Semantic search по материалам (AI-powered)
+ * @access  Public
+ * @body    query - текст поискового запроса
+ * @body    threshold - порог similarity (0-1), по умолчанию 0.5
+ * @body    limit - максимальное количество результатов
+ */
+router.post('/search', optionalAuth, searchMaterialsSemantic);
 
 /**
  * @route   GET /api/materials

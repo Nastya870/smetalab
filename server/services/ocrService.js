@@ -1,13 +1,10 @@
 import OpenAI from 'openai';
+import { batchSemanticMatch } from './semanticSearchService.js';
 
 // OpenAI API для OCR
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
-
-// Mixedbread API для semantic search
-const MIXEDBREAD_API_URL = 'https://api.mixedbread.ai/v1/embeddings';
-const MIXEDBREAD_API_KEY = process.env.MIXEDBREAD_API_KEY;
 
 /**
  * Распознает накладную с помощью OpenAI GPT-4o Vision
@@ -94,53 +91,6 @@ export async function analyzeReceipt(imageBuffer, mimeType = 'image/jpeg') {
 }
 
 /**
- * Получает embeddings для текстов через Mixedbread API
- * @param {Array<string>} texts - Массив текстов
- * @returns {Promise<Array<Array<number>>>} - Массив векторов embeddings
- */
-async function getEmbeddings(texts) {
-  try {
-    const response = await fetch(MIXEDBREAD_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${MIXEDBREAD_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'mxbai-embed-large-v1',
-        input: texts,
-        encoding_format: 'float',
-        normalized: true // Возвращает нормализованные векторы для cosine similarity
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Mixedbread API error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.data.map(item => item.embedding);
-  } catch (error) {
-    console.error('❌ [Embeddings] Ошибка получения embeddings:', error.message);
-    throw error;
-  }
-}
-
-/**
- * Вычисляет cosine similarity между двумя векторами
- * @param {Array<number>} vec1 
- * @param {Array<number>} vec2 
- * @returns {number} - Значение от 0 до 1
- */
-function cosineSimilarity(vec1, vec2) {
-  const dotProduct = vec1.reduce((sum, val, i) => sum + val * vec2[i], 0);
-  const magnitude1 = Math.sqrt(vec1.reduce((sum, val) => sum + val * val, 0));
-  const magnitude2 = Math.sqrt(vec2.reduce((sum, val) => sum + val * val, 0));
-  
-  return dotProduct / (magnitude1 * magnitude2);
-}
-
-/**
  * Сопоставляет распознанные материалы с базой данных используя semantic search
  * @param {Array} rawMaterials - Материалы из OCR
  * @param {Array} dbMaterials - Материалы из БД
@@ -150,50 +100,27 @@ export async function matchMaterialsWithDatabase(rawMaterials, dbMaterials) {
   console.log(`🔍 [Matching] Сопоставление ${rawMaterials.length} материалов с базой (${dbMaterials.length} записей)`);
   
   try {
-    // Получаем embeddings для всех текстов одним запросом
-    const allTexts = [
-      ...rawMaterials.map(m => m.name),
-      ...dbMaterials.map(m => m.name)
-    ];
+    // Используем универсальный сервис batchSemanticMatch
+    const queries = rawMaterials.map(m => m.name);
+    const matches = await batchSemanticMatch(queries, dbMaterials, 'name', 0.7);
     
-    console.log(`🧠 [Embeddings] Получение векторов для ${allTexts.length} текстов...`);
-    const embeddings = await getEmbeddings(allTexts);
-    
-    // Разделяем embeddings
-    const rawEmbeddings = embeddings.slice(0, rawMaterials.length);
-    const dbEmbeddings = embeddings.slice(rawMaterials.length);
-    
-    // Сопоставляем каждый материал из OCR с БД
-    return rawMaterials.map((raw, rawIndex) => {
-      let bestMatch = null;
-      let bestScore = 0;
+    // Собираем результаты
+    return rawMaterials.map((raw, index) => {
+      const matched = matches[index];
       
-      // Ищем наиболее похожий материал в БД
-      dbMaterials.forEach((db, dbIndex) => {
-        const similarity = cosineSimilarity(rawEmbeddings[rawIndex], dbEmbeddings[dbIndex]);
-        
-        if (similarity > bestScore) {
-          bestScore = similarity;
-          bestMatch = db;
-        }
-      });
-      
-      // Порог для semantic similarity: 0.7 (70%)
-      if (bestMatch && bestScore >= 0.7) {
-        console.log(`  ✅ "${raw.name}" → "${bestMatch.name}" (ID: ${bestMatch.id}, similarity: ${(bestScore * 100).toFixed(1)}%)`);
+      if (matched) {
         return {
           ...raw,
-          material_id: bestMatch.id,
-          matched_name: bestMatch.name,
-          match_confidence: bestScore
+          material_id: matched.id,
+          matched_name: matched.name,
+          match_confidence: matched.similarity
         };
       } else {
-        console.log(`  ⚠️  "${raw.name}" → не найдено в БД (лучший score: ${(bestScore * 100).toFixed(1)}%)`);
         return {
           ...raw,
           material_id: null,
           matched_name: null,
-          match_confidence: bestScore
+          match_confidence: 0
         };
       }
     });

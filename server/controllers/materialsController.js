@@ -5,6 +5,7 @@ import {
   invalidateMaterialsCache 
 } from '../cache/referencesCache.js';
 import { catchAsync, BadRequestError, NotFoundError, ConflictError } from '../utils/errors.js';
+import { semanticSearch } from '../services/semanticSearchService.js';
 
 /**
  * Нормализует поисковый запрос для унифицированного поиска
@@ -1528,6 +1529,73 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
     });
 });
 
+/**
+ * Semantic search по материалам (AI-powered)
+ */
+export const searchMaterialsSemantic = catchAsync(async (req, res) => {
+  const { query, threshold = 0.5, limit = 50 } = req.body;
+  const tenantId = req.user?.tenantId;
+
+  if (!query || query.trim() === '') {
+    throw new BadRequestError('Поисковый запрос не может быть пустым');
+  }
+
+  console.log(`🔍 [Semantic Search Materials] Query: "${query}", tenant: ${tenantId || 'global'}`);
+
+  // Загружаем все материалы (глобальные + тенантные)
+  const materialsQuery = `
+    SELECT 
+      id,
+      sku,
+      name,
+      category,
+      unit,
+      price,
+      supplier,
+      weight,
+      is_global,
+      tenant_id
+    FROM materials
+    WHERE is_global = TRUE
+      OR (tenant_id = $1)
+    LIMIT 10000
+  `;
+  
+  const result = await db.query(materialsQuery, [tenantId || null]);
+  const materials = result.rows;
+
+  console.log(`📦 [Materials] Loaded ${materials.length} materials for search`);
+
+  // Выполняем semantic search
+  const searchResults = await semanticSearch(
+    query, 
+    materials, 
+    'name', // поле для сравнения
+    threshold, 
+    limit
+  );
+
+  res.status(200).json({
+    success: true,
+    query,
+    total: materials.length,
+    found: searchResults.length,
+    threshold,
+    results: searchResults.map(item => ({
+      id: item.id,
+      sku: item.sku,
+      name: item.name,
+      category: item.category,
+      unit: item.unit,
+      price: item.price,
+      supplier: item.supplier,
+      weight: item.weight,
+      is_global: item.is_global,
+      similarity: Math.round(item.similarity * 100) / 100 // округляем до 2 знаков
+    }))
+  });
+});
+
 export default {
   getAllMaterials,
   getMaterialById,
@@ -1537,5 +1605,6 @@ export default {
   getMaterialsStats,
   getMaterialCategories,
   getMaterialSuppliers,
-  bulkImportMaterials // ✅ Добавили
+  bulkImportMaterials, // ✅ Добавили
+  searchMaterialsSemantic // 🧠 Semantic search
 };
