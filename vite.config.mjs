@@ -57,6 +57,7 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
+        '@': path.resolve(__dirname, './'),
         'app': path.resolve(__dirname, './app'),
         'shared': path.resolve(__dirname, './shared'),
         'routes': path.resolve(__dirname, './app/routes'),
