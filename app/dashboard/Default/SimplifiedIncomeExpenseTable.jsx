@@ -15,20 +15,26 @@ import {
 /**
  * Упрощенная таблица доходов и расходов
  * Только: категория, сумма, процент от общего
+ * 
+ * @param {number} incomeWorks - Доход от работ (из API)
+ * @param {number} incomeMaterials - Доход от материалов (из API)
+ * @param {Object} data - Данные growthData из API (опционально, для будущего использования)
  */
-const SimplifiedIncomeExpenseTable = ({ data = [], isLoading = false }) => {
-  // Моковые данные
-  const mockData = [
-    { category: 'Доход (акты)', amount: 23000, type: 'income' },
-    { category: 'Доход (материалы)', amount: 0, type: 'income' },
-    { category: 'Расход (акты)', amount: 20000, type: 'expense' },
-    { category: 'Расход (закупки)', amount: 0, type: 'expense' }
+const SimplifiedIncomeExpenseTable = ({ incomeWorks = 0, incomeMaterials = 0, data, isLoading = false }) => {
+  // TODO: Получить данные расходов из API
+  // Пока используем расчет: если есть доход, то расход = доход * 0.8 (80%)
+  const expenseWorks = incomeWorks > 0 ? incomeWorks * 0.8 : 0;
+  const expenseMaterials = incomeMaterials > 0 ? incomeMaterials * 0.8 : 0;
+
+  const tableData = [
+    { category: 'Доход (акты)', amount: incomeWorks, type: 'income' },
+    { category: 'Доход (материалы)', amount: incomeMaterials, type: 'income' },
+    { category: 'Расход (акты)', amount: expenseWorks, type: 'expense' },
+    { category: 'Расход (закупки)', amount: expenseMaterials, type: 'expense' }
   ];
 
-  const tableData = data.length > 0 ? data : mockData;
-
-  const totalIncome = tableData.filter(item => item.type === 'income').reduce((sum, item) => sum + item.amount, 0);
-  const totalExpense = tableData.filter(item => item.type === 'expense').reduce((sum, item) => sum + item.amount, 0);
+  const totalIncome = incomeWorks + incomeMaterials;
+  const totalExpense = expenseWorks + expenseMaterials;
   const total = totalIncome + totalExpense;
 
   const getPercentage = (amount) => {

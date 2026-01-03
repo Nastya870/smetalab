@@ -31,9 +31,18 @@ export default function Dashboard() {
   const [period, setPeriod] = useState('year');
 
   // Маппинг данных из API для новых компонентов
-  const profitData = dashboardData?.totalProfit || { value: 2670, change: 12.5 };
-  const projectsCount = dashboardData?.activeProjects || { value: 3, change: 0 };
-  const incomeWorksData = dashboardData?.incomeWorks || { value: 23000, change: 8.2 };
+  const profitData = {
+    value: dashboardData?.totalProfit?.totalProfit || 0,
+    change: 0 // TODO: Calculate change from previous period
+  };
+  const projectsCount = {
+    value: dashboardData?.totalProfit?.projectsWithProfit || 0,
+    change: 0 // TODO: Calculate change from previous period
+  };
+  const incomeWorksData = {
+    value: dashboardData?.incomeWorks || 0,
+    change: 0 // TODO: Calculate change from previous period
+  };
 
   return (
     <Grid container spacing={2}>
@@ -140,7 +149,11 @@ export default function Dashboard() {
       {/* BLOCK 2: Главный график (доминирует) */}
       {/* ============================================ */}
       <Grid size={12}>
-        <MainFinancialChart isLoading={isLoading} />
+        <MainFinancialChart 
+          isLoading={isLoading} 
+          chartData={dashboardData?.chartDataYear}
+          period={period}
+        />
       </Grid>
 
       {/* ============================================ */}
@@ -149,10 +162,18 @@ export default function Dashboard() {
       <Grid size={12}>
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, md: 8 }}>
-            <SimplifiedIncomeExpenseTable isLoading={isLoading} />
+            <SimplifiedIncomeExpenseTable 
+              isLoading={isLoading} 
+              data={dashboardData?.growthData}
+              incomeWorks={dashboardData?.incomeWorks}
+              incomeMaterials={dashboardData?.incomeMaterials}
+            />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
-            <SimplifiedProjectsTable isLoading={isLoading} />
+            <SimplifiedProjectsTable 
+              isLoading={isLoading} 
+              data={dashboardData?.projectsProfitData}
+            />
           </Grid>
         </Grid>
       </Grid>

@@ -10,48 +10,59 @@ import ReactApexChart from 'react-apexcharts';
  * 2. Доход (материалы) - зеленый пунктир
  * 3. Расход (работы) - основная красная линия
  * 4. Расход (материалы) - красный пунктир
- * 5. Прибыль - зона между доходом и расходом по работам
+ * 5. Прибыль - зона (доход минус расход)
+ * 
+ * @param {Object} chartData - Данные графика из API (chartDataYear или chartDataMonth)
+ * @param {string} period - Период для отображения ('year', 'month', 'quarter', 'all')
  */
 
-// Моковые данные (потом заменить на реальные из API)
-const generateMockData = () => {
-  const months = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
-  
-  return {
-    categories: months,
-    series: [
-      {
-        name: 'Доход · Работы',
-        type: 'line',
-        data: [15000, 18000, 22000, 25000, 28000, 32000, 35000, 38000, 42000, 45000, 48000, 50000]
-      },
-      {
-        name: 'Доход · Материалы',
-        type: 'line',
-        data: [8000, 9000, 10000, 11000, 12000, 13000, 14000, 15000, 16000, 17000, 18000, 19000]
-      },
-      {
-        name: 'Расход · Работы',
-        type: 'line',
-        data: [12000, 14000, 17000, 19000, 21000, 24000, 26000, 28000, 31000, 33000, 35000, 37000]
-      },
-      {
-        name: 'Расход · Материалы',
-        type: 'line',
-        data: [6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000, 15000, 16000, 17000]
-      },
-      {
-        name: 'Прибыль',
-        type: 'area',
-        data: [5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000, 15000, 15000]
-      }
-    ]
-  };
-};
-
-const MainFinancialChart = ({ isLoading = false }) => {
+const MainFinancialChart = ({ chartData, period = 'year', isLoading = false }) => {
   const theme = useTheme();
-  const data = generateMockData();
+  
+  // Подготовка данных из API
+  const prepareChartData = () => {
+    if (!chartData || !chartData.categories || !chartData.series) {
+      // Если данных нет - показываем пустой график
+      return {
+        categories: [],
+        series: [
+          { name: 'Доход · Работы', type: 'line', data: [] },
+          { name: 'Доход · Материалы', type: 'line', data: [] },
+          { name: 'Расход · Работы', type: 'line', data: [] },
+          { name: 'Расход · Материалы', type: 'line', data: [] },
+          { name: 'Прибыль', type: 'area', data: [] }
+        ]
+      };
+    }
+
+    // Поиск серий по имени
+    const findSeries = (name) => chartData.series.find(s => s.name === name)?.data || [];
+    
+    const incomeWorks = findSeries('income_works') || findSeries('Доход (работы)');
+    const incomeMaterials = findSeries('income_materials') || findSeries('Доход (материалы)');
+    const expenseWorks = findSeries('expense_works') || findSeries('Расход (работы)');
+    const expenseMaterials = findSeries('expense_materials') || findSeries('Расход (материалы)');
+    
+    // Расчет прибыли (доход - расход)
+    const profit = incomeWorks.map((income, i) => {
+      const totalIncome = (income || 0) + (incomeMaterials[i] || 0);
+      const totalExpense = (expenseWorks[i] || 0) + (expenseMaterials[i] || 0);
+      return Math.max(0, totalIncome - totalExpense); // Не показываем отрицательную прибыль
+    });
+
+    return {
+      categories: chartData.categories,
+      series: [
+        { name: 'Доход · Работы', type: 'line', data: incomeWorks },
+        { name: 'Доход · Материалы', type: 'line', data: incomeMaterials },
+        { name: 'Расход · Работы', type: 'line', data: expenseWorks },
+        { name: 'Расход · Материалы', type: 'line', data: expenseMaterials },
+        { name: 'Прибыль', type: 'area', data: profit }
+      ]
+    };
+  };
+
+  const data = prepareChartData();
 
   const chartOptions = {
     chart: {

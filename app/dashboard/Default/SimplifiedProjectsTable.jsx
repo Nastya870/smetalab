@@ -15,16 +15,17 @@ import {
 /**
  * Упрощенная таблица проектов по прибыльности
  * Только: название, прибыль, статус
+ * 
+ * @param {Array} data - Массив проектов из API (projectsProfitData)
  */
-const SimplifiedProjectsTable = ({ projectsData = [], isLoading = false }) => {
-  // Моковые данные
-  const mockProjects = [
-    { id: 1, name: 'Квартира', profit: 2670, change: 23.1 },
-    { id: 2, name: 'Дом', profit: 0, change: 0 },
-    { id: 3, name: 'Офис', profit: -500, change: -5.2 }
-  ];
-
-  const projects = projectsData.length > 0 ? projectsData : mockProjects;
+const SimplifiedProjectsTable = ({ data = [], isLoading = false }) => {
+  // Преобразование данных из API
+  const projects = data.map(project => ({
+    id: project.project_id || project.id,
+    name: project.project_name || project.name || 'Проект без имени',
+    profit: parseFloat(project.total_profit || project.profit || 0),
+    change: 0 // TODO: Calculate % change from previous period
+  }));
 
   const getProfitColor = (profit) => {
     if (profit > 0) return '#10B981';
