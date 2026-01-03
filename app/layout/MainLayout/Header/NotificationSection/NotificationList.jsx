@@ -14,6 +14,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
+import Button from '@mui/material/Button';
 
 // icons
 import {
@@ -27,7 +28,9 @@ import {
   IconPackage,
   IconTool,
   IconShoppingCart,
-  IconUser
+  IconUser,
+  IconRefresh,
+  IconExternalLink
 } from '@tabler/icons-react';
 
 // ==============================|| NOTIFICATION CONFIG ||============================== //
@@ -185,6 +188,21 @@ export default function NotificationList() {
                   >
                     {notification.title}
                   </Typography>
+                  {/* Счетчик для сгруппированных */}
+                  {notification.count > 1 && (
+                    <Chip
+                      label={`×${notification.count}`}
+                      size="small"
+                      sx={{
+                        height: 18,
+                        fontSize: '0.6875rem',
+                        fontWeight: 700,
+                        bgcolor: alpha(config?.bgColor || '#3B82F6', 0.15),
+                        color: config?.bgColor || '#3B82F6',
+                        '& .MuiChip-label': { px: 0.75 }
+                      }}
+                    />
+                  )}
                 </Stack>
 
                 <Typography
@@ -202,7 +220,7 @@ export default function NotificationList() {
                   {notification.message}
                 </Typography>
 
-                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                   <Typography
                     variant="caption"
                     sx={{
@@ -231,6 +249,62 @@ export default function NotificationList() {
                     />
                   )}
                 </Stack>
+
+                {/* Действия для error/warning */}
+                {(notification.type === NOTIFICATION_TYPES.ERROR || 
+                  notification.type === NOTIFICATION_TYPES.WARNING) && 
+                 (notification.action || notification.link) && (
+                  <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+                    {notification.action && (
+                      <Button
+                        size="small"
+                        startIcon={<IconRefresh size={14} />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          notification.action?.();
+                        }}
+                        sx={{
+                          fontSize: '0.75rem',
+                          textTransform: 'none',
+                          px: 1.5,
+                          py: 0.5,
+                          minHeight: 28,
+                          bgcolor: alpha(config?.bgColor || '#3B82F6', 0.1),
+                          color: config?.bgColor || '#3B82F6',
+                          '&:hover': {
+                            bgcolor: alpha(config?.bgColor || '#3B82F6', 0.2)
+                          }
+                        }}
+                      >
+                        Повторить
+                      </Button>
+                    )}
+                    {notification.link && (
+                      <Button
+                        size="small"
+                        startIcon={<IconExternalLink size={14} />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(notification.link);
+                        }}
+                        sx={{
+                          fontSize: '0.75rem',
+                          textTransform: 'none',
+                          px: 1.5,
+                          py: 0.5,
+                          minHeight: 28,
+                          bgcolor: alpha(theme.palette.primary.main, 0.1),
+                          color: theme.palette.primary.main,
+                          '&:hover': {
+                            bgcolor: alpha(theme.palette.primary.main, 0.2)
+                          }
+                        }}
+                      >
+                        Открыть
+                      </Button>
+                    )}
+                  </Stack>
+                )}
               </Box>
 
               {/* Кнопка удаления */}

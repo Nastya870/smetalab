@@ -28,6 +28,49 @@ export const NOTIFICATION_CATEGORIES = {
 };
 
 /**
+ * Фильтр технических сообщений, которые НЕ нужно показывать пользователю
+ */
+const IGNORED_PATTERNS = [
+  /загружено из БД/i,
+  /создано/i,
+  /обновлено/i,
+  /статус изменён/i,
+  /request failed/i,
+  /status code \d+/i,
+  /network error/i,
+  /axios/i
+];
+
+/**
+ * Проверяет, является ли сообщение техническим (не для пользователя)
+ */
+const isTechnicalMessage = (title, message) => {
+  const text = `${title || ''} ${message || ''}`.toLowerCase();
+  return IGNORED_PATTERNS.some(pattern => pattern.test(text));
+};
+
+/**
+ * Группирует одинаковые уведомления
+ */
+const groupNotifications = (notifications) => {
+  const groups = new Map();
+  
+  notifications.forEach(notification => {
+    const key = `${notification.type}-${notification.title}-${notification.message}`;
+    
+    if (groups.has(key)) {
+      const existing = groups.get(key);
+      existing.count = (existing.count || 1) + 1;
+      existing.createdAt = notification.createdAt; // Обновляем время последнего
+    } else {
+      groups.set(key, { ...notification, count: 1 });
+    }
+  });
+  
+  return Array.from(groups.values());
+};
+
+/**
  * Provider для системы уведомлений
  */
 export function NotificationsProvider({ children }) {
@@ -40,7 +83,9 @@ export function NotificationsProvider({ children }) {
       const stored = localStorage.getItem('smeta_notifications');
       if (stored) {
         const parsed = JSON.parse(stored);
-        setNotifications(parsed);
+        // Фильтруем технические сообщения при загрузке
+        const filtered = parsed.filter(n => !isTechnicalMessage(n.title, n.message));
+        setNotifications(filtered);
       }
     } catch (error) {
       console.error('Ошибка загрузки уведомлений:', error);
@@ -71,6 +116,18 @@ export function NotificationsProvider({ children }) {
         showToast = true
       } = config;
 
+      // ❌ Игнорируем технические сообщения
+      if (isTechnicalMessage(title, message)) {
+        console.log('🚫 Техническое уведомление отфильтровано:', { title, message });
+        return null;
+      }
+
+      // ❌ Не показываем info уведомления вообще (по требованию)
+      if (type === NOTIFICATION_TYPES.INFO) {
+        console.log('🚫 Info уведомление пропущено:', { title, message });
+        return null;
+      }
+
       const notification = {
         id: Date.now() + Math.random(),
         title,
@@ -80,17 +137,24 @@ export function NotificationsProvider({ children }) {
         action,
         link,
         read: false,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        count: 1 // Для группировки
       };
 
       // Добавляем в список уведомлений
-      setNotifications((prev) => [notification, ...prev].slice(0, 50)); // Храним максимум 50
+      setNotifications((prev) => {
+        const updated = [notification, ...prev];
+        // Группируем одинаковые
+        const grouped = groupNotifications(updated);
+        // Храним максимум 50
+        return grouped.slice(0, 50);
+      });
 
       // Показываем toast если нужно
       if (showToast) {
         enqueueSnackbar(title || message, {
           variant: type,
-          autoHideDuration: 4000
+          autoHideDuration: type === NOTIFICATION_TYPES.ERROR ? 6000 : 4000
         });
       }
 
@@ -185,9 +249,11 @@ export function NotificationsProvider({ children }) {
   }, []);
 
   /**
-   * Получить количество непрочитанных
+   * Получить количество непрочитанных (только error + warning)
    */
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter(
+    (n) => !n.read && (n.type === NOTIFICATION_TYPES.ERROR || n.type === NOTIFICATION_TYPES.WARNING)
+  ).reduce((sum, n) => sum + (n.count || 1), 0); // Учитываем count для сгруппированных
 
   const value = {
     notifications,

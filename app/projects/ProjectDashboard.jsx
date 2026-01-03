@@ -166,11 +166,11 @@ const ProjectDashboard = () => {
     try {
       await estimatesAPI.update(selectedEstimate.id, { status: newStatus });
       refresh();
-      success('Статус сметы изменён', selectedEstimate.name, {
-        link: `/app/estimates/${selectedEstimate.id}`
-      });
+      // ❌ Не показываем success уведомление - пользователь сам изменил статус
     } catch (error) {
-      showError('Ошибка изменения статуса', error.message);
+      showError('Не удалось изменить статус', 'Попробуйте еще раз или обновите страницу', {
+        action: () => handleChangeEstimateStatus(newStatus)
+      });
     } finally {
       handleCloseEstimateStatusMenu();
     }

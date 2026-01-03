@@ -240,7 +240,7 @@ const WorksReferencePage = () => {
     } catch (err) {
       console.error('Error loading works:', err);
       setError('Ошибка загрузки данных. Проверьте подключение к серверу.');
-      showError('Ошибка загрузки работ');
+      // ❌ Не показываем уведомление - ошибка уже отображается на экране
       setHasMore(false);
     } finally {
       setLoading(false);

@@ -302,7 +302,7 @@ const MaterialsReferencePage = () => {
     } catch (err) {
       console.error('Error loading materials:', err);
       setError('Не удалось загрузить материалы. Проверьте подключение к серверу.');
-      showError('Ошибка загрузки материалов');
+      // ❌ Не показываем уведомление - ошибка уже отображается на экране
     } finally {
       setLoading(false);
       setInitialLoading(false); // Первая загрузка завершена

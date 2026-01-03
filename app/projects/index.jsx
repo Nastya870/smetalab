@@ -108,9 +108,7 @@ const ProjectsPage = () => {
       setTotalRecords(response.pagination?.totalItems || 0);
     } catch (error) {
       console.error('Error fetching projects:', error);
-      showError('Ошибка загрузки', error.response?.data?.message || 'Не удалось загрузить проекты', {
-        category: NOTIFICATION_CATEGORIES.PROJECT
-      });
+      // ❌ Не показываем уведомление - ошибка загрузки не критична, пользователь видит пустой список
     } finally {
       setLoading(false);
     }
