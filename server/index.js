@@ -131,7 +131,7 @@ app.post('/api/run-migration-temp', async (req, res) => {
     const { promisify } = await import('util');
     const execPromise = promisify(exec);
     
-    const { action = 'sync', mode = 'test' } = req.body;
+    const { action = 'sync', mode = 'test', offset = 0, limit = null } = req.body;
     
     let command;
     let timeout;
@@ -145,11 +145,17 @@ app.post('/api/run-migration-temp', async (req, res) => {
       command = 'cd /opt/render/project/src && node scripts/runMigrations.js';
       timeout = 180000;
     } else {
-      console.log(`🔄 Running Pinecone sync (${mode})...`);
-      command = mode === 'test' 
-        ? 'cd /opt/render/project/src && node scripts/pinecone-sync-cron.mjs global --limit=5'
-        : 'cd /opt/render/project/src && node scripts/pinecone-sync-cron.mjs all';
-      timeout = 300000;
+      console.log(`🔄 Running Pinecone sync (${mode}, offset: ${offset}, limit: ${limit})...`);
+      
+      if (mode === 'test') {
+        command = 'cd /opt/render/project/src && node scripts/pinecone-sync-cron.mjs global --limit=5';
+      } else if (mode === 'global' && limit) {
+        command = `cd /opt/render/project/src && node scripts/pinecone-sync-cron.mjs global --limit=${limit} --offset=${offset}`;
+      } else {
+        command = 'cd /opt/render/project/src && node scripts/pinecone-sync-cron.mjs all';
+      }
+      
+      timeout = 300000; // 5 минут
     }
     
     const { stdout, stderr } = await execPromise(command, { timeout });

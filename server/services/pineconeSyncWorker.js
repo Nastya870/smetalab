@@ -18,7 +18,7 @@ import * as pineconeClient from './pineconeClient.js';
  * @returns {Promise<Object>} - Metrics
  */
 export async function syncGlobal(options = {}) {
-  const { testLimit = null } = options;
+  const { limit = null, offset = 0 } = options;
   
   console.log('\n' + '='.repeat(60));
   console.log('🌍 [Sync] GLOBAL SCOPE START');
@@ -31,14 +31,18 @@ export async function syncGlobal(options = {}) {
   const counts = await exportService.countDocuments({ scope: 'global' });
   console.log(`📊 [Sync] Global documents: ${counts.total} (${counts.materials} materials, ${counts.works} works)`);
   
-  if (testLimit) {
-    console.log(`⚠️ [Sync] TEST MODE - limiting to ${testLimit} documents`);
+  if (limit) {
+    console.log(`⚠️ [Sync] TEST MODE - limiting to ${limit} documents`);
+  }
+  if (offset > 0) {
+    console.log(`Offset: ${offset}`);
   }
   
   // 2. Export documents
   const exportOptions = {
     scope: 'global',
-    limit: testLimit
+    limit: limit,
+    offset: offset
   };
   
   const documents = await exportService.exportAll(exportOptions);
@@ -70,9 +74,9 @@ export async function syncGlobal(options = {}) {
   console.log('📝 [Sync] Updating index state...');
   await markDocumentsAsSeen(documents, syncTime);
   
-  // 5. Cleanup stale documents (only if not test mode)
+  // 5. Cleanup stale documents (only if not test mode and no offset)
   let deletedCount = 0;
-  if (!testLimit) {
+  if (!limit && offset === 0) {
     console.log('🗑️ [Sync] Finding stale documents...');
     const staleDocuments = await findStaleDocuments('global', null, syncTime);
     

@@ -33,9 +33,11 @@ const args = process.argv.slice(2);
 const mode = args[0] || 'global'; // global|tenant|tenants|all
 const tenantId = mode === 'tenant' ? args[1] : null;
 
-// Parse --limit flag
+// Parse --limit and --offset flags
 const limitArg = args.find(arg => arg.startsWith('--limit='));
+const offsetArg = args.find(arg => arg.startsWith('--offset='));
 const testLimit = limitArg ? parseInt(limitArg.split('=')[1]) : null;
+const testOffset = offsetArg ? parseInt(offsetArg.split('=')[1]) : 0;
 
 async function main() {
   console.log('\n🚀 Pinecone Sync CLI');
@@ -46,6 +48,9 @@ async function main() {
   if (testLimit) {
     console.log(`⚠️ TEST MODE - Limit: ${testLimit} documents`);
   }
+  if (testOffset > 0) {
+    console.log(`Offset: ${testOffset}`);
+  }
   console.log('');
   
   const startTime = Date.now();
@@ -55,7 +60,7 @@ async function main() {
     
     switch (mode) {
       case 'global':
-        result = await syncGlobal({ testLimit });
+        result = await syncGlobal({ limit: testLimit, offset: testOffset });
         break;
         
       case 'tenant':
@@ -64,7 +69,7 @@ async function main() {
           console.log('Usage: node scripts/pinecone-sync-cron.mjs tenant <tenant-id>');
           process.exit(1);
         }
-        result = await syncTenant(tenantId, { testLimit });
+        result = await syncTenant(tenantId, { limit: testLimit, offset: testOffset });
         break;
         
       case 'tenants':
