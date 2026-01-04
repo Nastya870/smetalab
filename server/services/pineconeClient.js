@@ -173,13 +173,17 @@ export async function upsertDocumentsBatch(documents, concurrency = CONFIG.concu
         if (!batchEmbeddings[idx]) {
           return null;
         }
+        
+        // Очищаем metadata от null/undefined/empty strings
+        const cleanMetadata = Object.fromEntries(
+          Object.entries({ ...doc.metadata, text: doc.text })
+            .filter(([_, v]) => v !== null && v !== undefined && v !== '')
+        );
+        
         return {
           id: doc.id,
           values: batchEmbeddings[idx],
-          metadata: {
-            ...doc.metadata,
-            text: doc.text
-          }
+          metadata: cleanMetadata
         };
       })
       .filter(Boolean);
