@@ -4,7 +4,7 @@
  * API endpoints для выгрузки данных в формате Mixedbread documents
  */
 
-import catchAsync from '../utils/catchAsync.js';
+import { catchAsync } from '../utils/errors.js';
 import {
   exportMaterialsForTenant,
   exportWorksForTenant,
