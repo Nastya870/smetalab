@@ -6,7 +6,7 @@ import axios from 'axios';
 import 'dotenv/config';
 
 const BACKEND_URL = 'https://smetalab-backend.onrender.com';
-const EMAIL = 'kiy02@yandex.ru';
+const EMAIL = 'kiy026@yandex.ru';
 const PASSWORD = process.env.TEST_PASSWORD;
 
 console.log('🚀 Быстрая проверка Pinecone индекса\n');
@@ -20,7 +20,11 @@ async function main() {
       password: PASSWORD
     });
     
-    const token = loginRes.data.tokens.accessToken;
+    const token = loginRes.data.data?.tokens?.accessToken || loginRes.data.tokens?.accessToken;
+    if (!token) {
+      console.log('Response:', JSON.stringify(loginRes.data, null, 2));
+      throw new Error('Токен не получен. Проверь email/пароль');
+    }
     console.log('✅ Токен получен\n');
     
     // Получаем статистику
@@ -31,17 +35,21 @@ async function main() {
     
     const { stats } = statsRes.data;
     
+    // Извлекаем количество векторов из namespaces
+    const vectorCount = stats.totalVectors || stats.namespaces?.['']?.recordCount || 0;
+    
     console.log('\n✅ СТАТИСТИКА ИНДЕКСА:');
     console.log('='.repeat(50));
-    console.log(`📈 Всего векторов: ${stats.totalVectors || 'N/A'}`);
+    console.log(`📈 Всего векторов: ${vectorCount.toLocaleString()}`);
     console.log(`📏 Размерность: ${stats.dimension}`);
     console.log(`📦 Namespaces:`, JSON.stringify(stats.namespaces, null, 2));
     console.log('='.repeat(50));
     
-    if (stats.totalVectors >= 50000) {
-      console.log('\n🎉 Индекс заполнен полностью!');
-    } else if (stats.totalVectors > 0) {
-      console.log(`\n⚠️  Индекс содержит ${stats.totalVectors} векторов (ожидалось ~50K)`);
+    if (vectorCount >= 50000) {
+      console.log('\n🎉 ОТЛИЧНО! Индекс заполнен полностью!');
+      console.log(`   ${vectorCount.toLocaleString()} векторов готовы к поиску`);
+    } else if (vectorCount > 0) {
+      console.log(`\n⚠️  Индекс содержит ${vectorCount.toLocaleString()} векторов (ожидалось ~50K)`);
     } else {
       console.log('\n❌ Индекс пустой или статистика недоступна');
     }
