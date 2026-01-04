@@ -70,13 +70,9 @@ export async function exportMaterials(options = {}) {
       m.sku,
       m.tenant_id,
       m.is_global,
-      m.category_id,
-      m.supplier_id,
-      c.name as category_name,
-      s.name as supplier_name
+      m.category,
+      m.supplier
     FROM materials m
-    LEFT JOIN categories c ON m.category_id = c.id
-    LEFT JOIN suppliers s ON m.supplier_id = s.id
     ${whereClause}
     ORDER BY m.id
     ${limitClause}
@@ -88,9 +84,9 @@ export async function exportMaterials(options = {}) {
     const id = `${scope}-material-${row.db_id}`;
     const text = formatDocumentText(
       row.name,
-      row.category_name,
+      row.category,
       row.sku,
-      row.supplier_name,
+      row.supplier,
       row.unit
     );
     
@@ -101,8 +97,8 @@ export async function exportMaterials(options = {}) {
         tenantId: row.tenant_id || null,
         type: 'material',
         dbId: String(row.db_id),
-        categoryId: row.category_id || null,
-        supplierId: row.supplier_id || null,
+        category: row.category || null,
+        supplier: row.supplier || null,
         unit: row.unit || null,
         isGlobal: row.is_global || false,
         scope: scope
@@ -150,13 +146,11 @@ export async function exportWorks(options = {}) {
       w.id as db_id,
       w.name,
       w.unit,
-      w.key,
+      w.code as key,
       w.tenant_id,
       w.is_global,
-      w.category_id,
-      c.name as category_name
+      w.category
     FROM works w
-    LEFT JOIN categories c ON w.category_id = c.id
     ${whereClause}
     ORDER BY w.id
     ${limitClause}
@@ -168,7 +162,7 @@ export async function exportWorks(options = {}) {
     const id = `${scope}-work-${row.db_id}`;
     const text = formatDocumentText(
       row.name,
-      row.category_name,
+      row.category,
       row.key,
       null, // works не имеют supplier
       row.unit
@@ -181,7 +175,7 @@ export async function exportWorks(options = {}) {
         tenantId: row.tenant_id || null,
         type: 'work',
         dbId: String(row.db_id),
-        categoryId: row.category_id || null,
+        category: row.category || null,
         unit: row.unit || null,
         isGlobal: row.is_global || false,
         scope: scope
