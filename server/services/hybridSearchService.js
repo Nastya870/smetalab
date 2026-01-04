@@ -41,7 +41,7 @@ export function getSearchStrategy(query) {
 
 /**
  * Keyword поиск через PostgreSQL (pg_trgm fuzzy matching)
- * Находит результаты даже с опечатками благодаря similarity()
+ * Использует word_similarity() для поиска слов с опечатками
  */
 export async function keywordSearch(query, { type = 'all', scope = 'all', tenantId, limit = 20 }) {
   const searchTerm = query.toLowerCase().trim();
@@ -56,8 +56,8 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
   const searches = [];
   
   if (type === 'material' || type === 'all') {
-    // 🔧 FUZZY SEARCH: используем similarity() для поиска с опечатками
-    // Порог 0.15 = ловит опечатки в 1-2 буквы
+    // 🔧 FUZZY SEARCH: word_similarity() ищет слово ВНУТРИ строки
+    // Порог 0.4 = ловит опечатки в 1-2 буквы ("ротбант" → "Ротбанд")
     let materialQuery = `
       SELECT 
         'material' as type,
@@ -72,18 +72,18 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
           ELSE 'tenant'
         END as scope,
         GREATEST(
-          similarity(LOWER(name), $1),
-          similarity(LOWER(COALESCE(category, '')), $1) * 0.8,
-          similarity(LOWER(COALESCE(supplier, '')), $1) * 0.6,
-          similarity(LOWER(COALESCE(sku, '')), $1) * 0.4
+          word_similarity($1, LOWER(name)),
+          word_similarity($1, LOWER(COALESCE(category, ''))) * 0.8,
+          word_similarity($1, LOWER(COALESCE(supplier, ''))) * 0.6,
+          word_similarity($1, LOWER(COALESCE(sku, ''))) * 0.5
         ) as score
       FROM materials
       WHERE 
-        -- Fuzzy match: similarity >= 0.15 ИЛИ точное вхождение
+        -- Fuzzy: word_similarity >= 0.35 ИЛИ точное вхождение (ILIKE)
         (
-          similarity(LOWER(name), $1) >= 0.15
-          OR similarity(LOWER(COALESCE(category, '')), $1) >= 0.15
-          OR similarity(LOWER(COALESCE(supplier, '')), $1) >= 0.15
+          word_similarity($1, LOWER(name)) >= 0.35
+          OR word_similarity($1, LOWER(COALESCE(category, ''))) >= 0.35
+          OR word_similarity($1, LOWER(COALESCE(supplier, ''))) >= 0.35
           OR name ILIKE $2 
           OR category ILIKE $2 
           OR supplier ILIKE $2 
@@ -107,7 +107,7 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
   }
   
   if (type === 'work' || type === 'all') {
-    // 🔧 FUZZY SEARCH для работ
+    // 🔧 FUZZY SEARCH для работ с word_similarity
     let workQuery = `
       SELECT 
         'work' as type,
@@ -122,15 +122,15 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
           ELSE 'tenant'
         END as scope,
         GREATEST(
-          similarity(LOWER(name), $1),
-          similarity(LOWER(COALESCE(category, '')), $1) * 0.8,
-          similarity(LOWER(COALESCE(code, '')), $1) * 0.4
+          word_similarity($1, LOWER(name)),
+          word_similarity($1, LOWER(COALESCE(category, ''))) * 0.8,
+          word_similarity($1, LOWER(COALESCE(code, ''))) * 0.5
         ) as score
       FROM works
       WHERE 
         (
-          similarity(LOWER(name), $1) >= 0.15
-          OR similarity(LOWER(COALESCE(category, '')), $1) >= 0.15
+          word_similarity($1, LOWER(name)) >= 0.35
+          OR word_similarity($1, LOWER(COALESCE(category, ''))) >= 0.35
           OR name ILIKE $2 
           OR category ILIKE $2 
           OR code ILIKE $2
