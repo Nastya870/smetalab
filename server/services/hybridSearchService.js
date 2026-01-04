@@ -46,6 +46,8 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
   const searchTerm = query.toLowerCase().trim();
   const searchPattern = `%${searchTerm}%`;
   
+  console.log(`[Keyword] Query: "${query}" | Type: ${type} | Scope: ${scope}`);
+  
   // Определяем таблицы для поиска
   const searches = [];
   
@@ -59,7 +61,10 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
         supplier,
         unit,
         key,
-        COALESCE(tenant_id::text, 'global') as scope,
+        CASE 
+          WHEN tenant_id IS NULL THEN 'global'
+          ELSE 'tenant'
+        END as scope,
         similarity(name, $1) + 
         similarity(COALESCE(category, ''), $1) * 0.5 +
         similarity(COALESCE(supplier, ''), $1) * 0.3 as score
@@ -93,7 +98,10 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
         '' as supplier,
         unit,
         key,
-        COALESCE(tenant_id::text, 'global') as scope,
+        CASE 
+          WHEN tenant_id IS NULL THEN 'global'
+          ELSE 'tenant'
+        END as scope,
         similarity(name, $1) + 
         similarity(COALESCE(category, ''), $1) * 0.5 as score
       FROM works
@@ -122,6 +130,8 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
     try {
       const { rows } = await pool.query(search.query, search.params);
       
+      console.log(`[Keyword] ${search.type}: ${rows.length} rows returned`);
+      
       results.push(...rows.map(row => ({
         id: `${row.scope}-${row.type}-${row.db_id}`,
         type: row.type,
@@ -137,9 +147,13 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
         }
       })));
     } catch (error) {
-      console.error(`❌ [Hybrid] Keyword search error:`, error.message);
+      console.error(`❌ [Hybrid] Keyword search error for ${search.type}:`, error.message);
+      console.error(`Query:`, search.query);
+      console.error(`Params:`, search.params);
     }
   }
+  
+  console.log(`[Keyword] Total results: ${results.length}`);
   
   return results.sort((a, b) => b.score - a.score).slice(0, limit);
 }
