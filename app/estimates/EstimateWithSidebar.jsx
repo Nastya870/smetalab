@@ -67,6 +67,7 @@ import worksAPI from 'api/works';
 import workMaterialsAPI from 'api/workMaterials';
 import estimatesAPI from 'api/estimates';
 import materialsAPI from 'api/materials';
+import searchAPI from 'api/search'; // ✅ AI-поиск (Pinecone hybrid)
 import estimateTemplatesAPI from 'shared/lib/api/estimateTemplates';
 import { useGetMenuMaster } from 'api/menu'; // ✅ Только для получения данных меню
 import { useNotifications } from 'contexts/NotificationsContext';
@@ -249,26 +250,16 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   const worksCache = useRef({ global: null, tenant: null }); // Кеш для справочника работ
   const worksCacheTimestamp = useRef({ global: null, tenant: null });
   
-  // ✅ Загрузка материалов с пагинацией (аналогично основному справочнику)
+  // ✅ Загрузка материалов с пагинацией + AI-поиск (Pinecone hybrid)
   const loadMaterialsForDialog = useCallback(async (pageNumber = 1, resetData = false, search = '') => {
     try {
       setLoadingMaterials(true);
       const startTime = performance.now(); // ⏱️ Замер времени
       
-      const params = {
-        page: pageNumber,
-        pageSize: 100, // ✅ Увеличено до 100 для лучшего UX (было 50)
-        skipCount: pageNumber > 1 ? 'true' : 'false'
-      };
-      if (search && search.trim().length > 0) {
-        params.search = search.trim(); // ✅ Серверный поиск
-      }
-      
-      const response = await materialsAPI.getAll(params);
-      
-      // Нормализация данных
+      // Нормализация данных (общая для обоих источников)
       const normalizeMaterial = (mat) => ({
         ...mat,
+        id: mat.id || mat.dbId, // AI-поиск возвращает dbId
         productUrl: mat.product_url || mat.productUrl,
         showImage: mat.show_image !== undefined ? mat.show_image : mat.showImage,
         isGlobal: mat.is_global !== undefined ? mat.is_global : mat.isGlobal,
@@ -276,36 +267,98 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       });
       
       let newMaterials = [];
-      if (response.data) {
-        newMaterials = response.data.map(normalizeMaterial);
+      let total = 0;
+      
+      // 🧠 AI-ПОИСК: если есть поисковый запрос - используем Pinecone
+      if (search && search.trim().length > 0) {
+        console.log(`🧠 AI-поиск материалов: "${search}"`);
+        
+        try {
+          const aiResponse = await searchAPI.materials(search.trim(), { limit: 50 });
+          
+          if (aiResponse.success && aiResponse.results?.length > 0) {
+            // Преобразуем AI-результаты в формат материалов
+            newMaterials = aiResponse.results.map(result => normalizeMaterial({
+              id: result.dbId,
+              name: result.name || result.text,
+              sku: result.sku || null,
+              price: result.price || 0,
+              unit: result.unit || 'шт',
+              category: result.category || null,
+              supplier: result.supplier || null,
+              is_global: result.metadata?.isGlobal ?? true,
+              _aiScore: result.score, // Сохраняем score для отладки
+              _aiSource: result.source // keyword/semantic/keyword+semantic
+            }));
+            
+            total = newMaterials.length;
+            const mode = aiResponse.metadata?.mode || 'unknown';
+            const sources = aiResponse.metadata?.sources?.join('+') || 'unknown';
+            console.log(`🧠 AI нашёл ${total} материалов (${mode}: ${sources})`);
+          } else {
+            console.log('🧠 AI не нашёл результатов, пробуем SQL...');
+            // Fallback на SQL если AI ничего не нашёл
+            const fallbackResponse = await materialsAPI.getAll({ search: search.trim(), pageSize: 50 });
+            newMaterials = (fallbackResponse.data || []).map(normalizeMaterial);
+            total = newMaterials.length;
+          }
+        } catch (aiError) {
+          console.warn('⚠️ AI-поиск недоступен, fallback на SQL:', aiError.message);
+          // Fallback на обычный SQL при ошибке AI
+          const fallbackResponse = await materialsAPI.getAll({ search: search.trim(), pageSize: 50 });
+          newMaterials = (fallbackResponse.data || []).map(normalizeMaterial);
+          total = newMaterials.length;
+        }
+        
+        // AI-поиск не поддерживает пагинацию - показываем все результаты
+        setMaterialsHasMore(false);
+        
       } else {
-        const data = Array.isArray(response) ? response : [];
-        newMaterials = data.map(normalizeMaterial);
+        // 📋 ОБЫЧНАЯ ЗАГРУЗКА: без поиска - используем пагинацию
+        const params = {
+          page: pageNumber,
+          pageSize: 100,
+          skipCount: pageNumber > 1 ? 'true' : 'false'
+        };
+        
+        const response = await materialsAPI.getAll(params);
+        
+        if (response.data) {
+          newMaterials = response.data.map(normalizeMaterial);
+        } else {
+          const data = Array.isArray(response) ? response : [];
+          newMaterials = data.map(normalizeMaterial);
+        }
+        
+        // Получаем общее количество
+        total = response.total !== null && response.total !== undefined 
+          ? response.total 
+          : (materialsTotalRecords || response.count || newMaterials.length);
+        setMaterialsTotalRecords(total);
+        
+        // Пагинация для обычной загрузки
+        if (resetData) {
+          setMaterialsHasMore(newMaterials.length < total);
+        } else {
+          setAllMaterialsForDialog(prev => {
+            const updated = [...prev, ...newMaterials];
+            setMaterialsHasMore(updated.length < total);
+            return updated;
+          });
+          setMaterialsPage(pageNumber);
+          setLoadingMaterials(false);
+          return; // Для пагинации не сбрасываем данные
+        }
       }
       
-      // Получаем общее количество
-      const total = response.total !== null && response.total !== undefined 
-        ? response.total 
-        : (materialsTotalRecords || response.count || newMaterials.length);
-      setMaterialsTotalRecords(total);
-      
-      // Добавляем или заменяем данные
-      if (resetData) {
-        setAllMaterialsForDialog(newMaterials);
-        setMaterialsPage(1);
-        setMaterialsHasMore(newMaterials.length < total);
-      } else {
-        setAllMaterialsForDialog(prev => {
-          const updated = [...prev, ...newMaterials];
-          setMaterialsHasMore(updated.length < total);
-          return updated;
-        });
-        setMaterialsPage(pageNumber);
-      }
+      // Сбрасываем данные (для нового поиска или первой страницы)
+      setAllMaterialsForDialog(newMaterials);
+      setMaterialsPage(1);
       
       // ⏱️ Логирование производительности
       const duration = performance.now() - startTime;
-      console.log(`✅ Материалы загружены: ${duration.toFixed(0)}ms | страница ${pageNumber} | записей ${newMaterials.length} | всего ${total}`);
+      const searchType = search ? '🧠 AI' : '📋 SQL';
+      console.log(`✅ ${searchType} Материалы: ${duration.toFixed(0)}ms | записей ${newMaterials.length}`);
       
     } catch (error) {
       console.error('❌ Ошибка загрузки материалов:', error);
