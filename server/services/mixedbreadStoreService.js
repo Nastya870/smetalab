@@ -14,12 +14,13 @@ if (!MIXEDBREAD_API_KEY) {
 }
 
 /**
- * Отправляет документы в Mixedbread Store
+ * Отправляет документы в Mixedbread Store с retry механизмом
  * @param {string} storeId - ID хранилища в Mixedbread
  * @param {Array} documents - Массив документов в формате { id, text, metadata }
+ * @param {number} retryCount - Текущая попытка (для рекурсии)
  * @returns {Promise<Object>} - Результат операции
  */
-export async function uploadDocumentsToStore(storeId, documents) {
+export async function uploadDocumentsToStore(storeId, documents, retryCount = 0) {
   if (!MIXEDBREAD_API_KEY) {
     throw new Error('MIXEDBREAD_API_KEY не настроен');
   }
@@ -28,7 +29,10 @@ export async function uploadDocumentsToStore(storeId, documents) {
     return { success: true, uploaded: 0 };
   }
 
-  console.log(`📤 [Mixedbread] Отправка ${documents.length} документов в Store: ${storeId}`);
+  const MAX_RETRIES = 5;
+  const RETRY_DELAY = 5000; // 5 секунд
+
+  console.log(`📤 [Mixedbread] Отправка ${documents.length} документов в Store: ${storeId}${retryCount > 0 ? ` (попытка ${retryCount + 1}/${MAX_RETRIES + 1})` : ''}`);
 
   try {
     const response = await axios.post(
@@ -41,7 +45,7 @@ export async function uploadDocumentsToStore(storeId, documents) {
           'Authorization': `Bearer ${MIXEDBREAD_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        timeout: 60000 // 60 секунд
+        timeout: 120000 // 120 секунд (увеличено)
       }
     );
 
@@ -53,6 +57,18 @@ export async function uploadDocumentsToStore(storeId, documents) {
       response: response.data
     };
   } catch (error) {
+    const is503 = error.response?.status === 503;
+    const is429 = error.response?.status === 429;
+    
+    // Retry для 503 и 429 ошибок
+    if ((is503 || is429) && retryCount < MAX_RETRIES) {
+      const delay = RETRY_DELAY * (retryCount + 1); // Экспоненциальный backoff
+      console.warn(`⚠️ [Mixedbread] ${error.response.status} ошибка, повтор через ${delay / 1000}s...`);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return uploadDocumentsToStore(storeId, documents, retryCount + 1);
+    }
+    
     console.error('❌ [Mixedbread] Ошибка отправки документов:', error.message);
     
     if (error.response) {
@@ -112,10 +128,10 @@ export async function deleteDocumentsFromStore(storeId, documentIds) {
  * Синхронизирует все документы tenant в Mixedbread Store (батчами)
  * @param {string} storeId - ID хранилища
  * @param {Array} documents - Все документы для синхронизации
- * @param {number} batchSize - Размер батча (по умолчанию 100)
+ * @param {number} batchSize - Размер батча (по умолчанию 50 - уменьшено для стабильности)
  * @returns {Promise<Object>}
  */
-export async function syncDocumentsToStore(storeId, documents, batchSize = 100) {
+export async function syncDocumentsToStore(storeId, documents, batchSize = 50) {
   console.log(`🔄 [Mixedbread] Синхронизация ${documents.length} документов в Store: ${storeId} (батчами по ${batchSize})`);
 
   let totalUploaded = 0;
@@ -133,9 +149,9 @@ export async function syncDocumentsToStore(storeId, documents, batchSize = 100) 
       const result = await uploadDocumentsToStore(storeId, batch);
       totalUploaded += result.uploaded;
       
-      // Пауза между батчами (избегаем rate limit)
+      // Увеличенная пауза между батчами (3 секунды)
       if (i + batchSize < documents.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // 1 секунда
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
     } catch (error) {
       console.error(`❌ Ошибка в батче ${batchNumber}:`, error.message);
@@ -143,6 +159,9 @@ export async function syncDocumentsToStore(storeId, documents, batchSize = 100) 
         batch: batchNumber,
         error: error.message
       });
+      
+      // Продолжаем после ошибки с увеличенной задержкой
+      await new Promise(resolve => setTimeout(resolve, 5000));
     }
   }
 
