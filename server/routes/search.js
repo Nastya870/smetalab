@@ -7,6 +7,7 @@ import { universalSemanticSearch } from '../controllers/searchController.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import * as pineconeClient from '../services/pineconeClient.js';
 import * as hybridSearchService from '../services/hybridSearchService.js';
+import { query as db } from '../config/database.js';
 
 const router = express.Router();
 
@@ -161,6 +162,7 @@ router.post('/pinecone', authenticateToken, async (req, res) => {
         dbId: result.metadata.dbId,
         text: result.metadata.text,
         source: 'semantic',
+        sources: ['semantic'],
         metadata: {
           category: result.metadata.category || null,
           supplier: result.metadata.supplier || null,
@@ -171,25 +173,60 @@ router.post('/pinecone', authenticateToken, async (req, res) => {
       }));
     }
 
-    // Форматируем ответ
-    const results = searchResults.map(result => ({
-      id: result.id,
-      score: result.score,
-      type: result.type,
-      dbId: result.dbId,
-      text: result.text,
-      category: result.metadata?.category || result.category || null,
-      supplier: result.metadata?.supplier || result.supplier || null,
-      unit: result.metadata?.unit || result.unit || null,
-      source: result.source || result.sources?.join('+') || 'semantic'
+    // Получаем полные данные из БД для каждого результата
+    const fullResults = await Promise.all(searchResults.map(async (result) => {
+      const table = result.type === 'material' ? 'materials' : 'works';
+      const nameColumn = result.type === 'material' ? 'name' : 'name';
+      
+      try {
+        const dbResult = await db.query(
+          `SELECT id, ${nameColumn} as name, 
+           ${result.type === 'material' ? 'sku, price, unit, supplier' : 'code, unit, price'} 
+           FROM ${table} WHERE id = $1`,
+          [result.dbId]
+        );
+        
+        const dbRow = dbResult.rows[0];
+        return {
+          id: result.id,
+          score: result.score,
+          type: result.type,
+          dbId: result.dbId,
+          name: dbRow?.name || result.text?.substring(0, 50) || 'Unknown',
+          text: result.text,
+          category: result.metadata?.category || result.category || null,
+          supplier: result.metadata?.supplier || result.supplier || dbRow?.supplier || null,
+          unit: result.metadata?.unit || result.unit || dbRow?.unit || null,
+          price: dbRow?.price || null,
+          sku: dbRow?.sku || null,
+          code: dbRow?.code || null,
+          source: result.sources?.join('+') || result.source || 'semantic'
+        };
+      } catch (error) {
+        console.error(`[Search] Error fetching details for ${result.type}:${result.dbId}:`, error.message);
+        return {
+          id: result.id,
+          score: result.score,
+          type: result.type,
+          dbId: result.dbId,
+          name: result.text?.substring(0, 50) || 'Unknown',
+          text: result.text,
+          source: result.sources?.join('+') || result.source || 'semantic'
+        };
+      }
     }));
 
     res.json({
       success: true,
       query,
-      mode: searchMode,
-      count: results.length,
-      results
+      count: fullResults.length,
+      results: fullResults,
+      metadata: {
+        mode: searchMode,
+        sources: searchMode === 'hybrid' 
+          ? Array.from(new Set(searchResults.flatMap(r => r.sources || [r.source]).filter(Boolean)))
+          : ['semantic']
+      }
     });
 
   } catch (error) {
