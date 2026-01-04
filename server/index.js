@@ -124,6 +124,22 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Temporary migration endpoint (NO AUTH - REMOVE AFTER USE)
+app.post('/api/run-migration-temp', async (req, res) => {
+  try {
+    const { exec } = await import('child_process');
+    const { promisify } = await import('util');
+    const execPromise = promisify(exec);
+    
+    console.log('🔄 Running migrations...');
+    const { stdout, stderr } = await execPromise('cd /opt/render/project/src && node scripts/runMigrations.js', { timeout: 120000 });
+    
+    res.json({ success: true, output: stdout, errors: stderr || null });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message, stdout: error.stdout, stderr: error.stderr });
+  }
+});
+
 // ==================== Rate Limiting ====================
 // Общий лимит: 100 запросов в минуту на все API endpoints
 app.use('/api', apiLimiter);
