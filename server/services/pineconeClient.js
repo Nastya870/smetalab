@@ -99,14 +99,17 @@ export async function upsertDocument(document) {
     // Создаём embedding
     const embedding = await createEmbedding(document.text);
     
+    // Очищаем metadata от null/undefined/empty strings
+    const cleanMetadata = Object.fromEntries(
+      Object.entries({ ...document.metadata, text: document.text })
+        .filter(([_, v]) => v !== null && v !== undefined && v !== '')
+    );
+    
     // Upsert в Pinecone
     await index.upsert([{
       id: document.id,
       values: embedding,
-      metadata: {
-        ...document.metadata,
-        text: document.text // Сохраняем текст в metadata для retrieval
-      }
+      metadata: cleanMetadata
     }]);
     
     console.log(`✅ [Pinecone] Upserted ${document.id}`);
