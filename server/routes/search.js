@@ -23,6 +23,32 @@ const router = express.Router();
 router.post('/', optionalAuth, universalSemanticSearch);
 
 /**
+ * @route   GET /api/search/pinecone/stats
+ * @desc    Get Pinecone index statistics
+ * @access  Private (requires JWT)
+ */
+router.get('/pinecone/stats', authenticateToken, async (req, res) => {
+  try {
+    const stats = await pineconeClient.getIndexStats();
+    res.json({
+      success: true,
+      stats: {
+        totalVectors: stats.totalVectorCount,
+        dimension: stats.dimension,
+        namespaces: stats.namespaces
+      }
+    });
+  } catch (error) {
+    console.error('❌ [Search] Stats error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get index stats',
+      error: error.message
+    });
+  }
+});
+
+/**
  * @route   POST /api/search/pinecone
  * @desc    Pinecone semantic search (materials & works)
  * @access  Private
