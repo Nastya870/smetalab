@@ -176,13 +176,15 @@ router.post('/pinecone', authenticateToken, async (req, res) => {
     // Получаем полные данные из БД для каждого результата
     const fullResults = await Promise.all(searchResults.map(async (result) => {
       const table = result.type === 'material' ? 'materials' : 'works';
-      const nameColumn = result.type === 'material' ? 'name' : 'name';
       
       try {
+        // Разные поля для материалов и работ
+        const selectFields = result.type === 'material' 
+          ? 'id, name, sku, price, unit, supplier, category'
+          : 'id, name, code, base_price as price, unit, category';
+        
         const dbResult = await db.query(
-          `SELECT id, ${nameColumn} as name, 
-           ${result.type === 'material' ? 'sku, price, unit, supplier' : 'code, unit, price'} 
-           FROM ${table} WHERE id = $1`,
+          `SELECT ${selectFields} FROM ${table} WHERE id = $1`,
           [result.dbId]
         );
         
