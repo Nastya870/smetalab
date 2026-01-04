@@ -321,7 +321,7 @@ async function markDocumentsAsSeen(documents, syncTime) {
   const params = documents.flatMap(doc => [
     doc.id, // document_id
     doc.metadata.scope,
-    doc.metadata.tenantId,
+    doc.metadata.tenantId || null, // Empty string → null for UUID
     doc.metadata.type,
     doc.metadata.dbId,
     syncTime
