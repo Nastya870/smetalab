@@ -1,0 +1,205 @@
+{
+  "version": "1.0",
+  "date": "2026-01-04",
+  "description": "Baseline тесты для измерения качества поиска",
+  "tests": [
+    {
+      "category": "exact",
+      "description": "Точные запросы (артикул/бренд/размер)",
+      "queries": [
+        {
+          "id": "exact_001",
+          "query": "труба стальная 100х100",
+          "type": "material",
+          "expected_keywords": ["труба", "100", "стальная"]
+        },
+        {
+          "id": "exact_002",
+          "query": "цемент м500",
+          "type": "material",
+          "expected_keywords": ["цемент", "м500", "500"]
+        },
+        {
+          "id": "exact_003",
+          "query": "арматура 12 мм",
+          "type": "material",
+          "expected_keywords": ["арматура", "12"]
+        },
+        {
+          "id": "exact_004",
+          "query": "кирпич керамический 250",
+          "type": "material",
+          "expected_keywords": ["кирпич", "керамический", "250"]
+        },
+        {
+          "id": "exact_005",
+          "query": "профиль 60х27",
+          "type": "material",
+          "expected_keywords": ["профиль", "60", "27"]
+        },
+        {
+          "id": "exact_006",
+          "query": "гипсокартон КНАУФ 12.5",
+          "type": "material",
+          "expected_keywords": ["гипсокартон", "кнауф", "12"]
+        },
+        {
+          "id": "exact_007",
+          "query": "утеплитель роквул 50",
+          "type": "material",
+          "expected_keywords": ["утеплитель", "роквул", "50"]
+        },
+        {
+          "id": "exact_008",
+          "query": "металлочерепица монтеррей",
+          "type": "material",
+          "expected_keywords": ["металлочерепица", "монтеррей"]
+        },
+        {
+          "id": "exact_009",
+          "query": "краска супербелая 10л",
+          "type": "material",
+          "expected_keywords": ["краска", "супербелая", "10"]
+        },
+        {
+          "id": "exact_010",
+          "query": "доска 150х50х6000",
+          "type": "material",
+          "expected_keywords": ["доска", "150", "50", "6000"]
+        }
+      ]
+    },
+    {
+      "category": "general",
+      "description": "Общие категорийные запросы",
+      "queries": [
+        {
+          "id": "general_001",
+          "query": "цемент",
+          "type": "material",
+          "expected_keywords": ["цемент"]
+        },
+        {
+          "id": "general_002",
+          "query": "кирпич",
+          "type": "material",
+          "expected_keywords": ["кирпич"]
+        },
+        {
+          "id": "general_003",
+          "query": "арматура",
+          "type": "material",
+          "expected_keywords": ["арматура"]
+        },
+        {
+          "id": "general_004",
+          "query": "краска",
+          "type": "material",
+          "expected_keywords": ["краска"]
+        },
+        {
+          "id": "general_005",
+          "query": "утеплитель",
+          "type": "material",
+          "expected_keywords": ["утеплитель"]
+        },
+        {
+          "id": "general_006",
+          "query": "монтаж",
+          "type": "work",
+          "expected_keywords": ["монтаж"]
+        },
+        {
+          "id": "general_007",
+          "query": "покраска",
+          "type": "work",
+          "expected_keywords": ["покраска", "окраска"]
+        },
+        {
+          "id": "general_008",
+          "query": "штукатурка",
+          "type": "work",
+          "expected_keywords": ["штукатурка"]
+        },
+        {
+          "id": "general_009",
+          "query": "стяжка",
+          "type": "work",
+          "expected_keywords": ["стяжка"]
+        },
+        {
+          "id": "general_010",
+          "query": "демонтаж",
+          "type": "work",
+          "expected_keywords": ["демонтаж"]
+        }
+      ]
+    },
+    {
+      "category": "intent",
+      "description": "Запросы с намерением (естественный язык)",
+      "queries": [
+        {
+          "id": "intent_001",
+          "query": "чем залить пол",
+          "type": "material",
+          "expected_keywords": ["стяжка", "наливной", "пол", "бетон"]
+        },
+        {
+          "id": "intent_002",
+          "query": "материал для стяжки",
+          "type": "material",
+          "expected_keywords": ["стяжка", "цемент", "смесь"]
+        },
+        {
+          "id": "intent_003",
+          "query": "утеплить стены снаружи",
+          "type": "material",
+          "expected_keywords": ["утеплитель", "фасад"]
+        },
+        {
+          "id": "intent_004",
+          "query": "покрасить металл",
+          "type": "work",
+          "expected_keywords": ["покраска", "окраска", "металл"]
+        },
+        {
+          "id": "intent_005",
+          "query": "сделать перегородку",
+          "type": "material",
+          "expected_keywords": ["гипсокартон", "кирпич", "блок", "перегородка"]
+        },
+        {
+          "id": "intent_006",
+          "query": "гидроизоляция фундамента",
+          "type": "material",
+          "expected_keywords": ["гидроизоляция", "фундамент"]
+        },
+        {
+          "id": "intent_007",
+          "query": "отделка откосов окон",
+          "type": "work",
+          "expected_keywords": ["откос", "окно", "отделка"]
+        },
+        {
+          "id": "intent_008",
+          "query": "установить подоконник",
+          "type": "work",
+          "expected_keywords": ["подоконник", "монтаж", "установка"]
+        },
+        {
+          "id": "intent_009",
+          "query": "выровнять стены",
+          "type": "work",
+          "expected_keywords": ["штукатурка", "выравнивание", "стена"]
+        },
+        {
+          "id": "intent_010",
+          "query": "положить плитку",
+          "type": "work",
+          "expected_keywords": ["плитка", "укладка", "облицовка"]
+        }
+      ]
+    }
+  ]
+}

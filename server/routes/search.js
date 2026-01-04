@@ -6,6 +6,7 @@ import express from 'express';
 import { universalSemanticSearch } from '../controllers/searchController.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import * as pineconeClient from '../services/pineconeClient.js';
+import * as hybridSearchService from '../services/hybridSearchService.js';
 
 const router = express.Router();
 
@@ -50,12 +51,19 @@ router.get('/pinecone/stats', authenticateToken, async (req, res) => {
 
 /**
  * @route   POST /api/search/pinecone
- * @desc    Pinecone semantic search (materials & works)
+ * @desc    Hybrid search (keyword + semantic) or pure semantic search
  * @access  Private
+ * @body    {
+ *            query: string,
+ *            limit: number (default: 10),
+ *            type: 'material' | 'work' | 'all' (default: 'all'),
+ *            scope: 'global' | 'tenant' | 'all' (default: 'all'),
+ *            mode: 'hybrid' | 'semantic' (default: 'auto')
+ *          }
  */
 router.post('/pinecone', authenticateToken, async (req, res) => {
   try {
-    const { query, limit = 10, type = 'all', scope = 'all' } = req.body;
+    const { query, limit = 10, type = 'all', scope = 'all', mode = 'auto' } = req.body;
     const { tenantId } = req.user;
 
     if (!query || query.trim().length === 0) {
@@ -65,48 +73,86 @@ router.post('/pinecone', authenticateToken, async (req, res) => {
       });
     }
 
-    // Build filter
-    const filter = {};
-    
-    if (type !== 'all') {
-      filter.type = type;
-    }
-    
-    if (scope === 'tenant') {
-      filter.tenantId = tenantId;
-    } else if (scope === 'global') {
-      filter.scope = 'global';
+    let searchResults;
+    let searchMode;
+
+    // Определяем режим поиска
+    if (mode === 'auto') {
+      const strategy = hybridSearchService.getSearchStrategy(query);
+      searchMode = strategy.mode;
+    } else {
+      searchMode = mode;
     }
 
-    // Search
-    const searchResults = await pineconeClient.search(query, {
-      topK: limit,
-      filter: Object.keys(filter).length > 0 ? filter : undefined
-    });
+    console.log(`🔍 [Search] Mode: ${searchMode} | Query: "${query}"`);
 
-    // Format results
+    // Hybrid или semantic поиск
+    if (searchMode === 'hybrid') {
+      searchResults = await hybridSearchService.hybridSearch(query, {
+        type,
+        scope,
+        tenantId,
+        limit
+      });
+    } else {
+      // Pure semantic (старый путь)
+      const filter = {};
+      
+      if (type !== 'all') {
+        filter.type = type;
+      }
+      
+      if (scope === 'tenant') {
+        filter.tenantId = tenantId;
+      } else if (scope === 'global') {
+        filter.scope = 'global';
+      }
+
+      const pineconeResults = await pineconeClient.search(query, {
+        topK: limit,
+        filter: Object.keys(filter).length > 0 ? filter : undefined
+      });
+
+      searchResults = pineconeResults.map(result => ({
+        id: result.id,
+        score: result.score,
+        type: result.metadata.type,
+        dbId: result.metadata.dbId,
+        text: result.metadata.text,
+        source: 'semantic',
+        metadata: {
+          category: result.metadata.category || null,
+          supplier: result.metadata.supplier || null,
+          unit: result.metadata.unit || null,
+          isGlobal: result.metadata.isGlobal,
+          scope: result.metadata.scope
+        }
+      }));
+    }
+
+    // Форматируем ответ
     const results = searchResults.map(result => ({
       id: result.id,
       score: result.score,
-      type: result.metadata.type,
-      dbId: result.metadata.dbId,
-      text: result.metadata.text,
-      category: result.metadata.category || null,
-      supplier: result.metadata.supplier || null,
-      unit: result.metadata.unit || null,
-      isGlobal: result.metadata.isGlobal,
-      scope: result.metadata.scope
+      type: result.type,
+      dbId: result.dbId,
+      text: result.text,
+      category: result.metadata?.category || result.category || null,
+      supplier: result.metadata?.supplier || result.supplier || null,
+      unit: result.metadata?.unit || result.unit || null,
+      source: result.source || result.sources?.join('+') || 'semantic'
     }));
 
     res.json({
       success: true,
       query,
+      mode: searchMode,
       count: results.length,
       results
     });
 
   } catch (error) {
-    console.error('❌ [Search] Pinecone search failed:', error.message);
+    console.error('❌ [Search] Search failed:', error.message);
     res.status(500).json({
       success: false,
       message: 'Search failed',
