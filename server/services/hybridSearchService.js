@@ -314,7 +314,7 @@ function deduplicateResults(results) {
   const deduplicated = [];
   
   for (const result of results) {
-    const key = `${result.type}-${result.dbId}`;
+    const key = `${result.type}:${result.dbId}`; // ИСПРАВЛЕНО: используем тот же формат, что в merge
     
     if (!seen.has(key)) {
       seen.add(key);
