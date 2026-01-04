@@ -127,21 +127,30 @@ app.get('/api/health', (req, res) => {
 // Temporary migration/sync endpoint (NO AUTH - REMOVE AFTER USE)
 app.post('/api/run-migration-temp', async (req, res) => {
   try {
-    // Просто запускаем синхронизацию - таблица создастся автоматически если не существует
     const { exec } = await import('child_process');
     const { promisify } = await import('util');
     const execPromise = promisify(exec);
     
-    const { mode = 'test' } = req.body;
+    const { action = 'sync', mode = 'test' } = req.body;
     
-    console.log(`🔄 Running Pinecone sync (${mode})...`);
-    const command = mode === 'test' 
-      ? 'cd /opt/render/project/src && node scripts/pinecone-sync-cron.mjs global --limit=5'
-      : 'cd /opt/render/project/src && node scripts/pinecone-sync-cron.mjs all';
+    let command;
+    let timeout;
     
-    const { stdout, stderr } = await execPromise(command, { timeout: 300000 });
+    if (action === 'migrate') {
+      console.log('🔄 Running migrations...');
+      command = 'cd /opt/render/project/src && node scripts/runMigrations.js';
+      timeout = 180000; // 3 минуты
+    } else {
+      console.log(`🔄 Running Pinecone sync (${mode})...`);
+      command = mode === 'test' 
+        ? 'cd /opt/render/project/src && node scripts/pinecone-sync-cron.mjs global --limit=5'
+        : 'cd /opt/render/project/src && node scripts/pinecone-sync-cron.mjs all';
+      timeout = 300000; // 5 минут
+    }
     
-    res.json({ success: true, output: stdout, errors: stderr || null });
+    const { stdout, stderr } = await execPromise(command, { timeout });
+    
+    res.json({ success: true, action, output: stdout, errors: stderr || null });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message, stdout: error.stdout, stderr: error.stderr });
   }
