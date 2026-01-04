@@ -94,12 +94,12 @@ export async function exportMaterials(options = {}) {
       id: id,
       text: text,
       metadata: {
-        tenantId: row.tenant_id || null,
+        tenantId: row.tenant_id || '',
         type: 'material',
         dbId: String(row.db_id),
-        category: row.category || null,
-        supplier: row.supplier || null,
-        unit: row.unit || null,
+        category: row.category || '',
+        supplier: row.supplier || '',
+        unit: row.unit || '',
         isGlobal: row.is_global || false,
         scope: scope
       }
@@ -172,11 +172,11 @@ export async function exportWorks(options = {}) {
       id: id,
       text: text,
       metadata: {
-        tenantId: row.tenant_id || null,
+        tenantId: row.tenant_id || '',
         type: 'work',
         dbId: String(row.db_id),
-        category: row.category || null,
-        unit: row.unit || null,
+        category: row.category || '',
+        unit: row.unit || '',
         isGlobal: row.is_global || false,
         scope: scope
       }
