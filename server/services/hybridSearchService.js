@@ -60,7 +60,7 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
         category,
         supplier,
         unit,
-        key,
+        sku as key,
         CASE 
           WHEN tenant_id IS NULL THEN 'global'
           ELSE 'tenant'
@@ -70,7 +70,7 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
         similarity(COALESCE(supplier, ''), $1) * 0.3 as score
       FROM materials
       WHERE 
-        (name ILIKE $2 OR category ILIKE $2 OR supplier ILIKE $2 OR key ILIKE $2)
+        (name ILIKE $2 OR category ILIKE $2 OR supplier ILIKE $2 OR sku ILIKE $2)
     `;
     
     const params = [searchTerm, searchPattern];
@@ -97,7 +97,7 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
         category,
         '' as supplier,
         unit,
-        key,
+        code as key,
         CASE 
           WHEN tenant_id IS NULL THEN 'global'
           ELSE 'tenant'
@@ -106,7 +106,7 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
         similarity(COALESCE(category, ''), $1) * 0.5 as score
       FROM works
       WHERE 
-        (name ILIKE $2 OR category ILIKE $2 OR key ILIKE $2)
+        (name ILIKE $2 OR category ILIKE $2 OR code ILIKE $2)
     `;
     
     const params = [searchTerm, searchPattern];
