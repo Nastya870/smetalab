@@ -124,7 +124,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Temporary migration/sync endpoint (NO AUTH - REMOVE AFTER USE)
+// ⚠️ TEMPORARY ENDPOINT DISABLED - Used for initial Pinecone sync (completed)
+// Uncomment only if you need to run migrations or sync manually
+// Security risk: NO AUTHENTICATION
+/*
 app.post('/api/run-migration-temp', async (req, res) => {
   try {
     const { exec } = await import('child_process');
@@ -165,6 +168,7 @@ app.post('/api/run-migration-temp', async (req, res) => {
     res.status(500).json({ success: false, error: error.message, stdout: error.stdout, stderr: error.stderr });
   }
 });
+*/
 
 // ==================== Rate Limiting ====================
 // Общий лимит: 100 запросов в минуту на все API endpoints

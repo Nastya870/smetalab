@@ -49,7 +49,7 @@ async function fullSync() {
   console.log(`Batch size: ${BATCH_SIZE}`);
   console.log(`Total batches: ${Math.ceil(TOTAL_DOCS/BATCH_SIZE)}\n`);
   console.log('This will take ~30-40 minutes. You can stop and resume anytime.\n');
-  console.log('='.\repeat(70));
+  console.log('='.repeat(70));
   
   let totalUpserted = 0;
   const startTime = Date.now();
@@ -73,11 +73,11 @@ async function fullSync() {
   
   const totalTime = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
   
-  console.log('\n' + '='.\repeat(70));
+  console.log('\n' + '='.repeat(70));
   console.log('\n✅ FULL SYNC COMPLETED!\n');
   console.log(`Total documents upserted: ${totalUpserted}/${TOTAL_DOCS}`);
   console.log(`Total time: ${totalTime} minutes`);
-  console.log('\n' + '='.\repeat(70));
+  console.log('\n' + '='.repeat(70));
 }
 
 fullSync();
