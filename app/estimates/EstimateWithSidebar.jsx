@@ -201,7 +201,9 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // ==============================|| STATE - WORKS SIDEBAR ||============================== //
   
   const [availableWorks, setAvailableWorks] = useState([]);
+  const [aiSearchedWorks, setAiSearchedWorks] = useState(null); // 🧠 AI-поиск работ (null = не активен)
   const [loadingWorks, setLoadingWorks] = useState(true);
+  const [loadingAiSearch, setLoadingAiSearch] = useState(false); // 🧠 Индикатор AI-поиска
   const [errorWorks, setErrorWorks] = useState(null);
   const [transferringWorks, setTransferringWorks] = useState(false); // ✅ Индикатор переноса работ
   const [addingWorkId, setAddingWorkId] = useState(null); // ✅ ID работы, которая сейчас добавляется
@@ -444,10 +446,75 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     }
   }, []);
 
+  // 🧠 AI-поиск работ через Pinecone (fuzzy + semantic)
+  const aiSearchWorks = useCallback(async (query) => {
+    if (!query || query.trim().length < 2) {
+      setAiSearchedWorks(null);
+      return;
+    }
+    
+    try {
+      setLoadingAiSearch(true);
+      console.log(`🧠 AI-поиск работ: "${query}"`);
+      
+      const scope = workSourceTab === 'global' ? 'global' : 'tenant';
+      const aiResponse = await searchAPI.works(query.trim(), { limit: 50, scope });
+      
+      if (aiResponse.success && aiResponse.results?.length > 0) {
+        const aiWorks = aiResponse.results.map(r => ({
+          id: r.dbId?.toString(),
+          code: r.code || r.sku || null,
+          name: r.name || r.text,
+          category: r.category || '',
+          section: r.category || '',
+          unit: r.unit || 'шт',
+          price: r.price || 0,
+          phase: '',
+          subsection: '',
+          _aiScore: r.score,
+          _aiSource: r.source
+        }));
+        
+        const mode = aiResponse.metadata?.mode || 'unknown';
+        const sources = aiResponse.metadata?.sources?.join('+') || 'unknown';
+        console.log(`🧠 AI нашёл ${aiWorks.length} работ (${mode}: ${sources})`);
+        
+        setAiSearchedWorks(aiWorks);
+      } else {
+        console.log('🧠 AI не нашёл работ');
+        setAiSearchedWorks([]);
+      }
+    } catch (error) {
+      console.warn('⚠️ AI-поиск работ недоступен:', error.message);
+      setAiSearchedWorks(null); // fallback на клиентский поиск
+    } finally {
+      setLoadingAiSearch(false);
+    }
+  }, [workSourceTab]);
+
+  // 🧠 Debounced AI-поиск работ
+  const debouncedAiSearchWorks = useMemo(
+    () => debounce((query) => {
+      aiSearchWorks(query);
+    }, 400),
+    [aiSearchWorks]
+  );
+
+  // 🧠 Обработчик изменения поиска работ
+  const handleWorksSearchChange = useCallback((value) => {
+    setSearchTerm(value);
+    if (value.trim().length >= 2) {
+      debouncedAiSearchWorks(value);
+    } else {
+      setAiSearchedWorks(null); // Очищаем AI-результаты
+    }
+  }, [debouncedAiSearchWorks]);
+
   // Fetch works from API при изменении вкладки
   useEffect(() => {
     const sourceType = workSourceTab === 'global' ? 'global' : 'tenant';
     loadWorksCached(sourceType);
+    setAiSearchedWorks(null); // Сбрасываем AI-поиск при смене вкладки
   }, [workSourceTab, loadWorksCached]); // ★ Используем кешированную загрузку!
 
   // ==============================|| STATE - ESTIMATE DATA ||============================== //
@@ -504,10 +571,14 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // ❌ УБРАН useEffect отслеживания изменений - он вызывал лаги
   // Флаг hasUnsavedChanges теперь ставится напрямую при изменениях
 
-  // Фильтрация работ с полнотекстовым поиском
-  // Поддерживает поиск по нескольким словам одновременно
-  // ✅ Работы после поиска (для подсчёта в фильтрах)
+  // 🧠 Работы после поиска (AI или клиентский fallback)
   const worksAfterSearch = useMemo(() => {
+    // Если есть AI-результаты - используем их
+    if (aiSearchedWorks !== null) {
+      return aiSearchedWorks;
+    }
+    
+    // Fallback на клиентский поиск
     if (!searchTerm) return availableWorks;
     
     const searchLower = searchTerm.toLowerCase().trim();
@@ -525,7 +596,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
       return searchWords.every(word => searchableText.includes(word));
     });
-  }, [searchTerm, availableWorks]);
+  }, [searchTerm, availableWorks, aiSearchedWorks]);
 
   const filteredWorks = useMemo(() => {
     let works = worksAfterSearch;
@@ -2341,16 +2412,18 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
             onChange={(newTab) => {
               setWorkSourceTab(newTab);
               setSearchTerm('');
+              setAiSearchedWorks(null); // Сбрасываем AI-поиск
             }}
           />
 
           {/* ✅ ПОИСК + ФИЛЬТРЫ */}
           <WorksSearchAndFilterBar
             searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
+            onSearchChange={handleWorksSearchChange}
             hasAvailableFilters={availableSections.length > 0}
             hasActiveFilter={selectedSection !== null}
             onOpenFilters={() => setFiltersPanelOpen(true)}
+            loading={loadingAiSearch} // 🧠 Индикатор AI-поиска
           />
 
           {/* ✅ Вложенный Drawer фильтров */}

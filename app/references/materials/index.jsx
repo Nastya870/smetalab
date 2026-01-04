@@ -39,6 +39,7 @@ import { IconPlus, IconEdit, IconTrash, IconSearch, IconExternalLink, IconWorld,
 import EmptyState from './EmptyState';
 import { emptyMaterial } from './mockData';
 import materialsAPI from 'api/materials';
+import searchAPI from 'api/search'; // ✅ AI-поиск (Pinecone hybrid)
 import ImportDialog from './ImportDialog';
 import { fullTextSearch, highlightMatches } from 'shared/lib/utils/fullTextSearch';
 import { useNotifications } from 'contexts/NotificationsContext';
@@ -206,23 +207,69 @@ const MaterialsReferencePage = () => {
   const [showImageColumn, setShowImageColumn] = useState(true);
   const [showSupplierColumn, setShowSupplierColumn] = useState(true);
 
+  // 🧠 AI-поиск материалов через Pinecone (fuzzy + semantic)
+  const aiSearchMaterials = useCallback(async (query) => {
+    try {
+      setLoading(true);
+      console.log(`🧠 AI-поиск: "${query}"`);
+      
+      const scope = globalFilter === 'global' ? 'global' : globalFilter === 'tenant' ? 'tenant' : 'all';
+      const aiResponse = await searchAPI.materials(query, { limit: 100, scope });
+      
+      if (aiResponse.success && aiResponse.results?.length > 0) {
+        // Преобразуем AI-результаты в формат материалов
+        const aiMaterials = aiResponse.results.map(r => ({
+          id: r.dbId,
+          name: r.name || r.text,
+          sku: r.sku || r.code || null,
+          price: r.price || 0,
+          unit: r.unit || 'шт',
+          category: r.category || null,
+          supplier: r.supplier || null,
+          is_global: r.metadata?.isGlobal ?? true,
+          _aiScore: r.score,
+          _aiSource: r.source
+        }));
+        
+        const mode = aiResponse.metadata?.mode || 'unknown';
+        const sources = aiResponse.metadata?.sources?.join('+') || 'unknown';
+        console.log(`🧠 AI нашёл ${aiMaterials.length} материалов (${mode}: ${sources})`);
+        
+        setMaterials(aiMaterials);
+        setTotalRecords(aiMaterials.length);
+        setHasMore(false); // AI-поиск возвращает все результаты сразу
+      } else {
+        console.log('🧠 AI не нашёл результатов');
+        setMaterials([]);
+        setTotalRecords(0);
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.warn('⚠️ AI-поиск недоступен, fallback на SQL:', error.message);
+      // Fallback на обычный SQL
+      fetchMaterials(1, true, query);
+    } finally {
+      setLoading(false);
+    }
+  }, [globalFilter]);
+
   // Debounced поиск (обновляет searchTerm через 300ms после последнего ввода)
   const debouncedSearch = useMemo(
     () => debounce((value) => {
       setSearchTerm(value);
-      // При изменении поискового запроса - перезагружаем с сервера
+      // При изменении поискового запроса - используем AI-поиск
       if (value.trim()) {
         setMaterials([]);
         setPage(1);
-        fetchMaterials(1, true, value.trim());
+        aiSearchMaterials(value.trim()); // 🧠 AI-поиск
       } else {
         // Если очистили поиск - загружаем обычные данные
         setMaterials([]);
         setPage(1);
         fetchMaterials(1, true);
       }
-    }, 300),
-    [globalFilter]
+    }, 400), // 400ms для AI-поиска
+    [globalFilter, aiSearchMaterials]
   );
 
   // Очистка debounce при размонтировании

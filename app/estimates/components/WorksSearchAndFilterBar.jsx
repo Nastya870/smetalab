@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Box, TextField, InputAdornment, Button } from '@mui/material';
+import { Box, TextField, InputAdornment, Button, CircularProgress } from '@mui/material';
 import { IconSearch, IconFilter } from '@tabler/icons-react';
 
 /**
@@ -16,20 +16,25 @@ const WorksSearchAndFilterBar = ({
   onSearchChange,
   hasAvailableFilters,
   hasActiveFilter,
-  onOpenFilters
+  onOpenFilters,
+  loading = false // 🧠 Индикатор AI-поиска
 }) => {
   return (
     <Box sx={{ px: 2.5, pb: 1.5, display: 'flex', gap: 1.5 }}>
       <TextField
         fullWidth
         size="small"
-        placeholder="Поиск работ..."
+        placeholder="🧠 Умный поиск работ..."
         value={searchTerm}
         onChange={(e) => onSearchChange(e.target.value)}
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
-              <IconSearch size={18} color="#9CA3AF" />
+              {loading ? (
+                <CircularProgress size={18} sx={{ color: '#635BFF' }} />
+              ) : (
+                <IconSearch size={18} color="#9CA3AF" />
+              )}
             </InputAdornment>
           )
         }}
@@ -103,7 +108,9 @@ WorksSearchAndFilterBar.propTypes = {
   /** Есть ли активный фильтр */
   hasActiveFilter: PropTypes.bool.isRequired,
   /** Callback при открытии панели фильтров */
-  onOpenFilters: PropTypes.func.isRequired
+  onOpenFilters: PropTypes.func.isRequired,
+  /** Индикатор загрузки AI-поиска */
+  loading: PropTypes.bool
 };
 
 WorksSearchAndFilterBar.displayName = 'WorksSearchAndFilterBar';

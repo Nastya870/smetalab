@@ -39,6 +39,7 @@ import MainCard from 'ui-component/cards/MainCard';
 import EmptyState from './EmptyState';
 import { emptyWork } from './mockData';
 import worksAPI from 'api/works';
+import searchAPI from 'api/search'; // ✅ AI-поиск (Pinecone hybrid)
 import worksImportExportAPI from 'api/worksImportExport';
 import ImportDialog from './ImportDialog';
 import { fullTextSearch } from 'shared/lib/utils/fullTextSearch';
@@ -159,23 +160,64 @@ const WorksReferencePage = () => {
   // 🎯 Ref для триггера загрузки (Intersection Observer)
   const loadMoreTriggerRef = useRef(null);
 
-  // Debounced поиск (обновляет searchTerm через 300ms после последнего ввода)
+  // 🧠 AI-поиск работ через Pinecone (fuzzy + semantic)
+  const aiSearchWorks = useCallback(async (query) => {
+    try {
+      setLoading(true);
+      console.log(`🧠 AI-поиск работ: "${query}"`);
+      
+      const scope = globalFilter === 'global' ? 'global' : globalFilter === 'tenant' ? 'tenant' : 'all';
+      const aiResponse = await searchAPI.works(query, { limit: 100, scope });
+      
+      if (aiResponse.success && aiResponse.results?.length > 0) {
+        const aiWorks = aiResponse.results.map(r => ({
+          id: r.dbId,
+          code: r.code || r.sku || null,
+          name: r.name || r.text,
+          category: r.category || null,
+          unit: r.unit || 'шт',
+          base_price: r.price || 0,
+          is_global: r.metadata?.isGlobal ?? true,
+          _aiScore: r.score,
+          _aiSource: r.source
+        }));
+        
+        const mode = aiResponse.metadata?.mode || 'unknown';
+        const sources = aiResponse.metadata?.sources?.join('+') || 'unknown';
+        console.log(`🧠 AI нашёл ${aiWorks.length} работ (${mode}: ${sources})`);
+        
+        setWorks(aiWorks);
+        setTotalRecords(aiWorks.length);
+        setHasMore(false);
+      } else {
+        console.log('🧠 AI не нашёл результатов');
+        setWorks([]);
+        setTotalRecords(0);
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.warn('⚠️ AI-поиск недоступен, fallback на SQL:', error.message);
+      fetchWorks(1, true, query);
+    } finally {
+      setLoading(false);
+    }
+  }, [globalFilter]);
+
+  // Debounced поиск (обновляет searchTerm через 400ms после последнего ввода)
   const debouncedSearch = useMemo(
     () => debounce((value) => {
       setSearchTerm(value);
-      // При изменении поискового запроса - перезагружаем с сервера
       if (value.trim()) {
         setWorks([]);
         setPage(1);
-        fetchWorks(1, true, value.trim());
+        aiSearchWorks(value.trim()); // 🧠 AI-поиск
       } else {
-        // Если очистили поиск - загружаем обычные данные
         setWorks([]);
         setPage(1);
         fetchWorks(1, true);
       }
-    }, 300),
-    [globalFilter]
+    }, 400),
+    [globalFilter, aiSearchWorks]
   );
 
   // Очистка debounce при размонтировании
