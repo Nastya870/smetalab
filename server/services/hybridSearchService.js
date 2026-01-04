@@ -40,18 +40,24 @@ export function getSearchStrategy(query) {
 }
 
 /**
- * Keyword поиск через PostgreSQL (tsvector + pg_trgm)
+ * Keyword поиск через PostgreSQL (pg_trgm fuzzy matching)
+ * Находит результаты даже с опечатками благодаря similarity()
  */
 export async function keywordSearch(query, { type = 'all', scope = 'all', tenantId, limit = 20 }) {
   const searchTerm = query.toLowerCase().trim();
   const searchPattern = `%${searchTerm}%`;
   
-  console.log(`[Keyword] Query: "${query}" | Type: ${type} | Scope: ${scope}`);
+  // Разбиваем на слова для более точного поиска
+  const words = searchTerm.split(/\s+/).filter(w => w.length >= 2);
+  
+  console.log(`[Keyword] Query: "${query}" | Words: ${words.length} | Type: ${type} | Scope: ${scope}`);
   
   // Определяем таблицы для поиска
   const searches = [];
   
   if (type === 'material' || type === 'all') {
+    // 🔧 FUZZY SEARCH: используем similarity() для поиска с опечатками
+    // Порог 0.15 = ловит опечатки в 1-2 буквы
     let materialQuery = `
       SELECT 
         'material' as type,
@@ -65,12 +71,24 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
           WHEN tenant_id IS NULL THEN 'global'
           ELSE 'tenant'
         END as scope,
-        similarity(name, $1) + 
-        similarity(COALESCE(category, ''), $1) * 0.5 +
-        similarity(COALESCE(supplier, ''), $1) * 0.3 as score
+        GREATEST(
+          similarity(LOWER(name), $1),
+          similarity(LOWER(COALESCE(category, '')), $1) * 0.8,
+          similarity(LOWER(COALESCE(supplier, '')), $1) * 0.6,
+          similarity(LOWER(COALESCE(sku, '')), $1) * 0.4
+        ) as score
       FROM materials
       WHERE 
-        (name ILIKE $2 OR category ILIKE $2 OR supplier ILIKE $2 OR sku ILIKE $2)
+        -- Fuzzy match: similarity >= 0.15 ИЛИ точное вхождение
+        (
+          similarity(LOWER(name), $1) >= 0.15
+          OR similarity(LOWER(COALESCE(category, '')), $1) >= 0.15
+          OR similarity(LOWER(COALESCE(supplier, '')), $1) >= 0.15
+          OR name ILIKE $2 
+          OR category ILIKE $2 
+          OR supplier ILIKE $2 
+          OR sku ILIKE $2
+        )
     `;
     
     const params = [searchTerm, searchPattern];
@@ -89,6 +107,7 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
   }
   
   if (type === 'work' || type === 'all') {
+    // 🔧 FUZZY SEARCH для работ
     let workQuery = `
       SELECT 
         'work' as type,
@@ -102,11 +121,20 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
           WHEN tenant_id IS NULL THEN 'global'
           ELSE 'tenant'
         END as scope,
-        similarity(name, $1) + 
-        similarity(COALESCE(category, ''), $1) * 0.5 as score
+        GREATEST(
+          similarity(LOWER(name), $1),
+          similarity(LOWER(COALESCE(category, '')), $1) * 0.8,
+          similarity(LOWER(COALESCE(code, '')), $1) * 0.4
+        ) as score
       FROM works
       WHERE 
-        (name ILIKE $2 OR category ILIKE $2 OR code ILIKE $2)
+        (
+          similarity(LOWER(name), $1) >= 0.15
+          OR similarity(LOWER(COALESCE(category, '')), $1) >= 0.15
+          OR name ILIKE $2 
+          OR category ILIKE $2 
+          OR code ILIKE $2
+        )
     `;
     
     const params = [searchTerm, searchPattern];
