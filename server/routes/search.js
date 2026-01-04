@@ -50,6 +50,46 @@ router.get('/pinecone/stats', authenticateToken, async (req, res) => {
 });
 
 /**
+ * @route   GET /api/search/pinecone/test-keyword
+ * @desc    Test keyword search directly (DEBUG endpoint)
+ * @access  Private
+ */
+router.get('/pinecone/test-keyword', authenticateToken, async (req, res) => {
+  try {
+    const { query = 'цемент', type = 'material', limit = 5 } = req.query;
+    const { tenantId } = req.user;
+    
+    console.log(`🧪 [TEST] Testing keyword search: "${query}"`);
+    
+    const results = await hybridSearchService.keywordSearch(query, {
+      type,
+      scope: 'all',
+      tenantId,
+      limit: parseInt(limit)
+    });
+    
+    res.json({
+      success: true,
+      query,
+      count: results.length,
+      results: results.map(r => ({
+        type: r.type,
+        dbId: r.dbId,
+        score: r.score,
+        text: r.text.substring(0, 100)
+      }))
+    });
+  } catch (error) {
+    console.error('❌ [TEST] Keyword search test failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
+/**
  * @route   POST /api/search/pinecone
  * @desc    Hybrid search (keyword + semantic) or pure semantic search
  * @access  Private
@@ -158,46 +198,6 @@ router.post('/pinecone', authenticateToken, async (req, res) => {
       success: false,
       message: 'Search failed',
       error: error.message
-    });
-  }
-});
-
-/**
- * @route   GET /api/search/pinecone/test-keyword
- * @desc    Test keyword search directly (DEBUG endpoint)
- * @access  Private
- */
-router.get('/pinecone/test-keyword', authenticateToken, async (req, res) => {
-  try {
-    const { query = 'цемент', type = 'material', limit = 5 } = req.query;
-    const { tenantId } = req.user;
-    
-    console.log(`🧪 [TEST] Testing keyword search: "${query}"`);
-    
-    const results = await hybridSearchService.keywordSearch(query, {
-      type,
-      scope: 'all',
-      tenantId,
-      limit: parseInt(limit)
-    });
-    
-    res.json({
-      success: true,
-      query,
-      count: results.length,
-      results: results.map(r => ({
-        type: r.type,
-        dbId: r.dbId,
-        score: r.score,
-        text: r.text.substring(0, 100)
-      }))
-    });
-  } catch (error) {
-    console.error('❌ [TEST] Keyword search test failed:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      stack: error.stack
     });
   }
 });
