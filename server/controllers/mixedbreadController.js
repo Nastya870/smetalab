@@ -11,6 +11,10 @@ import {
   exportAllForTenant,
   getDeletedDocumentIds
 } from '../services/mixedbreadExportService.js';
+import {
+  syncDocumentsToStore,
+  deleteDocumentsFromStore
+} from '../services/mixedbreadStoreService.js';
 
 /**
  * @swagger
@@ -170,9 +174,74 @@ export const checkDeleted = catchAsync(async (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /mixedbread/sync:
+ *   post:
+ *     tags: [Mixedbread]
+ *     summary: Синхронизация данных в Mixedbread Store
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               storeId:
+ *                 type: string
+ *                 description: ID хранилища в Mixedbread
+ *                 example: "my-store-id"
+ *               batchSize:
+ *                 type: integer
+ *                 default: 100
+ *                 description: Размер батча для отправки
+ *     responses:
+ *       200:
+ *         description: Результат синхронизации
+ */
+export const syncToStore = catchAsync(async (req, res) => {
+  const { tenantId } = req.user;
+  const { storeId, batchSize = 100 } = req.body;
+  
+  if (!storeId) {
+    return res.status(400).json({
+      success: false,
+      message: 'Требуется параметр storeId'
+    });
+  }
+  
+  console.log(`🔄 [Mixedbread Sync] Начало синхронизации для tenant: ${tenantId}, store: ${storeId}`);
+  
+  // Экспортируем все документы
+  const { materials, works, total } = await exportAllForTenant(tenantId, 500);
+  const allDocuments = [...materials, ...works];
+  
+  console.log(`📦 [Mixedbread Sync] Подготовлено документов: ${total} (${materials.length} материалов, ${works.length} работ)`);
+  
+  // Отправляем в Mixedbread Store
+  const result = await syncDocumentsToStore(storeId, allDocuments, batchSize);
+  
+  res.status(200).json({
+    success: result.success,
+    storeId,
+    total: result.total,
+    uploaded: result.uploaded,
+    failed: result.failed,
+    materialsCount: materials.length,
+    worksCount: works.length,
+    errors: result.errors
+  });
+});
+
 export default {
   exportMaterials,
   exportWorks,
+  exportAll,
+  checkDeleted,
+  syncToStore
+};
   exportAll,
   checkDeleted
 };

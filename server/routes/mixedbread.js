@@ -8,7 +8,8 @@ import {
   exportMaterials,
   exportWorks,
   exportAll,
-  checkDeleted
+  checkDeleted,
+  syncToStore
 } from '../controllers/mixedbreadController.js';
 
 const router = express.Router();
@@ -39,5 +40,11 @@ router.get('/export/all', exportAll);
  * Body: { documentIds: [...] }
  */
 router.post('/export/deleted', checkDeleted);
+
+/**
+ * POST /api/mixedbread/sync - Синхронизация с Mixedbread Store
+ * Body: { storeId: "...", batchSize: 100 }
+ */
+router.post('/sync', syncToStore);
 
 export default router;
