@@ -124,15 +124,22 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Temporary migration endpoint (NO AUTH - REMOVE AFTER USE)
+// Temporary migration/sync endpoint (NO AUTH - REMOVE AFTER USE)
 app.post('/api/run-migration-temp', async (req, res) => {
   try {
+    // Просто запускаем синхронизацию - таблица создастся автоматически если не существует
     const { exec } = await import('child_process');
     const { promisify } = await import('util');
     const execPromise = promisify(exec);
     
-    console.log('🔄 Running migrations...');
-    const { stdout, stderr } = await execPromise('cd /opt/render/project/src && node scripts/runMigrations.js', { timeout: 120000 });
+    const { mode = 'test' } = req.body;
+    
+    console.log(`🔄 Running Pinecone sync (${mode})...`);
+    const command = mode === 'test' 
+      ? 'cd /opt/render/project/src && node scripts/pinecone-sync-cron.mjs global --limit=5'
+      : 'cd /opt/render/project/src && node scripts/pinecone-sync-cron.mjs all';
+    
+    const { stdout, stderr } = await execPromise(command, { timeout: 300000 });
     
     res.json({ success: true, output: stdout, errors: stderr || null });
   } catch (error) {
