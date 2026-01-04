@@ -44,73 +44,83 @@ export function getSearchStrategy(query) {
  */
 export async function keywordSearch(query, { type = 'all', scope = 'all', tenantId, limit = 20 }) {
   const searchTerm = query.toLowerCase().trim();
+  const searchPattern = `%${searchTerm}%`;
   
   // Определяем таблицы для поиска
   const searches = [];
   
   if (type === 'material' || type === 'all') {
-    searches.push({
-      type: 'material',
-      table: 'materials',
-      query: `
-        SELECT 
-          'material' as type,
-          id::text as db_id,
-          name,
-          category,
-          supplier,
-          unit,
-          COALESCE(tenant_id::text, 'global') as scope,
-          similarity(name, $1) + 
-          similarity(COALESCE(category, ''), $1) * 0.5 +
-          similarity(COALESCE(supplier, ''), $1) * 0.3 as score
-        FROM materials
-        WHERE 
-          (name ILIKE $2 OR category ILIKE $2 OR supplier ILIKE $2 OR key ILIKE $2)
-          ${scope === 'global' ? 'AND tenant_id IS NULL' : ''}
-          ${scope === 'tenant' ? 'AND tenant_id = $3' : ''}
-        ORDER BY score DESC
-        LIMIT $${scope === 'all' ? 3 : 4}
-      `
-    });
+    let materialQuery = `
+      SELECT 
+        'material' as type,
+        id::text as db_id,
+        name,
+        category,
+        supplier,
+        unit,
+        key,
+        COALESCE(tenant_id::text, 'global') as scope,
+        similarity(name, $1) + 
+        similarity(COALESCE(category, ''), $1) * 0.5 +
+        similarity(COALESCE(supplier, ''), $1) * 0.3 as score
+      FROM materials
+      WHERE 
+        (name ILIKE $2 OR category ILIKE $2 OR supplier ILIKE $2 OR key ILIKE $2)
+    `;
+    
+    const params = [searchTerm, searchPattern];
+    
+    if (scope === 'global') {
+      materialQuery += ' AND tenant_id IS NULL';
+    } else if (scope === 'tenant' && tenantId) {
+      materialQuery += ' AND tenant_id = $3';
+      params.push(tenantId);
+    }
+    
+    materialQuery += ' ORDER BY score DESC LIMIT $' + (params.length + 1);
+    params.push(limit);
+    
+    searches.push({ type: 'material', query: materialQuery, params });
   }
   
   if (type === 'work' || type === 'all') {
-    searches.push({
-      type: 'work',
-      table: 'works',
-      query: `
-        SELECT 
-          'work' as type,
-          id::text as db_id,
-          name,
-          category,
-          '' as supplier,
-          unit,
-          COALESCE(tenant_id::text, 'global') as scope,
-          similarity(name, $1) + 
-          similarity(COALESCE(category, ''), $1) * 0.5 as score
-        FROM works
-        WHERE 
-          (name ILIKE $2 OR category ILIKE $2 OR key ILIKE $2)
-          ${scope === 'global' ? 'AND tenant_id IS NULL' : ''}
-          ${scope === 'tenant' ? 'AND tenant_id = $3' : ''}
-        ORDER BY score DESC
-        LIMIT $${scope === 'all' ? 3 : 4}
-      `
-    });
+    let workQuery = `
+      SELECT 
+        'work' as type,
+        id::text as db_id,
+        name,
+        category,
+        '' as supplier,
+        unit,
+        key,
+        COALESCE(tenant_id::text, 'global') as scope,
+        similarity(name, $1) + 
+        similarity(COALESCE(category, ''), $1) * 0.5 as score
+      FROM works
+      WHERE 
+        (name ILIKE $2 OR category ILIKE $2 OR key ILIKE $2)
+    `;
+    
+    const params = [searchTerm, searchPattern];
+    
+    if (scope === 'global') {
+      workQuery += ' AND tenant_id IS NULL';
+    } else if (scope === 'tenant' && tenantId) {
+      workQuery += ' AND tenant_id = $3';
+      params.push(tenantId);
+    }
+    
+    workQuery += ' ORDER BY score DESC LIMIT $' + (params.length + 1);
+    params.push(limit);
+    
+    searches.push({ type: 'work', query: workQuery, params });
   }
   
   const results = [];
-  const searchPattern = `%${searchTerm}%`;
   
   for (const search of searches) {
     try {
-      const params = scope === 'all' 
-        ? [searchTerm, searchPattern, limit]
-        : [searchTerm, searchPattern, tenantId, limit];
-      
-      const { rows } = await pool.query(search.query, params);
+      const { rows } = await pool.query(search.query, search.params);
       
       results.push(...rows.map(row => ({
         id: `${row.scope}-${row.type}-${row.db_id}`,
@@ -127,7 +137,7 @@ export async function keywordSearch(query, { type = 'all', scope = 'all', tenant
         }
       })));
     } catch (error) {
-      console.error(`❌ [Hybrid] Keyword search error in ${search.table}:`, error.message);
+      console.error(`❌ [Hybrid] Keyword search error:`, error.message);
     }
   }
   
