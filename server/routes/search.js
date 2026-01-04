@@ -63,7 +63,7 @@ router.get('/pinecone/stats', authenticateToken, async (req, res) => {
  */
 router.post('/pinecone', authenticateToken, async (req, res) => {
   try {
-    const { query, limit = 10, type = 'all', scope = 'all', mode = 'auto' } = req.body;
+    const { query, limit = 10, type = 'all', scope = 'all', mode = 'auto', debug = false } = req.body;
     const { tenantId } = req.user;
 
     if (!query || query.trim().length === 0) {
@@ -84,7 +84,7 @@ router.post('/pinecone', authenticateToken, async (req, res) => {
       searchMode = mode;
     }
 
-    console.log(`🔍 [Search] Mode: ${searchMode} | Query: "${query}"`);
+    console.log(`🔍 [Search] Mode: ${searchMode} | Query: "${query}" | Debug: ${debug}`);
 
     // Hybrid или semantic поиск
     if (searchMode === 'hybrid') {
@@ -92,7 +92,8 @@ router.post('/pinecone', authenticateToken, async (req, res) => {
         type,
         scope,
         tenantId,
-        limit
+        limit,
+        debug
       });
     } else {
       // Pure semantic (старый путь)

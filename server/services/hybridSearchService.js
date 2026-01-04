@@ -152,7 +152,8 @@ export async function hybridSearch(query, options = {}) {
     type = 'all',
     scope = 'all',
     tenantId,
-    limit = 10
+    limit = 10,
+    debug = false
   } = options;
   
   console.log(`🔍 [Hybrid] Query: "${query}" | Type: ${type} | Scope: ${scope}`);
@@ -163,25 +164,55 @@ export async function hybridSearch(query, options = {}) {
   
   // Запускаем оба поиска параллельно
   const [keywordResults, semanticResults] = await Promise.all([
-    keywordSearch(query, { type, scope, tenantId, limit: limit * 2 }),
+    keywordSearch(query, { type, scope, tenantId, limit: limit * 3 }),
     pineconeClient.search(query, { 
-      topK: limit * 2, 
+      topK: limit * 3, 
       filter: buildPineconeFilter(type, scope, tenantId)
     })
   ]);
   
   console.log(`✅ [Hybrid] Keyword: ${keywordResults.length} results, Semantic: ${semanticResults.length} results`);
   
+  // Debug: показываем top-3 из каждого источника
+  if (debug || keywordResults.length > 0) {
+    console.log(`[DEBUG] Keyword top-3:`, keywordResults.slice(0, 3).map(r => ({
+      type: r.type,
+      dbId: r.dbId,
+      score: r.score.toFixed(3),
+      text: r.text.substring(0, 50)
+    })));
+    console.log(`[DEBUG] Semantic top-3:`, semanticResults.slice(0, 3).map(r => ({
+      type: r.metadata?.type,
+      dbId: r.metadata?.dbId,
+      score: r.score.toFixed(3),
+      text: (r.metadata?.text || r.text || '').substring(0, 50)
+    })));
+  }
+  
   // Объединяем результаты с весами
   const merged = mergeResults(
     keywordResults,
     semanticResults,
     strategy.keywordWeight,
-    strategy.semanticWeight
+    strategy.semanticWeight,
+    debug
   );
+  
+  console.log(`✅ [Hybrid] Merged: ${merged.length} results after weighting`);
+  
+  if (debug) {
+    console.log(`[DEBUG] Merged top-3:`, merged.slice(0, 3).map(r => ({
+      type: r.type,
+      dbId: r.dbId,
+      score: r.score.toFixed(3),
+      sources: r.sources
+    })));
+  }
   
   // Дедупликация по dbId
   const deduplicated = deduplicateResults(merged);
+  
+  console.log(`✅ [Hybrid] Final: ${deduplicated.length} results after dedup`);
   
   return deduplicated.slice(0, limit);
 }
@@ -208,12 +239,12 @@ function buildPineconeFilter(type, scope, tenantId) {
 /**
  * Объединение и нормализация результатов
  */
-function mergeResults(keywordResults, semanticResults, keywordWeight, semanticWeight) {
+function mergeResults(keywordResults, semanticResults, keywordWeight, semanticWeight, debug = false) {
   const resultsMap = new Map();
   
   // Добавляем keyword результаты
   for (const result of keywordResults) {
-    const key = `${result.type}-${result.dbId}`;
+    const key = `${result.type}:${result.dbId}`; // Унифицированный ключ
     resultsMap.set(key, {
       ...result,
       score: result.score * keywordWeight,
@@ -221,28 +252,53 @@ function mergeResults(keywordResults, semanticResults, keywordWeight, semanticWe
     });
   }
   
+  if (debug) {
+    console.log(`[DEBUG] After keyword: ${resultsMap.size} unique items`);
+  }
+  
   // Добавляем/обновляем semantic результаты
   for (const result of semanticResults) {
-    const key = `${result.metadata?.type || result.type}-${result.metadata?.dbId || result.dbId}`;
+    // Извлекаем type и dbId из metadata
+    const resType = result.metadata?.type || result.type;
+    const resDbId = result.metadata?.dbId || result.dbId;
+    
+    if (!resType || !resDbId) {
+      console.warn(`[Hybrid] Skipping semantic result without type/dbId:`, result.id);
+      continue;
+    }
+    
+    const key = `${resType}:${resDbId}`; // Унифицированный ключ
     
     if (resultsMap.has(key)) {
       // Объект найден в обоих - усиливаем score
       const existing = resultsMap.get(key);
       existing.score += result.score * semanticWeight;
       existing.sources.push('semantic');
+      
+      if (debug) {
+        console.log(`[DEBUG] Combined: ${key} | keyword+semantic = ${existing.score.toFixed(3)}`);
+      }
     } else {
       // Только semantic
       resultsMap.set(key, {
         id: result.id,
-        type: result.metadata?.type || result.type,
-        dbId: result.metadata?.dbId || result.dbId,
+        type: resType,
+        dbId: resDbId,
         text: result.metadata?.text || result.text,
         score: result.score * semanticWeight,
         source: 'semantic',
         sources: ['semantic'],
-        metadata: result.metadata
+        metadata: result.metadata || {
+          category: null,
+          supplier: null,
+          unit: null
+        }
       });
     }
+  }
+  
+  if (debug) {
+    console.log(`[DEBUG] After semantic: ${resultsMap.size} unique items`);
   }
   
   // Сортируем по финальному score
