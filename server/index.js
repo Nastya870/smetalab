@@ -136,16 +136,20 @@ app.post('/api/run-migration-temp', async (req, res) => {
     let command;
     let timeout;
     
-    if (action === 'migrate') {
+    if (action === 'check-db') {
+      console.log('🔍 Checking database schema...');
+      command = 'cd /opt/render/project/src && node scripts/check-db-schema.mjs';
+      timeout = 60000;
+    } else if (action === 'migrate') {
       console.log('🔄 Running migrations...');
       command = 'cd /opt/render/project/src && node scripts/runMigrations.js';
-      timeout = 180000; // 3 минуты
+      timeout = 180000;
     } else {
       console.log(`🔄 Running Pinecone sync (${mode})...`);
       command = mode === 'test' 
         ? 'cd /opt/render/project/src && node scripts/pinecone-sync-cron.mjs global --limit=5'
         : 'cd /opt/render/project/src && node scripts/pinecone-sync-cron.mjs all';
-      timeout = 300000; // 5 минут
+      timeout = 300000;
     }
     
     const { stdout, stderr } = await execPromise(command, { timeout });
