@@ -5,7 +5,7 @@
  * 1 запись БД = 1 document
  */
 
-import db from '../config/db.js';
+import db from '../config/database.js';
 
 /**
  * Формирует text для материала из доступных полей
