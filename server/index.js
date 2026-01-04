@@ -38,6 +38,7 @@ import tenantsRoutes from './routes/tenants.js';
 import estimateTemplatesRoutes from './routes/estimateTemplates.js';
 import permissionsRoutes from './routes/permissions.js';
 import searchRoutes from './routes/search.js'; // 🧠 Semantic Search
+import adminRoutes from './routes/admin.js'; // 🔧 Admin Operations
 import { apiLimiter, heavyOperationsLimiter } from './middleware/rateLimiter.js';
 import { sanitizeErrorMessage } from './utils/sanitize.js';
 import errorHandler from './middleware/errorHandler.js';
@@ -150,6 +151,7 @@ app.use('/api/tenants', tenantsRoutes);
 app.use('/api/estimate-templates', estimateTemplatesRoutes);
 app.use('/api/permissions', permissionsRoutes);
 app.use('/api/search', searchRoutes); // 🧠 Universal Semantic Search
+app.use('/api/admin', adminRoutes); // 🔧 Admin Operations (migrations, sync)
 
 // 404 handler
 app.use((req, res) => {
