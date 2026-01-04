@@ -242,6 +242,3 @@ export default {
   checkDeleted,
   syncToStore
 };
-  exportAll,
-  checkDeleted
-};
