@@ -176,6 +176,7 @@ router.post('/pinecone', authenticateToken, async (req, res) => {
     // Получаем полные данные из БД для каждого результата
     const fullResults = await Promise.all(searchResults.map(async (result) => {
       const table = result.type === 'material' ? 'materials' : 'works';
+      const dbId = parseInt(result.dbId, 10); // Ensure integer for DB query
       
       try {
         // Разные поля для материалов и работ
@@ -185,10 +186,16 @@ router.post('/pinecone', authenticateToken, async (req, res) => {
         
         const dbResult = await db.query(
           `SELECT ${selectFields} FROM ${table} WHERE id = $1`,
-          [result.dbId]
+          [dbId]
         );
         
         const dbRow = dbResult.rows[0];
+        
+        // Debug logging
+        if (!dbRow) {
+          console.warn(`[Search] No DB row found for ${result.type}:${dbId} in ${table}`);
+        }
+        
         return {
           id: result.id,
           score: result.score,
