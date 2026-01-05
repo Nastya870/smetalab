@@ -111,6 +111,7 @@ export async function smartSearchWorks(query, options = {}) {
 
 /**
  * Поиск материалов по ключевым словам в PostgreSQL
+ * С приоритетом для точных совпадений в начале слова
  */
 async function searchMaterialsByKeywords(keywords, options = {}) {
   const { limit = 20, tenantId = null } = options;
@@ -120,11 +121,16 @@ async function searchMaterialsByKeywords(keywords, options = {}) {
   }
   
   // Создаём условие для поиска по всем ключевым словам
+  // Используем word boundary для более точного поиска
   const conditions = keywords.map((_, i) => 
-    `LOWER(name) LIKE $${i + 1}`
+    `(LOWER(name) LIKE $${i + 1} OR LOWER(name) LIKE $${i + 1 + keywords.length})`
   );
   
-  const params = keywords.map(k => `%${k}%`);
+  // Два варианта: точное начало слова и содержит слово
+  const params = [
+    ...keywords.map(k => `${k}%`),           // начинается с
+    ...keywords.map(k => `% ${k}%`)          // содержит как отдельное слово
+  ];
   
   // Добавляем tenant filter
   let tenantCondition = '';
@@ -133,17 +139,19 @@ async function searchMaterialsByKeywords(keywords, options = {}) {
     params.push(tenantId);
   }
   
+  // Сортировка: приоритет точным совпадениям
+  const orderCases = keywords.map((k, i) => 
+    `CASE WHEN LOWER(name) LIKE '${k}%' THEN 0 WHEN LOWER(name) LIKE '% ${k}%' THEN 1 ELSE 2 END`
+  ).join(' + ');
+  
   const sql = `
-    SELECT DISTINCT ON (id) 
-      id, name, sku, price, unit, supplier, category
+    SELECT id, name, sku, price, unit, supplier, category
     FROM materials
     WHERE (${conditions.join(' OR ')})
     ${tenantCondition}
-    ORDER BY id, 
-      CASE 
-        WHEN is_global = true THEN 0 
-        ELSE 1 
-      END
+    ORDER BY (${orderCases}),
+      CASE WHEN is_global = true THEN 0 ELSE 1 END,
+      name
     LIMIT $${params.length + 1}
   `;
   
@@ -164,6 +172,7 @@ async function searchMaterialsByKeywords(keywords, options = {}) {
 
 /**
  * Поиск работ по ключевым словам в PostgreSQL
+ * С приоритетом для точных совпадений
  */
 async function searchWorksByKeywords(keywords, options = {}) {
   const { limit = 20, tenantId = null } = options;
@@ -172,12 +181,15 @@ async function searchWorksByKeywords(keywords, options = {}) {
     return [];
   }
   
-  // Создаём условие для поиска по всем ключевым словам
+  // Используем word boundary для более точного поиска
   const conditions = keywords.map((_, i) => 
-    `LOWER(name) LIKE $${i + 1}`
+    `(LOWER(name) LIKE $${i + 1} OR LOWER(name) LIKE $${i + 1 + keywords.length})`
   );
   
-  const params = keywords.map(k => `%${k}%`);
+  const params = [
+    ...keywords.map(k => `${k}%`),           // начинается с
+    ...keywords.map(k => `% ${k}%`)          // содержит как отдельное слово
+  ];
   
   // Добавляем tenant filter
   let tenantCondition = '';
@@ -186,17 +198,19 @@ async function searchWorksByKeywords(keywords, options = {}) {
     params.push(tenantId);
   }
   
+  // Сортировка: приоритет точным совпадениям (первые ключевые слова важнее)
+  const orderCases = keywords.map((k, i) => 
+    `CASE WHEN LOWER(name) LIKE '${k}%' THEN 0 WHEN LOWER(name) LIKE '% ${k}%' THEN 1 ELSE 2 END`
+  ).join(' + ');
+  
   const sql = `
-    SELECT DISTINCT ON (id) 
-      id, name, code, base_price as price, unit, category
+    SELECT id, name, code, base_price as price, unit, category
     FROM works
     WHERE (${conditions.join(' OR ')})
     ${tenantCondition}
-    ORDER BY id,
-      CASE 
-        WHEN is_global = true THEN 0 
-        ELSE 1 
-      END
+    ORDER BY (${orderCases}),
+      CASE WHEN is_global = true THEN 0 ELSE 1 END,
+      name
     LIMIT $${params.length + 1}
   `;
   
