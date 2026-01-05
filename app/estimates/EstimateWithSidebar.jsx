@@ -459,6 +459,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       console.log(`🧠 Умный AI-поиск работ: "${query}"`);
       
       const scope = workSourceTab === 'global' ? 'global' : 'tenant';
+      console.log(`🧠 AI-поиск работ: "${query}" scope: ${scope}`);
       const aiResponse = await searchAPI.smartWorks(query.trim(), { limit: 50, scope });
       
       if (aiResponse.success && aiResponse.results?.length > 0) {
@@ -472,6 +473,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           price: r.price || 0,
           phase: '',
           subsection: '',
+          is_global: r.is_global,
+          tenant_id: r.tenant_id,
           _aiScore: 1,
           _aiSource: 'smart-gpt',
           _matchedKeyword: r.matchedKeyword
