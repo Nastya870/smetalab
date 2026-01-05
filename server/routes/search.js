@@ -184,7 +184,7 @@ router.post('/pinecone', authenticateToken, async (req, res) => {
           ? 'id, name, sku, price, unit, supplier, category'
           : 'id, name, code, base_price as price, unit, category';
         
-        const dbResult = await db.query(
+        const dbResult = await db(
           `SELECT ${selectFields} FROM ${table} WHERE id = $1`,
           [dbId]
         );
