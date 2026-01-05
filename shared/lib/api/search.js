@@ -80,6 +80,7 @@ const searchAPI = {
    * УМНЫЙ поиск материалов с GPT (понимает контекст: "стяжка пола" → цемент, маяки...)
    * @param {string} query - Поисковый запрос (задача/работа)
    * @param {Object} options - Параметры поиска
+   * @param {string} options.scope - 'global' | 'tenant' | 'all' (default: 'all')
    * @returns {Promise<Object>} - { success, results, expandedKeywords }
    */
   smartMaterials: async (query, options = {}) => {
@@ -87,7 +88,8 @@ const searchAPI = {
       const response = await axiosInstance.post('/search/smart', {
         query,
         type: 'material',
-        limit: options.limit || 20
+        limit: options.limit || 20,
+        scope: options.scope || 'all'
       });
       return response.data;
     } catch (error) {
@@ -100,6 +102,7 @@ const searchAPI = {
    * УМНЫЙ поиск работ с GPT (понимает контекст: "ремонт ванной" → укладка плитки, гидроизоляция...)
    * @param {string} query - Поисковый запрос (задача)
    * @param {Object} options - Параметры поиска
+   * @param {string} options.scope - 'global' | 'tenant' | 'all' (default: 'all')
    * @returns {Promise<Object>} - { success, results, expandedKeywords }
    */
   smartWorks: async (query, options = {}) => {
@@ -107,7 +110,8 @@ const searchAPI = {
       const response = await axiosInstance.post('/search/smart', {
         query,
         type: 'work',
-        limit: options.limit || 20
+        limit: options.limit || 20,
+        scope: options.scope || 'all'
       });
       return response.data;
     } catch (error) {

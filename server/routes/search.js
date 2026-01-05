@@ -261,7 +261,7 @@ router.post('/pinecone', authenticateToken, async (req, res) => {
  */
 router.post('/smart', authenticateToken, async (req, res) => {
   try {
-    const { query, type = 'material', limit = 20 } = req.body;
+    const { query, type = 'material', limit = 20, scope = 'all' } = req.body;
     const { tenantId } = req.user;
 
     if (!query || query.trim().length === 0) {
@@ -271,13 +271,13 @@ router.post('/smart', authenticateToken, async (req, res) => {
       });
     }
 
-    console.log(`🧠 [SmartSearch] Request: "${query}" | Type: ${type}`);
+    console.log(`🧠 [SmartSearch] Request: "${query}" | Type: ${type} | Scope: ${scope}`);
 
     let result;
     if (type === 'material') {
-      result = await smartSearchService.smartSearchMaterials(query, { limit, tenantId });
+      result = await smartSearchService.smartSearchMaterials(query, { limit, tenantId, scope });
     } else if (type === 'work') {
-      result = await smartSearchService.smartSearchWorks(query, { limit, tenantId });
+      result = await smartSearchService.smartSearchWorks(query, { limit, tenantId, scope });
     } else {
       return res.status(400).json({
         success: false,

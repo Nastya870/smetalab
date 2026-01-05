@@ -93,13 +93,13 @@ export async function expandQueryWithGPT(query, type = 'material') {
  * Умный поиск материалов через GPT + PostgreSQL
  */
 export async function smartSearchMaterials(query, options = {}) {
-  const { limit = 20, tenantId = null } = options;
+  const { limit = 20, tenantId = null, scope = 'all' } = options;
   
   // 1. Получаем ключевые слова (с или без GPT в зависимости от типа запроса)
   const { keywords, expanded } = await expandQueryWithGPT(query, 'material');
   
   // 2. Ищем по каждому ключевому слову в БД
-  const results = await searchMaterialsByKeywords(keywords, { limit, tenantId });
+  const results = await searchMaterialsByKeywords(keywords, { limit, tenantId, scope });
   
   return {
     originalQuery: query,
@@ -114,13 +114,13 @@ export async function smartSearchMaterials(query, options = {}) {
  * Умный поиск работ через GPT + PostgreSQL
  */
 export async function smartSearchWorks(query, options = {}) {
-  const { limit = 20, tenantId = null } = options;
+  const { limit = 20, tenantId = null, scope = 'all' } = options;
   
   // 1. Получаем ключевые слова (с или без GPT в зависимости от типа запроса)
   const { keywords, expanded } = await expandQueryWithGPT(query, 'work');
   
   // 2. Ищем по каждому ключевому слову в БД
-  const results = await searchWorksByKeywords(keywords, { limit, tenantId });
+  const results = await searchWorksByKeywords(keywords, { limit, tenantId, scope });
   
   return {
     originalQuery: query,
@@ -136,7 +136,7 @@ export async function smartSearchWorks(query, options = {}) {
  * С приоритетом для точных совпадений в начале слова
  */
 async function searchMaterialsByKeywords(keywords, options = {}) {
-  const { limit = 20, tenantId = null } = options;
+  const { limit = 20, tenantId = null, scope = 'all' } = options;
   
   if (!keywords || keywords.length === 0) {
     return [];
@@ -162,26 +162,36 @@ async function searchMaterialsByKeywords(keywords, options = {}) {
     ...safeKeywords.map(k => `% ${k}%`)          // содержит как отдельное слово
   ];
   
-  // Добавляем tenant filter
-  let tenantCondition = '';
-  if (tenantId) {
-    tenantCondition = `AND (tenant_id = $${params.length + 1} OR tenant_id IS NULL OR is_global = true)`;
+  // Фильтр по scope (tenant/global/all)
+  let scopeCondition = '';
+  if (scope === 'global') {
+    // Только глобальные материалы
+    scopeCondition = 'AND (is_global = true OR tenant_id IS NULL)';
+  } else if (scope === 'tenant' && tenantId) {
+    // Только материалы тенанта
+    scopeCondition = `AND tenant_id = $${params.length + 1}`;
+    params.push(tenantId);
+  } else if (tenantId) {
+    // all: и глобальные и тенантные
+    scopeCondition = `AND (tenant_id = $${params.length + 1} OR is_global = true OR tenant_id IS NULL)`;
     params.push(tenantId);
   }
   
   // Сортировка через параметры (безопасно от SQL injection)
   // Приоритет: первые ключевые слова GPT важнее
   const sql = `
-    SELECT DISTINCT ON (name) id, name, sku, price, unit, supplier, category
+    SELECT DISTINCT ON (name) id, name, sku, price, unit, supplier, category, is_global, tenant_id
     FROM materials
     WHERE (${conditions.join(' OR ')})
-    ${tenantCondition}
+    ${scopeCondition}
     ORDER BY name,
       CASE WHEN is_global = true THEN 0 ELSE 1 END
     LIMIT $${params.length + 1}
   `;
   
   params.push(limit * 2); // берём больше для последующей сортировки
+  
+  console.log(`🔍 [SmartSearch] Materials SQL scope: ${scope}, tenantId: ${tenantId}`);
   
   try {
     const result = await db(sql, params);
@@ -209,7 +219,7 @@ async function searchMaterialsByKeywords(keywords, options = {}) {
  * С приоритетом для точных совпадений
  */
 async function searchWorksByKeywords(keywords, options = {}) {
-  const { limit = 20, tenantId = null } = options;
+  const { limit = 20, tenantId = null, scope = 'all' } = options;
   
   if (!keywords || keywords.length === 0) {
     return [];
@@ -233,23 +243,34 @@ async function searchWorksByKeywords(keywords, options = {}) {
     ...safeKeywords.map(k => `% ${k}%`)
   ];
   
-  let tenantCondition = '';
-  if (tenantId) {
-    tenantCondition = `AND (tenant_id = $${params.length + 1} OR tenant_id IS NULL OR is_global = true)`;
+  // Фильтр по scope (tenant/global/all)
+  let scopeCondition = '';
+  if (scope === 'global') {
+    // Только глобальные работы
+    scopeCondition = 'AND (is_global = true OR tenant_id IS NULL)';
+  } else if (scope === 'tenant' && tenantId) {
+    // Только работы тенанта
+    scopeCondition = `AND tenant_id = $${params.length + 1}`;
+    params.push(tenantId);
+  } else if (tenantId) {
+    // all: и глобальные и тенантные
+    scopeCondition = `AND (tenant_id = $${params.length + 1} OR is_global = true OR tenant_id IS NULL)`;
     params.push(tenantId);
   }
   
   const sql = `
-    SELECT DISTINCT ON (name) id, name, code, base_price as price, unit, category
+    SELECT DISTINCT ON (name) id, name, code, base_price as price, unit, category, is_global, tenant_id
     FROM works
     WHERE (${conditions.join(' OR ')})
-    ${tenantCondition}
+    ${scopeCondition}
     ORDER BY name,
       CASE WHEN is_global = true THEN 0 ELSE 1 END
     LIMIT $${params.length + 1}
   `;
   
   params.push(limit * 2);
+  
+  console.log(`🔍 [SmartSearch] Works SQL scope: ${scope}, tenantId: ${tenantId}`);
   
   try {
     const result = await db(sql, params);

@@ -164,10 +164,13 @@ const WorksReferencePage = () => {
   const aiSearchWorks = useCallback(async (query) => {
     try {
       setLoading(true);
-      console.log(`🧠 Умный AI-поиск работ: "${query}"`);
+      console.log(`🧠 Умный AI-поиск работ: "${query}" (scope: ${globalFilter})`);
       
-      // Используем GPT-powered smart search
-      const aiResponse = await searchAPI.smartWorks(query, { limit: 100 });
+      // Используем GPT-powered smart search с учётом фильтра global/tenant
+      const aiResponse = await searchAPI.smartWorks(query, { 
+        limit: 100,
+        scope: globalFilter // 'global' или 'tenant'
+      });
       
       if (aiResponse.success && aiResponse.results?.length > 0) {
         const aiWorks = aiResponse.results.map(r => ({
@@ -177,7 +180,7 @@ const WorksReferencePage = () => {
           category: r.category || null,
           unit: r.unit || 'шт',
           base_price: r.price || 0,
-          is_global: true,
+          is_global: r.is_global ?? true,
           _aiScore: 1,
           _aiSource: 'smart-gpt',
           _matchedKeyword: r.matchedKeyword

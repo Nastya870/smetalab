@@ -211,10 +211,13 @@ const MaterialsReferencePage = () => {
   const aiSearchMaterials = useCallback(async (query) => {
     try {
       setLoading(true);
-      console.log(`🧠 Умный AI-поиск: "${query}"`);
+      console.log(`🧠 Умный AI-поиск: "${query}" (scope: ${globalFilter})`);
       
-      // Используем GPT-powered smart search
-      const aiResponse = await searchAPI.smartMaterials(query, { limit: 100 });
+      // Используем GPT-powered smart search с учётом фильтра global/tenant
+      const aiResponse = await searchAPI.smartMaterials(query, { 
+        limit: 100, 
+        scope: globalFilter // 'global' или 'tenant'
+      });
       
       if (aiResponse.success && aiResponse.results?.length > 0) {
         // Преобразуем AI-результаты в формат материалов
@@ -226,7 +229,7 @@ const MaterialsReferencePage = () => {
           unit: r.unit || 'шт',
           category: r.category || null,
           supplier: r.supplier || null,
-          is_global: true,
+          is_global: r.is_global ?? true,
           _aiScore: 1,
           _aiSource: 'smart-gpt',
           _matchedKeyword: r.matchedKeyword
