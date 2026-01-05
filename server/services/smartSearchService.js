@@ -120,16 +120,24 @@ async function searchMaterialsByKeywords(keywords, options = {}) {
     return [];
   }
   
+  // Sanitize keywords - убираем спецсимволы для безопасности SQL
+  const safeKeywords = keywords
+    .map(k => k.replace(/[%_'"\\]/g, '').trim())
+    .filter(k => k.length >= 2); // минимум 2 символа
+  
+  if (safeKeywords.length === 0) {
+    return [];
+  }
+  
   // Создаём условие для поиска по всем ключевым словам
-  // Используем word boundary для более точного поиска
-  const conditions = keywords.map((_, i) => 
-    `(LOWER(name) LIKE $${i + 1} OR LOWER(name) LIKE $${i + 1 + keywords.length})`
+  const conditions = safeKeywords.map((_, i) => 
+    `(LOWER(name) LIKE $${i + 1} OR LOWER(name) LIKE $${i + 1 + safeKeywords.length})`
   );
   
   // Два варианта: точное начало слова и содержит слово
   const params = [
-    ...keywords.map(k => `${k}%`),           // начинается с
-    ...keywords.map(k => `% ${k}%`)          // содержит как отдельное слово
+    ...safeKeywords.map(k => `${k}%`),           // начинается с
+    ...safeKeywords.map(k => `% ${k}%`)          // содержит как отдельное слово
   ];
   
   // Добавляем tenant filter
@@ -139,30 +147,34 @@ async function searchMaterialsByKeywords(keywords, options = {}) {
     params.push(tenantId);
   }
   
-  // Сортировка: приоритет точным совпадениям
-  const orderCases = keywords.map((k, i) => 
-    `CASE WHEN LOWER(name) LIKE '${k}%' THEN 0 WHEN LOWER(name) LIKE '% ${k}%' THEN 1 ELSE 2 END`
-  ).join(' + ');
-  
+  // Сортировка через параметры (безопасно от SQL injection)
+  // Приоритет: первые ключевые слова GPT важнее
   const sql = `
-    SELECT id, name, sku, price, unit, supplier, category
+    SELECT DISTINCT ON (name) id, name, sku, price, unit, supplier, category
     FROM materials
     WHERE (${conditions.join(' OR ')})
     ${tenantCondition}
-    ORDER BY (${orderCases}),
-      CASE WHEN is_global = true THEN 0 ELSE 1 END,
-      name
+    ORDER BY name,
+      CASE WHEN is_global = true THEN 0 ELSE 1 END
     LIMIT $${params.length + 1}
   `;
   
-  params.push(limit);
+  params.push(limit * 2); // берём больше для последующей сортировки
   
   try {
     const result = await db(sql, params);
-    return result.rows.map(row => ({
+    
+    // Сортируем в JS по релевантности ключевых слов
+    const sorted = result.rows.sort((a, b) => {
+      const aIndex = safeKeywords.findIndex(k => a.name.toLowerCase().includes(k));
+      const bIndex = safeKeywords.findIndex(k => b.name.toLowerCase().includes(k));
+      return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+    });
+    
+    return sorted.slice(0, limit).map(row => ({
       ...row,
       type: 'material',
-      matchedKeyword: keywords.find(k => row.name.toLowerCase().includes(k)) || keywords[0]
+      matchedKeyword: safeKeywords.find(k => row.name.toLowerCase().includes(k)) || safeKeywords[0]
     }));
   } catch (error) {
     console.error('❌ [SmartSearch] Material search failed:', error.message);
@@ -181,47 +193,56 @@ async function searchWorksByKeywords(keywords, options = {}) {
     return [];
   }
   
-  // Используем word boundary для более точного поиска
-  const conditions = keywords.map((_, i) => 
-    `(LOWER(name) LIKE $${i + 1} OR LOWER(name) LIKE $${i + 1 + keywords.length})`
+  // Sanitize keywords - убираем спецсимволы для безопасности SQL
+  const safeKeywords = keywords
+    .map(k => k.replace(/[%_'"\\]/g, '').trim())
+    .filter(k => k.length >= 2);
+  
+  if (safeKeywords.length === 0) {
+    return [];
+  }
+  
+  const conditions = safeKeywords.map((_, i) => 
+    `(LOWER(name) LIKE $${i + 1} OR LOWER(name) LIKE $${i + 1 + safeKeywords.length})`
   );
   
   const params = [
-    ...keywords.map(k => `${k}%`),           // начинается с
-    ...keywords.map(k => `% ${k}%`)          // содержит как отдельное слово
+    ...safeKeywords.map(k => `${k}%`),
+    ...safeKeywords.map(k => `% ${k}%`)
   ];
   
-  // Добавляем tenant filter
   let tenantCondition = '';
   if (tenantId) {
     tenantCondition = `AND (tenant_id = $${params.length + 1} OR tenant_id IS NULL OR is_global = true)`;
     params.push(tenantId);
   }
   
-  // Сортировка: приоритет точным совпадениям (первые ключевые слова важнее)
-  const orderCases = keywords.map((k, i) => 
-    `CASE WHEN LOWER(name) LIKE '${k}%' THEN 0 WHEN LOWER(name) LIKE '% ${k}%' THEN 1 ELSE 2 END`
-  ).join(' + ');
-  
   const sql = `
-    SELECT id, name, code, base_price as price, unit, category
+    SELECT DISTINCT ON (name) id, name, code, base_price as price, unit, category
     FROM works
     WHERE (${conditions.join(' OR ')})
     ${tenantCondition}
-    ORDER BY (${orderCases}),
-      CASE WHEN is_global = true THEN 0 ELSE 1 END,
-      name
+    ORDER BY name,
+      CASE WHEN is_global = true THEN 0 ELSE 1 END
     LIMIT $${params.length + 1}
   `;
   
-  params.push(limit);
+  params.push(limit * 2);
   
   try {
     const result = await db(sql, params);
-    return result.rows.map(row => ({
+    
+    // Сортируем по релевантности ключевых слов
+    const sorted = result.rows.sort((a, b) => {
+      const aIndex = safeKeywords.findIndex(k => a.name.toLowerCase().includes(k));
+      const bIndex = safeKeywords.findIndex(k => b.name.toLowerCase().includes(k));
+      return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+    });
+    
+    return sorted.slice(0, limit).map(row => ({
       ...row,
       type: 'work',
-      matchedKeyword: keywords.find(k => row.name.toLowerCase().includes(k)) || keywords[0]
+      matchedKeyword: safeKeywords.find(k => row.name.toLowerCase().includes(k)) || safeKeywords[0]
     }));
   } catch (error) {
     console.error('❌ [SmartSearch] Work search failed:', error.message);
