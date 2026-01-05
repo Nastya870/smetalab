@@ -164,13 +164,16 @@ async function searchMaterialsByKeywords(keywords, options = {}) {
   
   // Фильтр по scope (tenant/global/all)
   let scopeCondition = '';
+  console.log(`🔍 [SmartSearch] Materials filter - scope: ${scope}, tenantId: ${tenantId}`);
+  
   if (scope === 'global') {
     // Только глобальные материалы
     scopeCondition = 'AND (is_global = true OR tenant_id IS NULL)';
   } else if (scope === 'tenant' && tenantId) {
     // Только материалы тенанта
-    scopeCondition = `AND tenant_id = $${params.length + 1}`;
+    scopeCondition = `AND tenant_id = $${params.length + 1} AND (is_global = false OR is_global IS NULL)`;
     params.push(tenantId);
+    console.log(`🔍 [SmartSearch] Tenant filter applied: tenant_id = ${tenantId}`);
   } else if (tenantId) {
     // all: и глобальные и тенантные
     scopeCondition = `AND (tenant_id = $${params.length + 1} OR is_global = true OR tenant_id IS NULL)`;
@@ -245,13 +248,16 @@ async function searchWorksByKeywords(keywords, options = {}) {
   
   // Фильтр по scope (tenant/global/all)
   let scopeCondition = '';
+  console.log(`🔍 [SmartSearch] Works filter - scope: ${scope}, tenantId: ${tenantId}`);
+  
   if (scope === 'global') {
     // Только глобальные работы
     scopeCondition = 'AND (is_global = true OR tenant_id IS NULL)';
   } else if (scope === 'tenant' && tenantId) {
     // Только работы тенанта
-    scopeCondition = `AND tenant_id = $${params.length + 1}`;
+    scopeCondition = `AND tenant_id = $${params.length + 1} AND (is_global = false OR is_global IS NULL)`;
     params.push(tenantId);
+    console.log(`🔍 [SmartSearch] Tenant filter applied: tenant_id = ${tenantId}`);
   } else if (tenantId) {
     // all: и глобальные и тенантные
     scopeCondition = `AND (tenant_id = $${params.length + 1} OR is_global = true OR tenant_id IS NULL)`;
