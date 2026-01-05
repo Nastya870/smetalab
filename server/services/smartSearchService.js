@@ -87,6 +87,7 @@ export async function expandQueryWithGPT(query, type = 'material') {
     const systemPrompt = SYSTEM_PROMPTS[type] || SYSTEM_PROMPTS.material;
     
     console.log(`🧠 [SmartSearch] Expanding task query: "${query}" (type: ${type})`);
+    console.log(`🧠 [SmartSearch] System prompt preview: "${systemPrompt.substring(0, 100)}..."`);
     
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -98,12 +99,15 @@ export async function expandQueryWithGPT(query, type = 'material') {
       temperature: 0.3
     });
     
-    const keywords = response.choices[0].message.content
+    const rawResponse = response.choices[0].message.content;
+    console.log(`🧠 [SmartSearch] RAW GPT response: "${rawResponse}"`);
+    
+    const keywords = rawResponse
       .split(',')
       .map(k => k.trim().toLowerCase())
       .filter(k => k.length > 0);
     
-    console.log(`🧠 [SmartSearch] GPT keywords: ${keywords.join(', ')}`);
+    console.log(`🧠 [SmartSearch] Parsed keywords (${keywords.length}): ${keywords.join(', ')}`);
     
     return { keywords, expanded: true };
   } catch (error) {
