@@ -271,7 +271,7 @@ router.post('/smart', authenticateToken, async (req, res) => {
       });
     }
 
-    console.log(`🧠 [SmartSearch] Request: "${query}" | Type: ${type} | Scope: ${scope}`);
+    console.log(`🧠 [SmartSearch] Request: "${query}" | Type: ${type} | Scope: ${scope} | TenantId: ${tenantId}`);
 
     let result;
     if (type === 'material') {
