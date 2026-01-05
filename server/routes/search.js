@@ -7,6 +7,7 @@ import { universalSemanticSearch } from '../controllers/searchController.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import * as pineconeClient from '../services/pineconeClient.js';
 import * as hybridSearchService from '../services/hybridSearchService.js';
+import * as smartSearchService from '../services/smartSearchService.js';
 import { query as db } from '../config/database.js';
 
 const router = express.Router();
@@ -243,6 +244,61 @@ router.post('/pinecone', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Search failed',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/search/smart
+ * @desc    Smart search с GPT - понимает контекст строительных задач
+ * @access  Private
+ * @body    {
+ *            query: string,      // "стяжка пола", "ремонт ванной"
+ *            type: 'material' | 'work',
+ *            limit: number (default: 20)
+ *          }
+ */
+router.post('/smart', authenticateToken, async (req, res) => {
+  try {
+    const { query, type = 'material', limit = 20 } = req.body;
+    const { tenantId } = req.user;
+
+    if (!query || query.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Query is required'
+      });
+    }
+
+    console.log(`🧠 [SmartSearch] Request: "${query}" | Type: ${type}`);
+
+    let result;
+    if (type === 'material') {
+      result = await smartSearchService.smartSearchMaterials(query, { limit, tenantId });
+    } else if (type === 'work') {
+      result = await smartSearchService.smartSearchWorks(query, { limit, tenantId });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Type must be "material" or "work"'
+      });
+    }
+
+    res.json({
+      success: true,
+      query: result.originalQuery,
+      expandedKeywords: result.expandedKeywords,
+      count: result.results.length,
+      results: result.results,
+      source: result.source
+    });
+
+  } catch (error) {
+    console.error('❌ [SmartSearch] Failed:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Smart search failed',
       error: error.message
     });
   }
