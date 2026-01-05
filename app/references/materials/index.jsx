@@ -207,33 +207,34 @@ const MaterialsReferencePage = () => {
   const [showImageColumn, setShowImageColumn] = useState(true);
   const [showSupplierColumn, setShowSupplierColumn] = useState(true);
 
-  // 🧠 AI-поиск материалов через Pinecone (fuzzy + semantic)
+  // 🧠 AI-поиск материалов через GPT (понимает контекст: "стяжка пола" → цемент, маяки...)
   const aiSearchMaterials = useCallback(async (query) => {
     try {
       setLoading(true);
-      console.log(`🧠 AI-поиск: "${query}"`);
+      console.log(`🧠 Умный AI-поиск: "${query}"`);
       
-      const scope = globalFilter === 'global' ? 'global' : globalFilter === 'tenant' ? 'tenant' : 'all';
-      const aiResponse = await searchAPI.materials(query, { limit: 100, scope });
+      // Используем GPT-powered smart search
+      const aiResponse = await searchAPI.smartMaterials(query, { limit: 100 });
       
       if (aiResponse.success && aiResponse.results?.length > 0) {
         // Преобразуем AI-результаты в формат материалов
         const aiMaterials = aiResponse.results.map(r => ({
-          id: r.dbId,
-          name: r.name || r.text,
-          sku: r.sku || r.code || null,
+          id: r.id,
+          name: r.name,
+          sku: r.sku || null,
           price: r.price || 0,
           unit: r.unit || 'шт',
           category: r.category || null,
           supplier: r.supplier || null,
-          is_global: r.metadata?.isGlobal ?? true,
-          _aiScore: r.score,
-          _aiSource: r.source
+          is_global: true,
+          _aiScore: 1,
+          _aiSource: 'smart-gpt',
+          _matchedKeyword: r.matchedKeyword
         }));
         
-        const mode = aiResponse.metadata?.mode || 'unknown';
-        const sources = aiResponse.metadata?.sources?.join('+') || 'unknown';
-        console.log(`🧠 AI нашёл ${aiMaterials.length} материалов (${mode}: ${sources})`);
+        const keywords = aiResponse.expandedKeywords?.join(', ') || '';
+        console.log(`🧠 GPT ключевые слова: ${keywords}`);
+        console.log(`🧠 AI нашёл ${aiMaterials.length} материалов`);
         
         setMaterials(aiMaterials);
         setTotalRecords(aiMaterials.length);

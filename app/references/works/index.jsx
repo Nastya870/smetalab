@@ -160,31 +160,32 @@ const WorksReferencePage = () => {
   // 🎯 Ref для триггера загрузки (Intersection Observer)
   const loadMoreTriggerRef = useRef(null);
 
-  // 🧠 AI-поиск работ через Pinecone (fuzzy + semantic)
+  // 🧠 AI-поиск работ через GPT (понимает контекст: "ремонт ванной" → укладка плитки...)
   const aiSearchWorks = useCallback(async (query) => {
     try {
       setLoading(true);
-      console.log(`🧠 AI-поиск работ: "${query}"`);
+      console.log(`🧠 Умный AI-поиск работ: "${query}"`);
       
-      const scope = globalFilter === 'global' ? 'global' : globalFilter === 'tenant' ? 'tenant' : 'all';
-      const aiResponse = await searchAPI.works(query, { limit: 100, scope });
+      // Используем GPT-powered smart search
+      const aiResponse = await searchAPI.smartWorks(query, { limit: 100 });
       
       if (aiResponse.success && aiResponse.results?.length > 0) {
         const aiWorks = aiResponse.results.map(r => ({
-          id: r.dbId,
-          code: r.code || r.sku || null,
-          name: r.name || r.text,
+          id: r.id,
+          code: r.code || null,
+          name: r.name,
           category: r.category || null,
           unit: r.unit || 'шт',
           base_price: r.price || 0,
-          is_global: r.metadata?.isGlobal ?? true,
-          _aiScore: r.score,
-          _aiSource: r.source
+          is_global: true,
+          _aiScore: 1,
+          _aiSource: 'smart-gpt',
+          _matchedKeyword: r.matchedKeyword
         }));
         
-        const mode = aiResponse.metadata?.mode || 'unknown';
-        const sources = aiResponse.metadata?.sources?.join('+') || 'unknown';
-        console.log(`🧠 AI нашёл ${aiWorks.length} работ (${mode}: ${sources})`);
+        const keywords = aiResponse.expandedKeywords?.join(', ') || '';
+        console.log(`🧠 GPT ключевые слова: ${keywords}`);
+        console.log(`🧠 AI нашёл ${aiWorks.length} работ`);
         
         setWorks(aiWorks);
         setTotalRecords(aiWorks.length);

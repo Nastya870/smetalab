@@ -74,6 +74,46 @@ const searchAPI = {
       console.error('❌ [SearchAPI] Search failed:', error);
       throw error;
     }
+  },
+
+  /**
+   * УМНЫЙ поиск материалов с GPT (понимает контекст: "стяжка пола" → цемент, маяки...)
+   * @param {string} query - Поисковый запрос (задача/работа)
+   * @param {Object} options - Параметры поиска
+   * @returns {Promise<Object>} - { success, results, expandedKeywords }
+   */
+  smartMaterials: async (query, options = {}) => {
+    try {
+      const response = await axiosInstance.post('/search/smart', {
+        query,
+        type: 'material',
+        limit: options.limit || 20
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ [SearchAPI] Smart materials search failed:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * УМНЫЙ поиск работ с GPT (понимает контекст: "ремонт ванной" → укладка плитки, гидроизоляция...)
+   * @param {string} query - Поисковый запрос (задача)
+   * @param {Object} options - Параметры поиска
+   * @returns {Promise<Object>} - { success, results, expandedKeywords }
+   */
+  smartWorks: async (query, options = {}) => {
+    try {
+      const response = await axiosInstance.post('/search/smart', {
+        query,
+        type: 'work',
+        limit: options.limit || 20
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ [SearchAPI] Smart works search failed:', error);
+      throw error;
+    }
   }
 };
 

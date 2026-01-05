@@ -271,32 +271,33 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       let newMaterials = [];
       let total = 0;
       
-      // 🧠 AI-ПОИСК: если есть поисковый запрос - используем Pinecone
+      // 🧠 AI-ПОИСК: если есть поисковый запрос - используем GPT Smart Search
       if (search && search.trim().length > 0) {
-        console.log(`🧠 AI-поиск материалов: "${search}"`);
+        console.log(`🧠 Умный AI-поиск материалов: "${search}"`);
         
         try {
-          const aiResponse = await searchAPI.materials(search.trim(), { limit: 50 });
+          const aiResponse = await searchAPI.smartMaterials(search.trim(), { limit: 50 });
           
           if (aiResponse.success && aiResponse.results?.length > 0) {
             // Преобразуем AI-результаты в формат материалов
             newMaterials = aiResponse.results.map(result => normalizeMaterial({
-              id: result.dbId,
-              name: result.name || result.text,
+              id: result.id,
+              name: result.name,
               sku: result.sku || null,
               price: result.price || 0,
               unit: result.unit || 'шт',
               category: result.category || null,
               supplier: result.supplier || null,
-              is_global: result.metadata?.isGlobal ?? true,
-              _aiScore: result.score, // Сохраняем score для отладки
-              _aiSource: result.source // keyword/semantic/keyword+semantic
+              is_global: true,
+              _aiScore: 1,
+              _aiSource: 'smart-gpt',
+              _matchedKeyword: result.matchedKeyword
             }));
             
             total = newMaterials.length;
-            const mode = aiResponse.metadata?.mode || 'unknown';
-            const sources = aiResponse.metadata?.sources?.join('+') || 'unknown';
-            console.log(`🧠 AI нашёл ${total} материалов (${mode}: ${sources})`);
+            const keywords = aiResponse.expandedKeywords?.join(', ') || '';
+            console.log(`🧠 GPT ключевые слова: ${keywords}`);
+            console.log(`🧠 AI нашёл ${total} материалов`);
           } else {
             console.log('🧠 AI не нашёл результатов, пробуем SQL...');
             // Fallback на SQL если AI ничего не нашёл
@@ -446,7 +447,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     }
   }, []);
 
-  // 🧠 AI-поиск работ через Pinecone (fuzzy + semantic)
+  // 🧠 AI-поиск работ через GPT Smart Search
   const aiSearchWorks = useCallback(async (query) => {
     if (!query || query.trim().length < 2) {
       setAiSearchedWorks(null);
@@ -455,29 +456,30 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     
     try {
       setLoadingAiSearch(true);
-      console.log(`🧠 AI-поиск работ: "${query}"`);
+      console.log(`🧠 Умный AI-поиск работ: "${query}"`);
       
       const scope = workSourceTab === 'global' ? 'global' : 'tenant';
-      const aiResponse = await searchAPI.works(query.trim(), { limit: 50, scope });
+      const aiResponse = await searchAPI.smartWorks(query.trim(), { limit: 50, scope });
       
       if (aiResponse.success && aiResponse.results?.length > 0) {
         const aiWorks = aiResponse.results.map(r => ({
-          id: r.dbId?.toString(),
+          id: r.id?.toString(),
           code: r.code || r.sku || null,
-          name: r.name || r.text,
+          name: r.name,
           category: r.category || '',
           section: r.category || '',
           unit: r.unit || 'шт',
           price: r.price || 0,
           phase: '',
           subsection: '',
-          _aiScore: r.score,
-          _aiSource: r.source
+          _aiScore: 1,
+          _aiSource: 'smart-gpt',
+          _matchedKeyword: r.matchedKeyword
         }));
         
-        const mode = aiResponse.metadata?.mode || 'unknown';
-        const sources = aiResponse.metadata?.sources?.join('+') || 'unknown';
-        console.log(`🧠 AI нашёл ${aiWorks.length} работ (${mode}: ${sources})`);
+        const keywords = aiResponse.expandedKeywords?.join(', ') || '';
+        console.log(`🧠 GPT ключевые слова: ${keywords}`);
+        console.log(`🧠 AI нашёл ${aiWorks.length} работ`);
         
         setAiSearchedWorks(aiWorks);
       } else {
