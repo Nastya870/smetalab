@@ -31,18 +31,22 @@ const MaterialRow = memo(({
   onConsumptionChange,
   onConsumptionBlur,
   onReplaceMaterial,
-  onDeleteMaterial
+  onDeleteMaterial,
+  isVirtual = false // ✅ New prop for virtualization
 }) => {
   const isAutoCalculate = material.auto_calculate || material.autoCalculate;
-  
+
+  const RowWrapper = isVirtual ? React.Fragment : TableRow;
+  const rowProps = isVirtual ? {} : {
+    sx: {
+      bgcolor: '#FFFFFF',
+      borderBottom: '1px solid #F1F5F9',
+      '&:hover': { bgcolor: '#F9FAFB' }
+    }
+  };
+
   return (
-    <TableRow
-      sx={{
-        bgcolor: '#FFFFFF',
-        borderBottom: '1px solid #F1F5F9',
-        '&:hover': { bgcolor: '#F9FAFB' }
-      }}
-    >
+    <RowWrapper {...rowProps}>
       {/* Код материала */}
       <TableCell
         sx={{
@@ -176,7 +180,7 @@ const MaterialRow = memo(({
           size="small"
           placeholder="0"
           inputProps={{
-            style: { 
+            style: {
               textAlign: 'right',
               fontSize: '0.65rem',
               fontWeight: 500,
@@ -254,7 +258,7 @@ const MaterialRow = memo(({
           size="small"
           placeholder="1.05"
           inputProps={{
-            style: { 
+            style: {
               textAlign: 'center',
               fontSize: '0.65rem',
               fontWeight: 600,
@@ -286,9 +290,9 @@ const MaterialRow = memo(({
       <TableCell align="center" sx={{ py: 0.75, px: 1.5 }}>
         <Stack direction="row" spacing={0.5} justifyContent="center">
           <Tooltip title="Заменить материал">
-            <IconButton 
-              size="small" 
-              sx={{ 
+            <IconButton
+              size="small"
+              sx={{
                 p: 0.5,
                 color: '#6B7280',
                 '&:hover': { bgcolor: '#F3F4F6', color: '#F59E0B' }
@@ -299,9 +303,9 @@ const MaterialRow = memo(({
             </IconButton>
           </Tooltip>
           <Tooltip title="Удалить материал">
-            <IconButton 
-              size="small" 
-              sx={{ 
+            <IconButton
+              size="small"
+              sx={{
                 p: 0.5,
                 color: '#9CA3AF',
                 '&:hover': { bgcolor: '#FEF2F2', color: '#EF4444' }
@@ -313,7 +317,7 @@ const MaterialRow = memo(({
           </Tooltip>
         </Stack>
       </TableCell>
-    </TableRow>
+    </RowWrapper>
   );
 }, (prevProps, nextProps) => {
   // Кастомная функция сравнения для оптимизации

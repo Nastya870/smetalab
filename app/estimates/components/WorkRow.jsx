@@ -31,16 +31,20 @@ const WorkRow = memo(({
   onPriceBlur,
   onUpdateWorkPrice,
   onAddMaterial,
-  onDeleteWork
+  onDeleteWork,
+  isVirtual = false // ✅ New prop for virtualization
 }) => {
+  const RowWrapper = isVirtual ? React.Fragment : TableRow;
+  const rowProps = isVirtual ? {} : {
+    sx: {
+      bgcolor: '#F7F8FF',
+      borderBottom: '1px solid #E5E7EB',
+      '&:hover': { bgcolor: '#EEF2FF' }
+    }
+  };
+
   return (
-    <TableRow
-      sx={{
-        bgcolor: '#F7F8FF',
-        borderBottom: '1px solid #E5E7EB',
-        '&:hover': { bgcolor: '#EEF2FF' }
-      }}
-    >
+    <RowWrapper {...rowProps}>
       {/* Код */}
       <TableCell
         sx={{
@@ -67,8 +71,8 @@ const WorkRow = memo(({
             {item.name}
           </Typography>
           {(item.phase || item.section || item.subsection) && (
-            <Typography 
-              sx={{ 
+            <Typography
+              sx={{
                 display: 'block',
                 mt: 0.5,
                 fontSize: '0.625rem',
@@ -119,8 +123,8 @@ const WorkRow = memo(({
           inputProps={{
             min: 0,
             step: 0.01,
-            style: { 
-              textAlign: 'right', 
+            style: {
+              textAlign: 'right',
               fontSize: '0.7rem',
               padding: '6px 10px'
             }
@@ -181,8 +185,8 @@ const WorkRow = memo(({
             inputProps={{
               min: 0,
               step: 0.01,
-              style: { 
-                textAlign: 'right', 
+              style: {
+                textAlign: 'right',
                 fontSize: '0.7rem',
                 padding: '6px 10px'
               }
@@ -220,9 +224,9 @@ const WorkRow = memo(({
           />
           {item.workId && (
             <Tooltip title="Обновить базовую цену в справочнике Работ">
-              <IconButton 
-                size="small" 
-                sx={{ 
+              <IconButton
+                size="small"
+                sx={{
                   p: 0.5,
                   color: '#6B7280',
                   '&:hover': { bgcolor: '#F3F4F6', color: '#10B981' }
@@ -241,7 +245,7 @@ const WorkRow = memo(({
         align="right"
         sx={{ py: 1, px: 1.5 }}
       >
-        <Typography 
+        <Typography
           sx={{
             fontSize: '0.75rem',
             fontWeight: 600,
@@ -264,9 +268,9 @@ const WorkRow = memo(({
       <TableCell align="center" sx={{ py: 1, px: 1.5 }}>
         <Stack direction="row" spacing={0.5} justifyContent="center">
           <Tooltip title="Добавить материал">
-            <IconButton 
-              size="small" 
-              sx={{ 
+            <IconButton
+              size="small"
+              sx={{
                 p: 0.5,
                 color: '#4B5563',
                 '&:hover': { bgcolor: '#F3F4F6', color: '#635BFF' }
@@ -277,9 +281,9 @@ const WorkRow = memo(({
             </IconButton>
           </Tooltip>
           <Tooltip title="Удалить блок">
-            <IconButton 
-              size="small" 
-              sx={{ 
+            <IconButton
+              size="small"
+              sx={{
                 p: 0.5,
                 color: '#9CA3AF',
                 '&:hover': { bgcolor: '#FEF2F2', color: '#EF4444' }
@@ -291,7 +295,7 @@ const WorkRow = memo(({
           </Tooltip>
         </Stack>
       </TableCell>
-    </TableRow>
+    </RowWrapper>
   );
 }, (prevProps, nextProps) => {
   // Кастомная функция сравнения для оптимизации

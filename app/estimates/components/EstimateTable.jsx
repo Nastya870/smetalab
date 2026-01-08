@@ -11,7 +11,9 @@ import {
   TableRow,
   Typography
 } from '@mui/material';
-import EstimateTableSection from './EstimateTableSection';
+import { TableVirtuoso } from 'react-virtuoso';
+import WorkRow from './WorkRow';
+import MaterialRow from './MaterialRow';
 
 /**
  * Основная таблица сметы с работами и материалами
@@ -49,196 +51,134 @@ const EstimateTable = React.memo(({
   onReplaceMaterial,
   onDeleteMaterial
 }) => {
+  // ✅ Flat data for virtualization
+  const flatData = React.useMemo(() => {
+    const rows = [];
+    sortedEstimateData?.sections?.forEach((section, sectionIndex) => {
+      section.items?.forEach((item, itemIndex) => {
+        // Work Row
+        rows.push({
+          type: 'work',
+          item,
+          sectionIndex,
+          itemIndex
+        });
+
+        // Material Rows
+        item.materials?.forEach((material, matIndex) => {
+          rows.push({
+            type: 'material',
+            material,
+            sectionIndex,
+            itemIndex,
+            matIndex
+          });
+        });
+      });
+    });
+    return rows;
+  }, [sortedEstimateData]);
+
+  // ✅ Custom TableRow to handle styles
+  const CustomTableRow = (props) => {
+    const { item, ...rest } = props;
+    const sx = item?.type === 'work'
+      ? {
+        bgcolor: '#F7F8FF',
+        borderBottom: '1px solid #E5E7EB',
+        '&:hover': { bgcolor: '#EEF2FF' }
+      }
+      : {
+        bgcolor: '#FFFFFF',
+        borderBottom: '1px solid #F1F5F9',
+        '&:hover': { bgcolor: '#F9FAFB' }
+      };
+
+    return <TableRow {...rest} sx={sx} />;
+  };
+
   return (
-    <Box sx={{ flex: 1, overflow: 'auto' }}>
-      <TableContainer 
-        component={Paper} 
-        elevation={0}
-        sx={{ 
-          overflowX: 'auto', 
-          maxWidth: '100%',
-          maxHeight: 'calc(100vh - 340px)',
-          '&::-webkit-scrollbar': { width: 6, height: 6 },
-          '&::-webkit-scrollbar-track': { bgcolor: '#F1F5F9' },
-          '&::-webkit-scrollbar-thumb': { bgcolor: '#CBD5E1', borderRadius: 3 },
-          '&::-webkit-scrollbar-thumb:hover': { bgcolor: '#94A3B8' }
+    <Box sx={{ flex: 1, height: '100%', overflow: 'hidden' }}>
+      <TableVirtuoso
+        data={flatData}
+        components={{
+          Scroller: React.forwardRef((props, ref) => (
+            <TableContainer component={Paper} {...props} ref={ref} elevation={0} sx={{ height: 'calc(100vh - 340px)' }} />
+          )),
+          Table: (props) => (
+            <Table {...props} size="small" stickyHeader sx={{ borderCollapse: 'separate', tableLayout: 'fixed' }} />
+          ),
+          TableHead: React.forwardRef((props, ref) => <TableHead {...props} ref={ref} />),
+          TableRow: CustomTableRow, // ✅ Use custom row wrapper
+          TableBody: React.forwardRef((props, ref) => <TableBody {...props} ref={ref} />),
         }}
-      >
-        <Table size="small" stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell 
-                sx={{ 
-                  py: 1.25, 
-                  px: 1.5, 
-                  bgcolor: '#F9FAFB', 
-                  borderBottom: '1px solid #E5E7EB',
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 1
-                }}
-              >
-                <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Код
-                </Typography>
-              </TableCell>
-              <TableCell 
-                sx={{ 
-                  py: 1.25, 
-                  px: 1.5, 
-                  bgcolor: '#F9FAFB', 
-                  borderBottom: '1px solid #E5E7EB',
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 1
-                }}
-              >
-                <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Наименование
-                </Typography>
-              </TableCell>
-              <TableCell
-                align="center"
-                sx={{ 
-                  py: 1.25, 
-                  px: 1.5, 
-                  bgcolor: '#F9FAFB', 
-                  borderBottom: '1px solid #E5E7EB',
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 1,
-                  minWidth: 70
-                }}
-              >
-                <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Фото
-                </Typography>
-              </TableCell>
-              <TableCell
-                align="center"
-                sx={{ 
-                  py: 1.25, 
-                  px: 1.5, 
-                  bgcolor: '#F9FAFB', 
-                  borderBottom: '1px solid #E5E7EB',
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 1
-                }}
-              >
-                <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Ед.
-                </Typography>
-              </TableCell>
-              <TableCell
-                align="right"
-                sx={{ 
-                  py: 1.25, 
-                  px: 1.5, 
-                  bgcolor: '#F9FAFB', 
-                  borderBottom: '1px solid #E5E7EB',
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 1
-                }}
-              >
-                <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Кол-во
-                </Typography>
-              </TableCell>
-              <TableCell
-                align="right"
-                sx={{ 
-                  py: 1.25, 
-                  px: 1.5, 
-                  bgcolor: '#F9FAFB', 
-                  borderBottom: '1px solid #E5E7EB',
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 1
-                }}
-              >
-                <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Цена
-                </Typography>
-              </TableCell>
-              <TableCell
-                align="right"
-                sx={{ 
-                  py: 1.25, 
-                  px: 1.5, 
-                  bgcolor: '#F9FAFB', 
-                  borderBottom: '1px solid #E5E7EB',
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 1
-                }}
-              >
-                <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Сумма
-                </Typography>
-              </TableCell>
-              <TableCell
-                align="center"
-                sx={{ 
-                  py: 1.25, 
-                  px: 1.5, 
-                  bgcolor: '#F9FAFB', 
-                  borderBottom: '1px solid #E5E7EB',
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 1
-                }}
-              >
-                <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Расход
-                </Typography>
-              </TableCell>
-              <TableCell 
-                align="center" 
-                sx={{ 
-                  py: 1.25, 
-                  px: 1.5, 
-                  bgcolor: '#F9FAFB', 
-                  borderBottom: '1px solid #E5E7EB',
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 1,
-                  minWidth: 100
-                }}
-              >
-                <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Действия
-                </Typography>
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {sortedEstimateData?.sections?.map((section, sectionIndex) => (
-              <EstimateTableSection
-                key={section.id || `section-${sectionIndex}`}
-                section={section}
-                sectionIndex={sectionIndex}
-                onWorkQuantityChange={onWorkQuantityChange}
-                onWorkQuantityBlur={onWorkQuantityBlur}
-                onWorkPriceChange={onWorkPriceChange}
-                onWorkPriceBlur={onWorkPriceBlur}
+        fixedHeaderContent={() => (
+          <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+            <TableCell sx={{ py: 1.25, px: 1.5, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', width: '60px' }}>
+              <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Код</Typography>
+            </TableCell>
+            <TableCell sx={{ py: 1.25, px: 1.5, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', width: 'auto' }}>
+              <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Наименование</Typography>
+            </TableCell>
+            <TableCell align="center" sx={{ py: 1.25, px: 1.5, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', width: '50px' }}>
+              <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Фото</Typography>
+            </TableCell>
+            <TableCell align="center" sx={{ py: 1.25, px: 1.5, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', width: '60px' }}>
+              <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ед.</Typography>
+            </TableCell>
+            <TableCell align="right" sx={{ py: 1.25, px: 1.5, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', width: '100px' }}>
+              <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Кол-во</Typography>
+            </TableCell>
+            <TableCell align="right" sx={{ py: 1.25, px: 1.5, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', width: '120px' }}>
+              <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Цена</Typography>
+            </TableCell>
+            <TableCell align="right" sx={{ py: 1.25, px: 1.5, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', width: '120px' }}>
+              <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Сумма</Typography>
+            </TableCell>
+            <TableCell align="center" sx={{ py: 1.25, px: 1.5, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', width: '90px' }}>
+              <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Расход</Typography>
+            </TableCell>
+            <TableCell align="center" sx={{ py: 1.25, px: 1.5, bgcolor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', width: '100px' }}>
+              <Typography sx={{ fontWeight: 600, fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Действия</Typography>
+            </TableCell>
+          </TableRow>
+        )}
+        itemContent={(index, row) => {
+          if (row.type === 'work') {
+            return (
+              <WorkRow
+                item={row.item}
+                sectionIndex={row.sectionIndex}
+                itemIndex={row.itemIndex}
+                onQuantityChange={onWorkQuantityChange}
+                onQuantityBlur={onWorkQuantityBlur}
+                onPriceChange={onWorkPriceChange}
+                onPriceBlur={onWorkPriceBlur}
                 onUpdateWorkPrice={onUpdateWorkPrice}
                 onAddMaterial={onAddMaterial}
                 onDeleteWork={onDeleteWork}
-                onMaterialQuantityChange={onMaterialQuantityChange}
-                onMaterialQuantityBlur={onMaterialQuantityBlur}
-                onMaterialConsumptionChange={onMaterialConsumptionChange}
-                onMaterialConsumptionBlur={onMaterialConsumptionBlur}
+                isVirtual={true} // ✅ Render as cells (Fragment)
+              />
+            );
+          } else {
+            return (
+              <MaterialRow
+                material={row.material}
+                sectionIndex={row.sectionIndex}
+                itemIndex={row.itemIndex}
+                matIndex={row.matIndex}
+                onQuantityChange={onMaterialQuantityChange}
+                onQuantityBlur={onMaterialQuantityBlur}
+                onConsumptionChange={onMaterialConsumptionChange}
+                onConsumptionBlur={onMaterialConsumptionBlur}
                 onReplaceMaterial={onReplaceMaterial}
                 onDeleteMaterial={onDeleteMaterial}
+                isVirtual={true} // ✅ Render as cells (Fragment)
               />
-            ))}
-
-            {/* Итоги вынесены в отдельный sticky footer */}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            );
+          }
+        }}
+      />
     </Box>
   );
 });
