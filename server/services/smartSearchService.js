@@ -6,7 +6,10 @@
 import OpenAI from 'openai';
 import { query as db } from '../config/database.js';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: process.env.OPENAI_BASE_URL
+});
 
 const SYSTEM_PROMPTS = {
   material: `Ты помогаешь искать строительные материалы в базе данных.
@@ -61,9 +64,9 @@ const SYSTEM_PROMPTS = {
 export async function expandQueryWithGPT(query, type = 'material') {
   try {
     const systemPrompt = SYSTEM_PROMPTS[type] || SYSTEM_PROMPTS.material;
-    
+
     console.log(`🧠 [SmartSearch] Processing query: "${query}" (type: ${type})`);
-    
+
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
@@ -73,24 +76,24 @@ export async function expandQueryWithGPT(query, type = 'material') {
       max_tokens: 150,
       temperature: 0.2 // Более детерминированный для исправления опечаток
     });
-    
+
     const rawResponse = response.choices[0].message.content;
     console.log(`🧠 [SmartSearch] RAW GPT response: "${rawResponse}"`);
-    
+
     const keywords = rawResponse
       .split(',')
       .map(k => k.trim().toLowerCase())
       .filter(k => k.length > 0);
-    
+
     console.log(`🧠 [SmartSearch] Parsed keywords (${keywords.length}): ${keywords.join(', ')}`);
-    
+
     return { keywords, expanded: true };
   } catch (error) {
     console.error('❌ [SmartSearch] GPT processing failed:', error.message);
     // Fallback: поиск по оригинальному запросу
-    return { 
-      keywords: [query.toLowerCase().trim()], 
-      expanded: false 
+    return {
+      keywords: [query.toLowerCase().trim()],
+      expanded: false
     };
   }
 }
@@ -100,13 +103,13 @@ export async function expandQueryWithGPT(query, type = 'material') {
  */
 export async function smartSearchMaterials(query, options = {}) {
   const { limit = 20, tenantId = null, scope = 'all' } = options;
-  
+
   // 1. Получаем ключевые слова (с или без GPT в зависимости от типа запроса)
   const { keywords, expanded } = await expandQueryWithGPT(query, 'material');
-  
+
   // 2. Ищем по каждому ключевому слову в БД
   const results = await searchMaterialsByKeywords(keywords, { limit, tenantId, scope });
-  
+
   return {
     originalQuery: query,
     expandedKeywords: keywords,
@@ -121,13 +124,13 @@ export async function smartSearchMaterials(query, options = {}) {
  */
 export async function smartSearchWorks(query, options = {}) {
   const { limit = 20, tenantId = null, scope = 'all' } = options;
-  
+
   // 1. Получаем ключевые слова (с или без GPT в зависимости от типа запроса)
   const { keywords, expanded } = await expandQueryWithGPT(query, 'work');
-  
+
   // 2. Ищем по каждому ключевому слову в БД
   const results = await searchWorksByKeywords(keywords, { limit, tenantId, scope });
-  
+
   return {
     originalQuery: query,
     expandedKeywords: keywords,
@@ -143,35 +146,35 @@ export async function smartSearchWorks(query, options = {}) {
  */
 async function searchMaterialsByKeywords(keywords, options = {}) {
   const { limit = 20, tenantId = null, scope = 'all' } = options;
-  
+
   if (!keywords || keywords.length === 0) {
     return [];
   }
-  
+
   // Sanitize keywords - убираем спецсимволы для безопасности SQL
   const safeKeywords = keywords
     .map(k => k.replace(/[%_'"\\]/g, '').trim())
     .filter(k => k.length >= 2); // минимум 2 символа
-  
+
   if (safeKeywords.length === 0) {
     return [];
   }
-  
+
   // Создаём условие для поиска по всем ключевым словам
-  const conditions = safeKeywords.map((_, i) => 
+  const conditions = safeKeywords.map((_, i) =>
     `(LOWER(name) LIKE $${i + 1} OR LOWER(name) LIKE $${i + 1 + safeKeywords.length})`
   );
-  
+
   // Два варианта: точное начало слова и содержит слово
   const params = [
     ...safeKeywords.map(k => `${k}%`),           // начинается с
     ...safeKeywords.map(k => `% ${k}%`)          // содержит как отдельное слово
   ];
-  
+
   // Фильтр по scope (tenant/global/all)
   let scopeCondition = '';
   console.log(`🔍 [SmartSearch] Materials filter - scope: ${scope}, tenantId: ${tenantId}`);
-  
+
   if (scope === 'global') {
     // Только глобальные материалы
     scopeCondition = 'AND (is_global = true OR tenant_id IS NULL)';
@@ -185,7 +188,7 @@ async function searchMaterialsByKeywords(keywords, options = {}) {
     scopeCondition = `AND (tenant_id = $${params.length + 1} OR is_global = true OR tenant_id IS NULL)`;
     params.push(tenantId);
   }
-  
+
   // Сортировка через параметры (безопасно от SQL injection)
   // Приоритет: первые ключевые слова GPT важнее
   const sql = `
@@ -197,21 +200,21 @@ async function searchMaterialsByKeywords(keywords, options = {}) {
       CASE WHEN is_global = true THEN 0 ELSE 1 END
     LIMIT $${params.length + 1}
   `;
-  
+
   params.push(limit * 2); // берём больше для последующей сортировки
-  
+
   console.log(`🔍 [SmartSearch] Materials SQL scope: ${scope}, tenantId: ${tenantId}`);
-  
+
   try {
     const result = await db(sql, params);
-    
+
     // Сортируем в JS по релевантности ключевых слов
     const sorted = result.rows.sort((a, b) => {
       const aIndex = safeKeywords.findIndex(k => a.name.toLowerCase().includes(k));
       const bIndex = safeKeywords.findIndex(k => b.name.toLowerCase().includes(k));
       return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
     });
-    
+
     return sorted.slice(0, limit).map(row => ({
       ...row,
       type: 'material',
@@ -229,33 +232,33 @@ async function searchMaterialsByKeywords(keywords, options = {}) {
  */
 async function searchWorksByKeywords(keywords, options = {}) {
   const { limit = 20, tenantId = null, scope = 'all' } = options;
-  
+
   if (!keywords || keywords.length === 0) {
     return [];
   }
-  
+
   // Sanitize keywords - убираем спецсимволы для безопасности SQL
   const safeKeywords = keywords
     .map(k => k.replace(/[%_'"\\]/g, '').trim())
     .filter(k => k.length >= 2);
-  
+
   if (safeKeywords.length === 0) {
     return [];
   }
-  
-  const conditions = safeKeywords.map((_, i) => 
+
+  const conditions = safeKeywords.map((_, i) =>
     `(LOWER(name) LIKE $${i + 1} OR LOWER(name) LIKE $${i + 1 + safeKeywords.length})`
   );
-  
+
   const params = [
     ...safeKeywords.map(k => `${k}%`),
     ...safeKeywords.map(k => `% ${k}%`)
   ];
-  
+
   // Фильтр по scope (tenant/global/all)
   let scopeCondition = '';
   console.log(`🔍 [SmartSearch] Works filter - scope: ${scope}, tenantId: ${tenantId}`);
-  
+
   if (scope === 'global') {
     // Только глобальные работы
     scopeCondition = 'AND (is_global = true OR tenant_id IS NULL)';
@@ -269,7 +272,7 @@ async function searchWorksByKeywords(keywords, options = {}) {
     scopeCondition = `AND (tenant_id = $${params.length + 1} OR is_global = true OR tenant_id IS NULL)`;
     params.push(tenantId);
   }
-  
+
   const sql = `
     SELECT DISTINCT ON (name) id, name, code, base_price as price, unit, category, is_global, tenant_id
     FROM works
@@ -279,21 +282,21 @@ async function searchWorksByKeywords(keywords, options = {}) {
       CASE WHEN is_global = true THEN 0 ELSE 1 END
     LIMIT $${params.length + 1}
   `;
-  
+
   params.push(limit * 2);
-  
+
   console.log(`🔍 [SmartSearch] Works SQL scope: ${scope}, tenantId: ${tenantId}`);
-  
+
   try {
     const result = await db(sql, params);
-    
+
     // Сортируем по релевантности ключевых слов
     const sorted = result.rows.sort((a, b) => {
       const aIndex = safeKeywords.findIndex(k => a.name.toLowerCase().includes(k));
       const bIndex = safeKeywords.findIndex(k => b.name.toLowerCase().includes(k));
       return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
     });
-    
+
     return sorted.slice(0, limit).map(row => ({
       ...row,
       type: 'work',
