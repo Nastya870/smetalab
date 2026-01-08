@@ -17,8 +17,7 @@ import {
     IconButton,
     Chip,
     useTheme,
-    InputAdornment,
-    Alpha
+    InputAdornment
 } from '@mui/material';
 import {
     IconX,
