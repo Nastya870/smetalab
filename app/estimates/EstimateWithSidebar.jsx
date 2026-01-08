@@ -1,80 +1,26 @@
-﻿import React, { useState, useMemo, useEffect, useRef, forwardRef, useImperativeHandle, useCallback, startTransition, useDeferredValue } from 'react';
+﻿import React, { useState, useMemo, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { Virtuoso } from 'react-virtuoso';
-import debounce from 'lodash.debounce';
 
 // material-ui
 import {
   Box,
   Typography,
-  TextField,
-  InputAdornment,
-  Button,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
   Paper,
-  Divider,
-  Chip,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   IconButton,
-  Tooltip,
-  Card,
-  CardContent,
   CircularProgress,
-  Alert,
-  Tabs,
-  Tab,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Grid,
+  Stack,
   Drawer,
-  Radio,
-  RadioGroup,
-  FormControl,
-  FormControlLabel
 } from '@mui/material';
 import {
-  IconSearch,
-  IconPlus,
-  IconArrowRight,
-  IconPackage,
-  IconTrash,
-  IconReplace,
-  IconEye,
-  IconEyeOff,
-  IconPercentage,
-  IconFileTypeXls,
-  IconFilter,
-  IconX,
-  IconTemplate
+  IconX
 } from '@tabler/icons-react';
 
 // project imports
-import { formatCurrency } from '../projects/utils';
 import axiosInstance from 'shared/lib/axiosInstance';
-import worksAPI from 'api/works';
-import workMaterialsAPI from 'api/workMaterials';
-import estimatesAPI from 'api/estimates';
-import materialsAPI from 'api/materials';
-import searchAPI from 'api/search'; // ✅ AI-поиск (Pinecone hybrid)
 import estimateTemplatesAPI from 'shared/lib/api/estimateTemplates';
-import { useGetMenuMaster } from 'api/menu'; // ✅ Только для получения данных меню
 import { useNotifications } from 'contexts/NotificationsContext';
 import PriceCoefficientModal from './PriceCoefficientModal';
 import ObjectParametersSidebar from './ObjectParametersSidebar';
-
-// ✅ Мемоизированные компоненты строк для оптимизации производительности
 
 import useMaterialsSearch from './hooks/useMaterialsSearch'; // ✅ Custom Hook for Materials
 import useWorksLibrary from './hooks/useWorksLibrary'; // ✅ Custom Hook for Works
@@ -89,99 +35,7 @@ import MaterialsDialog from './components/MaterialsDialog';
 import SaveTemplateDialog from './components/SaveTemplateDialog';
 import EstimateTable from './components/EstimateTable';
 
-// ==============================|| HELPER FUNCTIONS ||============================== //
 
-/**
- * Сравнивает две работы по правилу: Фаза → Код → Стадия → Подстадия
- * @param {Object} a - первая работа
- * @param {Object} b - вторая работа
- * @returns {number} - результат сравнения (-1, 0, 1)
- */
-const compareWorkItems = (a, b) => {
-  // 1. Сравниваем по фазе (phase)
-  const phaseA = a.phase || '';
-  const phaseB = b.phase || '';
-  if (phaseA !== phaseB) {
-    return phaseA.localeCompare(phaseB, 'ru');
-  }
-
-  // 2. Сравниваем по коду работы (с правильной числовой сортировкой)
-  const codeA = a.code || '';
-  const codeB = b.code || '';
-  if (codeA !== codeB) {
-    // Разбиваем код на части: "3-100" -> ["3", "100"]
-    const partsA = codeA.split(/[-–]/); // поддержка и дефиса и тире
-    const partsB = codeB.split(/[-–]/);
-
-    // Сравниваем первую часть (префикс) как число
-    const prefixA = parseInt(partsA[0]) || 0;
-    const prefixB = parseInt(partsB[0]) || 0;
-
-    if (prefixA !== prefixB) {
-      return prefixA - prefixB;
-    }
-
-    // Если префиксы равны, сравниваем вторую часть как число
-    if (partsA.length > 1 && partsB.length > 1) {
-      const numA = parseInt(partsA[1]) || 0;
-      const numB = parseInt(partsB[1]) || 0;
-
-      if (numA !== numB) {
-        return numA - numB;
-      }
-    }
-
-    // Если числовые части равны, сравниваем как строки (на случай букв)
-    return codeA.localeCompare(codeB, 'ru');
-  }
-
-  // 3. Сравниваем по стадии (section)
-  const sectionA = a.section || '';
-  const sectionB = b.section || '';
-  if (sectionA !== sectionB) {
-    return sectionA.localeCompare(sectionB, 'ru');
-  }
-
-  // 4. Сравниваем по подстадии (subsection)
-  const subsectionA = a.subsection || '';
-  const subsectionB = b.subsection || '';
-  return subsectionA.localeCompare(subsectionB, 'ru');
-};
-
-/**
- * Сортирует работы внутри раздела по правилу: Фаза → Код → Стадия → Подстадия
- * @param {Array} items - массив работ для сортировки
- */
-const sortWorkItems = (items) => {
-  items.sort((a, b) => compareWorkItems(a, b));
-};
-
-/**
- * Находит позицию для вставки новой работы с сохранением сортировки
- * @param {Array} items - отсортированный массив работ
- * @param {Object} newItem - новая работа для вставки
- * @returns {number} - индекс позиции для вставки
- */
-const findInsertPosition = (items, newItem) => {
-  if (items.length === 0) return 0;
-
-  // Бинарный поиск для нахождения позиции вставки
-  let left = 0;
-  let right = items.length;
-
-  while (left < right) {
-    const mid = Math.floor((left + right) / 2);
-    const comparison = compareWorkItems(items[mid], newItem);
-
-    if (comparison < 0) {
-      left = mid + 1;
-    } else {
-      right = mid;
-    }
-  }
-
-  return left;
-};
 
 // ==============================|| ESTIMATE WITH SIDEBAR ||============================== //
 
