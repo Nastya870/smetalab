@@ -34,6 +34,7 @@ import WorksListPanel from './components/WorksListPanel';
 import MaterialsDialog from './components/MaterialsDialog';
 import SaveTemplateDialog from './components/SaveTemplateDialog';
 import EstimateTable from './components/EstimateTable';
+import EstimateMetadataForm from './components/EstimateMetadataForm';
 
 
 
@@ -53,6 +54,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   const [workSourceTab, setWorkSourceTab] = useState('global'); // 'global' или 'tenant'
   // const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false); // ✅ УЖЕ ЕСТЬ В ХУКЕ useEstimateData
   const [parametersWidgetOpen, setParametersWidgetOpen] = useState(false); // ✅ State для виджета параметров объекта
+  const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
 
   // ==============================|| STATE - WORKS SIDEBAR ||============================== //
 
@@ -129,6 +131,14 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
 
   const loadMoreMaterialsRef = useRef(null); // Триггер Intersection Observer (автозагрузка при скролле)
   const editingValuesRef = useRef({}); // Локальное хранилище для редактируемых полей (не вызывает ререндер)
+
+  // Редактирование метаданных сметы
+  const handleEditMetadata = useCallback(() => setMetadataDialogOpen(true), []);
+
+  const handleSaveMetadata = useCallback((data) => {
+    Object.keys(data).forEach(key => updateMetadata(key, data[key]));
+    setMetadataDialogOpen(false);
+  }, [updateMetadata]);
 
   // 🧠 Обработчик изменения поиска работ
   const handleWorksSearchChange = useCallback((value) => {
@@ -577,6 +587,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     <Box>
       {/* ✅ Заголовок компонента и панель действий */}
       <EstimateHeader
+        onEdit={handleEditMetadata}
         estimateName={estimateMetadata.name}
         estimateIdShort={estimateId?.slice(0, 8) || 'новая'}
         sidebarVisible={sidebarVisible}
@@ -715,6 +726,14 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         estimateId={estimateId}
         open={parametersWidgetOpen}
         onToggle={() => setParametersWidgetOpen(!parametersWidgetOpen)}
+      />
+
+      {/* ✅ Диалог редактирования метаданных */}
+      <EstimateMetadataForm
+        open={metadataDialogOpen}
+        onClose={() => setMetadataDialogOpen(false)}
+        metadata={estimateMetadata}
+        onSave={handleSaveMetadata}
       />
 
       {/* ✅ Диалог сохранения как шаблон */}

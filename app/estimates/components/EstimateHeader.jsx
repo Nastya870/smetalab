@@ -5,7 +5,8 @@ import {
   Typography,
   Button,
   Divider,
-  CircularProgress
+  CircularProgress,
+  IconButton
 } from '@mui/material';
 import {
   IconEye,
@@ -14,7 +15,8 @@ import {
   IconTemplate,
   IconPercentage,
   IconTrash,
-  IconFileTypeXls
+  IconFileTypeXls,
+  IconEdit
 } from '@tabler/icons-react';
 
 /**
@@ -41,26 +43,38 @@ const EstimateHeader = ({
   onSaveAsTemplate,
   onOpenCoefficient,
   onClear,
-  onExportExcel
+  onExportExcel,
+  onEdit
 }) => {
   return (
     <Box>
       {/* ✅ Заголовок компонента */}
       <Box sx={{ mb: 3 }}>
-        <Typography 
-          sx={{ 
-            fontSize: '1.5rem', 
-            fontWeight: 600, 
-            color: '#111827',
-            mb: 0.5,
-            lineHeight: 1.3
-          }}
-        >
-          Смета: {estimateName || 'Без названия'}
-        </Typography>
-        <Typography 
-          sx={{ 
-            fontSize: '0.8125rem', 
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+          <Typography
+            sx={{
+              fontSize: '1.5rem',
+              fontWeight: 600,
+              color: '#111827',
+              lineHeight: 1.3
+            }}
+          >
+            Смета: {estimateName || 'Без названия'}
+          </Typography>
+          <IconButton
+            onClick={onEdit}
+            size="small"
+            sx={{
+              color: '#9CA3AF',
+              '&:hover': { color: '#635BFF', bgcolor: '#EEF2FF' }
+            }}
+          >
+            <IconEdit size={20} />
+          </IconButton>
+        </Box>
+        <Typography
+          sx={{
+            fontSize: '0.8125rem',
             color: '#6B7280'
           }}
         >
@@ -69,12 +83,12 @@ const EstimateHeader = ({
       </Box>
 
       {/* ✅ Панель действий - новый дизайн */}
-      <Box 
-        sx={{ 
-          mb: 2, 
-          display: 'flex', 
-          gap: 1, 
-          alignItems: 'center', 
+      <Box
+        sx={{
+          mb: 2,
+          display: 'flex',
+          gap: 1,
+          alignItems: 'center',
           flexWrap: 'wrap',
           py: 1,
           px: 1.5,
@@ -89,7 +103,7 @@ const EstimateHeader = ({
           startIcon={sidebarVisible ? <IconEyeOff size={16} /> : <IconEye size={16} />}
           onClick={onToggleSidebar}
           size="small"
-          sx={{ 
+          sx={{
             textTransform: 'none',
             fontWeight: 500,
             fontSize: '0.8125rem',
@@ -118,7 +132,7 @@ const EstimateHeader = ({
           onClick={onSave}
           size="small"
           disabled={disableSave}
-          sx={{ 
+          sx={{
             textTransform: 'none',
             fontWeight: 500,
             fontSize: '0.8125rem',
@@ -141,7 +155,7 @@ const EstimateHeader = ({
           onClick={onSaveAsTemplate}
           size="small"
           disabled={disableTemplate}
-          sx={{ 
+          sx={{
             textTransform: 'none',
             fontWeight: 500,
             fontSize: '0.8125rem',
@@ -163,7 +177,7 @@ const EstimateHeader = ({
           onClick={onOpenCoefficient}
           size="small"
           disabled={disableCoefficient}
-          sx={{ 
+          sx={{
             textTransform: 'none',
             fontWeight: 500,
             fontSize: '0.8125rem',
@@ -185,7 +199,7 @@ const EstimateHeader = ({
           onClick={onClear}
           size="small"
           disabled={disableClear}
-          sx={{ 
+          sx={{
             textTransform: 'none',
             fontWeight: 500,
             fontSize: '0.8125rem',
@@ -209,7 +223,7 @@ const EstimateHeader = ({
           onClick={onExportExcel}
           size="small"
           disabled={disableExport}
-          sx={{ 
+          sx={{
             textTransform: 'none',
             fontWeight: 500,
             fontSize: '0.8125rem',
