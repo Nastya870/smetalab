@@ -274,7 +274,7 @@ async function searchWorksByKeywords(keywords, options = {}) {
   }
 
   const sql = `
-    SELECT DISTINCT ON (name) id, name, code, base_price as price, unit, category, is_global, tenant_id
+    SELECT DISTINCT ON (name) id, name, code, base_price as price, base_price, unit, category, phase, section, subsection, is_global, tenant_id
     FROM works
     WHERE (${conditions.join(' OR ')})
     ${scopeCondition}

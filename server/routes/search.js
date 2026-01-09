@@ -60,16 +60,16 @@ router.get('/pinecone/test-keyword', authenticateToken, async (req, res) => {
   try {
     const { query = 'цемент', type = 'material', limit = 5 } = req.query;
     const { tenantId } = req.user;
-    
+
     console.log(`🧪 [TEST] Testing keyword search: "${query}"`);
-    
+
     const results = await hybridSearchService.keywordSearch(query, {
       type,
       scope: 'all',
       tenantId,
       limit: parseInt(limit)
     });
-    
+
     res.json({
       success: true,
       query,
@@ -140,11 +140,11 @@ router.post('/pinecone', authenticateToken, async (req, res) => {
     } else {
       // Pure semantic (старый путь)
       const filter = {};
-      
+
       if (type !== 'all') {
         filter.type = type;
       }
-      
+
       if (scope === 'tenant') {
         filter.tenantId = tenantId;
       } else if (scope === 'global') {
@@ -178,25 +178,25 @@ router.post('/pinecone', authenticateToken, async (req, res) => {
     const fullResults = await Promise.all(searchResults.map(async (result) => {
       const table = result.type === 'material' ? 'materials' : 'works';
       const dbId = parseInt(result.dbId, 10); // Ensure integer for DB query
-      
+
       try {
         // Разные поля для материалов и работ
-        const selectFields = result.type === 'material' 
+        const selectFields = result.type === 'material'
           ? 'id, name, sku, price, unit, supplier, category'
-          : 'id, name, code, base_price as price, unit, category';
-        
+          : 'id, name, code, base_price as price, unit, category, phase, section, subsection';
+
         const dbResult = await db(
           `SELECT ${selectFields} FROM ${table} WHERE id = $1`,
           [dbId]
         );
-        
+
         const dbRow = dbResult.rows[0];
-        
+
         // Debug logging
         if (!dbRow) {
           console.warn(`[Search] No DB row found for ${result.type}:${dbId} in ${table}`);
         }
-        
+
         return {
           id: result.id,
           score: result.score,
@@ -233,7 +233,7 @@ router.post('/pinecone', authenticateToken, async (req, res) => {
       results: fullResults,
       metadata: {
         mode: searchMode,
-        sources: searchMode === 'hybrid' 
+        sources: searchMode === 'hybrid'
           ? Array.from(new Set(searchResults.flatMap(r => r.sources || [r.source]).filter(Boolean)))
           : ['semantic']
       }
