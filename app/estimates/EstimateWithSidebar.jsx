@@ -104,6 +104,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   } = useEstimateData({ projectId, estimateId, onUnsavedChanges });
 
   const [materialSearchQuery, setMaterialSearchQuery] = useState(''); // ✅ Для клиентского поиска
+  const [estimateSearchQuery, setEstimateSearchQuery] = useState(''); // ✅ Search in Estimate
 
   // ==============================|| CONSTANTS ||============================== //
 
@@ -604,6 +605,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         onOpenCoefficient={() => setCoefficientModalOpen(true)}
         onClear={clearEstimate}
         onExportExcel={handleExportExcel}
+        onSearch={setEstimateSearchQuery} // ✅ Pass search handler
       />
 
       {/* Основной контейнер - смета на всю ширину (справочник теперь overlay drawer) */}
@@ -654,6 +656,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
             !loadingEstimate && (
               <EstimateTable
                 sortedEstimateData={deferredEstimateData}
+                searchQuery={estimateSearchQuery} // ✅ Pass search query
                 onWorkQuantityChange={handleWorkQuantityInputChange}
                 onWorkQuantityBlur={handleWorkQuantityBlur}
                 onWorkPriceChange={handleWorkPriceInputChange}

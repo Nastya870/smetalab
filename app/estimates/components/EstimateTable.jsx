@@ -79,35 +79,55 @@ const EstimateTable = React.memo(({
   onMaterialConsumptionChange,
   onMaterialConsumptionBlur,
   onReplaceMaterial,
-  onDeleteMaterial
+  onDeleteMaterial,
+  searchQuery // ✅ New Prop
 }) => {
-  // ✅ Flat data for virtualization
+  // ✅ Flat data for virtualization with Filtering
   const flatData = React.useMemo(() => {
     const rows = [];
+    const query = searchQuery ? searchQuery.toLowerCase().trim() : '';
+
     sortedEstimateData?.sections?.forEach((section, sectionIndex) => {
       section.items?.forEach((item, itemIndex) => {
-        // Work Row
-        rows.push({
-          type: 'work',
-          item,
-          sectionIndex,
-          itemIndex
-        });
 
-        // Material Rows
-        item.materials?.forEach((material, matIndex) => {
+        let matches = true;
+
+        if (query) {
+          const itemMatches = (item.name || '').toLowerCase().includes(query) || (item.code || '').toLowerCase().includes(query);
+          const materialMatches = item.materials?.some(m => (m.name || '').toLowerCase().includes(query) || (m.code || '').toLowerCase().includes(query));
+          matches = itemMatches || materialMatches;
+        }
+
+        if (matches) {
+          // Work Row
           rows.push({
-            type: 'material',
-            material,
+            type: 'work',
+            item,
             sectionIndex,
-            itemIndex,
-            matIndex
+            itemIndex
           });
-        });
+
+          // Material Rows
+          item.materials?.forEach((material, matIndex) => {
+            // Should we filter materials? 
+            // Better to show all materials if the work block is shown, for context.
+            // Or maybe highlight them?
+            // For simplicity: Show all materials if work matches. 
+            // Refinement: If only material matches, and work doesn't? 
+            // Let's show all materials for now to maintain structure integrity.
+            rows.push({
+              type: 'material',
+              material,
+              sectionIndex,
+              itemIndex,
+              matIndex
+            });
+          });
+        }
       });
     });
     return rows;
-  }, [sortedEstimateData]);
+  }, [sortedEstimateData, searchQuery]);
 
   return (
     <Box sx={{ flex: 1, height: '100%', overflow: 'hidden' }}>

@@ -6,7 +6,9 @@ import {
   Button,
   Divider,
   CircularProgress,
-  IconButton
+  IconButton,
+  TextField,
+  InputAdornment
 } from '@mui/material';
 import {
   IconEye,
@@ -16,7 +18,8 @@ import {
   IconPercentage,
   IconTrash,
   IconFileTypeXls,
-  IconEdit
+  IconEdit,
+  IconSearch
 } from '@tabler/icons-react';
 
 /**
@@ -97,6 +100,32 @@ const EstimateHeader = ({
           border: '1px solid #E5E7EB'
         }}
       >
+        {/* Поиск по смете */}
+        <TextField
+          placeholder="Поиск по смете..."
+          size="small"
+          onChange={(e) => onSearch && onSearch(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <IconSearch size={16} color="#9CA3AF" />
+              </InputAdornment>
+            ),
+          }}
+          sx={{
+            width: 250,
+            '& .MuiOutlinedInput-root': {
+              fontSize: '0.8125rem',
+              bgcolor: '#F9FAFB',
+              '& fieldset': { borderColor: '#E5E7EB' },
+              '&:hover fieldset': { borderColor: '#D1D5DB' },
+              '&.Mui-focused fieldset': { borderColor: '#635BFF' }
+            }
+          }}
+        />
+
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
         {/* Переключатель режима */}
         <Button
           variant={sidebarVisible ? "contained" : "outlined"}
@@ -274,7 +303,8 @@ EstimateHeader.propTypes = {
   /** Обработчик очистки сметы */
   onClear: PropTypes.func.isRequired,
   /** Обработчик экспорта в Excel */
-  onExportExcel: PropTypes.func.isRequired
+  onExportExcel: PropTypes.func.isRequired,
+  onSearch: PropTypes.func
 };
 
 EstimateHeader.displayName = 'EstimateHeader';
