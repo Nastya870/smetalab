@@ -98,49 +98,10 @@ const useWorksLibrary = (initialSourceType = 'global') => {
      * AI Поиск работ
      */
     const searchWorksAI = useCallback(async (query) => {
-        if (!query || query.trim().length < 2) {
-            setAiSearchedWorks(null);
-            return;
-        }
-
-        try {
-            setLoadingAi(true);
-            const scope = sourceType;
-            console.log(`🧠 [useWorksLibrary] AI Search "${query}" (${scope})`);
-
-            const aiResponse = await searchAPI.smartWorks(query.trim(), { limit: 50, scope });
-
-            if (aiResponse.success && aiResponse.results?.length > 0) {
-                const aiWorks = aiResponse.results.map(r => ({
-                    id: r.id?.toString(),
-                    code: r.code || r.sku || null,
-                    name: r.name,
-                    category: r.category || '',
-                    section: r.category || '',
-                    unit: r.unit || 'шт',
-                    price: r.price || 0,
-                    phase: '',
-                    subsection: '',
-                    is_global: r.is_global,
-                    tenant_id: r.tenant_id,
-                    _aiScore: 1,
-                    _aiSource: 'smart-gpt',
-                    _matchedKeyword: r.matchedKeyword
-                }));
-
-                console.log(`🧠 AI found ${aiWorks.length} works`);
-                setAiSearchedWorks(aiWorks);
-            } else {
-                console.log('🧠 AI found nothing');
-                setAiSearchedWorks([]);
-            }
-        } catch (err) {
-            console.warn('⚠️ AI Works Search failed:', err.message);
-            setAiSearchedWorks(null); // Fallback to client search
-        } finally {
-            setLoadingAi(false);
-        }
-    }, [sourceType]);
+        // Smart AI Search DISABLED by user request.
+        // Falls back to direct client-side filtering which preserves hierarchy.
+        setAiSearchedWorks(null);
+    }, []);
 
     // Debounced search
     const debouncedSearchWorksAI = useMemo(
