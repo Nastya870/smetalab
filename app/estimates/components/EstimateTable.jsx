@@ -101,6 +101,14 @@ const EstimateTable = React.memo(({
     <Box sx={{ flex: 1, height: '100%', overflow: 'hidden' }}>
       <TableVirtuoso
         data={flatData}
+        computeItemKey={(index, item) => {
+          // Ensure unique key for each row
+          if (item.type === 'work') {
+            return item.item.id;
+          } else {
+            return item.material.id;
+          }
+        }}
         components={{
           Scroller: React.forwardRef((props, ref) => (
             <TableContainer component={Paper} {...props} ref={ref} elevation={0} sx={{ height: 'calc(100vh - 340px)' }} />
