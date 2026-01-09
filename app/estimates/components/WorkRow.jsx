@@ -32,7 +32,7 @@ const WorkRow = memo(({
   onUpdateWorkPrice,
   onAddMaterial,
   onDeleteWork,
-  isVirtual = false // ✅ New prop for virtualization
+  isVirtual = false
 }) => {
   const RowWrapper = isVirtual ? React.Fragment : TableRow;
   const rowProps = isVirtual ? {} : {
@@ -42,6 +42,19 @@ const WorkRow = memo(({
       '&:hover': { bgcolor: '#EEF2FF' }
     }
   };
+
+  // ✅ Local state to prevent input unmounting/remounting
+  const [localQty, setLocalQty] = React.useState(item.quantity);
+  const [localPrice, setLocalPrice] = React.useState(item.price);
+
+  // Sync with props
+  React.useEffect(() => {
+    setLocalQty(item.quantity);
+  }, [item.quantity]);
+
+  React.useEffect(() => {
+    setLocalPrice(item.price);
+  }, [item.price]);
 
   return (
     <RowWrapper {...rowProps}>
@@ -108,16 +121,18 @@ const WorkRow = memo(({
         {item.unit}
       </TableCell>
 
-      {/* Количество - uncontrolled input */}
+      {/* Количество - Controlled Input */}
       <TableCell
         align="right"
         sx={{ py: 1, px: 1.5 }}
       >
         <TextField
           type="number"
-          key={`qty_${sectionIndex}_${itemIndex}_${item.quantity}`}
-          defaultValue={item.quantity || ''}
-          onChange={(e) => onQuantityChange(sectionIndex, itemIndex, e.target.value)}
+          value={localQty || ''}
+          onChange={(e) => {
+            setLocalQty(e.target.value);
+            onQuantityChange(sectionIndex, itemIndex, e.target.value);
+          }}
           onBlur={(e) => onQuantityBlur(sectionIndex, itemIndex, e.target)}
           size="small"
           inputProps={{
@@ -135,12 +150,12 @@ const WorkRow = memo(({
               fontSize: '0.7rem',
               borderRadius: '6px',
               height: 34,
-              bgcolor: (!item.quantity || item.quantity === 0) ? '#FEF2F2' : '#FFFFFF',
+              bgcolor: (!localQty || localQty == 0) ? '#FEF2F2' : '#FFFFFF',
               '& fieldset': {
-                borderColor: (!item.quantity || item.quantity === 0) ? '#FCA5A5' : '#D1D5DB',
+                borderColor: (!localQty || localQty == 0) ? '#FCA5A5' : '#D1D5DB',
               },
               '&:hover fieldset': {
-                borderColor: (!item.quantity || item.quantity === 0) ? '#F87171' : '#9CA3AF',
+                borderColor: (!localQty || localQty == 0) ? '#F87171' : '#9CA3AF',
               },
               '&.Mui-focused fieldset': {
                 borderColor: '#635BFF',
@@ -162,7 +177,7 @@ const WorkRow = memo(({
         />
       </TableCell>
 
-      {/* Цена - редактируемое поле */}
+      {/* Цена - Controlled input */}
       <TableCell
         align="right"
         sx={{ py: 1, px: 1.5 }}
@@ -170,9 +185,11 @@ const WorkRow = memo(({
         <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
           <TextField
             type="number"
-            key={`price_${sectionIndex}_${itemIndex}_${item.price}`}
-            defaultValue={item.price || ''}
-            onChange={(e) => onPriceChange(sectionIndex, itemIndex, e.target.value)}
+            value={localPrice || ''}
+            onChange={(e) => {
+              setLocalPrice(e.target.value);
+              onPriceChange(sectionIndex, itemIndex, e.target.value);
+            }}
             onBlur={(e) => onPriceBlur(sectionIndex, itemIndex, e.target)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
