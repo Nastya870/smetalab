@@ -36,6 +36,18 @@ const MaterialRow = memo(({
 }) => {
   const isAutoCalculate = material.auto_calculate || material.autoCalculate;
 
+  // ✅ Local state to prevent input unmounting/remounting
+  const [localQty, setLocalQty] = React.useState(material.quantity);
+  const [localConsumption, setLocalConsumption] = React.useState(material.consumption || 1.0);
+
+  React.useEffect(() => {
+    setLocalQty(material.quantity);
+  }, [material.quantity]);
+
+  React.useEffect(() => {
+    setLocalConsumption(material.consumption || 1.0);
+  }, [material.consumption]);
+
   const RowWrapper = isVirtual ? React.Fragment : TableRow;
   const rowProps = isVirtual ? {} : {
     sx: {
@@ -159,16 +171,18 @@ const MaterialRow = memo(({
         {material.unit || '—'}
       </TableCell>
 
-      {/* Количество материала - uncontrolled */}
+      {/* Количество материала - Controlled Input */}
       <TableCell
         align="right"
         sx={{ py: 0.75, px: 1.5 }}
       >
         <TextField
           type="text"
-          key={`matqty_${sectionIndex}_${itemIndex}_${matIndex}_${material.quantity}`}
-          defaultValue={material.quantity}
-          onChange={(e) => onQuantityChange(sectionIndex, itemIndex, matIndex, e.target.value)}
+          value={localQty || ''}
+          onChange={(e) => {
+            setLocalQty(e.target.value);
+            onQuantityChange(sectionIndex, itemIndex, matIndex, e.target.value);
+          }}
           onBlur={(e) => onQuantityBlur(sectionIndex, itemIndex, matIndex, e.target)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
@@ -237,16 +251,18 @@ const MaterialRow = memo(({
         </Typography>
       </TableCell>
 
-      {/* Коэффициент расхода - uncontrolled */}
+      {/* Коэффициент расхода - Controlled Input */}
       <TableCell
         align="center"
         sx={{ py: 0.75, px: 1.5, fontSize: '0.65rem' }}
       >
         <TextField
           type="text"
-          key={`cons_${sectionIndex}_${itemIndex}_${matIndex}_${material.consumption}`}
-          defaultValue={parseFloat(material.consumption || 1.0).toFixed(2).replace(/\.?0+$/, '')}
-          onChange={(e) => onConsumptionChange(sectionIndex, itemIndex, matIndex, e.target.value)}
+          value={localConsumption !== undefined ? parseFloat(localConsumption).toFixed(2).replace(/\.?0+$/, '') : ''}
+          onChange={(e) => {
+            setLocalConsumption(e.target.value);
+            onConsumptionChange(sectionIndex, itemIndex, matIndex, e.target.value);
+          }}
           onBlur={(e) => onConsumptionBlur(sectionIndex, itemIndex, matIndex, e.target)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
