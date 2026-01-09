@@ -114,14 +114,17 @@ const EstimateTable = React.memo(({
       <TableVirtuoso
         data={flatData}
         computeItemKey={(index, item) => {
-          // Robust unique key generation
-          const id = item.type === 'work' ? item.item.id : item.material.id;
-          if (id) {
-            // Include type to prevent collision if ID is reused across types (unlikely but safe)
-            return `${item.type}_${id}`;
+          // Bulletproof unique key generation using composite of Position + ID
+          // This ensures keys are always unique even if data has duplicate IDs
+          // And stable during edits (where position doesn't change)
+
+          if (item.type === 'work') {
+            const id = item.item.id || 'unknown';
+            return `w_${item.sectionIndex}_${item.itemIndex}_${id}`;
+          } else {
+            const id = item.material.id || 'unknown';
+            return `m_${item.sectionIndex}_${item.itemIndex}_${item.matIndex}_${id}`;
           }
-          // Fallback to index-based key if ID is missing (should not happen)
-          return `${item.type}_${item.sectionIndex}_${item.itemIndex}_${item.matIndex || '0'}`;
         }}
         components={{
           Scroller: VirtuosoScroller,
