@@ -189,9 +189,9 @@ const useEstimateData = ({ projectId, estimateId, onUnsavedChanges }) => {
                 });
 
                 sections.sort((a, b) => {
-                    const codeA = a.code || '00';
-                    const codeB = b.code || '00';
-                    return codeA.localeCompare(codeB);
+                    const codeA = String(a.code || '00');
+                    const codeB = String(b.code || '00');
+                    return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
                 });
 
                 setEstimateData({

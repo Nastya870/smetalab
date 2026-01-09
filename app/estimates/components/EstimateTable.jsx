@@ -86,6 +86,7 @@ const EstimateTable = React.memo(({
   const flatData = React.useMemo(() => {
     const rows = [];
     const query = searchQuery ? searchQuery.toLowerCase().trim() : '';
+    // console.log('EstimateTable filtering with:', query);
 
     sortedEstimateData?.sections?.forEach((section, sectionIndex) => {
       section.items?.forEach((item, itemIndex) => {
