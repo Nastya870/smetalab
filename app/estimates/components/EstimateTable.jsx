@@ -89,6 +89,8 @@ const EstimateTable = React.memo(({
     // console.log('EstimateTable filtering with:', query);
 
     sortedEstimateData?.sections?.forEach((section, sectionIndex) => {
+      const sectionItems = [];
+
       section.items?.forEach((item, itemIndex) => {
 
         let matches = true;
@@ -101,7 +103,7 @@ const EstimateTable = React.memo(({
 
         if (matches) {
           // Work Row
-          rows.push({
+          sectionItems.push({
             type: 'work',
             item,
             sectionIndex,
@@ -110,13 +112,7 @@ const EstimateTable = React.memo(({
 
           // Material Rows
           item.materials?.forEach((material, matIndex) => {
-            // Should we filter materials? 
-            // Better to show all materials if the work block is shown, for context.
-            // Or maybe highlight them?
-            // For simplicity: Show all materials if work matches. 
-            // Refinement: If only material matches, and work doesn't? 
-            // Let's show all materials for now to maintain structure integrity.
-            rows.push({
+            sectionItems.push({
               type: 'material',
               material,
               sectionIndex,
@@ -126,6 +122,18 @@ const EstimateTable = React.memo(({
           });
         }
       });
+
+      // ✅ ADD HEADER if section has items
+      if (sectionItems.length > 0) {
+        rows.push({
+          type: 'header',
+          title: section.title,
+          code: section.code,
+          sectionIndex,
+          id: section.id // Ensure we have ID for unique key
+        });
+        rows.push(...sectionItems);
+      }
     });
     return rows;
   }, [sortedEstimateData, searchQuery]);
@@ -169,7 +177,9 @@ const EstimateTable = React.memo(({
           // Bulletproof unique key generation using composite of Position + ID
           // This ensures keys are always unique even if data has duplicate IDs
           // And stable during edits (where position doesn't change)
-
+          if (item.type === 'header') {
+            return `h_${item.sectionIndex}_${item.id || 'unknown'}`;
+          }
           if (item.type === 'work') {
             const id = item.item.id || 'unknown';
             return `w_${item.sectionIndex}_${item.itemIndex}_${id}`;
@@ -217,6 +227,15 @@ const EstimateTable = React.memo(({
           </TableRow>
         )}
         itemContent={(index, row) => {
+          if (row.type === 'header') {
+            return (
+              <TableCell colSpan={9} sx={{ bgcolor: '#F3F4F6', py: 1, px: 2 }}>
+                <Typography sx={{ fontWeight: 600, fontSize: '0.875rem', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {row.code ? `${row.code}. ` : ''}{row.title || 'Раздел'}
+                </Typography>
+              </TableCell>
+            );
+          }
           if (row.type === 'work') {
             return (
               <WorkRow
