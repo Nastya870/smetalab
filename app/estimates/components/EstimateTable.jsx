@@ -132,6 +132,24 @@ const EstimateTable = React.memo(({
 
   return (
     <Box sx={{ flex: 1, height: '100%', overflow: 'hidden', position: 'relative' }}>
+      {searchQuery && (
+        <Box sx={{
+          position: 'absolute',
+          top: 0,
+          right: 20,
+          bgcolor: 'rgba(255,255,255,0.9)',
+          px: 1,
+          py: 0.5,
+          borderRadius: '0 0 4px 4px',
+          border: '1px solid #E5E7EB',
+          borderTop: 'none',
+          zIndex: 10,
+          fontSize: '0.75rem',
+          color: '#6B7280'
+        }}>
+          Найдено: {flatData.length} поз.
+        </Box>
+      )}
       {searchQuery && flatData.length === 0 && (
         <Box sx={{
           position: 'absolute',
