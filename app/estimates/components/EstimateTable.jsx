@@ -35,6 +35,36 @@ import MaterialRow from './MaterialRow';
  * @param {Function} props.onReplaceMaterial - Обработчик замены материала
  * @param {Function} props.onDeleteMaterial - Обработчик удаления материала
  */
+// ✅ Stable components for Virtuoso (Must be defined outside render)
+const VirtuosoScroller = React.forwardRef((props, ref) => (
+  <TableContainer component={Paper} {...props} ref={ref} elevation={0} sx={{ height: 'calc(100vh - 340px)' }} />
+));
+
+const VirtuosoTable = (props) => (
+  <Table {...props} size="small" stickyHeader sx={{ borderCollapse: 'separate', tableLayout: 'fixed' }} />
+);
+
+const VirtuosoTableHead = React.forwardRef((props, ref) => <TableHead {...props} ref={ref} />);
+const VirtuosoTableBody = React.forwardRef((props, ref) => <TableBody {...props} ref={ref} />);
+
+// ✅ Custom TableRow to handle styles
+const CustomTableRow = (props) => {
+  const { item, ...rest } = props;
+  const sx = item?.type === 'work'
+    ? {
+      bgcolor: '#F7F8FF',
+      borderBottom: '1px solid #E5E7EB',
+      '&:hover': { bgcolor: '#EEF2FF' }
+    }
+    : {
+      bgcolor: '#FFFFFF',
+      borderBottom: '1px solid #F1F5F9',
+      '&:hover': { bgcolor: '#F9FAFB' }
+    };
+
+  return <TableRow {...rest} sx={sx} />;
+};
+
 const EstimateTable = React.memo(({
   sortedEstimateData,
   onWorkQuantityChange,
@@ -79,24 +109,6 @@ const EstimateTable = React.memo(({
     return rows;
   }, [sortedEstimateData]);
 
-  // ✅ Custom TableRow to handle styles
-  const CustomTableRow = (props) => {
-    const { item, ...rest } = props;
-    const sx = item?.type === 'work'
-      ? {
-        bgcolor: '#F7F8FF',
-        borderBottom: '1px solid #E5E7EB',
-        '&:hover': { bgcolor: '#EEF2FF' }
-      }
-      : {
-        bgcolor: '#FFFFFF',
-        borderBottom: '1px solid #F1F5F9',
-        '&:hover': { bgcolor: '#F9FAFB' }
-      };
-
-    return <TableRow {...rest} sx={sx} />;
-  };
-
   return (
     <Box sx={{ flex: 1, height: '100%', overflow: 'hidden' }}>
       <TableVirtuoso
@@ -110,15 +122,11 @@ const EstimateTable = React.memo(({
           }
         }}
         components={{
-          Scroller: React.forwardRef((props, ref) => (
-            <TableContainer component={Paper} {...props} ref={ref} elevation={0} sx={{ height: 'calc(100vh - 340px)' }} />
-          )),
-          Table: (props) => (
-            <Table {...props} size="small" stickyHeader sx={{ borderCollapse: 'separate', tableLayout: 'fixed' }} />
-          ),
-          TableHead: React.forwardRef((props, ref) => <TableHead {...props} ref={ref} />),
-          TableRow: CustomTableRow, // ✅ Use custom row wrapper
-          TableBody: React.forwardRef((props, ref) => <TableBody {...props} ref={ref} />),
+          Scroller: VirtuosoScroller,
+          Table: VirtuosoTable,
+          TableHead: VirtuosoTableHead,
+          TableRow: CustomTableRow,
+          TableBody: VirtuosoTableBody,
         }}
         fixedHeaderContent={() => (
           <TableRow sx={{ bgcolor: '#F9FAFB' }}>
