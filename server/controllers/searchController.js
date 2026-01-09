@@ -43,7 +43,7 @@ export const universalSemanticSearch = catchAsync(async (req, res) => {
     },
     works: {
       table: 'works',
-      fields: 'id, code, name, category, unit, price, is_global',
+      fields: 'id, code, name, category, unit, price, base_price, phase, section, subsection, is_global',
       searchField: 'name',
       tenantFilter: true
     },
