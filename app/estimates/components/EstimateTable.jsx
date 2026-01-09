@@ -131,7 +131,20 @@ const EstimateTable = React.memo(({
   }, [sortedEstimateData, searchQuery]);
 
   return (
-    <Box sx={{ flex: 1, height: '100%', overflow: 'hidden' }}>
+    <Box sx={{ flex: 1, height: '100%', overflow: 'hidden', position: 'relative' }}>
+      {searchQuery && flatData.length === 0 && (
+        <Box sx={{
+          position: 'absolute',
+          top: 60,
+          left: 0,
+          right: 0,
+          textAlign: 'center',
+          color: '#6B7280',
+          zIndex: 10
+        }}>
+          <Typography>Ничего не найдено по запросу "{searchQuery}"</Typography>
+        </Box>
+      )}
       <TableVirtuoso
         data={flatData}
         computeItemKey={(index, item) => {

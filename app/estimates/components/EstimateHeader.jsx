@@ -47,6 +47,8 @@ const EstimateHeader = ({
   onOpenCoefficient,
   onClear,
   onExportExcel,
+  onSearch,
+  searchQuery, // ✅ Controlled input
   onEdit
 }) => {
   return (
@@ -104,6 +106,7 @@ const EstimateHeader = ({
         <TextField
           placeholder="Поиск по смете..."
           size="small"
+          value={searchQuery || ''}
           onChange={(e) => onSearch && onSearch(e.target.value)}
           InputProps={{
             startAdornment: (

@@ -606,6 +606,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         onClear={clearEstimate}
         onExportExcel={handleExportExcel}
         onSearch={setEstimateSearchQuery} // ✅ Pass search handler
+        searchQuery={estimateSearchQuery} // ✅ Pass state
       />
 
       {/* Основной контейнер - смета на всю ширину (справочник теперь overlay drawer) */}
