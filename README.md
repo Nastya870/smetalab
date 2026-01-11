@@ -103,10 +103,11 @@ npm run dev
 - Voyage AI (embeddings)
 
 **DevOps:**
+**DevOps:**
 - **Frontend**: Vercel (автодеплой с GitHub)
 - **Backend**: Render Web Service (Frankfurt)
-- **Database**: Render PostgreSQL (Frankfurt)
-- **CI/CD**: GitHub Actions, Playwright (E2E тесты)
+- **Database**: Render PostgreSQL / Neon (совместимость с RLS исправлена)
+- **CI/CD**: GitHub Actions (Unit тесты при push, Linting), Playwright (E2E тесты)
 
 ### Структура проекта
 
@@ -205,7 +206,7 @@ npm run test:watch
 npm run test:ui
 ```
 
-**Текущее покрытие**: 140+ unit тестов, 20+ integration тестов, 10+ E2E тестов.
+**Текущее покрытие**: 160+ unit тестов (Backend coverage усилен в Январе 2026), 20+ integration тестов, 10+ E2E тестов.
 
 ---
 
@@ -408,7 +409,7 @@ VITE_APP_NAME=Сметное приложение
 ### Миграции
 52 миграции включая:
 - Schema creation (таблицы, индексы, constraints)
-- RLS setup (Row Level Security)
+- RLS setup (Row Level Security) - *исправлена совместимость с облачными БД без прав суперпользователя*
 - Seed data (роли, разрешения, категории)
 - Performance optimizations (GiST indexes для поиска)
 
@@ -496,4 +497,4 @@ VITE_APP_NAME=Сметное приложение
 ---
 
 **Версия**: v4.1.2  
-**Последнее обновление**: Январь 2026
+**Последнее обновление**: 11 Января 2026
