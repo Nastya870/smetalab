@@ -6,16 +6,16 @@ import db from '../config/database.js';
  */
 export const generatePurchases = async (tenantId, projectId, estimateId, userId) => {
   let client;
-  
+
   try {
     console.log('[PURCHASES REPO] Starting generatePurchases with params:', {
       tenantId, projectId, estimateId, userId
     });
-    
+
     console.log('[PURCHASES REPO] Getting DB client...');
     client = await db.getClient();
     console.log('[PURCHASES REPO] DB client obtained successfully');
-    
+
     console.log('[PURCHASES REPO] Starting transaction...');
     await client.query('BEGIN');
     console.log('[PURCHASES REPO] Transaction started');
@@ -35,7 +35,7 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
        WHERE estimate_id = $1 AND tenant_id = $2 AND is_extra_charge = false`,
       [estimateId, tenantId]
     );
-    
+
     const purchasedQuantities = {};
     existingPurchasesResult.rows.forEach(row => {
       purchasedQuantities[row.material_id] = parseFloat(row.purchased_quantity) || 0;
@@ -62,9 +62,16 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
         m.category,
         m.unit,
         m.image as material_image,
+        m.price as catalog_price,
         SUM(eim.quantity) as quantity,
-        SUM(eim.total_price) / NULLIF(SUM(eim.quantity), 0) as unit_price,
-        SUM(eim.total_price) as total_price
+        CASE 
+          WHEN SUM(eim.total_price) > 0 THEN SUM(eim.total_price) / NULLIF(SUM(eim.quantity), 0)
+          ELSE m.price 
+        END as unit_price,
+        CASE 
+          WHEN SUM(eim.total_price) > 0 THEN SUM(eim.total_price)
+          ELSE m.price * SUM(eim.quantity)
+        END as total_price
        FROM estimate_item_materials eim
        JOIN estimate_items ei ON eim.estimate_item_id = ei.id
        JOIN materials m ON eim.material_id = m.id
@@ -76,14 +83,21 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
          m.name, 
          m.category, 
          m.unit,
-         m.image
+         m.image,
+         m.price
        ORDER BY m.sku ASC NULLS LAST, m.name ASC`,
       [estimateId]
     );
-    console.log('[PURCHASES REPO] Found materials:', materialsResult.rows.length);
+    console.log('[PURCHASES REPO] Found materials count:', materialsResult.rows.length);
+    if (materialsResult.rows.length === 0) {
+      console.log('[PURCHASES REPO] ⚠️ No materials found for estimate:', estimateId);
+      // Проверим без RLS или просто наличие элементов сметы
+      const itemsCheck = await client.query('SELECT COUNT(*) FROM estimate_items WHERE estimate_id = $1', [estimateId]);
+      console.log('[PURCHASES REPO] estimate_items count (direct):', itemsCheck.rows[0].count);
+    }
 
     const materials = materialsResult.rows;
-    
+
     console.log('[PURCHASES REPO] Sample material data:', materials[0]);
 
     // Вставляем сгруппированные материалы в purchases
@@ -97,21 +111,21 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
         const quantity = parseFloat(material.quantity) || 0;
         const unit_price = parseFloat(material.unit_price) || 0;
         const total_price = parseFloat(material.total_price) || 0;
-        
+
         if (quantity === 0) {
           console.warn('[PURCHASES REPO] Skipping material with zero quantity:', material.material_name);
           continue;
         }
-        
+
         // Восстанавливаем purchased_quantity из сохраненных данных
         const purchasedQty = purchasedQuantities[material.material_id] || 0;
-        
+
         insertValues.push(
           `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, ` +
           `$${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, ` +
           `$${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10}, $${paramIndex + 11}, $${paramIndex + 12})`
         );
-        
+
         insertParams.push(
           tenantId,
           projectId,
@@ -127,7 +141,7 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
           total_price,
           purchasedQty // Восстанавливаем purchased_quantity
         );
-        
+
         paramIndex += 13;
       }
 
@@ -175,7 +189,7 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
       hint: error.hint,
       position: error.position
     });
-    
+
     if (client) {
       try {
         await client.query('ROLLBACK');
@@ -184,7 +198,7 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
         console.error('[PURCHASES REPO] Rollback error:', rollbackError);
       }
     }
-    
+
     throw error;
   } finally {
     if (client) {
@@ -199,7 +213,7 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
  */
 export const getPurchasesByEstimate = async (tenantId, estimateId, userId) => {
   const client = await db.getClient();
-  
+
   try {
     // Устанавливаем контекст RLS
     await client.query(`
@@ -274,7 +288,7 @@ export const getPurchasesByEstimate = async (tenantId, estimateId, userId) => {
  */
 export const deletePurchases = async (tenantId, estimateId, userId) => {
   const client = await db.getClient();
-  
+
   try {
     // Устанавливаем контекст RLS
     await client.query(`
@@ -297,10 +311,10 @@ export const deletePurchases = async (tenantId, estimateId, userId) => {
  */
 export const createExtraCharge = async (tenantId, projectId, estimateId, materialId, quantity, price, userId) => {
   const client = await db.getClient();
-  
+
   try {
-    console.log('[PURCHASES REPO] Creating Extra Charge:', { 
-      tenantId, projectId, estimateId, materialId, quantity, price, userId 
+    console.log('[PURCHASES REPO] Creating Extra Charge:', {
+      tenantId, projectId, estimateId, materialId, quantity, price, userId
     });
 
     // Устанавливаем контекст RLS

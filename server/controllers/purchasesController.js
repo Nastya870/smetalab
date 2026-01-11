@@ -96,14 +96,14 @@ export const getPurchasesByEstimate = catchAsync(async (req, res) => {
   const userId = req.user.userId;
 
   const purchases = await purchasesRepository.getPurchasesByEstimate(
-    tenantId, 
+    tenantId,
     estimateId,
     userId
   );
 
-  if (purchases.length === 0) {
-    throw new NotFoundError('Закупки не найдены');
-  }
+  // if (purchases.length === 0) {
+  //   throw new NotFoundError('Закупки не найдены');
+  // }
 
   res.status(200).json({
     success: true,
@@ -201,8 +201,8 @@ export const createExtraCharge = catchAsync(async (req, res) => {
   const tenantId = req.user.tenantId;
   const userId = req.user.userId;
 
-  console.log('[PURCHASES] Create Extra Charge request:', { 
-    estimateId, projectId, materialId, quantity, price, isExtraCharge, tenantId, userId 
+  console.log('[PURCHASES] Create Extra Charge request:', {
+    estimateId, projectId, materialId, quantity, price, isExtraCharge, tenantId, userId
   });
 
   if (!estimateId || !projectId || !materialId || !quantity || !price) {
@@ -296,7 +296,7 @@ export const createExtraCharge = catchAsync(async (req, res) => {
  */
 export const analyzeReceiptOCR = catchAsync(async (req, res) => {
   console.log('🤖 [OCR] Запрос на распознавание накладной');
-  
+
   // Проверяем наличие файла
   if (!req.file) {
     throw new BadRequestError('Файл изображения не загружен');
@@ -330,7 +330,7 @@ export const analyzeReceiptOCR = catchAsync(async (req, res) => {
 
     // Шаг 2: Загружаем материалы из БД для сопоставления
     console.log(`🔍 [OCR] Загрузка материалов из БД для tenant: ${tenantId}`);
-    
+
     // Загружаем материалы: глобальные + материалы тенанта
     const materialsQuery = `
       SELECT id, sku, name, unit, price, category, supplier

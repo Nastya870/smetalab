@@ -762,9 +762,9 @@ const useEstimateData = ({ projectId, estimateId, onUnsavedChanges }) => {
         success('Цены сброшены до исходных');
     }, [originalPrices, success]);
 
-    const handleUpdateWorkPriceInReference = useCallback(async (workId, currentPrice) => {
+    const handleUpdateWorkPriceInReference = useCallback(async (sectionIndex, itemIndex, workId, currentPrice) => {
         try {
-            await worksAPI.updatePrice(workId, currentPrice);
+            await worksAPI.updateWorkPrice(workId, currentPrice);
             success('Базовая цена обновлена в справочнике');
             setOriginalPrices(prev => {
                 const next = new Map(prev);
@@ -772,7 +772,8 @@ const useEstimateData = ({ projectId, estimateId, onUnsavedChanges }) => {
                 return next;
             });
         } catch (e) {
-            showError('Ошибка обновления цены', e.message);
+            const errorMsg = e.response?.data?.message || e.response?.data?.error || e.message || 'Неизвестная ошибка';
+            showError('Ошибка обновления цены', errorMsg);
         }
     }, [success, showError]);
 

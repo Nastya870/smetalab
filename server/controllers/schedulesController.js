@@ -150,9 +150,9 @@ export const getScheduleByEstimate = catchAsync(async (req, res) => {
 
   const scheduleWorks = await schedulesRepository.findByEstimateId(estimateId, tenantId, userId);
 
-  if (scheduleWorks.length === 0) {
-    throw new NotFoundError('График для данной сметы еще не сформирован');
-  }
+  // if (scheduleWorks.length === 0) {
+  //   throw new NotFoundError('График для данной сметы еще не сформирован');
+  // }
 
   // Группируем по фазам
   const groupedSchedule = schedulesRepository.groupByPhases(scheduleWorks);

@@ -54,10 +54,10 @@ const isTechnicalMessage = (title, message) => {
  */
 const groupNotifications = (notifications) => {
   const groups = new Map();
-  
+
   notifications.forEach(notification => {
     const key = `${notification.type}-${notification.title}-${notification.message}`;
-    
+
     if (groups.has(key)) {
       const existing = groups.get(key);
       existing.count = (existing.count || 1) + 1;
@@ -66,7 +66,7 @@ const groupNotifications = (notifications) => {
       groups.set(key, { ...notification, count: 1 });
     }
   });
-  
+
   return Array.from(groups.values());
 };
 
@@ -152,7 +152,8 @@ export function NotificationsProvider({ children }) {
 
       // Показываем toast если нужно
       if (showToast) {
-        enqueueSnackbar(title || message, {
+        const displayText = (title && message) ? `${title}: ${message}` : (title || message);
+        enqueueSnackbar(displayText, {
           variant: type,
           autoHideDuration: type === NOTIFICATION_TYPES.ERROR ? 6000 : 4000
         });
