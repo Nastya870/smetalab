@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Integration тесты для Users API
  * Тестирует CRUD, роли, активацию/деактивацию
@@ -119,7 +120,7 @@ describe('Users API Integration Tests', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data).toBeDefined();
       expect(response.body.data.email).toBe(userData.email);
-      
+
       createdUserId = response.body.data.id;
     });
 
@@ -136,11 +137,13 @@ describe('Users API Integration Tests', () => {
     });
 
     it('должен вернуть 400 для слабого пароля', async () => {
+      // Используем уникальный email с timestamp чтобы избежать 409 от предыдущих запусков
+      const uniqueEmail = `weak-pass-${Date.now()}@test.com`;
       const response = await request(app)
         .post('/api/users')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          email: 'weak-pass@test.com',
+          email: uniqueEmail,
           password: 'weak',
           fullName: 'Weak Pass User'
         });
@@ -310,7 +313,7 @@ describe('Users API Integration Tests', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      
+
       createdUserId = null;
     });
 

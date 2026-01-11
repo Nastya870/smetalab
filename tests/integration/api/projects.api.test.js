@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Integration тесты для Projects API
  * Тестирует CRUD операции, статистику, команду проекта
@@ -93,7 +94,7 @@ describe('Projects API Integration Tests', () => {
       expect(response.body.data).toBeDefined();
       expect(response.body.data.name).toBe(projectData.name);
       expect(response.body.data.client).toBe(projectData.client);
-      
+
       createdProjectId = response.body.data.id;
     });
 
@@ -272,13 +273,12 @@ describe('Projects API Integration Tests', () => {
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
       expect(response.body.data).toBeDefined();
-      
-      // Проверяем что все данные присутствуют
+
+      // Проверяем что все данные присутствуют (актуальный API)
       expect(response.body.data.totalProfit).toBeDefined();
       expect(response.body.data.incomeWorks).toBeDefined();
       expect(response.body.data.incomeMaterials).toBeDefined();
-      expect(response.body.data.chartDataMonth).toBeDefined();
-      expect(response.body.data.chartDataYear).toBeDefined();
+      expect(response.body.data.chartData).toBeDefined(); // Изменено: chartData вместо chartDataMonth/Year
       expect(response.body.data.growthData).toBeDefined();
       expect(response.body.data.projectsProfitData).toBeDefined();
     });
@@ -345,13 +345,13 @@ describe('Projects API Integration Tests', () => {
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
       expect(response.body.data).toBeDefined();
-      
+
       // Проверяем что все данные присутствуют
       expect(response.body.data.project).toBeDefined();
       expect(response.body.data.team).toBeDefined();
       expect(response.body.data.estimates).toBeDefined();
       expect(response.body.data.financialSummary).toBeDefined();
-      
+
       // Проверяем структуру financialSummary
       expect(response.body.data.financialSummary.incomeWorks).toBeDefined();
       expect(response.body.data.financialSummary.expenseWorks).toBeDefined();
@@ -390,7 +390,7 @@ describe('Projects API Integration Tests', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      
+
       // Проект удалён, обнуляем ID
       createdProjectId = null;
     });

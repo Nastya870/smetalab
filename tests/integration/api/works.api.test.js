@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Integration тесты для Works API
  * Тестирует CRUD операции, bulk create, категории

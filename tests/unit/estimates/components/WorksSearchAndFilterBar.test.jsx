@@ -13,22 +13,22 @@ describe('WorksSearchAndFilterBar', () => {
 
   it('should render search field with placeholder', () => {
     render(<WorksSearchAndFilterBar {...defaultProps} />);
-    expect(screen.getByPlaceholderText('Поиск работ...')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('🧠 Умный поиск работ...')).toBeInTheDocument();
   });
 
   it('should display search term value', () => {
     render(<WorksSearchAndFilterBar {...defaultProps} searchTerm="Кирпич" />);
-    const input = screen.getByPlaceholderText('Поиск работ...');
+    const input = screen.getByPlaceholderText('🧠 Умный поиск работ...');
     expect(input).toHaveValue('Кирпич');
   });
 
   it('should call onSearchChange when typing', () => {
     const onSearchChange = vi.fn();
     render(<WorksSearchAndFilterBar {...defaultProps} onSearchChange={onSearchChange} />);
-    
-    const input = screen.getByPlaceholderText('Поиск работ...');
+
+    const input = screen.getByPlaceholderText('🧠 Умный поиск работ...');
     fireEvent.change(input, { target: { value: 'Бетон' } });
-    
+
     expect(onSearchChange).toHaveBeenCalledWith('Бетон');
   });
 
@@ -59,10 +59,10 @@ describe('WorksSearchAndFilterBar', () => {
   it('should call onOpenFilters when filter button clicked', () => {
     const onOpenFilters = vi.fn();
     render(<WorksSearchAndFilterBar {...defaultProps} hasAvailableFilters={true} onOpenFilters={onOpenFilters} />);
-    
+
     const filterButton = screen.getByRole('button');
     fireEvent.click(filterButton);
-    
+
     expect(onOpenFilters).toHaveBeenCalledTimes(1);
   });
 

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Integration тесты для Contracts API
  * Тестирует генерацию, DOCX, статусы

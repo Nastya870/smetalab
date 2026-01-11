@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Integration тесты для Auth API
  * Тестирует регистрацию, логин, refresh token через реальные HTTP endpoints
@@ -163,7 +164,7 @@ describe('Auth API Integration Tests', () => {
       expect(response.body.data.tokens.refreshToken).toBeDefined();
       expect(response.body.data.user).toBeDefined();
       expect(response.body.data.user.email).toBe('login@authtest.local');
-      
+
       // Проверяем формат JWT токена
       expect(response.body.data.tokens.accessToken).toMatch(/^[\w-]+\.[\w-]+\.[\w-]+$/);
     });
@@ -214,11 +215,11 @@ describe('Auth API Integration Tests', () => {
         });
 
       expect(response.status).toBe(200);
-      
+
       // Декодируем JWT (без проверки подписи, просто парсим payload)
       const tokenParts = response.body.data.tokens.accessToken.split('.');
       const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-      
+
       expect(payload.userId).toBeDefined();
       expect(payload.email).toBe('login@authtest.local');
       expect(payload.permissions).toBeDefined();

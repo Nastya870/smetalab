@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Integration тесты для Purchases API
  * Тестирует генерацию закупок, extra charge

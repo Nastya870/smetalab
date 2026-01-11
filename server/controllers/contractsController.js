@@ -26,7 +26,12 @@ export const getContractByEstimate = catchAsync(async (req, res) => {
   );
 
   if (result.rows.length === 0) {
-    throw new NotFoundError('Договор не найден');
+    // Не выбрасываем 404 ошибку, если договора нет,
+    // просто возвращаем null, чтобы клиент мог предложить создать его
+    return res.json({
+      success: true,
+      contract: null
+    });
   }
 
   res.json({
@@ -131,7 +136,7 @@ export const generateContract = catchAsync(async (req, res) => {
 
   // Генерация номера договора (формат: Д-YYYY-NNN)
   const year = new Date().getFullYear();
-  
+
   // Находим максимальный номер договора для этого tenant в текущем году
   const maxNumberResult = await db.query(
     `SELECT contract_number 
@@ -160,56 +165,56 @@ export const generateContract = catchAsync(async (req, res) => {
 
   // Формируем template_data с автозаполненными полями
   const templateData = {
-      // Данные договора
-      contractNumber,
-      contractDate: new Date().toISOString().split('T')[0],
-      totalAmount,
-      
-      // Данные заказчика (физ. лицо)
-      customer: {
-        fullName: customer.full_name,
-        passportSeries: customer.passport_series_number?.split(' ')[0] || '',
-        passportNumber: customer.passport_series_number?.split(' ')[1] || '',
-        passportIssuedBy: customer.passport_issued_by || '',
-        passportIssueDate: customer.passport_issue_date || '',
-        registrationAddress: customer.registration_address || '',
-        phone: customer.phone || '',
-        email: customer.email || ''
-      },
-      
-      // Данные подрядчика (юр. лицо)
-      contractor: {
-        companyName: contractor.company_name,
-        inn: contractor.inn,
-        ogrn: contractor.ogrn,
-        legalAddress: contractor.legal_address || '',
-        actualAddress: contractor.actual_address || '',
-        phone: contractor.phone || '',
-        email: contractor.email || '',
-        bankName: contractor.bank_name || '',
-        bik: contractor.bik || '',
-        correspondentAccount: contractor.correspondent_account || '',
-        settlementAccount: contractor.settlement_account || '',
-        directorName: contractor.director_name || '',
-        directorPosition: contractor.director_position || 'Генеральный директор'
-      },
-      
-      // Данные проекта
-      project: {
-        name: project.name,
-        address: project.address,
-        objectName: project.object_name || project.name,
-        description: project.description || ''
-      },
-      
-      // Данные сметы
-      estimate: {
-        name: estimate.name,
-        totalCost: totalAmount,
-        worksCost: estimate.works_cost || 0,
-        materialsCost: estimate.materials_cost || 0,
-        overheadPercent: estimate.overhead_percent || 0,
-        profitPercent: estimate.profit_percent || 0
+    // Данные договора
+    contractNumber,
+    contractDate: new Date().toISOString().split('T')[0],
+    totalAmount,
+
+    // Данные заказчика (физ. лицо)
+    customer: {
+      fullName: customer.full_name,
+      passportSeries: customer.passport_series_number?.split(' ')[0] || '',
+      passportNumber: customer.passport_series_number?.split(' ')[1] || '',
+      passportIssuedBy: customer.passport_issued_by || '',
+      passportIssueDate: customer.passport_issue_date || '',
+      registrationAddress: customer.registration_address || '',
+      phone: customer.phone || '',
+      email: customer.email || ''
+    },
+
+    // Данные подрядчика (юр. лицо)
+    contractor: {
+      companyName: contractor.company_name,
+      inn: contractor.inn,
+      ogrn: contractor.ogrn,
+      legalAddress: contractor.legal_address || '',
+      actualAddress: contractor.actual_address || '',
+      phone: contractor.phone || '',
+      email: contractor.email || '',
+      bankName: contractor.bank_name || '',
+      bik: contractor.bik || '',
+      correspondentAccount: contractor.correspondent_account || '',
+      settlementAccount: contractor.settlement_account || '',
+      directorName: contractor.director_name || '',
+      directorPosition: contractor.director_position || 'Генеральный директор'
+    },
+
+    // Данные проекта
+    project: {
+      name: project.name,
+      address: project.address,
+      objectName: project.object_name || project.name,
+      description: project.description || ''
+    },
+
+    // Данные сметы
+    estimate: {
+      name: estimate.name,
+      totalCost: totalAmount,
+      worksCost: estimate.works_cost || 0,
+      materialsCost: estimate.materials_cost || 0,
+      overheadPercent: estimate.overhead_percent || 0,
+      profitPercent: estimate.profit_percent || 0
     }
   };
 
@@ -392,7 +397,7 @@ export const getContractDOCX = catchAsync(async (req, res) => {
       ORDER BY MIN(position_number)`,
       [contract.estimate_id]
     );
-    
+
     schedulePhases = scheduleResult.rows.map(row => ({
       phase: row.phase,
       amount: parseFloat(row.phase_total)

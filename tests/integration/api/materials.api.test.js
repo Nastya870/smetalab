@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Integration тесты для Materials API
  * Тестирует CRUD операции, bulk import, категории

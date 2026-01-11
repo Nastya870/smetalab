@@ -11,8 +11,12 @@
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'app_super_admin') THEN
-        CREATE ROLE app_super_admin WITH BYPASSRLS;
-        RAISE NOTICE 'Роль app_super_admin создана';
+        BEGIN
+            CREATE ROLE app_super_admin WITH BYPASSRLS;
+            RAISE NOTICE 'Роль app_super_admin создана';
+        EXCEPTION WHEN insufficient_privilege THEN
+            RAISE WARNING 'Нет прав на создание роли app_super_admin. Пропускаем.';
+        END;
     ELSE
         RAISE NOTICE 'Роль app_super_admin уже существует';
     END IF;

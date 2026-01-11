@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Integration тесты для Schedules API
  * Тестирует генерацию графиков работ

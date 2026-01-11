@@ -644,6 +644,15 @@ export const getProjectById = catchAsync(async (req, res) => {
 export const createProject = catchAsync(async (req, res) => {
   const userId = req.user.userId;
   const tenantId = req.user.tenantId;
+  const { objectName, client, contractor } = req.body;
+
+  // BUG-005 FIX: Валидация обязательных полей
+  if (!objectName && !req.body.name) {
+    throw new BadRequestError('Необходимо указать название объекта (objectName) или проекта (name)');
+  }
+  if (!client || !contractor) {
+    throw new BadRequestError('Необходимо указать заказчика и подрядчика');
+  }
 
   const project = await projectsRepository.create(req.body, tenantId, userId);
 
@@ -778,6 +787,12 @@ export const updateProjectStatus = catchAsync(async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   const tenantId = req.user.tenantId;
+
+  // BUG-005 FIX: Валидация статуса перед обновлением
+  const validStatuses = ['planning', 'active', 'completed', 'on_hold', 'cancelled', 'approval', 'in_progress', 'rejected'];
+  if (!status || !validStatuses.includes(status)) {
+    throw new BadRequestError(`Невалидный статус. Допустимые значения: ${validStatuses.join(', ')}`);
+  }
 
   const project = await projectsRepository.update(id, { status }, tenantId);
 

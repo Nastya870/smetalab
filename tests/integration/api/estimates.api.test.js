@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Integration тесты для Estimates API
  * Тестирует создание смет, работу с позициями, экспорт

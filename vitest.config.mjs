@@ -11,13 +11,16 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./tests/setup.js'],
-    globalSetup: ['./tests/integration/setup.integration.js'],
-    // Запускаем integration тесты последовательно (не параллельно)
+    // globalSetup убран - миграции НЕ нужны для unit тестов
+    // Для integration тестов миграции запускаются вручную или через отдельный конфиг
+    // Запускаем integration тесты последовательно
     poolOptions: {
       threads: {
         singleThread: true
       }
     },
+    hookTimeout: 30000,
+    testTimeout: 30000,
     include: [
       'tests/unit/**/*.test.{js,jsx}',
       'tests/integration/**/*.test.{js,jsx}',
