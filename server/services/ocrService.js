@@ -3,7 +3,8 @@ import { batchSemanticMatch } from './semanticSearchService.js';
 
 // OpenAI API для OCR
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY,
+  dangerouslyAllowBrowser: true
 });
 
 /**
@@ -79,10 +80,10 @@ export async function analyzeReceipt(imageBuffer, mimeType = 'image/jpeg') {
 
     // Парсим JSON
     const result = JSON.parse(response.choices[0].message.content);
-    
+
     console.log(`📦 [OCR] Найдено материалов: ${result.materials?.length || 0}`);
     console.log(`📄 [OCR] Тип документа: ${result.documentType}`);
-    
+
     return result;
   } catch (error) {
     console.error('❌ [OCR] Ошибка распознавания:', error.message);
@@ -98,28 +99,28 @@ export async function analyzeReceipt(imageBuffer, mimeType = 'image/jpeg') {
  */
 export async function matchMaterialsWithDatabase(rawMaterials, dbMaterials) {
   console.log(`🔍 [Matching] Сопоставление ${rawMaterials.length} материалов с базой (${dbMaterials.length} записей)`);
-  
+
   try {
     // Используем универсальный сервис batchSemanticMatch с порогом 30%
     const queries = rawMaterials.map(m => m.name);
     console.log(`📝 [Matching] Запросы для сопоставления:`, queries);
-    
+
     // 🎯 ОПТИМИЗАЦИЯ: предварительная фильтрация материалов по ключевым словам
     // Вместо 10000 материалов, берем только релевантные по SQL поиску
     const filteredDbMaterials = [];
-    
+
     for (const query of queries) {
       const queryLower = query.toLowerCase();
       const words = queryLower.split(/\s+/).filter(w => w.length > 2);
-      
+
       // Фильтруем материалы, содержащие хотя бы одно слово из запроса
       const candidates = dbMaterials.filter(material => {
         const nameLower = material.name.toLowerCase();
         return words.some(word => nameLower.includes(word));
       });
-      
+
       console.log(`  🔎 "${query}": найдено ${candidates.length} кандидатов из ${dbMaterials.length} по SQL фильтру`);
-      
+
       // Добавляем в общий список (без дубликатов)
       for (const candidate of candidates) {
         if (!filteredDbMaterials.find(m => m.id === candidate.id)) {
@@ -127,27 +128,27 @@ export async function matchMaterialsWithDatabase(rawMaterials, dbMaterials) {
         }
       }
     }
-    
+
     console.log(`📋 [Pre-filter] Отобрано ${filteredDbMaterials.length} материалов для AI-сопоставления`);
-    
+
     // Если после фильтрации материалов все еще много (>1000), используем fallback
     if (filteredDbMaterials.length > 1000) {
       console.warn(`⚠️ [Pre-filter] Слишком много кандидатов (${filteredDbMaterials.length}), используем fallback`);
       return matchMaterialsFallback(rawMaterials, dbMaterials);
     }
-    
+
     // Если кандидатов мало, используем fallback (нет смысла в AI)
     if (filteredDbMaterials.length === 0) {
       console.warn(`⚠️ [Pre-filter] Нет подходящих кандидатов, используем fallback`);
       return matchMaterialsFallback(rawMaterials, dbMaterials);
     }
-    
+
     const matches = await batchSemanticMatch(queries, filteredDbMaterials, 'name', 0.3);
-    
+
     // Собираем результаты
     const results = rawMaterials.map((raw, index) => {
       const matched = matches[index];
-      
+
       if (matched) {
         console.log(`✅ [Match] "${raw.name}" → "${matched.name}" (${(matched.similarity * 100).toFixed(1)}%)`);
         return {
@@ -166,14 +167,14 @@ export async function matchMaterialsWithDatabase(rawMaterials, dbMaterials) {
         };
       }
     });
-    
+
     const matchedCount = results.filter(r => r.material_id).length;
     console.log(`📊 [Matching Summary] Сопоставлено: ${matchedCount}/${rawMaterials.length}`);
-    
+
     return results;
   } catch (error) {
     console.error('❌ [Matching] Ошибка semantic matching, используем fallback:', error.message);
-    
+
     // Fallback на старый алгоритм если Mixedbread не доступен
     return matchMaterialsFallback(rawMaterials, dbMaterials);
   }
@@ -184,21 +185,21 @@ export async function matchMaterialsWithDatabase(rawMaterials, dbMaterials) {
  */
 function matchMaterialsFallback(rawMaterials, dbMaterials) {
   console.log('⚠️  [Matching] Используем fallback алгоритм (пословное сравнение)');
-  
+
   return rawMaterials.map(raw => {
     let bestMatch = null;
     let bestScore = 0;
-    
+
     // Ищем лучшее совпадение
     for (const db of dbMaterials) {
       const score = calculateSimilarity(raw.name, db.name);
-      
+
       if (score > bestScore) {
         bestScore = score;
         bestMatch = db;
       }
     }
-    
+
     // Порог совпадения: 0.4 (40%) для fallback
     if (bestMatch && bestScore >= 0.4) {
       console.log(`  ✅ "${raw.name}" → "${bestMatch.name}" (ID: ${bestMatch.id}, similarity: ${(bestScore * 100).toFixed(0)}%)`);
@@ -238,23 +239,23 @@ function normalizeText(text) {
 function calculateSimilarity(str1, str2) {
   const norm1 = normalizeText(str1);
   const norm2 = normalizeText(str2);
-  
+
   // Точное совпадение
   if (norm1 === norm2) return 1.0;
-  
+
   // Одна строка содержится в другой
   if (norm1.includes(norm2) || norm2.includes(norm1)) {
     return 0.85;
   }
-  
+
   const words1 = norm1.split(' ').filter(w => w.length > 2);
   const words2 = norm2.split(' ').filter(w => w.length > 2);
-  
+
   if (words1.length === 0 || words2.length === 0) return 0;
-  
+
   // Подсчитываем совпадения слов с весами
   let matchScore = 0;
-  
+
   for (const w1 of words1) {
     for (const w2 of words2) {
       if (w1 === w2) {
@@ -264,7 +265,7 @@ function calculateSimilarity(str1, str2) {
       }
     }
   }
-  
+
   return Math.min(matchScore / Math.max(words1.length, words2.length), 1.0);
 }
 

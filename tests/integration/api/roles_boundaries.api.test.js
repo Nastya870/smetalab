@@ -1,8 +1,6 @@
-
 import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
-
-const API_URL = process.env.TEST_API_URL || 'http://localhost:3001';
+import app from '../../../server/index.js';
 
 describe('Role Boundaries Integration Tests', () => {
     let superAdminToken;
@@ -10,13 +8,22 @@ describe('Role Boundaries Integration Tests', () => {
     let tenantId;
 
     beforeAll(async () => {
-        // 1. Login as Super Admin (using test credentials if available, or mock)
-        // For integration tests, we usually have a way to get a token
-        // In this project, we can use the registration flow to create users
+        // 1. Login as Super Admin (using seeded credentials)
+        const loginRes = await request(app)
+            .post('/api/auth/login')
+            .send({
+                email: 'admin@smetka.ru', // Correct seeded super admin
+                password: 'Admin123!'
+            });
 
-        // Create a Tenant Admin
+        if (loginRes.status !== 200) {
+            console.error('Super Admin login failed:', loginRes.body);
+        }
+        superAdminToken = loginRes.body.data?.tokens?.accessToken;
+
+        // 2. Create a Tenant Admin for testing
         const tenantEmail = `tenant-admin-${Date.now()}@test.local`;
-        const regRes = await request(API_URL)
+        const regRes = await request(app)
             .post('/api/auth/register')
             .send({
                 email: tenantEmail,
@@ -27,25 +34,13 @@ describe('Role Boundaries Integration Tests', () => {
 
         tenantAdminToken = regRes.body.data?.tokens?.accessToken;
         tenantId = regRes.body.data?.user?.tenants?.[0]?.id;
-
-        // Create a Super Admin (if possible via API, or use a known one)
-        // Note: In a real integration test, we might need a pre-seeded super admin
-        // For now, let's assume we can login with a default one if it exists
-        const loginRes = await request(API_URL)
-            .post('/api/auth/login')
-            .send({
-                email: 'admin@smetalab.com', // Default super admin from seeds
-                password: 'admin'
-            });
-
-        superAdminToken = loginRes.body.data?.tokens?.accessToken;
     });
 
     describe('Super Admin Role Visibility', () => {
         it('should see only global roles (super_admin, admin)', async () => {
             if (!superAdminToken) return;
 
-            const res = await request(API_URL)
+            const res = await request(app)
                 .get('/api/roles')
                 .set('Authorization', `Bearer ${superAdminToken}`);
 
@@ -67,7 +62,7 @@ describe('Role Boundaries Integration Tests', () => {
         it('should see only their tenant roles and NOT the global admin template', async () => {
             if (!tenantAdminToken) return;
 
-            const res = await request(API_URL)
+            const res = await request(app)
                 .get('/api/roles')
                 .set('Authorization', `Bearer ${tenantAdminToken}`);
 
@@ -91,7 +86,7 @@ describe('Role Boundaries Integration Tests', () => {
 
             // Try to assign a role that doesn't belong to this tenant
             // We'll need a role ID from another tenant or a global role
-            const res = await request(API_URL)
+            const res = await request(app)
                 .post('/api/users/assign-role')
                 .set('Authorization', `Bearer ${tenantAdminToken}`)
                 .send({

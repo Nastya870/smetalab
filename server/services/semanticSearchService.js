@@ -7,7 +7,10 @@ import OpenAI from 'openai';
 
 // Инициализируем OpenAI только если есть API ключ (для тестов может отсутствовать)
 const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  ? new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    dangerouslyAllowBrowser: true // Required for some test environments that mimic browsers
+  })
   : null;
 
 /**

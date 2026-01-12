@@ -196,7 +196,7 @@ INSERT INTO users (id, email, pass_hash, full_name, status, email_verified)
 VALUES (
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid,
     'admin@smetka.ru',
-    '$2b$10$EIXvXQ5pJxK3JhVZpJJ7vu8LJL6WqKxG4kZxFQYJZJQYJZ4JZJZJZe', -- Temporary: Admin123!
+    '$2b$10$aM4vSfTRpNRxNGOOO6ZTLuts2sN4Ph.4yXvHmGcIJywoJ5ryZBWsi', -- Admin123!
     'Супер Администратор',
     'active',
     TRUE
