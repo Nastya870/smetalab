@@ -15,7 +15,7 @@ services:
     plan: free  # free | starter | standard | pro
     region: frankfurt  # ⚠️ ВАЖНО: тот же регион что и PostgreSQL!
     buildCommand: npm install
-    startCommand: npm run start:server
+    startCommand: npm run db:migrate && npm run start:server
     healthCheckPath: /api/health
     autoDeploy: true  # Автодеплой при push в master
     envVars:
