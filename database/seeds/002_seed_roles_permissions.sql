@@ -15,7 +15,7 @@ INSERT INTO roles (key, name, description, is_system) VALUES
     ('estimator', 'Сметчик', 'Создание и редактирование смет', TRUE),
     ('supplier', 'Поставщик', 'Просмотр смет и добавление предложений', TRUE),
     ('viewer', 'Наблюдатель', 'Только чтение данных', TRUE)
-ON CONFLICT (key) DO NOTHING;
+ON CONFLICT (key) WHERE tenant_id IS NULL DO NOTHING;
 
 -- =====================================================
 -- РАЗРЕШЕНИЯ (permissions)

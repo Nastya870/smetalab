@@ -11,7 +11,7 @@ CREATE EXTENSION IF NOT EXISTS "citext";
 -- =====================================================
 -- ТАБЛИЦА: tenants (компании/организации)
 -- =====================================================
-CREATE TABLE tenants (
+CREATE TABLE IF NOT EXISTS tenants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
     plan TEXT DEFAULT 'free', -- free, basic, premium, enterprise
@@ -70,7 +70,7 @@ CREATE INDEX IF NOT EXISTS idx_tenants_ogrn ON tenants(ogrn) WHERE ogrn IS NOT N
 -- =====================================================
 -- ТАБЛИЦА: users (пользователи)
 -- =====================================================
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email CITEXT NOT NULL,
     phone TEXT,
@@ -97,7 +97,7 @@ COMMENT ON COLUMN users.email_verified IS 'Подтвержден ли email';
 -- =====================================================
 -- ТАБЛИЦА: user_tenants (членство в компании)
 -- =====================================================
-CREATE TABLE user_tenants (
+CREATE TABLE IF NOT EXISTS user_tenants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -112,7 +112,7 @@ COMMENT ON COLUMN user_tenants.is_default IS 'Компания по умолча
 -- =====================================================
 -- ТАБЛИЦА: roles (роли)
 -- =====================================================
-CREATE TABLE roles (
+CREATE TABLE IF NOT EXISTS roles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE, -- NULL = глобальная роль
     key TEXT NOT NULL,
@@ -131,7 +131,7 @@ COMMENT ON COLUMN roles.is_system IS 'Системная роль (нельзя 
 -- =====================================================
 -- ТАБЛИЦА: permissions (разрешения)
 -- =====================================================
-CREATE TABLE permissions (
+CREATE TABLE IF NOT EXISTS permissions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     key TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -151,7 +151,7 @@ COMMENT ON COLUMN permissions.action IS 'Действие: create, read, update,
 -- =====================================================
 -- ТАБЛИЦА: role_permissions (связь ролей и разрешений)
 -- =====================================================
-CREATE TABLE role_permissions (
+CREATE TABLE IF NOT EXISTS role_permissions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
@@ -164,7 +164,7 @@ COMMENT ON TABLE role_permissions IS 'Связь ролей с разрешен�
 -- =====================================================
 -- ТАБЛИЦА: user_role_assignments (назначение ролей пользователям)
 -- =====================================================
-CREATE TABLE user_role_assignments (
+CREATE TABLE IF NOT EXISTS user_role_assignments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -180,7 +180,7 @@ COMMENT ON COLUMN user_role_assignments.assigned_by IS 'Кто назначил 
 -- =====================================================
 -- ТАБЛИЦА: sessions (сессии и refresh-токены)
 -- =====================================================
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
@@ -201,7 +201,7 @@ COMMENT ON COLUMN sessions.expires_at IS 'Время истечения токе
 -- =====================================================
 -- ТАБЛИЦА: email_verifications (токены подтверждения email)
 -- =====================================================
-CREATE TABLE email_verifications (
+CREATE TABLE IF NOT EXISTS email_verifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     email CITEXT NOT NULL,
@@ -218,7 +218,7 @@ COMMENT ON COLUMN email_verifications.verified_at IS 'Время подтвер�
 -- =====================================================
 -- ТАБЛИЦА: password_resets (токены восстановления пароля)
 -- =====================================================
-CREATE TABLE password_resets (
+CREATE TABLE IF NOT EXISTS password_resets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     email CITEXT NOT NULL,
@@ -237,42 +237,42 @@ COMMENT ON COLUMN password_resets.used_at IS 'Время использован�
 -- =====================================================
 
 -- Индексы для users
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_phone ON users(phone) WHERE phone IS NOT NULL;
-CREATE INDEX idx_users_status ON users(status);
-CREATE INDEX idx_users_created_at ON users(created_at);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone) WHERE phone IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 
 -- Индексы для user_tenants
-CREATE INDEX idx_user_tenants_user_id ON user_tenants(user_id);
-CREATE INDEX idx_user_tenants_tenant_id ON user_tenants(tenant_id);
-CREATE INDEX idx_user_tenants_default ON user_tenants(user_id, is_default) WHERE is_default = TRUE;
+CREATE INDEX IF NOT EXISTS idx_user_tenants_user_id ON user_tenants(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_tenants_tenant_id ON user_tenants(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_user_tenants_default ON user_tenants(user_id, is_default) WHERE is_default = TRUE;
 
 -- Индексы для user_role_assignments
-CREATE INDEX idx_user_role_assignments_user_id ON user_role_assignments(user_id);
-CREATE INDEX idx_user_role_assignments_tenant_user ON user_role_assignments(tenant_id, user_id);
-CREATE INDEX idx_user_role_assignments_role_id ON user_role_assignments(role_id);
+CREATE INDEX IF NOT EXISTS idx_user_role_assignments_user_id ON user_role_assignments(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_role_assignments_tenant_user ON user_role_assignments(tenant_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_user_role_assignments_role_id ON user_role_assignments(role_id);
 
 -- Индексы для sessions
-CREATE INDEX idx_sessions_user_id ON sessions(user_id);
-CREATE INDEX idx_sessions_tenant_id ON sessions(tenant_id) WHERE tenant_id IS NOT NULL;
-CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
-CREATE INDEX idx_sessions_refresh_token ON sessions(refresh_token);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_tenant_id ON sessions(tenant_id) WHERE tenant_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_refresh_token ON sessions(refresh_token);
 
 -- Индексы для email_verifications
-CREATE INDEX idx_email_verifications_user_id ON email_verifications(user_id);
-CREATE INDEX idx_email_verifications_email ON email_verifications(email);
-CREATE INDEX idx_email_verifications_token ON email_verifications(token);
-CREATE INDEX idx_email_verifications_expires_at ON email_verifications(expires_at);
+CREATE INDEX IF NOT EXISTS idx_email_verifications_user_id ON email_verifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_email_verifications_email ON email_verifications(email);
+CREATE INDEX IF NOT EXISTS idx_email_verifications_token ON email_verifications(token);
+CREATE INDEX IF NOT EXISTS idx_email_verifications_expires_at ON email_verifications(expires_at);
 
 -- Индексы для password_resets
-CREATE INDEX idx_password_resets_user_id ON password_resets(user_id);
-CREATE INDEX idx_password_resets_email ON password_resets(email);
-CREATE INDEX idx_password_resets_token ON password_resets(token);
-CREATE INDEX idx_password_resets_expires_at ON password_resets(expires_at);
+CREATE INDEX IF NOT EXISTS idx_password_resets_user_id ON password_resets(user_id);
+CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);
+CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token);
+CREATE INDEX IF NOT EXISTS idx_password_resets_expires_at ON password_resets(expires_at);
 
 -- Индексы для role_permissions
-CREATE INDEX idx_role_permissions_role_id ON role_permissions(role_id);
-CREATE INDEX idx_role_permissions_permission_id ON role_permissions(permission_id);
+CREATE INDEX IF NOT EXISTS idx_role_permissions_role_id ON role_permissions(role_id);
+CREATE INDEX IF NOT EXISTS idx_role_permissions_permission_id ON role_permissions(permission_id);
 
 -- =====================================================
 -- ФУНКЦИИ для автоматического обновления updated_at
@@ -287,9 +287,11 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Триггеры для автоматического обновления updated_at
+DROP TRIGGER IF EXISTS update_tenants_updated_at ON tenants;
 CREATE TRIGGER update_tenants_updated_at BEFORE UPDATE ON tenants
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -297,7 +299,7 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
 -- КОММЕНТАРИИ
 -- =====================================================
 
-COMMENT ON DATABASE neondb IS 'База данных сметного приложения с мульти-тенантностью';
+-- COMMENT ON DATABASE neondb IS 'База данных сметного приложения с мульти-тенантностью';
 
 -- =====================================================
 -- ЗАВЕРШЕНИЕ МИГРАЦИИ
