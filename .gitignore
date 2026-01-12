@@ -1,4 +1,4 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+﻿# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
 /node_modules
@@ -37,6 +37,9 @@ yarn-error.log*
 # Database backups
 backups/
 *.sql
+!database/migrations/*.sql
+!database/seeds/*.sql
+!database/migrations_archive/*.sql
 *.dump
 
 # Archived temporary scripts and docs
@@ -99,10 +102,10 @@ CLEANUP_PLAN.md
 !list-users.mjs
 !list-tenants.mjs
 # Sensitive files with tokens and credentials
-Доступы
-../Доступы
-КС2.pdf
-../КС2.pdf
+Р”РѕСЃС‚СѓРїС‹
+../Р”РѕСЃС‚СѓРїС‹
+РљРЎ2.pdf
+../РљРЎ2.pdf
 ks3.XLS
 ../ks3.XLS
 KS2.XLS
@@ -113,4 +116,4 @@ KS2.XLS
 .vercel
 Acces.md
 
-�������
+Доступы
