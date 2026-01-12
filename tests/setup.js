@@ -6,6 +6,9 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
+// Отключаем rate limiter для тестов (кроме security тестов, которые запускают отдельный сервер)
+process.env.DISABLE_RATE_LIMITER = 'true';
+
 // ============================================
 // Mock window.matchMedia (только для jsdom)
 // ============================================

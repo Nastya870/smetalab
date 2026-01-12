@@ -12,10 +12,10 @@ import { catchAsync, BadRequestError, NotFoundError, ConflictError } from '../ut
  */
 export const getAllRoles = catchAsync(async (req, res) => {
   const { tenantId, userId } = req.user;
-  
+
   // Проверяем, является ли пользователь super_admin (может быть несколько ролей!)
   const userRolesResult = await db.query(
-      `SELECT r.key 
+    `SELECT r.key 
        FROM user_role_assignments ura
        JOIN roles r ON ura.role_id = r.id
        WHERE ura.user_id = $1`,
@@ -24,22 +24,22 @@ export const getAllRoles = catchAsync(async (req, res) => {
 
   const userRoles = userRolesResult.rows.map(row => row.key);
   const isSuperAdmin = userRoles.includes('super_admin');
-  
+
   console.log(`🔍 rolesController.getAllRoles:`);
   console.log(`   User: ${req.user.email}`);
   console.log(`   User ID: ${userId}`);
   console.log(`   Tenant ID: ${tenantId}`);
   console.log(`   User Roles: [${userRoles.join(', ')}]`);
   console.log(`   Is Super Admin: ${isSuperAdmin ? 'YES ✅' : 'NO ❌'}`);
-  
+
   let result;
-  
+
   if (isSuperAdmin) {
     // Super admin видит только глобальные роли (super_admin и шаблонную admin)
     result = await db.query(
       `SELECT r.id, r.key, r.name, r.description, r.tenant_id, r.created_at, r.updated_at
        FROM roles r
-       WHERE r.tenant_id IS NULL
+       WHERE r.tenant_id IS NULL AND r.key IN ('super_admin', 'admin')
        ORDER BY 
          CASE r.key
            WHEN 'super_admin' THEN 1
@@ -106,7 +106,7 @@ export const getRoleById = catchAsync(async (req, res) => {
  */
 export const createRole = catchAsync(async (req, res) => {
   const { key, name, description } = req.body;
-    const { tenantId, isSuperAdmin } = req.user;
+  const { tenantId, isSuperAdmin } = req.user;
 
   // Валидация
   if (!key || !name) {
@@ -126,7 +126,7 @@ export const createRole = catchAsync(async (req, res) => {
   // Создание роли для текущего тенанта
   // Только super_admin может создавать глобальные роли (tenant_id = NULL)
   const roleTenantId = isSuperAdmin ? null : tenantId;
-  
+
   const result = await db.query(
     `INSERT INTO roles (key, name, description, tenant_id)
      VALUES ($1, $2, $3, $4)
@@ -190,7 +190,7 @@ export const updateRole = catchAsync(async (req, res) => {
         message: 'Нельзя изменять роли других компаний'
       });
     }
-    
+
     if (role.key === 'admin') {
       return res.status(403).json({
         success: false,
@@ -202,12 +202,12 @@ export const updateRole = catchAsync(async (req, res) => {
 
   // Обновление роли
   const result = await db.query(
-      `UPDATE roles 
+    `UPDATE roles 
        SET name = $1, description = $2, updated_at = NOW()
        WHERE id = $3
        RETURNING id, key, name, description, tenant_id, created_at, updated_at`,
-      [name, description || null, id]
-    );
+    [name, description || null, id]
+  );
 
   res.status(200).json({
     success: true,
@@ -242,7 +242,7 @@ export const deleteRole = catchAsync(async (req, res) => {
       message: 'Нельзя удалять глобальные системные роли'
     });
   }
-  
+
   // Проверка, что роль принадлежит тенанту пользователя
   if (role.tenant_id !== tenantId) {
     return res.status(403).json({

@@ -47,8 +47,28 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      app: path.resolve(__dirname, './app'),
-      shared: path.resolve(__dirname, './shared')
+      '@': path.resolve(__dirname, './'),
+      'app': path.resolve(__dirname, './app'),
+      'shared': path.resolve(__dirname, './shared'),
+      'routes': path.resolve(__dirname, './app/routes'),
+      'layout': path.resolve(__dirname, './app/layout'),
+      'themes': path.resolve(__dirname, './shared/ui/themes'),
+      'config': path.resolve(__dirname, './app/config.js'),
+      'hooks': path.resolve(__dirname, './shared/lib/hooks'),
+      'contexts': path.resolve(__dirname, './shared/lib/contexts'),
+      'assets': path.resolve(__dirname, './shared/assets'),
+      'serviceWorker': path.resolve(__dirname, './shared/lib/serviceWorker.jsx'),
+      'reportWebVitals': path.resolve(__dirname, './shared/lib/reportWebVitals.js'),
+      'views': path.resolve(__dirname, './app'),
+      'ui-component': path.resolve(__dirname, './shared/ui/components'),
+      'components': path.resolve(__dirname, './shared/ui/components'),
+      'api': path.resolve(__dirname, './shared/lib/api'),
+      'store': path.resolve(__dirname, './shared/lib/store'),
+      'services': path.resolve(__dirname, './shared/lib/services'),
+      'menu-items': path.resolve(__dirname, './app/menu-items'),
+      'pages': path.resolve(__dirname, './app/pages'),
+      'utils': path.resolve(__dirname, './shared/lib'),
+      '@tabler/icons-react': '@tabler/icons-react/dist/esm/icons/index.mjs'
     }
   }
 });

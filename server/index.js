@@ -62,7 +62,7 @@ app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
-    
+
     if (allowedOrigins.some(allowed => {
       if (allowed instanceof RegExp) return allowed.test(origin);
       return allowed === origin;
@@ -173,6 +173,12 @@ app.post('/api/run-migration-temp', async (req, res) => {
 // ==================== Rate Limiting ====================
 // Общий лимит: 100 запросов в минуту на все API endpoints
 app.use('/api', apiLimiter);
+
+// Лимит для тяжёлых операций (экспорт, импорт, массовые операции)
+app.use('/api/materials/bulk', heavyOperationsLimiter);
+app.use('/api/works/bulk', heavyOperationsLimiter);
+app.use('/api/admin', heavyOperationsLimiter);
+app.use('/api/export-estimate-excel', heavyOperationsLimiter);
 
 // ==================== API Routes ====================
 app.use('/api/auth', authRoutes);

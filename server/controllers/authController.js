@@ -272,13 +272,32 @@ export const register = catchAsync(async (req, res) => {
 
     // Генерируем токены для теста (generateTokens уже импортирован в начале файла)
     // Сигнатура: generateTokens(userId, tenantId, email, roles = [], emailVerified = false, permissions = [])
+    // Получаем назначенные роли и права для генерации токена
+    const rolesResult = await query(
+      `SELECT r.key, r.name
+       FROM user_role_assignments ura
+       JOIN roles r ON r.id = ura.role_id
+       WHERE ura.user_id = $1 AND ura.tenant_id = $2`,
+      [result.user.id, result.tenant.id]
+    );
+
+    const permissionsResult = await query(
+      `SELECT DISTINCT p.key, p.resource, p.action
+       FROM user_role_assignments ura
+       JOIN role_permissions rp ON ura.role_id = rp.role_id
+       JOIN permissions p ON rp.permission_id = p.id
+       WHERE ura.user_id = $1 AND ura.tenant_id = $2
+       AND rp.is_hidden = false`,
+      [result.user.id, result.tenant.id]
+    );
+
     const tokens = generateTokens(
       result.user.id,
       result.tenant.id,
       result.user.email,
-      [], // roles - пустой массив для нового пользователя
+      rolesResult.rows,
       true, // emailVerified = true
-      [] // permissions
+      permissionsResult.rows
     );
 
     return res.status(201).json({

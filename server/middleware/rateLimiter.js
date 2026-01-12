@@ -14,14 +14,26 @@ const commonOptions = {
 };
 
 /**
+ * Безопасный парсинг лимитов с защитой от 0, отрицательных и невалидных значений
+ * @param {string|undefined} value Значение из ENV
+ * @param {number} defaultValue Дефолтное значение
+ * @returns {number} Валидное число в диапазоне [1, 100000]
+ */
+const parseRateLimit = (value, defaultValue) => {
+  const parsed = parseInt(value);
+  if (isNaN(parsed) || parsed <= 0) return defaultValue;
+  return Math.min(parsed, 100000); // Верхний предел для защиты от DoS
+};
+
+/**
  * Лимит на попытки входа
  * 5 попыток за 15 минут (в тестах отключено)
  */
 export const loginLimiter = rateLimit({
   ...commonOptions,
   windowMs: 15 * 60 * 1000, // 15 минут
-  max: 5, // 5 попыток
-  skip: (req) => process.env.NODE_ENV === 'test', // Отключить в тестах
+  max: parseRateLimit(process.env.LOGIN_LIMIT_MAX, 5), // 5 попыток
+  skip: (req) => process.env.DISABLE_RATE_LIMITER === 'true', // Отключить в тестах если указано
   message: {
     success: false,
     message: 'Слишком много попыток входа. Попробуйте через 15 минут.',
@@ -43,8 +55,8 @@ export const loginLimiter = rateLimit({
 export const registerLimiter = rateLimit({
   ...commonOptions,
   windowMs: 60 * 60 * 1000, // 1 час
-  max: 3, // 3 регистрации
-  skip: (req) => process.env.NODE_ENV === 'test', // Отключить в тестах
+  max: parseRateLimit(process.env.REGISTER_LIMIT_MAX, 3), // 3 регистрации
+  skip: (req) => process.env.DISABLE_RATE_LIMITER === 'true', // Отключить в тестах если указано
   message: {
     success: false,
     message: 'Слишком много регистраций. Попробуйте через час.',
@@ -62,7 +74,7 @@ export const registerLimiter = rateLimit({
 export const passwordResetLimiter = rateLimit({
   ...commonOptions,
   windowMs: 60 * 60 * 1000, // 1 час
-  max: 3, // 3 запроса
+  max: parseRateLimit(process.env.PASSWORD_RESET_LIMIT_MAX, 3), // 3 запроса
   message: {
     success: false,
     message: 'Слишком много запросов на сброс пароля. Попробуйте через час.',
@@ -70,6 +82,7 @@ export const passwordResetLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => process.env.DISABLE_RATE_LIMITER === 'true',
   keyGenerator: (req) => `password-reset:${req.ip}:${req.body?.email || 'unknown'}`
 });
 
@@ -80,7 +93,7 @@ export const passwordResetLimiter = rateLimit({
 export const apiLimiter = rateLimit({
   ...commonOptions,
   windowMs: 60 * 1000, // 1 минута
-  max: 100, // 100 запросов
+  max: parseRateLimit(process.env.RATE_LIMIT_MAX, 100), // Настраиваемый лимит
   message: {
     success: false,
     message: 'Слишком много запросов. Пожалуйста, подождите.',
@@ -88,6 +101,7 @@ export const apiLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => process.env.DISABLE_RATE_LIMITER === 'true',
   keyGenerator: (req) => `api:${req.ip}`
 });
 
@@ -98,7 +112,7 @@ export const apiLimiter = rateLimit({
 export const heavyOperationsLimiter = rateLimit({
   ...commonOptions,
   windowMs: 60 * 1000, // 1 минута
-  max: 10, // 10 запросов
+  max: parseRateLimit(process.env.HEAVY_LIMIT_MAX, 10), // 10 запросов
   message: {
     success: false,
     message: 'Слишком много запросов на экспорт/импорт. Подождите минуту.',
@@ -106,6 +120,7 @@ export const heavyOperationsLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => process.env.DISABLE_RATE_LIMITER === 'true',
   keyGenerator: (req) => `heavy:${req.ip}`
 });
 
@@ -116,7 +131,7 @@ export const heavyOperationsLimiter = rateLimit({
 export const emailVerificationLimiter = rateLimit({
   ...commonOptions,
   windowMs: 60 * 60 * 1000, // 1 час
-  max: 5, // 5 запросов
+  max: parseRateLimit(process.env.EMAIL_VERIFY_LIMIT_MAX, 5), // 5 запросов
   message: {
     success: false,
     message: 'Слишком много запросов на верификацию. Попробуйте через час.',
@@ -124,6 +139,7 @@ export const emailVerificationLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => process.env.DISABLE_RATE_LIMITER === 'true',
   keyGenerator: (req) => `email-verify:${req.ip}`
 });
 

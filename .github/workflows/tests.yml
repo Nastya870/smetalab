@@ -1,4 +1,4 @@
-name: Unit Tests
+name: CI Tests
 
 on:
   push:
@@ -10,7 +10,22 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_DB: smetalab_test
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -27,11 +42,33 @@ jobs:
     - name: Install dependencies
       run: yarn install --immutable
 
-    - name: Run Unit Tests
-      run: yarn run test:unit
+    - name: Run Database Migrations
+      run: npm run db:migrate
       env:
-        RESEND_API_KEY: ci_test_key
-        OPENAI_API_KEY: ci_test_key
-        VITE_API_URL: http://localhost:3000
-        JWT_ACCESS_SECRET: ci_test_secret
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/smetalab_test
         NODE_ENV: test
+
+    - name: Run Unit Tests
+      run: npm run test:unit
+      env:
+        NODE_ENV: test
+        JWT_ACCESS_SECRET: ci_test_secret_access
+        JWT_REFRESH_SECRET: ci_test_secret_refresh
+
+    - name: Run Integration Tests
+      run: npm run test:integration
+      env:
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/smetalab_test
+        NODE_ENV: test
+        JWT_ACCESS_SECRET: ci_test_secret_access
+        JWT_REFRESH_SECRET: ci_test_secret_refresh
+        DISABLE_RATE_LIMITER: true
+
+    - name: Run Security Tests
+      run: npm run test:security
+      env:
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/smetalab_test
+        NODE_ENV: test
+        JWT_ACCESS_SECRET: ci_test_secret_access
+        JWT_REFRESH_SECRET: ci_test_secret_refresh
+        RATE_LIMIT_MAX: 1000

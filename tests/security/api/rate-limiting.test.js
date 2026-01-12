@@ -26,7 +26,7 @@ describe('Rate Limiting Security Tests', () => {
       await request(API_URL)
         .post('/api/auth/register')
         .send(TEST_USER);
-    } catch (e) {}
+    } catch (e) { }
 
     const loginRes = await request(API_URL)
       .post('/api/auth/login')
@@ -71,7 +71,7 @@ describe('Rate Limiting Security Tests', () => {
 
     it('должен возвращать Retry-After header при блокировке', async () => {
       const targetEmail = 'retry-after-test@sectest.local';
-      
+
       // Спамим запросами
       for (let i = 0; i < 30; i++) {
         const response = await request(API_URL)
@@ -102,7 +102,7 @@ describe('Rate Limiting Security Tests', () => {
       let rateLimitedAfter = -1;
 
       const promises = [];
-      
+
       for (let i = 0; i < requests; i++) {
         promises.push(
           request(API_URL)
@@ -112,7 +112,7 @@ describe('Rate Limiting Security Tests', () => {
       }
 
       const responses = await Promise.all(promises);
-      
+
       responses.forEach((response, index) => {
         if (response.status === 429 && !rateLimited) {
           rateLimited = true;
@@ -131,14 +131,14 @@ describe('Rate Limiting Security Tests', () => {
       if (!authToken) return;
 
       const heavyEndpoints = [
-        '/api/materials/export',
-        '/api/works/export',
-        '/api/estimates',
+        '/api/materials/bulk',
+        '/api/works/bulk',
+        '/api/admin/pinecone-status',
       ];
 
       for (const endpoint of heavyEndpoints) {
         let rateLimited = false;
-        
+
         for (let i = 0; i < 20; i++) {
           const response = await request(API_URL)
             .get(endpoint)
@@ -218,9 +218,9 @@ describe('Rate Limiting Security Tests', () => {
     it('должен иметь таймаут на медленные запросы', async () => {
       // Этот тест проверяет что сервер не ждёт бесконечно медленный запрос
       // В реальности нужен специальный клиент для slow-loris атаки
-      
+
       const startTime = Date.now();
-      
+
       try {
         await request(API_URL)
           .post('/api/auth/login')
@@ -234,7 +234,7 @@ describe('Rate Limiting Security Tests', () => {
       }
 
       const duration = Date.now() - startTime;
-      
+
       // Запрос не должен висеть дольше разумного времени
       expect(duration).toBeLessThan(10000);
     });
@@ -244,7 +244,7 @@ describe('Rate Limiting Security Tests', () => {
     it('должен отклонять слишком большие JSON payloads', async () => {
       // Создаём большой payload (1MB+)
       const largeString = 'x'.repeat(1024 * 1024); // 1MB
-      
+
       const response = await request(API_URL)
         .post('/api/projects')
         .set('Authorization', `Bearer ${authToken}`)
@@ -287,7 +287,7 @@ describe('Rate Limiting Security Tests', () => {
 
       for (let i = 0; i < requests; i++) {
         const startTime = Date.now();
-        
+
         await request(API_URL)
           .get('/api/projects')
           .set('Authorization', `Bearer ${authToken}`);
@@ -319,7 +319,7 @@ describe('Rate Limiting Security Tests', () => {
       if (!authToken) return;
 
       const concurrentRequests = 50;
-      
+
       const promises = Array.from({ length: concurrentRequests }, () =>
         request(API_URL)
           .get('/api/projects')

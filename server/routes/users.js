@@ -3,6 +3,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/adminAuth.js';
 import { checkPermission, checkAnyPermission } from '../middleware/checkPermission.js';
 import * as usersController from '../controllers/usersController.js';
+import * as rolesController from '../controllers/rolesController.js';
 
 const router = express.Router();
 
@@ -11,7 +12,7 @@ const router = express.Router();
 
 // ВАЖНО: /roles должен быть ВЫШЕ /:id чтобы не перехватывался как id='roles'
 // Получить все доступные роли (требует roles.read)
-router.get('/roles', authenticateToken, requireAdmin, checkPermission('roles', 'read'), usersController.getAllRoles);
+router.get('/roles', authenticateToken, requireAdmin, checkPermission('roles', 'read'), rolesController.getAllRoles);
 
 // Получить всех пользователей компании (требует users.read)
 router.get('/', authenticateToken, requireAdmin, checkPermission('users', 'read'), usersController.getAllUsers);
