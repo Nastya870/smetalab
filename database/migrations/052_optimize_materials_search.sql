@@ -25,7 +25,7 @@ ON materials USING GIN (LOWER(supplier) gin_trgm_ops);
 -- Покрывает 90% запросов (глобальные материалы определённой категории)
 CREATE INDEX IF NOT EXISTS idx_materials_global_category_covering 
 ON materials (is_global, category) 
-INCLUDE (id, sku, name, unit, price, supplier, image, auto_calculate, consumption);
+INCLUDE (id, sku, name, unit, price, supplier, image, auto_calculate);
 
 -- Статистика для query planner (улучшает выбор индексов)
 ANALYZE materials;

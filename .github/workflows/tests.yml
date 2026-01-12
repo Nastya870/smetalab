@@ -42,6 +42,17 @@ jobs:
     - name: Install dependencies
       run: yarn install --immutable
 
+    - name: Create PostgreSQL Extensions
+      run: |
+        PGPASSWORD=password psql -h localhost -U postgres -d smetalab_test -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
+        PGPASSWORD=password psql -h localhost -U postgres -d smetalab_test -c "CREATE EXTENSION IF NOT EXISTS citext;"
+        PGPASSWORD=password psql -h localhost -U postgres -d smetalab_test -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+
+    - name: Verify Extensions
+      run: |
+        PGPASSWORD=password psql -h localhost -U postgres -d smetalab_test -c "SELECT * FROM pg_extension WHERE extname IN ('uuid-ossp', 'citext', 'pg_trgm');"
+      if: always()
+
     - name: Run Database Migrations
       run: npm run db:migrate
       env:
