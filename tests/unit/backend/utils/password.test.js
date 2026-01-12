@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 /**
  * Unit тесты для server/utils/password.js
  * Тестирует валидацию и хэширование паролей
@@ -244,7 +246,7 @@ describe('hashPassword and comparePassword', () => {
 
   it('должен работать быстро (performance test)', async () => {
     const password = 'Test123!@#';
-    
+
     const start = Date.now();
     const hash = await hashPassword(password);
     const hashTime = Date.now() - start;

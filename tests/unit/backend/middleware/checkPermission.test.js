@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 /**
  * Unit тесты для server/middleware/checkPermission.js
  * Тестирует систему иерархических разрешений (КРИТИЧЕСКИЙ МОДУЛЬ!)
@@ -15,18 +17,18 @@ describe('checkPermission middleware', () => {
       method: 'GET',
       path: '/api/test',
     };
-    
+
     res = {
       status: vi.fn().mockReturnThis(),
       json: vi.fn().mockReturnThis(),
     };
-    
+
     next = vi.fn();
 
     // Подавляем логи
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => { });
+    vi.spyOn(console, 'warn').mockImplementation(() => { });
+    vi.spyOn(console, 'error').mockImplementation(() => { });
   });
 
   afterEach(() => {
@@ -402,7 +404,7 @@ describe('checkPermission middleware', () => {
     // Воспроизводим сценарий бага:
     // Пользователь имеет роли [super_admin, admin] в JWT
     // Старый код проверял только первую роль
-    
+
     req.user = {
       userId: 1,
       email: 'kiy026@yandex.ru',

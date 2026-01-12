@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 /**
  * Unit тесты для server/middleware/auth.js
  * Тестирует аутентификацию через JWT токены
@@ -22,16 +24,16 @@ describe('authenticateToken middleware', () => {
       method: 'GET',
       path: '/api/test',
     };
-    
+
     res = {
       status: vi.fn().mockReturnThis(),
       json: vi.fn().mockReturnThis(),
     };
-    
+
     next = vi.fn();
 
     // Очищаем console.log для чистых тестов
-    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => { });
   });
 
   afterEach(() => {
@@ -54,7 +56,7 @@ describe('authenticateToken middleware', () => {
 
   it('должен вернуть 401 если Authorization header пустой', () => {
     req.headers.authorization = 'Bearer ';
-    
+
     authenticateToken(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
@@ -63,7 +65,7 @@ describe('authenticateToken middleware', () => {
 
   it('должен вернуть 401 если Authorization header без Bearer', () => {
     req.headers.authorization = 'some-token';
-    
+
     authenticateToken(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
@@ -223,15 +225,15 @@ describe('optionalAuth middleware', () => {
       method: 'GET',
       path: '/api/public',
     };
-    
+
     res = {
       status: vi.fn().mockReturnThis(),
       json: vi.fn().mockReturnThis(),
     };
-    
+
     next = vi.fn();
 
-    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => { });
   });
 
   afterEach(() => {
