@@ -1,5 +1,11 @@
--- Добавление полей tenant organization в существующую БД
+-- Добавление полей tenant organization и roles.tenant_id в существующую БД
 -- Запустить ТОЛЬКО ОДИН РАЗ для обновления существующей базы
+
+-- Добавление tenant_id в roles (для multi-tenancy)
+ALTER TABLE roles ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+COMMENT ON COLUMN roles.tenant_id IS 'ID компании (NULL = глобальная роль)';
+
+-- Добавление полей организации в tenants
 
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS company_full_name TEXT;
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS inn VARCHAR(12);

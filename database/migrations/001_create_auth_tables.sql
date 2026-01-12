@@ -114,15 +114,16 @@ COMMENT ON COLUMN user_tenants.is_default IS 'Компания по умолча
 -- =====================================================
 CREATE TABLE roles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE, -- NULL = глобальная роль
     key TEXT NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
     is_system BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT roles_key_unique UNIQUE (key)
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 COMMENT ON TABLE roles IS 'Справочник ролей пользователей';
+COMMENT ON COLUMN roles.tenant_id IS 'ID компании (NULL = глобальная роль)';
 COMMENT ON COLUMN roles.key IS 'Системный ключ роли (например, admin)';
 COMMENT ON COLUMN roles.name IS 'Отображаемое название роли';
 COMMENT ON COLUMN roles.is_system IS 'Системная роль (нельзя удалить)';
