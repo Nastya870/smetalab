@@ -55,6 +55,7 @@ jobs:
         JWT_ACCESS_SECRET: ci_test_secret_access
         JWT_REFRESH_SECRET: ci_test_secret_refresh
         OPENAI_API_KEY: sk-test-placeholder
+        PINECONE_API_KEY: test-placeholder
 
     - name: Start Backend Server
       run: |
@@ -66,6 +67,7 @@ jobs:
         JWT_ACCESS_SECRET: ci_test_secret_access
         JWT_REFRESH_SECRET: ci_test_secret_refresh
         OPENAI_API_KEY: sk-test-placeholder
+        PINECONE_API_KEY: test-placeholder
         PORT: 3001
 
     - name: Run Integration Tests
@@ -77,6 +79,7 @@ jobs:
         JWT_REFRESH_SECRET: ci_test_secret_refresh
         DISABLE_RATE_LIMITER: true
         OPENAI_API_KEY: sk-test-placeholder
+        PINECONE_API_KEY: test-placeholder
         API_URL: http://localhost:3001
 
     - name: Run Security Tests
@@ -88,3 +91,4 @@ jobs:
         JWT_REFRESH_SECRET: ci_test_secret_refresh
         RATE_LIMIT_MAX: 1000
         OPENAI_API_KEY: sk-test-placeholder
+        PINECONE_API_KEY: test-placeholder
