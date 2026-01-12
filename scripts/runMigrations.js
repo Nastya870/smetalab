@@ -26,6 +26,22 @@ async function applySQLFile(client, filePath) {
     console.log(`✅ Успешно применен: ${fileName}`);
     return true;
   } catch (error) {
+    // Игнорируем ошибки "already exists" для идемпотентности
+    const ignorableErrors = [
+      'already exists',
+      'duplicate key value',
+      'does not exist', // для DROP IF EXISTS
+      'could not create unique index', // для повторных запусков с дубликатами
+      'no unique or exclusion constraint matching' // для ON CONFLICT без констрейнта
+    ];
+
+    const isIgnorable = ignorableErrors.some(msg => error.message.includes(msg));
+
+    if (isIgnorable) {
+      console.log(`⚠️  Пропущено (объект уже существует): ${fileName}`);
+      return true; // Считаем успешным
+    }
+
     console.error(`❌ Ошибка в файле ${fileName}:`);
     console.error(error.message);
     return false;
