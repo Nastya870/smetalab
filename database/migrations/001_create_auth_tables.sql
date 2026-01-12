@@ -138,6 +138,7 @@ CREATE TABLE IF NOT EXISTS permissions (
     description TEXT,
     resource TEXT NOT NULL, -- users, estimates, projects, etc
     action TEXT NOT NULL, -- create, read, update, delete, manage
+    is_hidden BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT permissions_key_unique UNIQUE (key),
     CONSTRAINT permissions_resource_action_unique UNIQUE (resource, action)
@@ -147,6 +148,7 @@ COMMENT ON TABLE permissions IS 'Справочник разрешений (perm
 COMMENT ON COLUMN permissions.key IS 'Уникальный ключ разрешения';
 COMMENT ON COLUMN permissions.resource IS 'Ресурс (сущность): users, estimates, projects';
 COMMENT ON COLUMN permissions.action IS 'Действие: create, read, update, delete, manage';
+COMMENT ON COLUMN permissions.is_hidden IS 'Скрыть этот элемент в UI (меню, кнопки) для роли';
 
 -- =====================================================
 -- ТАБЛИЦА: role_permissions (связь ролей и разрешений)
@@ -155,11 +157,13 @@ CREATE TABLE IF NOT EXISTS role_permissions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+    is_hidden BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT role_permissions_unique UNIQUE (role_id, permission_id)
 );
 
 COMMENT ON TABLE role_permissions IS 'Связь ролей с разрешениями (M2M)';
+COMMENT ON COLUMN role_permissions.is_hidden IS 'Скрыть этот элемент в UI для данной роли';
 
 -- =====================================================
 -- ТАБЛИЦА: user_role_assignments (назначение ролей пользователям)

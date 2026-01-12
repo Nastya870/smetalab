@@ -98,3 +98,22 @@ BEGIN
     END IF;
 END $$;
 
+-- 5. Добавление полей UI видимости (is_hidden)
+DO $$
+BEGIN
+    -- permissions.is_hidden
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'permissions') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'permissions' AND column_name = 'is_hidden') THEN
+            ALTER TABLE permissions ADD COLUMN is_hidden BOOLEAN DEFAULT FALSE;
+            COMMENT ON COLUMN permissions.is_hidden IS 'Скрыть этот элемент в UI (меню, кнопки) для роли';
+        END IF;
+    END IF;
+
+    -- role_permissions.is_hidden
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'role_permissions') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'role_permissions' AND column_name = 'is_hidden') THEN
+            ALTER TABLE role_permissions ADD COLUMN is_hidden BOOLEAN DEFAULT FALSE;
+            COMMENT ON COLUMN role_permissions.is_hidden IS 'Скрыть этот элемент в UI для данной роли';
+        END IF;
+    END IF;
+END $$;
