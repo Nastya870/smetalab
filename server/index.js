@@ -37,7 +37,7 @@ import contractsRoutes from './routes/contracts.js';
 import tenantsRoutes from './routes/tenants.js';
 import estimateTemplatesRoutes from './routes/estimateTemplates.js';
 import permissionsRoutes from './routes/permissions.js';
-import searchRoutes from './routes/search.js'; // 🧠 Semantic Search
+// import searchRoutes from './routes/search.js'; // 🧠 Semantic Search (DISABLED - requires Pinecone/OpenAI)
 import adminRoutes from './routes/admin.js'; // 🔧 Admin Operations
 import { apiLimiter, heavyOperationsLimiter } from './middleware/rateLimiter.js';
 import { sanitizeErrorMessage } from './utils/sanitize.js';
