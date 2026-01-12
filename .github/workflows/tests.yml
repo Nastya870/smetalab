@@ -15,17 +15,20 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Enable Corepack
+      run: corepack enable
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        cache: 'npm'
+        cache: 'yarn'
 
     - name: Install dependencies
-      run: npm ci
+      run: yarn install --immutable
 
     - name: Run Unit Tests
-      run: npm run test:unit
+      run: yarn run test:unit
       env:
         RESEND_API_KEY: ci_test_key
         OPENAI_API_KEY: ci_test_key
