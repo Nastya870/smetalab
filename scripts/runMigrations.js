@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Подключение к БД из переменных окружения
-const connectionString = process.env.DATABASE_URL || 
+const connectionString = process.env.DATABASE_URL ||
   'postgresql://neondb_owner:npg_z9nkcaAxB6ju@ep-polished-forest-agj7s875-pooler.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require';
 
 /**
@@ -17,10 +17,10 @@ const connectionString = process.env.DATABASE_URL ||
 async function applySQLFile(client, filePath) {
   const sql = fs.readFileSync(filePath, 'utf8');
   const fileName = path.basename(filePath);
-  
+
   console.log(`\n📄 Применение: ${fileName}`);
   console.log('─'.repeat(60));
-  
+
   try {
     await client.query(sql);
     console.log(`✅ Успешно применен: ${fileName}`);
@@ -36,9 +36,12 @@ async function applySQLFile(client, filePath) {
  * Главная функция миграции
  */
 async function runMigrations() {
+  // Определяем, нужно ли SSL (для localhost отключаем)
+  const isLocalhost = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+
   const client = new Client({
     connectionString,
-    ssl: {
+    ssl: isLocalhost ? false : {
       rejectUnauthorized: false
     }
   });
@@ -90,7 +93,7 @@ async function runMigrations() {
     // Если миграции прошли успешно, применяем сиды
     if (failCount === 0) {
       console.log('\n🌱 Применение сидов...');
-      
+
       for (const file of seedFiles) {
         const filePath = path.join(seedsDir, file);
         const success = await applySQLFile(client, filePath);
@@ -109,10 +112,10 @@ async function runMigrations() {
     console.log('═'.repeat(60));
     console.log(`✅ Успешно: ${successCount}`);
     console.log(`❌ Ошибок: ${failCount}`);
-    
+
     if (failCount === 0) {
       console.log('\n🎉 Все миграции успешно применены!');
-      
+
       // Выводим статистику таблиц
       const tablesResult = await client.query(`
         SELECT schemaname, tablename 
@@ -120,7 +123,7 @@ async function runMigrations() {
         WHERE schemaname = 'public'
         ORDER BY tablename
       `);
-      
+
       console.log(`\n📊 Создано таблиц: ${tablesResult.rows.length}`);
       console.log('\nСписок таблиц:');
       tablesResult.rows.forEach((row, index) => {
@@ -130,17 +133,17 @@ async function runMigrations() {
       // Выводим статистику ролей
       const rolesResult = await client.query('SELECT COUNT(*) as count FROM roles');
       const permissionsResult = await client.query('SELECT COUNT(*) as count FROM permissions');
-      
+
       console.log(`\n👥 Создано ролей: ${rolesResult.rows[0].count}`);
       console.log(`🔐 Создано разрешений: ${permissionsResult.rows[0].count}`);
-      
+
       // Выводим информацию о тестовом админе
       const adminResult = await client.query(`
         SELECT email, full_name, email_verified 
         FROM users 
         WHERE email = 'admin@smetka.ru'
       `);
-      
+
       if (adminResult.rows.length > 0) {
         console.log('\n🔑 Тестовый супер-админ создан:');
         console.log(`   Email: ${adminResult.rows[0].email}`);

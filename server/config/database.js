@@ -9,10 +9,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 dotenv.config({ path: join(__dirname, '..', '..', '.env') });
 
+const connectionString = process.env.DATABASE_URL;
+const isLocalhost = connectionString && (connectionString.includes('localhost') || connectionString.includes('127.0.0.1'));
+
 // Создаем пул соединений к БД
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
+  connectionString,
+  ssl: isLocalhost ? false : {
     rejectUnauthorized: false
   },
   // Настройки для локальной разработки и production
@@ -34,7 +37,7 @@ pool.on('error', (err) => {
 export const query = async (text, params, retries = 3) => {
   const start = Date.now();
   let lastError;
-  
+
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const res = await pool.query(text, params);
@@ -46,18 +49,18 @@ export const query = async (text, params, retries = 3) => {
     } catch (error) {
       lastError = error;
       console.error(`Database query error (attempt ${attempt}/${retries}):`, error.message);
-      
+
       // Если это последняя попытка или ошибка не связана с подключением
       if (attempt === retries || !isConnectionError(error)) {
         throw error;
       }
-      
+
       // Ждем перед повторной попыткой (exponential backoff)
       const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
-  
+
   throw lastError;
 };
 

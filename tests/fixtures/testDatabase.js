@@ -17,10 +17,13 @@ dotenv.config();
 
 const { Pool } = pg;
 
+const connectionString = process.env.DATABASE_URL || '';
+const isLocalhost = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+
 // Создаём пул подключений для тестов
 const testPool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
+  connectionString,
+  ssl: isLocalhost ? false : {
     rejectUnauthorized: false
   }
 });
@@ -100,7 +103,7 @@ export async function createTestUser(userData = {}, options = {}) {
 
   // Используем single connection для всей операции
   const client = await testPool.connect();
-  
+
   try {
     await client.query('BEGIN');
 
