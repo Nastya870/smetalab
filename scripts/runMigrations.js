@@ -7,9 +7,14 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Подключение к БД из переменных окружения
-const connectionString = process.env.DATABASE_URL ||
-  'postgresql://neondb_owner:npg_z9nkcaAxB6ju@ep-polished-forest-agj7s875-pooler.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require';
+// Подключение к БД из переменных окружения (ОБЯЗАТЕЛЬНО!)
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  console.error('❌ Критическая ошибка: DATABASE_URL не установлен!');
+  console.error('Установите переменную окружения DATABASE_URL перед запуском миграций.');
+  process.exit(1);
+}
 
 /**
  * Применяет SQL файл к базе данных

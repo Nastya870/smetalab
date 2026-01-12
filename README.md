@@ -106,7 +106,7 @@ npm run dev
 **DevOps:**
 - **Frontend**: Vercel (автодеплой с GitHub)
 - **Backend**: Render Web Service (Frankfurt)
-- **Database**: Render PostgreSQL / Neon (совместимость с RLS исправлена)
+- **Database**: Render PostgreSQL (Frankfurt)
 - **CI/CD**: GitHub Actions (Unit тесты при push, Linting), Playwright (E2E тесты)
 
 ### Структура проекта
