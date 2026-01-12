@@ -5,9 +5,10 @@
 
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// Инициализируем OpenAI только если есть API ключ (для тестов может отсутствовать)
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 /**
  * Получает embeddings для текстов через OpenAI API
@@ -15,12 +16,17 @@ const openai = new OpenAI({
  * @returns {Promise<Array<Array<number>>>} - Массив векторов embeddings
  */
 export async function getEmbeddings(texts) {
+  if (!openai) {
+    console.warn('⚠️  OpenAI API key not configured, skipping embeddings');
+    return texts.map(() => Array(1536).fill(0)); // Возвращаем нулевые векторы для тестов
+  }
+
   try {
     console.log(`🧠 [OpenAI Embeddings] Запрос для ${texts.length} текстов...`);
-    
+
     // OpenAI API лимит: 2048 текстов за запрос
     const BATCH_SIZE = 2000;
-    
+
     if (texts.length <= BATCH_SIZE) {
       // Маленький запрос - отправляем сразу
       const response = await openai.embeddings.create({
@@ -28,28 +34,28 @@ export async function getEmbeddings(texts) {
         input: texts,
         encoding_format: 'float'
       });
-      
+
       console.log(`✅ [OpenAI Embeddings] Получено ${response.data.length} векторов`);
       return response.data.map(item => item.embedding);
     }
-    
+
     // Большой запрос - разбиваем на батчи
     console.log(`📦 [Batching] Разбиваем ${texts.length} текстов на батчи по ${BATCH_SIZE}`);
     const allEmbeddings = [];
-    
+
     for (let i = 0; i < texts.length; i += BATCH_SIZE) {
       const batch = texts.slice(i, i + BATCH_SIZE);
       console.log(`  🔄 Батч ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(texts.length / BATCH_SIZE)}: ${batch.length} текстов`);
-      
+
       const response = await openai.embeddings.create({
         model: 'text-embedding-3-small',
         input: batch,
         encoding_format: 'float'
       });
-      
+
       allEmbeddings.push(...response.data.map(item => item.embedding));
     }
-    
+
     console.log(`✅ [OpenAI Embeddings] Получено ${allEmbeddings.length} векторов (батчами)`);
     return allEmbeddings;
   } catch (error) {
@@ -69,7 +75,7 @@ export function cosineSimilarity(vec1, vec2) {
   const dotProduct = vec1.reduce((sum, val, i) => sum + val * vec2[i], 0);
   const magnitude1 = Math.sqrt(vec1.reduce((sum, val) => sum + val * val, 0));
   const magnitude2 = Math.sqrt(vec2.reduce((sum, val) => sum + val * val, 0));
-  
+
   return dotProduct / (magnitude1 * magnitude2);
 }
 
@@ -94,7 +100,7 @@ export async function semanticSearch(query, items, textField = 'name', threshold
     // Получаем embeddings для запроса и всех элементов
     const allTexts = [query, ...items.map(item => item[textField] || '')];
     const embeddings = await getEmbeddings(allTexts);
-    
+
     const queryEmbedding = embeddings[0];
     const itemEmbeddings = embeddings.slice(1);
 
@@ -124,7 +130,7 @@ export async function semanticSearch(query, items, textField = 'name', threshold
   } catch (error) {
     console.error('❌ [Semantic Search] Ошибка поиска:', error.message);
     console.error('📋 [Semantic Search] Error stack:', error.stack);
-    
+
     // Fallback: простой текстовый поиск
     console.log(`⚠️  [Semantic Search] Используем fallback (текстовый поиск) для "${query}"`);
     return fallbackTextSearch(query, items, textField, limit);
@@ -149,31 +155,31 @@ function normalizeForSearch(text) {
 function fallbackTextSearch(query, items, textField, limit) {
   const queryNorm = normalizeForSearch(query);
   const queryWords = queryNorm.split(' ').filter(w => w.length > 2); // слова > 2 букв
-  
+
   const results = items
     .map(item => {
       const textNorm = normalizeForSearch(item[textField] || '');
       const textWords = textNorm.split(' ');
-      
+
       // Точное совпадение нормализованного текста
       if (textNorm === queryNorm) {
         return { ...item, similarity: 1.0 };
       }
-      
+
       // Начинается с запроса
       if (textNorm.startsWith(queryNorm)) {
         return { ...item, similarity: 0.95 };
       }
-      
+
       // Содержит весь запрос целиком
       if (textNorm.includes(queryNorm)) {
         return { ...item, similarity: 0.85 };
       }
-      
+
       // Пословное совпадение с весами
       let matchScore = 0;
       let matchedWords = 0;
-      
+
       for (const qw of queryWords) {
         for (const tw of textWords) {
           // Точное совпадение слова
@@ -202,19 +208,19 @@ function fallbackTextSearch(query, items, textField, limit) {
           }
         }
       }
-      
+
       if (matchedWords > 0) {
         // Similarity = средний вес совпадений
         const similarity = (matchScore / queryWords.length) * 0.75;
         return { ...item, similarity };
       }
-      
+
       return null;
     })
     .filter(item => item !== null && item.similarity >= 0.3) // порог 30%
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, limit);
-  
+
   console.log(`⚠️  [Fallback Search] Found ${results.length} results for "${query}"`);
   return results;
 }
@@ -237,7 +243,7 @@ export async function batchSemanticMatch(queries, items, textField = 'name', thr
       ...queries,
       ...items.map(item => item[textField] || '')
     ];
-    
+
     const embeddings = await getEmbeddings(allTexts);
     const queryEmbeddings = embeddings.slice(0, queries.length);
     const itemEmbeddings = embeddings.slice(queries.length);
@@ -249,7 +255,7 @@ export async function batchSemanticMatch(queries, items, textField = 'name', thr
 
       items.forEach((item, itemIndex) => {
         const similarity = cosineSimilarity(queryEmb, itemEmbeddings[itemIndex]);
-        
+
         if (similarity > bestScore) {
           bestScore = similarity;
           bestMatch = { ...item, similarity };

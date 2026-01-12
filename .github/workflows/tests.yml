@@ -54,6 +54,19 @@ jobs:
         NODE_ENV: test
         JWT_ACCESS_SECRET: ci_test_secret_access
         JWT_REFRESH_SECRET: ci_test_secret_refresh
+        OPENAI_API_KEY: sk-test-placeholder
+
+    - name: Start Backend Server
+      run: |
+        npm run server &
+        sleep 5
+      env:
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/smetalab_test
+        NODE_ENV: test
+        JWT_ACCESS_SECRET: ci_test_secret_access
+        JWT_REFRESH_SECRET: ci_test_secret_refresh
+        OPENAI_API_KEY: sk-test-placeholder
+        PORT: 3001
 
     - name: Run Integration Tests
       run: npm run test:integration
@@ -63,6 +76,8 @@ jobs:
         JWT_ACCESS_SECRET: ci_test_secret_access
         JWT_REFRESH_SECRET: ci_test_secret_refresh
         DISABLE_RATE_LIMITER: true
+        OPENAI_API_KEY: sk-test-placeholder
+        API_URL: http://localhost:3001
 
     - name: Run Security Tests
       run: npm run test:security
@@ -72,3 +87,4 @@ jobs:
         JWT_ACCESS_SECRET: ci_test_secret_access
         JWT_REFRESH_SECRET: ci_test_secret_refresh
         RATE_LIMIT_MAX: 1000
+        OPENAI_API_KEY: sk-test-placeholder
