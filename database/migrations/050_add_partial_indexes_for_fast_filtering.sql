@@ -112,7 +112,7 @@ ANALYZE materials;
 -- Проверить размеры индексов
 SELECT 
     schemaname,
-    tablename,
+    relname as tablename,
     indexname,
     pg_size_pretty(pg_relation_size(indexrelid)) as index_size
 FROM pg_stat_user_indexes
@@ -122,7 +122,7 @@ ORDER BY pg_relation_size(indexrelid) DESC;
 -- Проверить использование индексов (запустить после тестирования)
 SELECT 
     schemaname,
-    tablename,
+    relname as tablename,
     indexname,
     idx_scan as index_scans,
     idx_tup_read as tuples_read,
@@ -195,7 +195,7 @@ SELECT * FROM materials WHERE name ILIKE '%кирпич%';
 -- Статистика по индексам (какие используются, какие нет)
 SELECT 
     schemaname,
-    tablename,
+    relname as tablename,
     indexname,
     idx_scan as scans,
     pg_size_pretty(pg_relation_size(indexrelid)) as size,
