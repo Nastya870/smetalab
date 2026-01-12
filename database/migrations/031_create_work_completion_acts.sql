@@ -126,20 +126,20 @@ ALTER TABLE work_completion_act_items ENABLE ROW LEVEL SECURITY;
 -- Политики для work_completion_acts
 CREATE POLICY work_completion_acts_tenant_isolation ON work_completion_acts
     FOR ALL
-    USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+    USING (tenant_id = current_tenant_id() OR is_super_admin());
 
 CREATE POLICY work_completion_acts_tenant_insert ON work_completion_acts
     FOR INSERT
-    WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+    WITH CHECK (tenant_id = current_tenant_id() OR is_super_admin());
 
 -- Политики для work_completion_act_items
 CREATE POLICY work_completion_act_items_tenant_isolation ON work_completion_act_items
     FOR ALL
-    USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+    USING (tenant_id = current_tenant_id() OR is_super_admin());
 
 CREATE POLICY work_completion_act_items_tenant_insert ON work_completion_act_items
     FOR INSERT
-    WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+    WITH CHECK (tenant_id = current_tenant_id() OR is_super_admin());
 
 -- ============================================================================
 -- КОММЕНТАРИИ

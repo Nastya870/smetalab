@@ -60,16 +60,16 @@ ALTER TABLE schedules ENABLE ROW LEVEL SECURITY;
 -- Политика: пользователи видят только графики своего tenant
 CREATE POLICY schedules_tenant_isolation ON schedules
   FOR ALL
-  USING (tenant_id = current_setting('app.current_tenant_id')::UUID);
+  USING (tenant_id = current_tenant_id() OR is_super_admin());
 
 -- Политика: только создатель и админы могут изменять
 CREATE POLICY schedules_owner_update ON schedules
   FOR UPDATE
   USING (
-    tenant_id = current_setting('app.current_tenant_id')::UUID
+    tenant_id = current_tenant_id()
     AND (
-      created_by = current_setting('app.current_user_id')::UUID
-      OR current_setting('app.current_user_role')::TEXT = 'admin'
+      created_by = current_user_id()
+      OR is_super_admin()
     )
   );
 
@@ -77,8 +77,8 @@ CREATE POLICY schedules_owner_update ON schedules
 CREATE POLICY schedules_admin_delete ON schedules
   FOR DELETE
   USING (
-    tenant_id = current_setting('app.current_tenant_id')::UUID
-    AND current_setting('app.current_user_role')::TEXT = 'admin'
+    tenant_id = current_tenant_id()
+    AND is_super_admin()
   );
 
 -- =====================================================

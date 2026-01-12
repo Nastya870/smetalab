@@ -69,6 +69,24 @@ CREATE TRIGGER trigger_update_contracts_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_contracts_updated_at();
 
+-- =====================================================
+-- ROW LEVEL SECURITY (RLS)
+-- =====================================================
+
+-- Включаем RLS
+ALTER TABLE contracts ENABLE ROW LEVEL SECURITY;
+
+-- Политика SELECT: пользователи видят только договоры своей компании
+CREATE POLICY contracts_tenant_isolation ON contracts
+    FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM projects p
+            WHERE p.id = contracts.project_id
+            AND (p.tenant_id = current_tenant_id() OR is_super_admin())
+        )
+    );
+
 -- Комментарии к таблице и столбцам
 COMMENT ON TABLE contracts IS 'Договоры между Заказчиком (физ. лицо) и Подрядчиком (юр. лицо)';
 COMMENT ON COLUMN contracts.id IS 'Уникальный идентификатор договора';

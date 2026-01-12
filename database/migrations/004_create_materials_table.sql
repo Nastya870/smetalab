@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS materials (
   image TEXT,
   unit VARCHAR(50) NOT NULL,
   price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+  sku_number INTEGER,
+  is_global BOOLEAN DEFAULT FALSE,
   supplier VARCHAR(255),
   weight DECIMAL(10, 3),
   category VARCHAR(100) NOT NULL,
@@ -39,6 +41,8 @@ CREATE INDEX IF NOT EXISTS idx_materials_sku ON materials(sku);
 CREATE INDEX IF NOT EXISTS idx_materials_category ON materials(category);
 CREATE INDEX IF NOT EXISTS idx_materials_supplier ON materials(supplier);
 CREATE INDEX IF NOT EXISTS idx_materials_tenant_id ON materials(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_materials_is_global ON materials(is_global);
+CREATE INDEX IF NOT EXISTS idx_materials_sku_number ON materials(sku_number);
 CREATE INDEX IF NOT EXISTS idx_materials_created_at ON materials(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_materials_name ON materials(name);
 
@@ -73,6 +77,8 @@ COMMENT ON COLUMN materials.tenant_id IS 'ID компании (для мульт
 COMMENT ON COLUMN materials.created_by IS 'ID пользователя, создавшего запись';
 COMMENT ON COLUMN materials.created_at IS 'Дата и время создания';
 COMMENT ON COLUMN materials.updated_at IS 'Дата и время последнего обновления';
+COMMENT ON COLUMN materials.sku_number IS 'Числовое значение SKU для правильной сортировки';
+COMMENT ON COLUMN materials.is_global IS 'Флаг глобального материала (доступен всем)';
 
 -- RLS (Row Level Security)
 ALTER TABLE materials ENABLE ROW LEVEL SECURITY;
@@ -81,7 +87,7 @@ ALTER TABLE materials ENABLE ROW LEVEL SECURITY;
 CREATE POLICY materials_tenant_isolation ON materials
   FOR ALL
   USING (
-    tenant_id IS NULL OR 
+    is_global = TRUE OR 
     tenant_id = current_tenant_id() OR 
     is_super_admin()
   );

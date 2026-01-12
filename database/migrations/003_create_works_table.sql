@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS works (
   category VARCHAR(100) NOT NULL,
   unit VARCHAR(50) NOT NULL,
   base_price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+  phase VARCHAR(100),
+  section VARCHAR(100),
+  subsection VARCHAR(100),
+  is_global BOOLEAN DEFAULT FALSE,
   tenant_id UUID,
   created_by UUID,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -33,6 +37,8 @@ CREATE TABLE IF NOT EXISTS works (
 CREATE INDEX IF NOT EXISTS idx_works_code ON works(code);
 CREATE INDEX IF NOT EXISTS idx_works_category ON works(category);
 CREATE INDEX IF NOT EXISTS idx_works_tenant_id ON works(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_works_is_global ON works(is_global);
+CREATE INDEX IF NOT EXISTS idx_works_phase ON works(phase);
 CREATE INDEX IF NOT EXISTS idx_works_created_at ON works(created_at DESC);
 
 -- Триггер для автоматического обновления updated_at
@@ -61,6 +67,10 @@ COMMENT ON COLUMN works.tenant_id IS 'ID компании (для мультит
 COMMENT ON COLUMN works.created_by IS 'ID пользователя, создавшего запись';
 COMMENT ON COLUMN works.created_at IS 'Дата и время создания';
 COMMENT ON COLUMN works.updated_at IS 'Дата и время последнего обновления';
+COMMENT ON COLUMN works.phase IS 'Этап работ (Фаза)';
+COMMENT ON COLUMN works.section IS 'Раздел работ';
+COMMENT ON COLUMN works.subsection IS 'Подраздел работ';
+COMMENT ON COLUMN works.is_global IS 'Флаг глобальной работы (доступна всем)';
 
 -- RLS (Row Level Security) - опционально
 -- Включаем RLS если нужна изоляция данных между компаниями
@@ -70,7 +80,7 @@ ALTER TABLE works ENABLE ROW LEVEL SECURITY;
 CREATE POLICY works_tenant_isolation ON works
   FOR ALL
   USING (
-    tenant_id IS NULL OR 
+    is_global = TRUE OR 
     tenant_id = current_tenant_id() OR 
     is_super_admin()
   );

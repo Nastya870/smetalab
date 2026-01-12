@@ -59,16 +59,16 @@ ALTER TABLE purchases ENABLE ROW LEVEL SECURITY;
 -- Политика: пользователи видят только закупки своего tenant
 CREATE POLICY purchases_tenant_isolation ON purchases
   FOR ALL
-  USING (tenant_id = current_setting('app.current_tenant_id')::UUID);
+  USING (tenant_id = current_tenant_id() OR is_super_admin());
 
 -- Политика: только создатель и админы могут изменять
 CREATE POLICY purchases_owner_update ON purchases
   FOR UPDATE
   USING (
-    tenant_id = current_setting('app.current_tenant_id')::UUID
+    tenant_id = current_tenant_id()
     AND (
-      created_by = current_setting('app.current_user_id')::UUID
-      OR current_setting('app.current_user_role')::TEXT = 'admin'
+      created_by = current_user_id()
+      OR is_super_admin()
     )
   );
 
@@ -76,8 +76,8 @@ CREATE POLICY purchases_owner_update ON purchases
 CREATE POLICY purchases_admin_delete ON purchases
   FOR DELETE
   USING (
-    tenant_id = current_setting('app.current_tenant_id')::UUID
-    AND current_setting('app.current_user_role')::TEXT = 'admin'
+    tenant_id = current_tenant_id()
+    AND is_super_admin()
   );
 
 -- =====================================================

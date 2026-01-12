@@ -82,6 +82,9 @@ CREATE TABLE IF NOT EXISTS estimate_items (
   name VARCHAR(255) NOT NULL,                     -- Название позиции
   description TEXT,                               -- Подробное описание
   code VARCHAR(100),                              -- Код (артикул, шифр)
+  phase VARCHAR(100),                             -- Этап работ (Фаза)
+  section VARCHAR(100),                           -- Раздел работ
+  subsection VARCHAR(100),                        -- Подраздел работ
   
   -- Единицы измерения и количество
   unit VARCHAR(50) NOT NULL,                      -- м2, м3, шт, кг, тонна, час и т.д.
@@ -122,6 +125,9 @@ COMMENT ON COLUMN estimate_items.position_number IS 'Порядковый ном
 COMMENT ON COLUMN estimate_items.item_type IS 'Тип позиции: работа, материал, услуга, оборудование, другое';
 COMMENT ON COLUMN estimate_items.total_price IS 'Стоимость позиции (количество × цена за единицу)';
 COMMENT ON COLUMN estimate_items.final_price IS 'Итоговая цена с учетом накладных, прибыли и налогов';
+COMMENT ON COLUMN estimate_items.phase IS 'Этап работ (Фаза)';
+COMMENT ON COLUMN estimate_items.section IS 'Раздел работ';
+COMMENT ON COLUMN estimate_items.subsection IS 'Подраздел работ';
 
 -- ============================================================================
 -- 3. ИНДЕКСЫ ДЛЯ ОПТИМИЗАЦИИ ЗАПРОСОВ
@@ -147,6 +153,8 @@ CREATE INDEX idx_estimates_name_gin ON estimates USING gin(name gin_trgm_ops);
 CREATE INDEX idx_estimate_items_estimate_id ON estimate_items(estimate_id);
 CREATE INDEX idx_estimate_items_item_type ON estimate_items(item_type);
 CREATE INDEX idx_estimate_items_position ON estimate_items(estimate_id, position_number);
+CREATE INDEX idx_estimate_items_phase ON estimate_items(phase);
+CREATE INDEX idx_estimate_items_section ON estimate_items(section);
 
 -- ============================================================================
 -- 4. ФУНКЦИИ И ТРИГГЕРЫ

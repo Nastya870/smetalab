@@ -128,23 +128,23 @@ ALTER TABLE counterparties ENABLE ROW LEVEL SECURITY;
 -- Политика SELECT: пользователи видят только своих контрагентов
 CREATE POLICY counterparties_select_policy ON counterparties
     FOR SELECT
-    USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+    USING (tenant_id = current_tenant_id() OR is_super_admin());
 
 -- Политика INSERT: пользователи могут создавать контрагентов только для своего tenant
 CREATE POLICY counterparties_insert_policy ON counterparties
     FOR INSERT
-    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+    WITH CHECK (tenant_id = current_tenant_id() OR is_super_admin());
 
 -- Политика UPDATE: пользователи могут обновлять только своих контрагентов
 CREATE POLICY counterparties_update_policy ON counterparties
     FOR UPDATE
-    USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+    USING (tenant_id = current_tenant_id() OR is_super_admin())
+    WITH CHECK (tenant_id = current_tenant_id() OR is_super_admin());
 
 -- Политика DELETE: пользователи могут удалять только своих контрагентов
 CREATE POLICY counterparties_delete_policy ON counterparties
     FOR DELETE
-    USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+    USING (tenant_id = current_tenant_id() OR is_super_admin());
 
 -- ============================================================================
 -- КОММЕНТАРИИ

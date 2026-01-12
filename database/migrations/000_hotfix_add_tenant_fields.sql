@@ -116,4 +116,56 @@ BEGIN
             COMMENT ON COLUMN role_permissions.is_hidden IS 'Скрыть этот элемент в UI для данной роли';
         END IF;
     END IF;
+
+    -- 6. Добавление недостающих полей в таблицы справочников и смет
+    -- roles.updated_at
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'roles') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'roles' AND column_name = 'updated_at') THEN
+            ALTER TABLE roles ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW();
+        END IF;
+    END IF;
+
+    -- user_role_assignments.tenant_id (убираем NOT NULL)
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_role_assignments') THEN
+        ALTER TABLE user_role_assignments ALTER COLUMN tenant_id DROP NOT NULL;
+    END IF;
+
+    -- works (phase, section, subsection, is_global)
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'works') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'works' AND column_name = 'phase') THEN
+            ALTER TABLE works ADD COLUMN phase VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'works' AND column_name = 'section') THEN
+            ALTER TABLE works ADD COLUMN section VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'works' AND column_name = 'subsection') THEN
+            ALTER TABLE works ADD COLUMN subsection VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'works' AND column_name = 'is_global') THEN
+            ALTER TABLE works ADD COLUMN is_global BOOLEAN DEFAULT FALSE;
+        END IF;
+    END IF;
+
+    -- materials (sku_number, is_global)
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'materials') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'materials' AND column_name = 'sku_number') THEN
+            ALTER TABLE materials ADD COLUMN sku_number INTEGER;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'materials' AND column_name = 'is_global') THEN
+            ALTER TABLE materials ADD COLUMN is_global BOOLEAN DEFAULT FALSE;
+        END IF;
+    END IF;
+
+    -- estimate_items (phase, section, subsection)
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'estimate_items') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'estimate_items' AND column_name = 'phase') THEN
+            ALTER TABLE estimate_items ADD COLUMN phase VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'estimate_items' AND column_name = 'section') THEN
+            ALTER TABLE estimate_items ADD COLUMN section VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'estimate_items' AND column_name = 'subsection') THEN
+            ALTER TABLE estimate_items ADD COLUMN subsection VARCHAR(100);
+        END IF;
+    END IF;
 END $$;
