@@ -51,7 +51,7 @@ jobs:
     - name: Verify Extensions
       run: |
         PGPASSWORD=password psql -h localhost -U postgres -d smetalab_test -c "SELECT extname, extversion FROM pg_extension WHERE extname IN ('uuid-ossp', 'citext', 'pg_trgm');"
-      if: always()
+      if: success() || failure()
 
     - name: Run Database Migrations
       run: npm run db:migrate
