@@ -202,7 +202,7 @@ app.use('/api/contracts', contractsRoutes);
 app.use('/api/tenants', tenantsRoutes);
 app.use('/api/estimate-templates', estimateTemplatesRoutes);
 app.use('/api/permissions', permissionsRoutes);
-app.use('/api/search', searchRoutes); // 🧠 Universal Semantic Search
+// app.use('/api/search', searchRoutes); // 🧠 Universal Semantic Search (DISABLED - requires Pinecone/OpenAI)
 app.use('/api/admin', adminRoutes); // 🔧 Admin Operations (migrations, sync)
 
 // 404 handler
