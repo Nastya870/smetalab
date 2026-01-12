@@ -168,4 +168,18 @@ BEGIN
             ALTER TABLE estimate_items ADD COLUMN subsection VARCHAR(100);
         END IF;
     END IF;
+
+    -- auto_calculate in materials
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'materials') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'materials' AND column_name = 'auto_calculate') THEN
+            ALTER TABLE materials ADD COLUMN auto_calculate BOOLEAN DEFAULT TRUE;
+        END IF;
+    END IF;
+
+    -- auto_calculate in estimate_item_materials
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'estimate_item_materials') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'estimate_item_materials' AND column_name = 'auto_calculate') THEN
+            ALTER TABLE estimate_item_materials ADD COLUMN auto_calculate BOOLEAN DEFAULT TRUE;
+        END IF;
+    END IF;
 END $$;

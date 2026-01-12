@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS materials (
   category VARCHAR(100) NOT NULL,
   product_url TEXT,
   show_image BOOLEAN DEFAULT true,
+  auto_calculate BOOLEAN DEFAULT true,
   tenant_id UUID,
   created_by UUID,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

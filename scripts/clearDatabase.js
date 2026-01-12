@@ -1,7 +1,22 @@
 import pkg from 'pg';
 const { Client } = pkg;
 
-const connectionString = 'postgresql://neondb_owner:npg_z9nkcaAxB6ju@ep-polished-forest-agj7s875-pooler.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Загружаем .env из корня проекта
+dotenv.config({ path: join(__dirname, '..', '.env') });
+
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  console.error('❌ Критическая ошибка: DATABASE_URL не установлен!');
+  process.exit(1);
+}
 
 async function clearDatabase() {
   const client = new Client({
@@ -51,7 +66,7 @@ async function clearDatabase() {
     `);
 
     console.log(`\n✨ Готово! Осталось таблиц: ${checkResult.rows[0].count}`);
-    
+
   } catch (error) {
     console.error('❌ Ошибка:', error.message);
     throw error;
