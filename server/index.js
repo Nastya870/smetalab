@@ -115,6 +115,16 @@ app.get('/api-docs.json', (req, res) => {
   res.send(swaggerSpec);
 });
 
+// Root Welcome Redirect to Health
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'SmetaLab API is online',
+    docs: '/api-docs',
+    health: '/api/health'
+  });
+});
+
 // Health check (должен быть ДО всех роутов с авторизацией)
 app.get('/api/health', (req, res) => {
   res.json({
