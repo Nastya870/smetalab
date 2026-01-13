@@ -26,45 +26,31 @@ async function applySQLFile(client, filePath) {
   console.log(`\n📄 Применение: ${fileName}`);
   console.log('─'.repeat(60));
 
-  // Простейший сплиттер по ; (с учетом того, что в функциях могут быть ;)
-  // Для baseline это обычно работает, так как там нет сложных процедур с вложенными ; в строках
-  // Но лучше использовать более надежный метод: разделение по ; в конце строки
-  const statements = sql
-    .split(/;\s*$/m)
-    .map(s => s.trim())
-    .filter(s => s.length > 0);
-
-  let success = true;
-  for (let i = 0; i < statements.length; i++) {
-    const statement = statements[i] + ';';
-    try {
-      await client.query(statement);
-    } catch (error) {
-      // Игнорируем ошибки "already exists"
-      const ignorableErrors = [
-        'already exists',
-        'duplicate key value',
-        'does not exist',
-        'could not create unique index',
-        'no unique or exclusion constraint matching'
-      ];
-
-      const isIgnorable = ignorableErrors.some(msg => error.message.includes(msg));
-
-      if (!isIgnorable) {
-        console.error(`❌ Ошибка в ${fileName} (команда ${i + 1}):`);
-        console.error(`SQL: ${statement.substring(0, 100)}...`);
-        console.error(`Error: ${error.message}`);
-        success = false;
-        break;
-      }
-    }
-  }
-
-  if (success) {
+  try {
+    await client.query(sql);
     console.log(`✅ Успешно применен: ${fileName}`);
+    return true;
+  } catch (error) {
+    // Игнорируем ошибки "already exists" для идемпотентности
+    const ignorableErrors = [
+      'already exists',
+      'duplicate key value',
+      'does not exist',
+      'could not create unique index',
+      'no unique or exclusion constraint matching'
+    ];
+
+    const isIgnorable = ignorableErrors.some(msg => error.message.includes(msg));
+
+    if (isIgnorable) {
+      console.log(`⚠️  Пропущено (объект уже существует): ${fileName}`);
+      return true;
+    }
+
+    console.error(`❌ Ошибка в файле ${fileName}:`);
+    console.error(error.message);
+    return false;
   }
-  return success;
 }
 
 /**
