@@ -6,6 +6,13 @@ import { catchAsync, BadRequestError } from '../utils/errors.js';
 
 const CSV_DELIMITER = ';';
 
+const parseNumber = (value) => {
+    if (!value) return 0;
+    const normalized = String(value).replace(/,/g, '.').replace(/\s/g, '');
+    const num = parseFloat(normalized);
+    return isNaN(num) ? 0 : num;
+};
+
 /**
  * Экспорт графика в CSV
  */
@@ -79,9 +86,9 @@ export const importFromCSV = catchAsync(async (req, res) => {
                     workCode: row['Код работы']?.trim() || null,
                     workName: row['Наименование работ'].trim(),
                     unit: row['Ед. изм.']?.trim() || 'шт',
-                    quantity: parseFloat(row['Кол-во']) || 0,
-                    unitPrice: parseFloat(row['Цена за ед.']) || 0,
-                    totalPrice: parseFloat(row['Сумма']) || 0,
+                    quantity: parseNumber(row['Кол-во']),
+                    unitPrice: parseNumber(row['Цена за ед.']),
+                    totalPrice: parseNumber(row['Сумма']),
                     positionNumber: parseInt(row['Позиция']) || 0
                 });
             })

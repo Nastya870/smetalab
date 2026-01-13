@@ -8,6 +8,13 @@ import { catchAsync, BadRequestError } from '../utils/errors.js';
 const BULK_IMPORT_LIMIT = 1000;
 const CSV_DELIMITER = ';';
 
+const parseNumber = (value) => {
+    if (!value) return 0;
+    const normalized = String(value).replace(/,/g, '.').replace(/\s/g, '');
+    const num = parseFloat(normalized);
+    return isNaN(num) ? 0 : num;
+};
+
 /**
  * Экспорт позиций сметы в CSV
  */
@@ -86,11 +93,11 @@ export const importFromCSV = catchAsync(async (req, res) => {
                     subsection: row['Подраздел']?.trim() || null,
                     workName: row['Наименование работ'].trim(),
                     unit: row['Ед. изм.']?.trim() || 'шт',
-                    quantity: parseFloat(row['Кол-во']) || 0,
-                    pricePerUnit: parseFloat(row['Цена']) || 0,
-                    overheadPercent: parseFloat(row['Накладные %']) || 0,
-                    profitPercent: parseFloat(row['Прибыль %']) || 0,
-                    taxPercent: parseFloat(row['Налог %']) || 0,
+                    quantity: parseNumber(row['Кол-во']),
+                    pricePerUnit: parseNumber(row['Цена']),
+                    overheadPercent: parseNumber(row['Накладные %']),
+                    profitPercent: parseNumber(row['Прибыль %']),
+                    taxPercent: parseNumber(row['Налог %']),
                     itemType: 'work'
                 });
             })

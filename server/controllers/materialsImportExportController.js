@@ -7,6 +7,14 @@ import { catchAsync, BadRequestError } from '../utils/errors.js';
 const BULK_IMPORT_LIMIT = 1000;
 const CSV_DELIMITER = ';';
 
+const parseNumber = (value) => {
+    if (!value) return 0;
+    // Заменяем запятую на точку и убираем неразрывные пробелы/обычные пробелы
+    const normalized = String(value).replace(/,/g, '.').replace(/\s/g, '');
+    const num = parseFloat(normalized);
+    return isNaN(num) ? 0 : num;
+};
+
 /**
  * Экспорт материалов в CSV
  */
@@ -105,13 +113,13 @@ export const importFromCSV = catchAsync(async (req, res) => {
                     sku: row['Артикул'].trim(),
                     name: row['Наименование'].trim(),
                     unit: row['Ед. изм.']?.trim() || 'шт',
-                    price: parseFloat(row['Цена']) || 0,
+                    price: parseNumber(row['Цена']),
                     supplier: row['Поставщик']?.trim() || '',
-                    weight: parseFloat(row['Вес']) || 0,
+                    weight: parseNumber(row['Вес']),
                     category: row['Категория']?.trim() || '',
                     productUrl: row['Ссылка']?.trim() || '',
                     autoCalculate: row['Авторасчет']?.toLowerCase() === 'да',
-                    consumption: parseFloat(row['Расход']) || 0,
+                    consumption: parseNumber(row['Расход']),
                     isGlobal: isGlobal === 'true' || isGlobal === true
                 });
             })

@@ -8,6 +8,13 @@ import { catchAsync, BadRequestError } from '../utils/errors.js';
 const BULK_IMPORT_LIMIT = 500;
 const CSV_DELIMITER = ';';
 
+const parseNumber = (value) => {
+  if (!value) return 0;
+  const normalized = String(value).replace(/,/g, '.').replace(/\s/g, '');
+  const num = parseFloat(normalized);
+  return isNaN(num) ? 0 : num;
+};
+
 /**
  * Экспорт работ в CSV
  * GET /api/works/export
@@ -36,7 +43,7 @@ export const exportToCSV = catchAsync(async (req, res) => {
       escapeCsvField(work.name),
       escapeCsvField(work.category),
       escapeCsvField(work.unit),
-      work.basePrice || 0,
+      work.base_price || 0,
       escapeCsvField(work.phase || ''),
       escapeCsvField(work.section || ''),
       escapeCsvField(work.subsection || '')
@@ -131,7 +138,7 @@ export const importFromCSV = catchAsync(async (req, res) => {
         }
 
         // Валидация базовой цены
-        const basePrice = parseFloat(row['Базовая цена']) || 0;
+        const basePrice = parseNumber(row['Базовая цена']);
         if (basePrice < 0) {
           errors.push({
             line: lineNumber,

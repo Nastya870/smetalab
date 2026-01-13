@@ -6,6 +6,13 @@ import { catchAsync, BadRequestError } from '../utils/errors.js';
 
 const CSV_DELIMITER = ';';
 
+const parseNumber = (value) => {
+    if (!value) return 0;
+    const normalized = String(value).replace(/,/g, '.').replace(/\s/g, '');
+    const num = parseFloat(normalized);
+    return isNaN(num) ? 0 : num;
+};
+
 /**
  * Экспорт глобальных закупок в CSV
  */
@@ -85,9 +92,9 @@ export const importFromCSV = catchAsync(async (req, res) => {
                     sku: row['Артикул']?.trim() || '',
                     name: row['Наименование'].trim(),
                     unit: row['Ед. изм.']?.trim() || 'шт',
-                    quantity: parseFloat(row['Кол-во']) || 0,
-                    price: parseFloat(row['Цена закупки']) || 0,
-                    total: parseFloat(row['Сумма']) || 0,
+                    quantity: parseNumber(row['Кол-во']),
+                    price: parseNumber(row['Цена закупки']),
+                    total: parseNumber(row['Сумма']),
                     date: row['Дата'] ? parseRussianDate(row['Дата']) : new Date(),
                     projectName: row['Проект']?.trim() || '',
                     estimateName: row['Смета']?.trim() || ''
