@@ -148,6 +148,7 @@ const WorksReferencePage = () => {
   const { success, error: showError, info: showInfo } = useNotifications();
   const { isSuperAdmin } = useAuth();
   const [openImportDialog, setOpenImportDialog] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // 🚀 NEW: Infinite Scroll state
   const [page, setPage] = useState(1);
@@ -497,8 +498,6 @@ const WorksReferencePage = () => {
   };
 
   // Открыть диалог импорта
-  const [openImportDialog, setOpenImportDialog] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
 
   const handleOpenImport = () => {
     setOpenImportDialog(true);
