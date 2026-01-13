@@ -62,9 +62,10 @@ const SimplifiedProjectsTable = ({ data = [], isLoading = false, sx = {} }) => {
           '&::-webkit-scrollbar-thumb': {
             background: '#E5E7EB',
             borderRadius: '10px',
-          },
-          '&::-webkit-scrollbar-thumb:hover': {
-            background: '#D1D5DB',
+            transition: 'background 0.2s ease',
+            '&:hover': {
+              background: '#D1D5DB'
+            }
           },
         }}>
           <Table stickyHeader>
