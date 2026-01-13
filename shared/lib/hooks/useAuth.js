@@ -14,10 +14,14 @@ export const useAuth = () => {
   useEffect(() => {
     const loadAuthData = async () => {
       try {
+        console.log('🔐 [useAuth] Loading auth data...');
         if (isAuthenticated()) {
           let userData = getCurrentUser();
           const tenantData = getCurrentTenant();
           const userRoles = getUserRoles();
+
+          console.log('🔐 [useAuth] Current user:', userData?.email, 'isSuperAdmin:', userData?.isSuperAdmin);
+          console.log('🔐 [useAuth] Roles:', userRoles.map(r => r.key || r));
 
           setUser(userData);
           setTenant(tenantData);
@@ -25,21 +29,23 @@ export const useAuth = () => {
 
           // ✨ Если в данных пользователя нет флага isSuperAdmin, пробуем обновить профиль
           if (userData && userData.isSuperAdmin === undefined) {
+            console.log('🔐 [useAuth] isSuperAdmin flag missing, refreshing profile...');
             try {
               const { getMe } = await import('services/authService');
               const freshData = await getMe();
               if (freshData && freshData.user) {
+                console.log('🔐 [useAuth] Profile refreshed, isSuperAdmin:', freshData.user.isSuperAdmin);
                 setUser(freshData.user);
-                // authService.getMe обычно сам обновляет localStorage, но на всякий случай:
-                // storageService.set('user', freshData.user);
               }
             } catch (e) {
-              console.error('Failed to auto-refresh user data:', e);
+              console.error('🔐 [useAuth] Failed to auto-refresh user data:', e);
             }
           }
+        } else {
+          console.log('🔐 [useAuth] User not authenticated');
         }
       } catch (error) {
-        console.error('Error loading auth data:', error);
+        console.error('🔐 [useAuth] Error loading auth data:', error);
       } finally {
         setLoading(false);
       }
