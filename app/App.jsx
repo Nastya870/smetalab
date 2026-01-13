@@ -1,5 +1,8 @@
 import { RouterProvider } from 'react-router-dom';
 
+// Vercel Speed Insights
+import { SpeedInsights } from '@vercel/speed-insights/react';
+
 // MUI Date Pickers
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -61,6 +64,7 @@ export default function App() {
                 <PermissionsProvider>
                   <NotificationsProvider>
                     <RouterProvider router={router} />
+                    <SpeedInsights />
                   </NotificationsProvider>
                 </PermissionsProvider>
               </AuthProvider>
