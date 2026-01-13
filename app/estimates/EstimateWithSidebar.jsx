@@ -102,7 +102,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     addMaterialToWork, replaceMaterial, removeMaterial, updateMaterialConsumption, updateMaterialQuantity,
     updateMetadata, updateProjectData, save: saveEstimate, clearEstimate,
     applyCoefficient, resetPrices, saveOriginalPrices, setEstimateMetadata,
-    handleUpdateWorkPriceInReference
+    handleUpdateWorkPriceInReference, loadSavedEstimate
   } = useEstimateData({ projectId, estimateId, onUnsavedChanges });
 
   const [materialSearchQuery, setMaterialSearchQuery] = useState(''); // ✅ Для клиентского поиска
@@ -338,11 +338,9 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     setOpenImportDialog(true);
   };
 
-  const handleImportSuccess = () => {
-    // Перезагружаем страницу или данные сметы
-    window.location.reload();
-    // В идеале вызвать loadSavedEstimate из хука, но он там приватный.
-    // Перезагрузка - самый надежный способ обновить всё состояние.
+  const handleImportSuccess = async () => {
+    // Вместо полной перезагрузки страницы вызываем обновление данных через хук
+    await loadSavedEstimate();
   };
 
   // ==============================|| HANDLERS - TEMPLATE ||============================== //
@@ -633,7 +631,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         sidebarVisible={sidebarVisible}
         saving={savingEstimate}
         exportingExcel={exportingExcel}
-        disableSave={estimateData.sections.length === 0 || savingEstimate}
+        disableSave={savingEstimate}
         disableTemplate={!estimateId || estimateData.sections.length === 0}
         disableCoefficient={estimateData.sections.length === 0}
         disableClear={estimateData.sections.length === 0}
@@ -642,7 +640,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         onSave={saveEstimate}
         onSaveAsTemplate={handleSaveAsTemplate}
         onOpenCoefficient={() => setCoefficientModalOpen(true)}
-        onClear={clearEstimate}
+        onClear={async () => await clearEstimate()}
         onExportExcel={handleExportExcel}
         onExportCSV={handleExportCSV}
         onImportCSV={handleImportCSV}

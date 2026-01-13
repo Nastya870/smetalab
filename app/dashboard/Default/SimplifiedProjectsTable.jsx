@@ -18,7 +18,7 @@ import {
  * 
  * @param {Array} data - Массив проектов из API (projectsProfitData)
  */
-const SimplifiedProjectsTable = ({ data = [], isLoading = false }) => {
+const SimplifiedProjectsTable = ({ data = [], isLoading = false, sx = {} }) => {
   // Преобразование данных из API
   const projects = data.map(project => ({
     id: project.project_id || project.id,
@@ -45,12 +45,29 @@ const SimplifiedProjectsTable = ({ data = [], isLoading = false }) => {
         bgcolor: 'background.paper',
         boxShadow: '0 1px 3px 0 rgba(0,0,0,0.08)',
         borderRadius: '12px',
-        border: '1px solid #E8EBF1'
+        border: '1px solid #E8EBF1',
+        ...sx
       }}
     >
-      <CardContent sx={{ p: 0 }}>
-        <TableContainer>
-          <Table>
+      <CardContent sx={{ p: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <TableContainer sx={{
+          flex: 1,
+          overflowY: 'auto',
+          '&::-webkit-scrollbar': {
+            width: '6px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: '#F9FAFB',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: '#E5E7EB',
+            borderRadius: '10px',
+          },
+          '&::-webkit-scrollbar-thumb:hover': {
+            background: '#D1D5DB',
+          },
+        }}>
+          <Table stickyHeader>
             <TableHead>
               <TableRow>
                 <TableCell
@@ -58,7 +75,8 @@ const SimplifiedProjectsTable = ({ data = [], isLoading = false }) => {
                     bgcolor: '#F9FAFB',
                     borderBottom: '1px solid #E8EBF1',
                     py: 1.5,
-                    px: 2.5
+                    px: 2.5,
+                    zIndex: 2
                   }}
                 >
                   <Typography variant="subtitle2" sx={{ fontSize: '0.8125rem', fontWeight: 600, color: '#6B7280' }}>
@@ -71,7 +89,8 @@ const SimplifiedProjectsTable = ({ data = [], isLoading = false }) => {
                     bgcolor: '#F9FAFB',
                     borderBottom: '1px solid #E8EBF1',
                     py: 1.5,
-                    px: 2.5
+                    px: 2.5,
+                    zIndex: 2
                   }}
                 >
                   <Typography variant="subtitle2" sx={{ fontSize: '0.8125rem', fontWeight: 600, color: '#6B7280' }}>
@@ -84,7 +103,8 @@ const SimplifiedProjectsTable = ({ data = [], isLoading = false }) => {
                     bgcolor: '#F9FAFB',
                     borderBottom: '1px solid #E8EBF1',
                     py: 1.5,
-                    px: 2.5
+                    px: 2.5,
+                    zIndex: 2
                   }}
                 >
                   <Typography variant="subtitle2" sx={{ fontSize: '0.8125rem', fontWeight: 600, color: '#6B7280' }}>

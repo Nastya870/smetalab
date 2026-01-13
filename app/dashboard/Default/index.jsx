@@ -51,27 +51,27 @@ export default function Dashboard() {
       {/* HEADER: Заголовок страницы + фильтры */}
       {/* ============================================ */}
       <Grid size={12}>
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+        <Box sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          pb: 2
+          pb: 1
         }}>
           <Box>
-            <Typography 
-              variant="h4" 
-              sx={{ 
-                fontWeight: 700, 
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 700,
                 color: 'text.primary',
-                fontSize: '1.5rem'
+                fontSize: '1.25rem'
               }}
             >
               Финансовый обзор
             </Typography>
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                color: '#6B7280', 
+            <Typography
+              variant="body2"
+              sx={{
+                color: '#6B7280',
                 mt: 0.5,
                 fontSize: '0.875rem'
               }}
@@ -79,15 +79,15 @@ export default function Dashboard() {
               Отчёт по доходам, расходам и прибыльности проектов
             </Typography>
           </Box>
-          
+
           {/* Фильтр периода */}
           <FormControl size="small">
             <Select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
               inputProps={{ 'aria-label': 'Выбор периода отчета' }}
-              sx={{ 
-                bgcolor: 'background.paper', 
+              sx={{
+                bgcolor: 'background.paper',
                 fontSize: '0.875rem',
                 borderRadius: '10px',
                 border: '1px solid #DCE1EA',
@@ -150,8 +150,8 @@ export default function Dashboard() {
       {/* BLOCK 2: Главный график (доминирует) */}
       {/* ============================================ */}
       <Grid size={12}>
-        <MainFinancialChart 
-          isLoading={isLoading} 
+        <MainFinancialChart
+          isLoading={isLoading}
           chartData={dashboardData?.chartData}
           chartPeriod={chartPeriod}
           onChartPeriodChange={setChartPeriod}
@@ -163,18 +163,20 @@ export default function Dashboard() {
       {/* ============================================ */}
       <Grid size={12}>
         <Grid container spacing={2}>
-          <Grid size={{ xs: 12, md: 8 }}>
-            <SimplifiedIncomeExpenseTable 
-              isLoading={isLoading} 
+          <Grid size={{ xs: 12, md: 8 }} sx={{ display: 'flex' }}>
+            <SimplifiedIncomeExpenseTable
+              isLoading={isLoading}
               data={dashboardData?.growthData}
               incomeWorks={dashboardData?.incomeWorks}
               incomeMaterials={dashboardData?.incomeMaterials}
+              sx={{ height: '100%', width: '100%' }}
             />
           </Grid>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <SimplifiedProjectsTable 
-              isLoading={isLoading} 
+          <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
+            <SimplifiedProjectsTable
+              isLoading={isLoading}
               data={dashboardData?.projectsProfitData}
+              sx={{ height: '100%', width: '100%' }}
             />
           </Grid>
         </Grid>

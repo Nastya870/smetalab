@@ -95,138 +95,134 @@ const useEstimateData = ({ projectId, estimateId, onUnsavedChanges }) => {
 
     // -- LOAD --
 
-    useEffect(() => {
-        const loadSavedEstimate = async () => {
-            const estimateIdToLoad = estimateId || localStorage.getItem('currentEstimateId');
-            if (!estimateIdToLoad) return;
+    const loadSavedEstimate = useCallback(async () => {
+        const estimateIdToLoad = estimateId || localStorage.getItem('currentEstimateId');
+        if (!estimateIdToLoad) return;
 
-            isInitialLoadRef.current = false;
+        try {
+            setLoading(true);
+            isInitialLoadRef.current = true;
+            console.log('🔄 Loading estimate:', estimateIdToLoad);
 
-            try {
-                setLoading(true);
-                isInitialLoadRef.current = true;
-                console.log('🔄 Loading estimate:', estimateIdToLoad);
+            const estimate = await estimatesAPI.getById(estimateIdToLoad);
 
-                const estimate = await estimatesAPI.getById(estimateIdToLoad);
-
-                if (projectId && estimate.project_id !== projectId) {
-                    localStorage.removeItem('currentEstimateId');
-                    setLoading(false);
-                    return;
-                }
-
-                setEstimateMetadata({
-                    name: estimate.name || `Смета от ${new Date(estimate.created_at).toLocaleDateString()}`,
-                    estimateType: estimate.estimate_type || estimate.estimateType || 'строительство',
-                    status: estimate.status || 'draft',
-                    description: estimate.description || '',
-                    estimateDate: estimate.estimate_date || estimate.estimateDate || new Date().toISOString().split('T')[0],
-                    currency: estimate.currency || 'RUB'
-                });
-
-                const projectData = {
-                    clientName: estimate.client_name || '',
-                    contractorName: estimate.contractor_name || '',
-                    objectAddress: estimate.object_address || '',
-                    contractNumber: estimate.contract_number || '',
-                };
-
-                const sections = [];
-
-                estimate.items.forEach((item) => {
-                    const phaseKey = item.phase || 'Без фазы';
-                    const sectionCode = item.code ? item.code.split(/[-–]/)[0] : '00';
-
-                    let section = sections.find(s => s.title === phaseKey);
-                    if (!section) {
-                        section = {
-                            id: `s${sectionCode}-${Date.now()}`,
-                            code: sectionCode,
-                            title: phaseKey,
-                            name: phaseKey,
-                            items: [],
-                            subtotal: 0
-                        };
-                        sections.push(section);
-                    }
-
-                    section.items.push({
-                        id: item.id || `item-${Date.now()}-${Math.random()}`,
-                        workId: item.work_id || item.id,
-                        code: item.code,
-                        name: item.name,
-                        description: item.description,
-                        unit: item.unit,
-                        quantity: item.quantity,
-                        price: item.unit_price,
-                        total: item.final_price || parseFloat((item.quantity * item.unit_price).toFixed(2)),
-                        phase: item.phase,
-                        section: item.section,
-                        subsection: item.subsection,
-                        materials: (item.materials || []).map(m => ({
-                            id: m.material_id || `mat-${Date.now()}-${Math.random()}`,
-                            material_id: m.material_id, // keep real ID
-                            sku: m.sku,
-                            name: m.material_name,
-                            unit: m.unit,
-                            quantity: m.quantity,
-                            price: m.unit_price || m.price,
-                            total: m.total || parseFloat((m.quantity * (m.unit_price || m.price || 0)).toFixed(2)),
-                            consumption: m.consumption_coefficient || m.consumption,
-                            auto_calculate: m.auto_calculate ?? m.autoCalculate ?? true,
-                            autoCalculate: m.auto_calculate ?? m.autoCalculate ?? true,
-                            is_required: m.is_required,
-                            notes: m.notes,
-                            image: m.image || null,
-                            showImage: m.image ? true : false
-                        }))
-                    });
-                });
-
-                sections.forEach(section => {
-                    sortWorkItems(section.items);
-                    section.subtotal = section.items.reduce((sum, item) => sum + (item.total || 0), 0);
-                });
-
-                sections.sort((a, b) => {
-                    const codeA = String(a.code || '00');
-                    const codeB = String(b.code || '00');
-                    return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
-                });
-
-                setEstimateData({
-                    sections,
-                    ...projectData
-                });
-
-                // Initialize original prices from loaded data
-                // Assuming loaded prices ARE original unless we store them separately?
-                // The component logic assumes "first seen" is original.
-                saveOriginalPrices(sections);
-
-                savedEstimateDataRef.current = JSON.stringify({ sections, ...projectData });
-                setHasUnsavedChanges(false);
-                if (onUnsavedChangesRef.current) {
-                    onUnsavedChangesRef.current(false);
-                }
-
-                setIsInitialLoadComplete(true);
-                info(`Смета "${estimate.name}" загружена из БД`);
-
-            } catch (error) {
-                console.error('Error auto-loading estimate:', error);
-                if (error.response?.status === 404) {
-                    localStorage.removeItem('currentEstimateId');
-                }
-            } finally {
+            if (projectId && estimate.project_id !== projectId) {
+                localStorage.removeItem('currentEstimateId');
                 setLoading(false);
+                return;
             }
-        };
 
+            setEstimateMetadata({
+                name: estimate.name || `Смета от ${new Date(estimate.created_at).toLocaleDateString()}`,
+                estimateType: estimate.estimate_type || estimate.estimateType || 'строительство',
+                status: estimate.status || 'draft',
+                description: estimate.description || '',
+                estimateDate: estimate.estimate_date || estimate.estimateDate || new Date().toISOString().split('T')[0],
+                currency: estimate.currency || 'RUB'
+            });
+
+            const projectData = {
+                clientName: estimate.client_name || '',
+                contractorName: estimate.contractor_name || '',
+                objectAddress: estimate.object_address || '',
+                contractNumber: estimate.contract_number || '',
+            };
+
+            const sections = [];
+
+            estimate.items.forEach((item) => {
+                const phaseKey = item.phase || 'Без фазы';
+                const sectionCode = item.code ? item.code.split(/[-–]/)[0] : '00';
+
+                let section = sections.find(s => s.title === phaseKey);
+                if (!section) {
+                    section = {
+                        id: `s${sectionCode}-${Date.now()}`,
+                        code: sectionCode,
+                        title: phaseKey,
+                        name: phaseKey,
+                        items: [],
+                        subtotal: 0
+                    };
+                    sections.push(section);
+                }
+
+                section.items.push({
+                    id: item.id || `item-${Date.now()}-${Math.random()}`,
+                    workId: item.work_id || item.id,
+                    code: item.code,
+                    name: item.name,
+                    description: item.description,
+                    unit: item.unit,
+                    quantity: item.quantity,
+                    price: item.unit_price,
+                    total: item.final_price || parseFloat((item.quantity * item.unit_price).toFixed(2)),
+                    phase: item.phase,
+                    section: item.section,
+                    subsection: item.subsection,
+                    materials: (item.materials || []).map(m => ({
+                        id: m.material_id || `mat-${Date.now()}-${Math.random()}`,
+                        material_id: m.material_id, // keep real ID
+                        sku: m.sku,
+                        name: m.material_name,
+                        unit: m.unit,
+                        quantity: m.quantity,
+                        price: m.unit_price || m.price,
+                        total: m.total || parseFloat((m.quantity * (m.unit_price || m.price || 0)).toFixed(2)),
+                        consumption: m.consumption_coefficient || m.consumption,
+                        auto_calculate: m.auto_calculate ?? m.autoCalculate ?? true,
+                        autoCalculate: m.auto_calculate ?? m.autoCalculate ?? true,
+                        is_required: m.is_required,
+                        notes: m.notes,
+                        image: m.image || null,
+                        showImage: m.image ? true : false
+                    }))
+                });
+            });
+
+            sections.forEach(section => {
+                sortWorkItems(section.items);
+                section.subtotal = section.items.reduce((sum, item) => sum + (item.total || 0), 0);
+            });
+
+            sections.sort((a, b) => {
+                const codeA = String(a.code || '00');
+                const codeB = String(b.code || '00');
+                return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+            setEstimateData({
+                sections,
+                ...projectData
+            });
+
+            // Initialize original prices from loaded data
+            saveOriginalPrices(sections);
+
+            savedEstimateDataRef.current = JSON.stringify({ sections, ...projectData });
+            setHasUnsavedChanges(false);
+            if (onUnsavedChangesRef.current) {
+                onUnsavedChangesRef.current(false);
+            }
+
+            setIsInitialLoadComplete(true);
+            info(`Смета "${estimate.name}" загружена из БД`);
+
+        } catch (error) {
+            console.error('Error auto-loading estimate:', error);
+            if (error.response?.status === 404) {
+                localStorage.removeItem('currentEstimateId');
+            }
+        } finally {
+            setLoading(false);
+        }
+    }, [estimateId, projectId, info, saveOriginalPrices]);
+
+    useEffect(() => {
         if (!isInitialLoadRef.current) {
             loadSavedEstimate();
         }
-    }, [estimateId, projectId, info, saveOriginalPrices]);
+    }, [loadSavedEstimate]);
 
     // -- ACTIONS --
 
@@ -692,10 +688,32 @@ const useEstimateData = ({ projectId, estimateId, onUnsavedChanges }) => {
         setHasUnsavedChanges(true);
     }, []);
 
-    const clearEstimate = useCallback(() => {
-        setEstimateData({ sections: [] });
-        setHasUnsavedChanges(true);
-    }, []);
+    const clearEstimate = useCallback(async () => {
+        if (estimateData.sections.length === 0) return;
+
+        const confirmed = window.confirm('Вы уверены, что хотите полностью очистить смету? Все позиции будут безвозвратно удалены из базы данных.');
+        if (!confirmed) return;
+
+        try {
+            if (estimateId) {
+                setSaving(true);
+                await estimatesAPI.deleteAllItems(estimateId);
+                success('Смета успешно очищена в базе данных');
+            }
+
+            setEstimateData({ sections: [] });
+            setHasUnsavedChanges(true); // Для возможности "пересохранения" если нужно
+
+            if (onUnsavedChangesRef.current) {
+                onUnsavedChangesRef.current(true);
+            }
+        } catch (error) {
+            console.error('Error clearing estimate:', error);
+            showError('Ошибка при очистке сметы', error.response?.data?.error || error.message);
+        } finally {
+            if (estimateId) setSaving(false);
+        }
+    }, [estimateId, estimateData.sections.length, success, showError]);
 
     // Coefficient Logic
     const applyCoefficient = useCallback((coefficientPercent) => {
@@ -805,6 +823,7 @@ const useEstimateData = ({ projectId, estimateId, onUnsavedChanges }) => {
         applyCoefficient,
         resetPrices,
 
+        loadSavedEstimate, // ✅ Exposed for manual refresh
         saveOriginalPrices,
         setEstimateMetadata,
         handleUpdateWorkPriceInReference

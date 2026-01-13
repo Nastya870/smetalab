@@ -149,6 +149,14 @@ const estimatesAPI = {
   },
 
   /**
+   * Удалить все позиции сметы
+   */
+  deleteAllItems: async (estimateId) => {
+    const response = await axiosInstance.delete(`/estimates/${estimateId}/items/all`);
+    return response.data;
+  },
+
+  /**
    * Импортировать позиции в смету
    */
   importEstimate: async (estimateId, file, mode = 'add') => {

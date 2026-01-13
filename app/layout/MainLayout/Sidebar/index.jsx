@@ -44,10 +44,10 @@ function Sidebar() {
       <>
         {/* MenuCard скрыт - виджет "Get Extra Space" не нужен */}
         {/* <MenuCard /> */}
-        <Stack direction="row" sx={{ justifyContent: 'center', mb: 1.5, mt: 'auto', pt: 1.5 }}>
-          <Chip 
-            label={import.meta.env.VITE_APP_VERSION} 
-            size="small" 
+        <Stack direction="row" sx={{ justifyContent: 'center', mb: 1.5, mt: 1, pt: 1 }}>
+          <Chip
+            label={import.meta.env.VITE_APP_VERSION}
+            size="small"
             sx={{
               bgcolor: '#F4F5F9',
               color: '#9CA3AF',

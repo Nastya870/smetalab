@@ -24,7 +24,7 @@ import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 
 export default function NavItem({ item, level, isParents = false, setSelectedID }) {
   const { checkVisibility } = usePermissions();
-  
+
   // Проверка видимости по разрешениям
   if (item.permission) {
     const isVisible = checkVisibility(item.permission.resource, item.permission.action);
@@ -89,35 +89,35 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
         sx={{
           zIndex: 1201,
           borderRadius: '6px',
-          mb: 0.25,
-          py: 0.75,
+          mb: 0.2,
+          py: 0.5,
           position: 'relative',
           ...(drawerOpen && level !== 1 && { ml: `${level * 18}px` }),
           ...(!drawerOpen && { pl: 1.25 }),
           ...(drawerOpen &&
             level === 1 && {
-              '&:hover': {
-                bgcolor: 'rgba(103, 80, 164, 0.04)'
+            '&:hover': {
+              bgcolor: 'rgba(103, 80, 164, 0.04)'
+            },
+            '&.Mui-selected': {
+              bgcolor: 'rgba(103, 80, 164, 0.08)',
+              // Вертикальная полоса слева
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                left: 0,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: 3,
+                height: '60%',
+                bgcolor: 'primary.main',
+                borderRadius: '0 2px 2px 0'
               },
-              '&.Mui-selected': {
-                bgcolor: 'rgba(103, 80, 164, 0.08)',
-                // Вертикальная полоса слева
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  left: 0,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 3,
-                  height: '60%',
-                  bgcolor: 'primary.main',
-                  borderRadius: '0 2px 2px 0'
-                },
-                '&:hover': {
-                  bgcolor: 'rgba(103, 80, 164, 0.12)'
-                }
+              '&:hover': {
+                bgcolor: 'rgba(103, 80, 164, 0.12)'
               }
-            }),
+            }
+          }),
           ...((!drawerOpen || level !== 1) && {
             py: level === 1 ? 0 : 1,
             '&:hover': {
@@ -134,13 +134,13 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
         selected={isSelected}
         onClick={() => itemHandler()}
       >
-        <ButtonBase 
+        <ButtonBase
           aria-label={item.title || 'theme-icon'}
-          sx={{ 
+          sx={{
             borderRadius: '6px',
             minWidth: 40,
             minHeight: 40
-          }} 
+          }}
           disableRipple={drawerOpen}
         >
           <ListItemIcon
@@ -152,21 +152,21 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
               alignItems: 'center',
               ...(!drawerOpen &&
                 level === 1 && {
-                  borderRadius: '8px',
-                  width: 40,
-                  height: 40,
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                borderRadius: '8px',
+                width: 40,
+                height: 40,
+                alignItems: 'center',
+                justifyContent: 'center',
+                '&:hover': {
+                  bgcolor: 'rgba(103, 80, 164, 0.08)'
+                },
+                ...(isSelected && {
+                  bgcolor: 'rgba(103, 80, 164, 0.08)',
                   '&:hover': {
-                    bgcolor: 'rgba(103, 80, 164, 0.08)'
-                  },
-                  ...(isSelected && {
-                    bgcolor: 'rgba(103, 80, 164, 0.08)',
-                    '&:hover': {
-                      bgcolor: 'rgba(103, 80, 164, 0.12)'
-                    }
-                  })
+                    bgcolor: 'rgba(103, 80, 164, 0.12)'
+                  }
                 })
+              })
             }}
           >
             {itemIcon}

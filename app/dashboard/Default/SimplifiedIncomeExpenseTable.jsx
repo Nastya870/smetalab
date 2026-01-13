@@ -20,7 +20,7 @@ import {
  * @param {number} incomeMaterials - Доход от материалов (из API)
  * @param {Object} data - Данные growthData из API (опционально, для будущего использования)
  */
-const SimplifiedIncomeExpenseTable = ({ incomeWorks = 0, incomeMaterials = 0, data, isLoading = false }) => {
+const SimplifiedIncomeExpenseTable = ({ incomeWorks = 0, incomeMaterials = 0, data, isLoading = false, sx = {} }) => {
   // TODO: Получить данные расходов из API
   // Пока используем расчет: если есть доход, то расход = доход * 0.8 (80%)
   const expenseWorks = incomeWorks > 0 ? incomeWorks * 0.8 : 0;
@@ -52,11 +52,12 @@ const SimplifiedIncomeExpenseTable = ({ incomeWorks = 0, incomeMaterials = 0, da
         bgcolor: 'background.paper',
         boxShadow: '0 1px 3px 0 rgba(0,0,0,0.08)',
         borderRadius: '12px',
-        border: '1px solid #E8EBF1'
+        border: '1px solid #E8EBF1',
+        ...sx
       }}
     >
-      <CardContent sx={{ p: 0 }}>
-        <TableContainer>
+      <CardContent sx={{ p: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <TableContainer sx={{ flex: 1 }}>
           <Table>
             <TableHead>
               <TableRow>

@@ -19,7 +19,7 @@ import ReactApexChart from 'react-apexcharts';
 
 const MainFinancialChart = ({ chartData, chartPeriod = 'year', onChartPeriodChange, isLoading = false }) => {
   const theme = useTheme();
-  
+
   // Подготовка данных из API
   const prepareChartData = () => {
     if (!chartData || !chartData.categories || !chartData.series) {
@@ -38,12 +38,12 @@ const MainFinancialChart = ({ chartData, chartPeriod = 'year', onChartPeriodChan
 
     // Поиск серий по имени
     const findSeries = (name) => chartData.series.find(s => s.name === name)?.data || [];
-    
+
     const incomeWorks = findSeries('income_works') || findSeries('Доход (работы)');
     const incomeMaterials = findSeries('income_materials') || findSeries('Доход (материалы)');
     const expenseWorks = findSeries('expense_works') || findSeries('Расход (работы)');
     const expenseMaterials = findSeries('expense_materials') || findSeries('Расход (материалы)');
-    
+
     // Расчет прибыли (доход - расход)
     const profit = incomeWorks.map((income, i) => {
       const totalIncome = (income || 0) + (incomeMaterials[i] || 0);
@@ -67,7 +67,7 @@ const MainFinancialChart = ({ chartData, chartPeriod = 'year', onChartPeriodChan
 
   const chartOptions = {
     chart: {
-      height: 420,
+      height: 320,
       type: 'line',
       toolbar: {
         show: false
@@ -200,35 +200,53 @@ const MainFinancialChart = ({ chartData, chartPeriod = 'year', onChartPeriodChan
     >
       <CardContent sx={{ p: 0 }}>
         {/* Header с фильтром периода */}
-        <Box sx={{ 
-          p: 2.5, 
-          pb: 1.5,
+        <Box sx={{
+          p: 2,
+          pb: 1,
           borderBottom: '1px solid #F3F4F6',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 2
         }}>
-          <Box>
-            <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem', color: '#111827' }}>
+          <Box sx={{ minWidth: 200 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '0.9375rem', color: '#111827' }}>
               Финансовая динамика
             </Typography>
             <Typography variant="caption" sx={{ color: '#6B7280', fontSize: '0.75rem' }}>
-              Доходы, расходы и прибыль за период
+              Доходы, расходы и прибыль
             </Typography>
           </Box>
-          
+
+          {/* Компактная легенда в заголовке */}
+          <Box sx={{ display: 'flex', gap: 3, flex: 1, justifyContent: 'center', minWidth: 'fit-content' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#10B981' }} />
+              <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>Доход</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#EF4444' }} />
+              <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>Расход</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ width: 10, height: 10, borderRadius: '2px', bgcolor: '#8B5CF6', opacity: 0.2 }} />
+              <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>Прибыль</Typography>
+            </Box>
+          </Box>
+
           {/* Селектор периода графика */}
           <FormControl size="small">
             <Select
               value={chartPeriod}
               onChange={(e) => onChartPeriodChange?.(e.target.value)}
               inputProps={{ 'aria-label': 'Выбор периода графика' }}
-              sx={{ 
+              sx={{
                 bgcolor: '#F9FAFB',
-                fontSize: '0.8125rem',
+                fontSize: '0.75rem',
                 borderRadius: '8px',
                 border: '1px solid #E5E7EB',
-                minWidth: 140,
+                minWidth: 100,
                 '& .MuiOutlinedInput-notchedOutline': {
                   border: 'none'
                 },
@@ -247,96 +265,15 @@ const MainFinancialChart = ({ chartData, chartPeriod = 'year', onChartPeriodChan
         </Box>
 
         {/* График */}
-        <Box sx={{ p: 2 }}>
-          {/* Структурная легенда */}
-          <Box sx={{ mb: 3 }}>
-          <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            {/* Блок "Доход" */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ color: '#6B7280', mb: 1, fontSize: '0.75rem', fontWeight: 600 }}>
-                ДОХОД
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ width: 24, height: 2.5, bgcolor: '#10B981', borderRadius: '2px' }} />
-                  <Typography variant="body2" sx={{ fontSize: '0.8125rem', color: '#374151' }}>
-                    Работы
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ 
-                    width: 24, 
-                    height: 2.5, 
-                    bgcolor: '#10B981', 
-                    borderRadius: '2px',
-                    opacity: 0.6,
-                    backgroundImage: 'linear-gradient(90deg, #10B981 50%, transparent 50%)',
-                    backgroundSize: '8px 100%'
-                  }} />
-                  <Typography variant="body2" sx={{ fontSize: '0.8125rem', color: '#374151' }}>
-                    Материалы
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-
-            {/* Блок "Расход" */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ color: '#6B7280', mb: 1, fontSize: '0.75rem', fontWeight: 600 }}>
-                РАСХОД
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ width: 24, height: 2.5, bgcolor: '#EF4444', borderRadius: '2px' }} />
-                  <Typography variant="body2" sx={{ fontSize: '0.8125rem', color: '#374151' }}>
-                    Работы
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ 
-                    width: 24, 
-                    height: 2.5, 
-                    bgcolor: '#EF4444', 
-                    borderRadius: '2px',
-                    opacity: 0.6,
-                    backgroundImage: 'linear-gradient(90deg, #EF4444 50%, transparent 50%)',
-                    backgroundSize: '8px 100%'
-                  }} />
-                  <Typography variant="body2" sx={{ fontSize: '0.8125rem', color: '#374151' }}>
-                    Материалы
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-
-            {/* Блок "Прибыль" */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ color: '#6B7280', mb: 1, fontSize: '0.75rem', fontWeight: 600 }}>
-                ПРИБЫЛЬ
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ 
-                  width: 24, 
-                  height: 16, 
-                  bgcolor: '#8B5CF6', 
-                  borderRadius: '3px',
-                  opacity: 0.12
-                }} />
-                <Typography variant="body2" sx={{ fontSize: '0.8125rem', color: '#374151' }}>
-                  Зона прибыли
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-        </Box>
+        <Box sx={{ p: 1, pt: 0 }}>
 
           {/* График */}
-          <Box sx={{ mt: 2 }}>
+          <Box sx={{ mt: 0 }}>
             <ReactApexChart
               options={chartOptions}
               series={data.series}
               type="line"
-              height={420}
+              height={300}
             />
           </Box>
         </Box>

@@ -305,7 +305,7 @@ const EstimateHeader = ({
           startIcon={<IconUpload size={16} />}
           onClick={onImportCSV}
           size="small"
-          disabled={disableExport}
+          disabled={saving}
           sx={{
             textTransform: 'none',
             fontWeight: 500,

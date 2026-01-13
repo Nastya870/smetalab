@@ -87,7 +87,7 @@ export default function NavGroup({ item, lastItem, remItems, lastItemId, setSele
         return null; // Скрываем элемент
       }
     }
-    
+
     switch (menu?.type) {
       case 'collapse':
         return <NavCollapse key={menu.id} menu={menu} level={1} parentId={currentItem.id} />;
@@ -115,19 +115,19 @@ export default function NavGroup({ item, lastItem, remItems, lastItemId, setSele
         subheader={
           currentItem.title &&
           drawerOpen && (
-            <Typography 
-              variant="caption" 
-              gutterBottom 
-              sx={{ 
-                display: 'block', 
+            <Typography
+              variant="caption"
+              gutterBottom
+              sx={{
+                display: 'block',
                 ...theme.typography.menuCaption,
                 color: '#9CA3AF',
                 fontSize: '0.65rem',
                 fontWeight: 600,
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
-                mb: 0.5,
-                mt: 1.5,
+                mb: 0.25,
+                mt: 1.25,
                 px: 1.5
               }}
             >
@@ -145,7 +145,7 @@ export default function NavGroup({ item, lastItem, remItems, lastItemId, setSele
       </List>
 
       {/* group divider - едва заметный */}
-      {drawerOpen && <Divider sx={{ mt: 0.25, mb: 0.75, borderColor: 'rgba(0,0,0,0.06)' }} />}
+      {drawerOpen && <Divider sx={{ mt: 0.1, mb: 0.5, borderColor: 'rgba(0,0,0,0.06)' }} />}
     </>
   );
 }

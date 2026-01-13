@@ -7,13 +7,13 @@ import RemoveIcon from '@mui/icons-material/Remove';
  * Упрощенная KPI карточка
  * Только главное: значение, процент изменения, без лишних деталей
  */
-const SimpleKpiCard = ({ 
-  title, 
-  value, 
-  change, 
-  icon: Icon, 
+const SimpleKpiCard = ({
+  title,
+  value,
+  change,
+  icon: Icon,
   isPrimary = false,
-  isLoading = false 
+  isLoading = false
 }) => {
   // Определяем цвет тренда
   const getTrendColor = () => {
@@ -35,8 +35,8 @@ const SimpleKpiCard = ({
     <Card
       sx={{
         bgcolor: isPrimary ? 'primary.main' : 'background.paper',
-        boxShadow: isPrimary 
-          ? '0 4px 12px 0 rgba(103, 80, 164, 0.24)'
+        boxShadow: isPrimary
+          ? '0 4px 12px 0 rgba(79, 70, 229, 0.2)'
           : '0 1px 3px 0 rgba(0,0,0,0.08)',
         borderRadius: '12px',
         border: isPrimary ? 'none' : '1px solid #E8EBF1',
@@ -44,91 +44,86 @@ const SimpleKpiCard = ({
         transition: 'all 0.2s ease',
         '&:hover': {
           boxShadow: isPrimary
-            ? '0 6px 16px 0 rgba(103, 80, 164, 0.32)'
+            ? '0 6px 16px 0 rgba(79, 70, 229, 0.3)'
             : '0 2px 8px 0 rgba(0,0,0,0.12)',
           transform: 'translateY(-2px)'
         }
       }}
     >
-      <CardContent sx={{ p: 2.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
-          <Typography
-            variant="subtitle2"
-            sx={{
-              color: isPrimary ? 'rgba(255,255,255,0.85)' : '#6B7280',
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px'
-            }}
-          >
-            {title}
-          </Typography>
-          {Icon && (
-            <Icon
+      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant="subtitle2"
+              noWrap
               sx={{
-                fontSize: 24,
-                color: isPrimary ? 'rgba(255,255,255,0.7)' : 'primary.main',
-                opacity: 0.8
+                color: isPrimary ? 'rgba(255,255,255,0.8)' : '#6B7280',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                mb: 0.5
               }}
-            />
+            >
+              {title}
+            </Typography>
+            <Typography
+              variant="h3"
+              sx={{
+                color: isPrimary ? '#fff' : 'text.primary',
+                fontSize: '1.5rem',
+                fontWeight: 700,
+                lineHeight: 1.1
+              }}
+            >
+              {isLoading ? '—' : (typeof value === 'number' ? value.toLocaleString('ru-RU') : value)}
+            </Typography>
+
+            {/* Тренд под значением */}
+            {change !== undefined && !isLoading && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  mt: 0.75
+                }}
+              >
+                <Box sx={{ color: isPrimary ? '#fff' : trendColor, display: 'flex', alignItems: 'center', opacity: 0.9 }}>
+                  {getTrendIcon()}
+                </Box>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: isPrimary ? '#fff' : trendColor,
+                    fontSize: '0.75rem',
+                    fontWeight: 600
+                  }}
+                >
+                  {change > 0 ? '+' : ''}{change}%
+                </Typography>
+              </Box>
+            )}
+          </Box>
+
+          {Icon && (
+            <Box sx={{
+              ml: 1.5,
+              p: 1.25,
+              borderRadius: '10px',
+              bgcolor: isPrimary ? 'rgba(255,255,255,0.15)' : 'primary.lighter',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <Icon
+                sx={{
+                  fontSize: 22,
+                  color: isPrimary ? '#fff' : 'primary.main',
+                }}
+              />
+            </Box>
           )}
         </Box>
-
-        {/* Главное значение */}
-        <Typography
-          variant="h3"
-          sx={{
-            color: isPrimary ? '#fff' : 'text.primary',
-            fontSize: '2rem',
-            fontWeight: 700,
-            mb: 1,
-            lineHeight: 1.2
-          }}
-        >
-          {isLoading ? '—' : value}
-        </Typography>
-
-        {/* Процент изменения */}
-        {change !== undefined && !isLoading && (
-          <Box
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 0.5,
-              px: 1,
-              py: 0.5,
-              borderRadius: '6px',
-              bgcolor: isPrimary 
-                ? 'rgba(255,255,255,0.15)' 
-                : `${trendColor}15`
-            }}
-          >
-            <Box sx={{ color: isPrimary ? '#fff' : trendColor, display: 'flex', alignItems: 'center' }}>
-              {getTrendIcon()}
-            </Box>
-            <Typography
-              variant="body2"
-              sx={{
-                color: isPrimary ? '#fff' : trendColor,
-                fontSize: '0.8125rem',
-                fontWeight: 600
-              }}
-            >
-              {change > 0 ? '+' : ''}{change}%
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{
-                color: isPrimary ? 'rgba(255,255,255,0.75)' : '#6B7280',
-                fontSize: '0.7rem',
-                ml: 0.5
-              }}
-            >
-              к пр. периоду
-            </Typography>
-          </Box>
-        )}
       </CardContent>
     </Card>
   );
