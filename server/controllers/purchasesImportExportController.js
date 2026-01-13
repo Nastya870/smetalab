@@ -5,6 +5,8 @@ import db from '../config/database.js';
 import * as purchasesRepository from '../repositories/purchasesRepository.js';
 import { catchAsync, BadRequestError } from '../utils/errors.js';
 
+const CSV_DELIMITER = ';';
+
 /**
  * Экспорт закупок в CSV
  */
@@ -14,7 +16,7 @@ export const exportToCSV = catchAsync(async (req, res) => {
 
     const purchases = await purchasesRepository.getPurchasesByEstimate(tenantId, estimateId, userId);
 
-    const csvHeader = 'Артикул,Наименование,Категория,Ед. изм.,Кол-во,Цена,Сумма,Закуплено\n';
+    const csvHeader = `Артикул${CSV_DELIMITER}Наименование${CSV_DELIMITER}Категория${CSV_DELIMITER}Ед. изм.${CSV_DELIMITER}Кол-во${CSV_DELIMITER}Цена${CSV_DELIMITER}Сумма${CSV_DELIMITER}Закуплено\n`;
 
     const csvRows = purchases.map(p => {
         return [
@@ -26,7 +28,7 @@ export const exportToCSV = catchAsync(async (req, res) => {
             p.price || 0,
             p.total || 0,
             p.purchasedQuantity || 0
-        ].join(',');
+        ].join(CSV_DELIMITER);
     }).join('\n');
 
     const csv = csvHeader + csvRows;
@@ -60,6 +62,7 @@ export const importFromCSV = catchAsync(async (req, res) => {
     await new Promise((resolve, reject) => {
         stream
             .pipe(csvParser({
+                separator: CSV_DELIMITER,
                 mapHeaders: ({ header }) => header.trim(),
                 skipEmptyLines: true
             }))
@@ -137,7 +140,7 @@ export const importFromCSV = catchAsync(async (req, res) => {
 function escapeCsvField(field) {
     if (field == null) return '';
     const str = String(field);
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    if (str.includes(CSV_DELIMITER) || str.includes('"') || str.includes('\n')) {
         return `"${str.replace(/"/g, '""')}"`;
     }
     return str;

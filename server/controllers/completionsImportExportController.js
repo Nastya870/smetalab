@@ -4,6 +4,8 @@ import { StatusCodes } from 'http-status-codes';
 import db from '../config/database.js';
 import { catchAsync, BadRequestError } from '../utils/errors.js';
 
+const CSV_DELIMITER = ';';
+
 /**
  * Экспорт выполненных работ в CSV
  */
@@ -25,7 +27,7 @@ export const exportToCSV = catchAsync(async (req, res) => {
 
     const result = await db.query(query, [estimateId, tenantId]);
 
-    const csvHeader = 'Наименование работ,Кол-во,Дата,Заметки\n';
+    const csvHeader = `Наименование работ${CSV_DELIMITER}Кол-во${CSV_DELIMITER}Дата${CSV_DELIMITER}Заметки\n`;
 
     const csvRows = result.rows.map(r => {
         return [
@@ -33,7 +35,7 @@ export const exportToCSV = catchAsync(async (req, res) => {
             r.actual_quantity || 0,
             r.completion_date ? new Date(r.completion_date).toLocaleDateString('ru-RU') : '',
             escapeCsvField(r.notes || '')
-        ].join(',');
+        ].join(CSV_DELIMITER);
     }).join('\n');
 
     const csv = csvHeader + csvRows;
@@ -65,6 +67,7 @@ export const importFromCSV = catchAsync(async (req, res) => {
     await new Promise((resolve, reject) => {
         stream
             .pipe(csvParser({
+                separator: CSV_DELIMITER,
                 mapHeaders: ({ header }) => header.trim(),
                 skipEmptyLines: true
             }))
@@ -144,7 +147,7 @@ export const importFromCSV = catchAsync(async (req, res) => {
 function escapeCsvField(field) {
     if (field == null) return '';
     const str = String(field);
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    if (str.includes(CSV_DELIMITER) || str.includes('"') || str.includes('\n')) {
         return `"${str.replace(/"/g, '""')}"`;
     }
     return str;

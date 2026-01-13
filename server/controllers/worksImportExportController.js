@@ -6,6 +6,7 @@ import { catchAsync, BadRequestError } from '../utils/errors.js';
 
 // Максимальное количество элементов в одном import запросе
 const BULK_IMPORT_LIMIT = 500;
+const CSV_DELIMITER = ';';
 
 /**
  * Экспорт работ в CSV
@@ -20,35 +21,39 @@ export const exportToCSV = catchAsync(async (req, res) => {
   if (isGlobal === 'true') params.isGlobal = 'true';
   if (isGlobal === 'false') params.isGlobal = 'false';
 
+  console.log('[WORKS EXPORT] Starting export with params:', { isGlobal, tenantId });
+
   const works = await worksRepository.findAll(params, tenantId);
 
-    // Формируем CSV
-    const csvHeader = 'Код,Наименование,Категория,Ед. изм.,Базовая цена,Фаза,Раздел,Подраздел\n';
-    
-    const csvRows = works.map(work => {
-      return [
-        escapeCsvField(work.code),
-        escapeCsvField(work.name),
-        escapeCsvField(work.category),
-        escapeCsvField(work.unit),
-        work.basePrice || 0,
-        escapeCsvField(work.phase || ''),
-        escapeCsvField(work.section || ''),
-        escapeCsvField(work.subsection || '')
-      ].join(',');
-    }).join('\n');
+  console.log(`[WORKS EXPORT] Found ${works.length} works to export`);
 
-    const csv = csvHeader + csvRows;
+  // Формируем CSV
+  const csvHeader = `Код${CSV_DELIMITER}Наименование${CSV_DELIMITER}Категория${CSV_DELIMITER}Ед. изм.${CSV_DELIMITER}Базовая цена${CSV_DELIMITER}Фаза${CSV_DELIMITER}Раздел${CSV_DELIMITER}Подраздел\n`;
 
-    // Отправляем файл
-    const filename = isGlobal === 'true' 
-      ? 'works_global_template.csv' 
-      : `works_tenant_${tenantId}.csv`;
+  const csvRows = works.map(work => {
+    return [
+      escapeCsvField(work.code),
+      escapeCsvField(work.name),
+      escapeCsvField(work.category),
+      escapeCsvField(work.unit),
+      work.basePrice || 0,
+      escapeCsvField(work.phase || ''),
+      escapeCsvField(work.section || ''),
+      escapeCsvField(work.subsection || '')
+    ].join(CSV_DELIMITER);
+  }).join('\n');
+
+  const csv = csvHeader + csvRows;
+
+  // Отправляем файл
+  const filename = isGlobal === 'true'
+    ? 'works_global_template.csv'
+    : `works_tenant_${tenantId}.csv`;
 
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   res.setHeader('Content-Length', Buffer.byteLength(csv, 'utf8'));
-  
+
   // Добавляем BOM для корректного отображения кириллицы в Excel
   res.write('\ufeff');
   res.write(csv);
@@ -60,21 +65,21 @@ export const exportToCSV = catchAsync(async (req, res) => {
  * GET /api/works/export/template
  */
 export const exportTemplate = catchAsync(async (req, res) => {
-  const csvHeader = 'Код,Наименование,Категория,Ед. изм.,Базовая цена,Фаза,Раздел,Подраздел\n';
-    
-    // Примеры строк для шаблона
-    const examples = [
-      '01-001,Разработка грунта экскаватором,Земляные работы,м³,450,Подготовительные работы,Земляные работы,Разработка грунта',
-      '02-001,Устройство бетонной подготовки,Бетонные работы,м³,3200,Основные строительные работы,Бетонные работы,Бетонная подготовка',
-      '03-001,Кладка стен из кирпича,Кирпичная кладка,м³,4500,Основные строительные работы,Каменные работы,Кладка стен'
-    ].join('\n');
+  const csvHeader = `Код${CSV_DELIMITER}Наименование${CSV_DELIMITER}Категория${CSV_DELIMITER}Ед. изм.${CSV_DELIMITER}Базовая цена${CSV_DELIMITER}Фаза${CSV_DELIMITER}Раздел${CSV_DELIMITER}Подраздел\n`;
 
-    const csv = csvHeader + examples;
+  // Примеры строк для шаблона
+  const examples = [
+    `01-001${CSV_DELIMITER}Разработка грунта экскаватором${CSV_DELIMITER}Земляные работы${CSV_DELIMITER}м³${CSV_DELIMITER}450${CSV_DELIMITER}Подготовительные работы${CSV_DELIMITER}Земляные работы${CSV_DELIMITER}Разработка грунта`,
+    `02-001${CSV_DELIMITER}Устройство бетонной подготовки${CSV_DELIMITER}Бетонные работы${CSV_DELIMITER}м³${CSV_DELIMITER}3200${CSV_DELIMITER}Основные строительные работы${CSV_DELIMITER}Бетонные работы${CSV_DELIMITER}Бетонная подготовка`,
+    `03-001${CSV_DELIMITER}Кладка стен из кирпича${CSV_DELIMITER}Кирпичная кладка${CSV_DELIMITER}м³${CSV_DELIMITER}4500${CSV_DELIMITER}Основные строительные работы${CSV_DELIMITER}Каменные работы${CSV_DELIMITER}Кладка стен`
+  ].join('\n');
+
+  const csv = csvHeader + examples;
 
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="works_import_template.csv"');
   res.setHeader('Content-Length', Buffer.byteLength(csv, 'utf8'));
-  
+
   res.write('\ufeff'); // BOM для Excel
   res.write(csv);
   res.end();
@@ -98,58 +103,59 @@ export const importFromCSV = catchAsync(async (req, res) => {
     throw new BadRequestError('Только суперадмин может импортировать глобальные работы');
   }
 
-    // Парсим CSV
-    const results = [];
-    const errors = [];
-    let lineNumber = 1;
+  // Парсим CSV
+  const results = [];
+  const errors = [];
+  let lineNumber = 1;
 
-    const stream = Readable.from(file.buffer.toString('utf8'));
-    
-    await new Promise((resolve, reject) => {
-      stream
-        .pipe(csvParser({
-          mapHeaders: ({ header }) => header.trim(),
-          skipEmptyLines: true
-        }))
-        .on('data', (row) => {
-          lineNumber++;
-          
-          // Валидация обязательных полей
-          if (!row['Код'] || !row['Наименование']) {
-            errors.push({
-              line: lineNumber,
-              message: 'Отсутствуют обязательные поля: Код, Наименование',
-              data: row
-            });
-            return;
-          }
+  const stream = Readable.from(file.buffer.toString('utf8'));
 
-          // Валидация базовой цены
-          const basePrice = parseFloat(row['Базовая цена']) || 0;
-          if (basePrice < 0) {
-            errors.push({
-              line: lineNumber,
-              message: 'Базовая цена не может быть отрицательной',
-              data: row
-            });
-            return;
-          }
+  await new Promise((resolve, reject) => {
+    stream
+      .pipe(csvParser({
+        separator: CSV_DELIMITER,
+        mapHeaders: ({ header }) => header.trim(),
+        skipEmptyLines: true
+      }))
+      .on('data', (row) => {
+        lineNumber++;
 
-          results.push({
-            code: row['Код'].trim(),
-            name: row['Наименование'].trim(),
-            category: row['Категория']?.trim() || '',
-            unit: row['Ед. изм.']?.trim() || '',
-            basePrice: basePrice,
-            phase: row['Фаза']?.trim() || null,
-            section: row['Раздел']?.trim() || null,
-            subsection: row['Подраздел']?.trim() || null,
-            isGlobal: isGlobal
+        // Валидация обязательных полей
+        if (!row['Код'] || !row['Наименование']) {
+          errors.push({
+            line: lineNumber,
+            message: 'Отсутствуют обязательные поля: Код, Наименование',
+            data: row
           });
-        })
-        .on('end', resolve)
-        .on('error', reject);
-    });
+          return;
+        }
+
+        // Валидация базовой цены
+        const basePrice = parseFloat(row['Базовая цена']) || 0;
+        if (basePrice < 0) {
+          errors.push({
+            line: lineNumber,
+            message: 'Базовая цена не может быть отрицательной',
+            data: row
+          });
+          return;
+        }
+
+        results.push({
+          code: row['Код'].trim(),
+          name: row['Наименование'].trim(),
+          category: row['Категория']?.trim() || '',
+          unit: row['Ед. изм.']?.trim() || '',
+          basePrice: basePrice,
+          phase: row['Фаза']?.trim() || null,
+          section: row['Раздел']?.trim() || null,
+          subsection: row['Подраздел']?.trim() || null,
+          isGlobal: isGlobal
+        });
+      })
+      .on('end', resolve)
+      .on('error', reject);
+  });
 
   // Если есть ошибки валидации, возвращаем их
   if (errors.length > 0) {
@@ -173,31 +179,31 @@ export const importFromCSV = catchAsync(async (req, res) => {
     );
   }
 
-    // Если режим "replace" - удаляем существующие работы
-    if (mode === 'replace') {
-      const deleteParams = isGlobal ? { isGlobal: 'true' } : { isGlobal: 'false' };
-      const existingWorks = await worksRepository.findAll(deleteParams, tenantId);
-      
-      for (const work of existingWorks) {
-        await worksRepository.deleteWork(work.id, tenantId);
-      }
-    }
+  // Если режим "replace" - удаляем существующие работы
+  if (mode === 'replace') {
+    const deleteParams = isGlobal ? { isGlobal: 'true' } : { isGlobal: 'false' };
+    const existingWorks = await worksRepository.findAll(deleteParams, tenantId);
 
-    // Импортируем работы
-    const imported = [];
-    const importErrors = [];
-
-    for (const workData of results) {
-      try {
-        const created = await worksRepository.create(workData, tenantId);
-        imported.push(created);
-      } catch (error) {
-        importErrors.push({
-          work: workData,
-          error: error.message
-        });
-      }
+    for (const work of existingWorks) {
+      await worksRepository.deleteWork(work.id, tenantId);
     }
+  }
+
+  // Импортируем работы
+  const imported = [];
+  const importErrors = [];
+
+  for (const workData of results) {
+    try {
+      const created = await worksRepository.create(workData, tenantId);
+      imported.push(created);
+    } catch (error) {
+      importErrors.push({
+        work: workData,
+        error: error.message
+      });
+    }
+  }
 
   res.status(StatusCodes.OK).json({
     message: 'Импорт завершен',
@@ -209,18 +215,18 @@ export const importFromCSV = catchAsync(async (req, res) => {
 });
 
 /**
- * Экранирование полей CSV (обработка запятых, кавычек, переносов строк)
+ * Экранирование полей CSV (обработка точек с запятой, кавычек, переносов строк)
  */
 function escapeCsvField(field) {
   if (field == null) return '';
-  
+
   const str = String(field);
-  
-  // Если есть запятая, кавычка или перенос строки - оборачиваем в кавычки
-  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+
+  // Если есть точка с запятой, кавычка или перенос строки - оборачиваем в кавычки
+  if (str.includes(CSV_DELIMITER) || str.includes('"') || str.includes('\n')) {
     // Экранируем кавычки удвоением
     return `"${str.replace(/"/g, '""')}"`;
   }
-  
+
   return str;
 }

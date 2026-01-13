@@ -6,6 +6,7 @@ import estimateItemsRepository from '../repositories/estimateItemsRepository.js'
 import { catchAsync, BadRequestError } from '../utils/errors.js';
 
 const BULK_IMPORT_LIMIT = 1000;
+const CSV_DELIMITER = ';';
 
 /**
  * Экспорт позиций сметы в CSV
@@ -17,7 +18,7 @@ export const exportToCSV = catchAsync(async (req, res) => {
     const estimate = await estimatesRepository.findByIdWithDetails(estimateId, tenantId);
     if (!estimate) throw new BadRequestError('Смета не найдена');
 
-    const csvHeader = 'Фаза,Раздел,Подраздел,Наименование работ,Ед. изм.,Кол-во,Цена,Накладные %,Прибыль %,Налог %\n';
+    const csvHeader = `Фаза${CSV_DELIMITER}Раздел${CSV_DELIMITER}Подраздел${CSV_DELIMITER}Наименование работ${CSV_DELIMITER}Ед. изм.${CSV_DELIMITER}Кол-во${CSV_DELIMITER}Цена${CSV_DELIMITER}Накладные %${CSV_DELIMITER}Прибыль %${CSV_DELIMITER}Налог %\n`;
 
     const csvRows = [];
     for (const section of estimate.sections || []) {
@@ -33,7 +34,7 @@ export const exportToCSV = catchAsync(async (req, res) => {
                 item.overhead_percent || 0,
                 item.profit_percent || 0,
                 item.tax_percent || 0
-            ].join(','));
+            ].join(CSV_DELIMITER));
         }
     }
 
@@ -67,6 +68,7 @@ export const importFromCSV = catchAsync(async (req, res) => {
     await new Promise((resolve, reject) => {
         stream
             .pipe(csvParser({
+                separator: CSV_DELIMITER,
                 mapHeaders: ({ header }) => header.trim(),
                 skipEmptyLines: true
             }))
@@ -120,7 +122,7 @@ export const importFromCSV = catchAsync(async (req, res) => {
 function escapeCsvField(field) {
     if (field == null) return '';
     const str = String(field);
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    if (str.includes(CSV_DELIMITER) || str.includes('"') || str.includes('\n')) {
         return `"${str.replace(/"/g, '""')}"`;
     }
     return str;
