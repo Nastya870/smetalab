@@ -679,7 +679,8 @@ export const login = catchAsync(async (req, res) => {
         emailVerified: user.email_verified,
         fullName: user.full_name,
         phone: user.phone,
-        avatar_url: user.avatar_url
+        avatar_url: user.avatar_url,
+        isSuperAdmin: isSuperAdmin // ✅ Добавляем флаг супер-админа
       },
       // BUG-001 FIX: selectedTenant может быть null для super_admin без tenants
       tenant: selectedTenant ? {

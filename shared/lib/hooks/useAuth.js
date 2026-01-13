@@ -81,8 +81,8 @@ export const useAuth = () => {
   /**
    * Вычисляемые флаги ролей
    */
-  const isSuperAdmin = roles.some(r => (typeof r === 'string' ? r === 'super_admin' : r.key === 'super_admin'));
-  const isAdmin = roles.some(r => (typeof r === 'string' ? (r === 'admin' || r === 'super_admin') : (r.key === 'admin' || r.key === 'super_admin')));
+  const isSuperAdmin = user?.isSuperAdmin || roles.some(r => (typeof r === 'string' ? r === 'super_admin' : r.key === 'super_admin'));
+  const isAdmin = isSuperAdmin || roles.some(r => (typeof r === 'string' ? r === 'admin' : r.key === 'admin'));
 
   /**
    * Получить отображаемое имя роли
