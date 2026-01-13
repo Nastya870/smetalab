@@ -33,6 +33,7 @@ yarn-error.log*
 /.idea/
 
 .vercel
+.ag_logs/
 
 # Database backups
 backups/
@@ -110,10 +111,5 @@ ks3.XLS
 ../ks3.XLS
 KS2.XLS
 ../KS2.XLS
-
-.vercel
-
-.vercel
-Acces.md
 
 Доступы
