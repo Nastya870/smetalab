@@ -1,0 +1,352 @@
+import React from 'react';
+import {
+  Box,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Grid,
+  Divider,
+  Alert
+} from '@mui/material';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
+
+// Стили для печати
+import '../../styles/printForms.css';
+
+/**
+ * Компонент для отображения формы КС-3 
+ * (Справка о стоимости выполненных работ и затрат)
+ * ОКУД 0322006
+ */
+const FormKS3 = ({ data }) => {
+  if (!data) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Typography color="text.secondary">
+          Данные формы КС-3 не загружены
+        </Typography>
+      </Box>
+    );
+  }
+
+  const formatDate = (date) => {
+    if (!date) return '—';
+    return format(new Date(date), 'dd.MM.yyyy', { locale: ru });
+  };
+
+  const formatCurrency = (amount) => {
+    if (amount === null || amount === undefined) return '—';
+    return new Intl.NumberFormat('ru-RU', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
+
+  return (
+    <Box className="form-ks3" sx={{ p: 3, bgcolor: 'background.paper' }}>
+      {/* Шапка формы */}
+      <Box sx={{ mb: 3 }}>
+        <Grid container spacing={2}>
+          <Grid item xs={6}>
+            <Typography variant="caption" color="text.secondary">
+              Форма по ОКУД
+            </Typography>
+            <Typography variant="body2" fontWeight="medium">
+              {data.okud || '0322006'}
+            </Typography>
+          </Grid>
+          <Grid item xs={6} sx={{ textAlign: 'right' }}>
+            <Typography variant="caption" color="text.secondary">
+              от {formatDate(data.actDate)}
+            </Typography>
+          </Grid>
+        </Grid>
+
+        <Typography variant="h6" align="center" sx={{ mt: 2, mb: 1 }}>
+          {data.formType || 'СПРАВКА О СТОИМОСТИ ВЫПОЛНЕННЫХ РАБОТ И ЗАТРАТ'}
+        </Typography>
+        <Typography variant="body2" align="center" color="text.secondary">
+          № {data.actNumber || '—'}
+        </Typography>
+      </Box>
+
+      <Divider sx={{ my: 2 }} />
+
+      {/* Информационное сообщение */}
+      <Alert severity="info" sx={{ mb: 3 }}>
+        Справка КС-3 составляется на основании акта КС-2 и содержит накопительные итоги с начала года
+      </Alert>
+
+      {/* Данные контрагентов */}
+      <Box sx={{ mb: 3 }}>
+        <Grid container spacing={2}>
+          {/* Подрядчик */}
+          <Grid item xs={12} md={6}>
+            <Typography variant="subtitle2" gutterBottom>
+              Подрядчик (Исполнитель)
+            </Typography>
+            <Typography variant="body2">
+              {data.contractor?.name || '—'}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block">
+              ИНН: {data.contractor?.inn || '—'}
+            </Typography>
+          </Grid>
+
+          {/* Заказчик */}
+          <Grid item xs={12} md={6}>
+            <Typography variant="subtitle2" gutterBottom>
+              Заказчик
+            </Typography>
+            <Typography variant="body2">
+              {data.customer?.name || '—'}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block">
+              ИНН: {data.customer?.inn || '—'}
+            </Typography>
+          </Grid>
+        </Grid>
+      </Box>
+
+      <Divider sx={{ my: 2 }} />
+
+      {/* Договор */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle2" gutterBottom>
+          Договор
+        </Typography>
+        <Typography variant="body2">
+          № {data.contract?.number || '—'} от {formatDate(data.contract?.date)}
+        </Typography>
+      </Box>
+
+      {/* Объект строительства */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle2" gutterBottom>
+          Объект строительства
+        </Typography>
+        <Typography variant="body2">
+          {data.constructionObject?.name || '—'}
+        </Typography>
+      </Box>
+
+      <Divider sx={{ my: 2 }} />
+
+      {/* Таблица работ с накопительными итогами */}
+      <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>№</TableCell>
+              <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>Код работы</TableCell>
+              <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>Наименование работ</TableCell>
+              <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }} align="center">Ед. изм.</TableCell>
+              <TableCell colSpan={3} sx={{ fontWeight: 'bold' }} align="center">Количество</TableCell>
+              <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }} align="right">Цена, руб.</TableCell>
+              <TableCell colSpan={3} sx={{ fontWeight: 'bold' }} align="center">Стоимость, руб.</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 'bold' }} align="right">
+                С начала года
+              </TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="right">
+                До отчет. периода
+              </TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="right">
+                За отчет. период
+              </TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="right">
+                С начала года
+              </TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="right">
+                До отчет. периода
+              </TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="right">
+                За отчет. период
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {data.works && data.works.length > 0 ? (
+              data.works.map((work, index) => (
+                <TableRow key={work.id || index}>
+                  <TableCell>{work.position || index + 1}</TableCell>
+                  <TableCell>{work.code || '—'}</TableCell>
+                  <TableCell>{work.name}</TableCell>
+                  <TableCell align="center">{work.unit || '—'}</TableCell>
+                  
+                  {/* Количество */}
+                  <TableCell align="right">
+                    {formatCurrency(work.quantityYTD || 0)}
+                  </TableCell>
+                  <TableCell align="right">
+                    {formatCurrency(work.quantityPrevPeriod || 0)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ bgcolor: 'action.hover' }}>
+                    {formatCurrency(work.quantityCurrent || 0)}
+                  </TableCell>
+
+                  {/* Цена */}
+                  <TableCell align="right">
+                    {formatCurrency(work.price)}
+                  </TableCell>
+
+                  {/* Стоимость */}
+                  <TableCell align="right">
+                    {formatCurrency(work.totalPriceYTD || 0)}
+                  </TableCell>
+                  <TableCell align="right">
+                    {formatCurrency(work.totalPricePrevPeriod || 0)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ bgcolor: 'action.hover' }}>
+                    {formatCurrency(work.totalPriceCurrent || 0)}
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={11} align="center">
+                  <Typography variant="body2" color="text.secondary">
+                    Нет данных о выполненных работах
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
+
+            {/* Итоговая строка */}
+            {data.totals && (
+              <TableRow sx={{ bgcolor: 'primary.light' }}>
+                <TableCell colSpan={7} sx={{ fontWeight: 'bold' }}>
+                  ИТОГО
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                  {formatCurrency(data.totals.amountYTD || 0)}
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                  {formatCurrency(data.totals.amountPrevPeriod || 0)}
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold', bgcolor: 'primary.main', color: 'primary.contrastText' }}>
+                  {formatCurrency(data.totals.amountCurrent || 0)}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Накопительные итоги */}
+      {data.totals && (
+        <Box sx={{ mb: 3 }}>
+          <Paper sx={{ p: 2, bgcolor: 'primary.light' }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={4}>
+                <Typography variant="caption" color="text.secondary">
+                  Выполнено работ с начала года
+                </Typography>
+                <Typography variant="h6">
+                  {formatCurrency(data.totals.amountYTD || 0)} руб.
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Typography variant="caption" color="text.secondary">
+                  В том числе до отчетного периода
+                </Typography>
+                <Typography variant="h6">
+                  {formatCurrency(data.totals.amountPrevPeriod || 0)} руб.
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Typography variant="caption" color="text.secondary">
+                  За отчетный период (по КС-2)
+                </Typography>
+                <Typography variant="h6" color="primary.main">
+                  {formatCurrency(data.totals.amountCurrent || 0)} руб.
+                </Typography>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Box>
+      )}
+
+      <Divider sx={{ my: 3 }} />
+
+      {/* Подписанты */}
+      {data.signatories && data.signatories.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Подписи
+          </Typography>
+          <Grid container spacing={3}>
+            {data.signatories.map((signatory, index) => (
+              <Grid item xs={12} md={6} key={index}>
+                <Box sx={{ border: '1px solid', borderColor: 'divider', p: 2, borderRadius: 1 }}>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    {getRoleLabel(signatory.role)}
+                  </Typography>
+                  <Typography variant="body2" fontWeight="medium">
+                    {signatory.fullName}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    {signatory.position}
+                  </Typography>
+                  {signatory.signedAt && (
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                      Подписано: {formatDate(signatory.signedAt)}
+                    </Typography>
+                  )}
+                  <Box sx={{ mt: 2, borderBottom: '1px solid', borderColor: 'divider', width: '60%' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Подпись
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      )}
+
+      {/* Примечания */}
+      {data.notes && (
+        <Box sx={{ mb: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+          <Typography variant="caption" color="text.secondary" display="block">
+            Примечания
+          </Typography>
+          <Typography variant="body2">
+            {data.notes}
+          </Typography>
+        </Box>
+      )}
+
+      {/* Информация об основании */}
+      <Box sx={{ mt: 3, p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
+        <Typography variant="caption" color="text.secondary" display="block">
+          Основание для составления КС-3
+        </Typography>
+        <Typography variant="body2">
+          Акт о приемке выполненных работ (КС-2) № {data.actNumber || '—'} от {formatDate(data.actDate)}
+        </Typography>
+      </Box>
+    </Box>
+  );
+};
+
+// Вспомогательная функция для получения названия роли
+const getRoleLabel = (role) => {
+  const roleLabels = {
+    contractor_chief: 'Руководитель подрядчика',
+    contractor_accountant: 'Главный бухгалтер подрядчика',
+    customer_chief: 'Руководитель заказчика',
+    customer_inspector: 'Уполномоченный представитель заказчика',
+    technical_supervisor: 'Технический надзор'
+  };
+  return roleLabels[role] || role;
+};
+
+export default FormKS3;

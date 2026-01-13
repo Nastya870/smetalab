@@ -1,0 +1,119 @@
+﻿# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# testing
+/coverage
+
+# production
+/build
+/dist
+
+# misc
+.DS_Store
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.railway
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+/.idea/
+
+.vercel
+
+# Database backups
+backups/
+*.sql
+!database/migrations/*.sql
+!database/seeds/*.sql
+!database/migrations_archive/*.sql
+*.dump
+
+# Archived temporary scripts and docs
+_archived-scripts/
+
+# Temporary diagnostic scripts (created during development)
+add-*.cjs
+add-*.mjs
+fix-*.cjs
+fix-*.mjs
+cleanup-*.cjs
+create-*.cjs
+delete-*.cjs
+delete-*.mjs
+sync-*.cjs
+simplify-*.cjs
+ensure-*.cjs
+copy-*.cjs
+update-roles.cjs
+check-*.cjs
+check-*.mjs
+diagnose-*.cjs
+debug-*.cjs
+quick-check*.cjs
+count-*.cjs
+test-*.cjs
+test-*.mjs
+verify-*.cjs
+verify-*.mjs
+final-*.cjs
+list-all-tables.cjs
+
+# Temporary documentation (outdated)
+API_SECURITY_IMPLEMENTED.md
+API_SECURITY_PLAN.md
+FILES_CREATED_LIST.md
+FINAL_REPORT.md
+HIERARCHY_WORKING_CONFIRMED.md
+MENU_UPDATES.md
+PERMISSIONS_API_STATUS.md
+PERMISSIONS_FIX_INSTRUCTIONS.md
+PERMISSIONS_PAGE_READY.md
+PERMISSIONS_PROBLEM_SOLVED.md
+PERMISSIONS_SYSTEM.md
+PERMISSIONS_UI_GUIDE.md
+PERMISSIONS_WORKING.md
+QUICK_START_UI_PERMISSIONS.md
+README_PERMISSIONS.md
+ROLES_AND_PERMISSIONS_SETUP_COMPLETE.md
+ROLES_UPDATE_COMPLETE.md
+TENANT_ISOLATION_COMPLETED.md
+UI_PERMISSIONS_READY.md
+CLEANUP_PLAN.md
+
+# Keep these useful utilities (exceptions)
+!check-super-admin-roles.cjs
+!check-global-roles.cjs
+!test-get-all-roles.cjs
+!decode-jwt-token.cjs
+!list-users.mjs
+!list-tenants.mjs
+# Sensitive files with tokens and credentials
+Р”РѕСЃС‚СѓРїС‹
+../Р”РѕСЃС‚СѓРїС‹
+РљРЎ2.pdf
+../РљРЎ2.pdf
+ks3.XLS
+../ks3.XLS
+KS2.XLS
+../KS2.XLS
+
+.vercel
+
+.vercel
+Acces.md
+
+Доступы

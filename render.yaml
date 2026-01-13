@@ -1,0 +1,45 @@
+# ===========================================
+# RENDER.COM BLUEPRINT - SmetaLab
+# ===========================================
+# PostgreSQL УЖЕ СОЗДАН ВРУЧНУЮ!
+# Этот файл только для Backend Web Service
+# ===========================================
+
+services:
+  # ===========================================
+  # BACKEND API (Node.js + Express)
+  # ===========================================
+  - type: web
+    name: smetalab-backend
+    runtime: node
+    plan: free  # free | starter | standard | pro
+    region: frankfurt  # ⚠️ ВАЖНО: тот же регион что и PostgreSQL!
+    buildCommand: npm install
+    startCommand: npm run db:migrate && npm run start:server
+    healthCheckPath: /api/health
+    autoDeploy: true  # Автодеплой при push в master
+    envVars:
+      # Database - СУЩЕСТВУЮЩАЯ БД (созданная вручную)
+      - key: DATABASE_URL
+        value: postgresql://smetalab_user:KJPh8y7plWvVIK2xiTeu9ROpUEk0QFSh@dpg-d51t19f6s9ss73eui8k0-a.frankfurt-postgres.render.com/smetalab_yay5
+      
+      # JWT Secrets - использовать те же что в .env
+      - key: JWT_ACCESS_SECRET
+        value: your_super_secret_access_key_change_this_in_production_12345
+      - key: JWT_REFRESH_SECRET
+        value: your_super_secret_refresh_key_change_this_in_production_67890
+      
+      # Environment
+      - key: NODE_ENV
+        value: production
+      
+      # Port (Render устанавливает автоматически)
+      - key: PORT
+        value: 3001
+
+# ===========================================
+# FRONTEND НА VERCEL (не на Render)
+# ===========================================
+# Фронтенд остается на Vercel, только Backend мигрирует на Render
+# VITE_API_URL будет обновлен в Vercel Dashboard после получения Render backend URL
+

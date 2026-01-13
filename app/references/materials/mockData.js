@@ -1,0 +1,176 @@
+// Демо-данные для справочника материалов
+export const initialMaterials = [
+  {
+    id: 1,
+    sku: 'MAT-001',
+    name: 'Цемент М500',
+    image: 'https://via.placeholder.com/100x100?text=Cement',
+    unit: 'т',
+    price: 7500.00,
+    supplier: 'ООО "СтройМатериалы+"',
+    weight: 1000,
+    category: 'Цемент и бетон',
+    productUrl: 'https://example.com/cement-m500',
+    showImage: true
+  },
+  {
+    id: 2,
+    sku: 'MAT-002',
+    name: 'Бетон М300',
+    image: 'https://via.placeholder.com/100x100?text=Concrete',
+    unit: 'м³',
+    price: 4200.00,
+    supplier: 'ЗАО "БетонСервис"',
+    weight: 2400,
+    category: 'Цемент и бетон',
+    productUrl: 'https://example.com/concrete-m300',
+    showImage: true
+  },
+  {
+    id: 3,
+    sku: 'MAT-003',
+    name: 'Кирпич керамический',
+    image: 'https://via.placeholder.com/100x100?text=Brick',
+    unit: 'шт',
+    price: 18.50,
+    supplier: 'ПАО "Керамика"',
+    weight: 3.5,
+    category: 'Кирпич и блоки',
+    productUrl: 'https://example.com/brick',
+    showImage: true
+  },
+  {
+    id: 4,
+    sku: 'MAT-004',
+    name: 'Блок газобетонный D500',
+    image: 'https://via.placeholder.com/100x100?text=Block',
+    unit: 'м³',
+    price: 3800.00,
+    supplier: 'ООО "ГазоблокПром"',
+    weight: 500,
+    category: 'Кирпич и блоки',
+    productUrl: 'https://example.com/gas-block',
+    showImage: true
+  },
+  {
+    id: 5,
+    sku: 'MAT-005',
+    name: 'Арматура А500С d12',
+    image: '',
+    unit: 'т',
+    price: 52000.00,
+    supplier: 'ТД "МеталлПрофиль"',
+    weight: 1000,
+    category: 'Металлопрокат',
+    productUrl: 'https://example.com/rebar',
+    showImage: false
+  },
+  {
+    id: 6,
+    sku: 'MAT-006',
+    name: 'Доска обрезная 50x150',
+    image: 'https://via.placeholder.com/100x100?text=Wood',
+    unit: 'м³',
+    price: 8500.00,
+    supplier: 'ИП "ЛесПром"',
+    weight: 550,
+    category: 'Пиломатериалы',
+    productUrl: 'https://example.com/lumber',
+    showImage: true
+  },
+  {
+    id: 7,
+    sku: 'MAT-007',
+    name: 'Плитка керамическая',
+    image: 'https://via.placeholder.com/100x100?text=Tile',
+    unit: 'м²',
+    price: 650.00,
+    supplier: 'ООО "КерамТорг"',
+    weight: 18,
+    category: 'Отделочные материалы',
+    productUrl: 'https://example.com/ceramic-tile',
+    showImage: true
+  },
+  {
+    id: 8,
+    sku: 'MAT-008',
+    name: 'Гипсокартон ГКЛ',
+    image: 'https://via.placeholder.com/100x100?text=Drywall',
+    unit: 'шт',
+    price: 320.00,
+    supplier: 'ЗАО "Гипсум"',
+    weight: 29,
+    category: 'Отделочные материалы',
+    productUrl: 'https://example.com/drywall',
+    showImage: true
+  },
+  {
+    id: 9,
+    sku: 'MAT-009',
+    name: 'Металлочерепица',
+    image: 'https://via.placeholder.com/100x100?text=Roof',
+    unit: 'м²',
+    price: 450.00,
+    supplier: 'ООО "КровляПро"',
+    weight: 5,
+    category: 'Кровельные материалы',
+    productUrl: 'https://example.com/metal-roof',
+    showImage: true
+  },
+  {
+    id: 10,
+    sku: 'MAT-010',
+    name: 'Утеплитель Rockwool',
+    image: 'https://via.placeholder.com/100x100?text=Insulation',
+    unit: 'м³',
+    price: 3200.00,
+    supplier: 'ТД "ТеплоДом"',
+    weight: 50,
+    category: 'Изоляционные материалы',
+    productUrl: 'https://example.com/rockwool',
+    showImage: true
+  },
+  {
+    id: 11,
+    sku: 'MAT-011',
+    name: 'Кабель ВВГ 3х2,5',
+    image: '',
+    unit: 'м',
+    price: 85.00,
+    supplier: 'ООО "ЭлектроСнаб"',
+    weight: 0.2,
+    category: 'Электрика',
+    productUrl: 'https://example.com/cable',
+    showImage: false
+  },
+  {
+    id: 12,
+    sku: 'MAT-012',
+    name: 'Труба полипропиленовая d32',
+    image: 'https://via.placeholder.com/100x100?text=Pipe',
+    unit: 'м',
+    price: 120.00,
+    supplier: 'ЗАО "СантехМонтаж"',
+    weight: 0.35,
+    category: 'Сантехника',
+    productUrl: 'https://example.com/pipe',
+    showImage: true
+  }
+];
+
+// Начальное состояние материала
+export const emptyMaterial = {
+  id: null,
+  sku: '',
+  name: '',
+  image: '',
+  unit: '',
+  price: 0,
+  supplier: '',
+  weight: 0,
+  category: '',
+  productUrl: '',
+  showImage: true,
+  autoCalculate: true, // ✅ По умолчанию автоматический расчёт включён
+  consumption: 0 // ✅ Расход материала (по умолчанию 0)
+};

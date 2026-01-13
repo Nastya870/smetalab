@@ -1,0 +1,128 @@
+{
+  "userId": "f8a29543-3172-43ef-a620-2bb73e891de7",
+  "tenantId": "fd59aab2-4ee9-43ae-9ce6-acee718d4752",
+  "email": "boundary_1768231603835@test.com",
+  "emailVerified": true,
+  "isSuperAdmin": false,
+  "roleKey": "viewer",
+  "permissions": [
+    {
+      "key": "admin.read",
+      "resource": "admin",
+      "action": "read"
+    },
+    {
+      "key": "admin.view_menu",
+      "resource": "admin",
+      "action": "view_menu"
+    },
+    {
+      "key": "comments.read",
+      "resource": "comments",
+      "action": "read"
+    },
+    {
+      "key": "counterparties.view_menu",
+      "resource": "counterparties",
+      "action": "view_menu"
+    },
+    {
+      "key": "dashboard.view",
+      "resource": "dashboard",
+      "action": "view"
+    },
+    {
+      "key": "dashboard.view_menu",
+      "resource": "dashboard",
+      "action": "view_menu"
+    },
+    {
+      "key": "estimate_items.read",
+      "resource": "estimate_items",
+      "action": "read"
+    },
+    {
+      "key": "estimates.read",
+      "resource": "estimates",
+      "action": "read"
+    },
+    {
+      "key": "estimate_templates.view",
+      "resource": "estimate_templates",
+      "action": "view"
+    },
+    {
+      "key": "estimate_templates.view_menu",
+      "resource": "estimate_templates",
+      "action": "view_menu"
+    },
+    {
+      "key": "materials.view_menu",
+      "resource": "materials",
+      "action": "view_menu"
+    },
+    {
+      "key": "projects.read",
+      "resource": "projects",
+      "action": "read"
+    },
+    {
+      "key": "projects.view_menu",
+      "resource": "projects",
+      "action": "view_menu"
+    },
+    {
+      "key": "purchases.view_menu",
+      "resource": "purchases",
+      "action": "view_menu"
+    },
+    {
+      "key": "references.read",
+      "resource": "references",
+      "action": "read"
+    },
+    {
+      "key": "references.view",
+      "resource": "references",
+      "action": "view"
+    },
+    {
+      "key": "reports.read",
+      "resource": "reports",
+      "action": "read"
+    },
+    {
+      "key": "roles.read",
+      "resource": "roles",
+      "action": "read"
+    },
+    {
+      "key": "settings.read",
+      "resource": "settings",
+      "action": "read"
+    },
+    {
+      "key": "tenants.read",
+      "resource": "tenants",
+      "action": "read"
+    },
+    {
+      "key": "users.read",
+      "resource": "users",
+      "action": "read"
+    },
+    {
+      "key": "users.view_menu",
+      "resource": "users",
+      "action": "view_menu"
+    },
+    {
+      "key": "works.view_menu",
+      "resource": "works",
+      "action": "view_menu"
+    }
+  ],
+  "type": "access",
+  "iat": 1768231609,
+  "exp": 1768232509
+}

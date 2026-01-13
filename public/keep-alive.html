@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Keep Render Alive</title>
+  <meta name="robots" content="noindex">
+</head>
+<body>
+  <h1>🔄 Backend Keep-Alive Service</h1>
+  <p>Status: <span id="status">Initializing...</span></p>
+  <p>Last ping: <span id="lastPing">-</span></p>
+  <p>Next ping in: <span id="countdown">-</span></p>
+
+  <script>
+    const BACKEND_URL = import.meta.env.VITE_API_URL || 'https://smeta-backend.onrender.com';
+    const PING_INTERVAL = 10 * 60 * 1000; // 10 минут
+    let nextPingTime = null;
+
+    async function pingBackend() {
+      try {
+        document.getElementById('status').textContent = 'Pinging...';
+        const response = await fetch(`${BACKEND_URL}/api/health`);
+        const data = await response.json();
+        
+        document.getElementById('status').textContent = '✅ Online';
+        document.getElementById('lastPing').textContent = new Date().toLocaleString();
+        nextPingTime = Date.now() + PING_INTERVAL;
+        
+        console.log('✅ Backend pinged successfully:', data);
+      } catch (error) {
+        document.getElementById('status').textContent = '❌ Error: ' + error.message;
+        console.error('❌ Ping failed:', error);
+      }
+    }
+
+    function updateCountdown() {
+      if (nextPingTime) {
+        const remaining = Math.max(0, Math.floor((nextPingTime - Date.now()) / 1000));
+        const minutes = Math.floor(remaining / 60);
+        const seconds = remaining % 60;
+        document.getElementById('countdown').textContent = `${minutes}m ${seconds}s`;
+      }
+    }
+
+    // Первый пинг сразу
+    pingBackend();
+    
+    // Повторяющийся пинг
+    setInterval(pingBackend, PING_INTERVAL);
+    
+    // Обновление таймера каждую секунду
+    setInterval(updateCountdown, 1000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,454 @@
+import React from 'react';
+import {
+  Box,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow
+} from '@mui/material';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
+
+// Стили для печати
+import '../../styles/printForms.css';
+
+/**
+ * Компонент для отображения формы КС-3 
+ * (Справка о стоимости выполненных работ и затрат)
+ * ОКУД 0322001
+ * 
+ * ✅ Точное соответствие унифицированной форме № КС-3
+ * ✅ Утверждена постановлением Госкомстата России от 11.11.99 № 100
+ */
+const FormKS3 = ({ data }) => {
+  if (!data) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Typography color="text.secondary">
+          Данные формы КС-3 не загружены
+        </Typography>
+      </Box>
+    );
+  }
+
+  const formatDate = (date) => {
+    if (!date) return '';
+    try {
+      return format(new Date(date), 'dd.MM.yyyy', { locale: ru });
+    } catch {
+      return '';
+    }
+  };
+
+  const formatCurrency = (amount) => {
+    if (amount === null || amount === undefined) return '';
+    return new Intl.NumberFormat('ru-RU', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
+
+  // Вычисляем итоги
+  const totalFromStart = data.totals?.amountYTD || 0;          // С начала проведения работ
+  const totalFromYearStart = data.totals?.amountFromYear || 0; // С начала года
+  const totalCurrent = data.totals?.amountCurrent || 0;        // За отчетный период
+
+  return (
+    <Box className="form-ks3" sx={{ p: 3, bgcolor: 'background.paper', maxWidth: '297mm', margin: '0 auto' }}>
+      {/* Шапка формы */}
+      <Box sx={{ textAlign: 'right', mb: 2 }}>
+        <Typography variant="body2" fontWeight="bold">
+          Унифицированная форма № КС-3
+        </Typography>
+        <Typography variant="caption">
+          Утверждена постановлением Госкомстата России
+        </Typography>
+        <Typography variant="caption" display="block">
+          от 11.11.99 № 100
+        </Typography>
+        <Box sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end', gap: 2, borderTop: '1px solid #000', borderBottom: '1px solid #000', py: 0.5 }}>
+          <Typography variant="caption">Код</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, borderBottom: '1px solid #000', py: 0.5 }}>
+          <Typography variant="caption">Форма по ОКУД</Typography>
+          <Typography variant="caption" fontWeight="bold">0322001</Typography>
+        </Box>
+      </Box>
+
+      {/* Инвестор */}
+      <Box sx={{ mb: 1, borderBottom: '1px solid #000', pb: 0.5 }}>
+        <Typography variant="caption" fontWeight="bold">Инвестор</Typography>
+        <Typography variant="body2">{data.investor?.name || ''}</Typography>
+        <Typography variant="caption" color="text.secondary" display="block">
+          (организация, адрес, телефон, факс)
+        </Typography>
+        {data.investor?.okpo && (
+          <Typography variant="caption" sx={{ float: 'right' }}>по ОКПО {data.investor.okpo}</Typography>
+        )}
+      </Box>
+
+      {/* Заказчик (Генподрядчик) */}
+      <Box sx={{ mb: 1, borderBottom: '1px solid #000', pb: 0.5 }}>
+        <Typography variant="caption" fontWeight="bold">Заказчик (Генподрядчик)</Typography>
+        <Typography variant="body2">
+          {data.customer?.name || ''}
+          {data.customer?.address && `, ${data.customer.address}`}
+          {data.customer?.phone && `, тел. ${data.customer.phone}`}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" display="block">
+          (организация, адрес, телефон, факс)
+        </Typography>
+        {data.customer?.okpo && (
+          <Typography variant="caption" sx={{ float: 'right' }}>по ОКПО {data.customer.okpo}</Typography>
+        )}
+      </Box>
+
+      {/* Подрядчик (Субподрядчик) */}
+      <Box sx={{ mb: 1, borderBottom: '1px solid #000', pb: 0.5 }}>
+        <Typography variant="caption" fontWeight="bold">Подрядчик (Субподрядчик)</Typography>
+        <Typography variant="body2">
+          {data.contractor?.name || ''}
+          {data.contractor?.address && `, ${data.contractor.address}`}
+          {data.contractor?.phone && `, тел. ${data.contractor.phone}`}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" display="block">
+          (организация, адрес, телефон, факс)
+        </Typography>
+        {data.contractor?.okpo && (
+          <Typography variant="caption" sx={{ float: 'right' }}>по ОКПО {data.contractor.okpo}</Typography>
+        )}
+      </Box>
+
+      {/* Стройка */}
+      <Box sx={{ mb: 1, borderBottom: '1px solid #000', pb: 0.5 }}>
+        <Typography variant="caption" fontWeight="bold">Стройка</Typography>
+        <Typography variant="body2">
+          {data.constructionSite?.name || ''}
+          {data.constructionSite?.address && `, ${data.constructionSite.address}`}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" display="block">
+          (наименование, адрес)
+        </Typography>
+        {data.constructionSite?.okdp && (
+          <Typography variant="caption" sx={{ float: 'right' }}>Вид деятельности по ОКДП {data.constructionSite.okdp}</Typography>
+        )}
+      </Box>
+
+      {/* Договор подряда (контракт) */}
+      <Box sx={{ mb: 1, borderBottom: '1px solid #000', pb: 0.5 }}>
+        <Typography variant="caption" fontWeight="bold" display="block">Договор подряда (контракт)</Typography>
+        <Box sx={{ display: 'flex', gap: 2, mt: 0.5 }}>
+          <Box>
+            <Typography variant="caption">номер</Typography>
+            <Typography variant="body2">{data.contract?.number || ''}</Typography>
+          </Box>
+          <Box>
+            <Typography variant="caption">дата</Typography>
+            <Typography variant="body2">{formatDate(data.contract?.date)}</Typography>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Вид операции */}
+      <Box sx={{ mb: 2, borderBottom: '1px solid #000', pb: 0.5 }}>
+        <Typography variant="caption">Вид операции</Typography>
+        <Typography variant="body2">{data.operationType || ''}</Typography>
+      </Box>
+
+      {/* Номер документа, Дата, Отчетный период */}
+      <Box sx={{ mb: 2, display: 'flex', gap: 3, borderBottom: '2px solid #000', pb: 1 }}>
+        <Box>
+          <Typography variant="caption">Номер документа</Typography>
+          <Typography variant="body2" fontWeight="bold">{data.actNumber || ''}</Typography>
+        </Box>
+        <Box>
+          <Typography variant="caption">Дата составления</Typography>
+          <Typography variant="body2" fontWeight="bold">{formatDate(data.actDate)}</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box>
+            <Typography variant="caption">Отчетный период</Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box>
+                <Typography variant="caption">с</Typography>
+                <Typography variant="body2">{formatDate(data.period?.from)}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption">по</Typography>
+                <Typography variant="body2">{formatDate(data.period?.to)}</Typography>
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Заголовок СПРАВКА */}
+      <Typography variant="h6" align="center" fontWeight="bold" sx={{ mb: 1 }}>
+        СПРАВКА
+      </Typography>
+      <Typography variant="h6" align="center" fontWeight="bold" sx={{ mb: 2 }}>
+        О СТОИМОСТИ ВЫПОЛНЕННЫХ РАБОТ И ЗАТРАТ
+      </Typography>
+
+      {/* Таблица работ с накопительными итогами */}
+      <TableContainer sx={{ mb: 2, border: '2px solid #000' }}>
+        <Table size="small" sx={{ '& td, & th': { border: '1px solid #000', padding: '4px 8px' } }}>
+          <TableHead>
+            <TableRow>
+              <TableCell rowSpan={2} align="center" sx={{ fontWeight: 'bold', minWidth: '40px' }}>
+                Номер
+                <br />
+                по
+                <br />
+                порядку
+              </TableCell>
+              <TableCell rowSpan={2} align="center" sx={{ fontWeight: 'bold', minWidth: '250px' }}>
+                Наименование пусковых комплексов, этапов,
+                <br />
+                объектов, видов выполненных работ,
+                <br />
+                оборудования, затрат
+              </TableCell>
+              <TableCell rowSpan={2} align="center" sx={{ fontWeight: 'bold', minWidth: '60px' }}>
+                Код
+              </TableCell>
+              <TableCell colSpan={3} align="center" sx={{ fontWeight: 'bold' }}>
+                Стоимость выполненных работ и затрат, руб.
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell align="center" sx={{ fontWeight: 'bold', minWidth: '120px' }}>
+                с начала
+                <br />
+                проведения
+                <br />
+                работ
+              </TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', minWidth: '120px' }}>
+                с начала
+                <br />
+                года
+              </TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', minWidth: '120px' }}>
+                в том числе за
+                <br />
+                отчетный
+                <br />
+                период
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell align="center" sx={{ fontWeight: 'bold', bgcolor: '#f0f0f0' }}>1</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', bgcolor: '#f0f0f0' }}>2</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', bgcolor: '#f0f0f0' }}>3</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', bgcolor: '#f0f0f0' }}>4</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', bgcolor: '#f0f0f0' }}>5</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold', bgcolor: '#f0f0f0' }}>6</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {/* Всего работ и затрат */}
+            <TableRow sx={{ bgcolor: '#f9f9f9' }}>
+              <TableCell></TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>
+                Всего работ и затрат, включаемых в стоимость работ
+              </TableCell>
+              <TableCell></TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                {formatCurrency(totalFromStart)}
+              </TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                {formatCurrency(totalFromYearStart)}
+              </TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold', bgcolor: '#e8f5e9' }}>
+                {formatCurrency(totalCurrent)}
+              </TableCell>
+            </TableRow>
+
+            {/* в том числе: */}
+            <TableRow>
+              <TableCell></TableCell>
+              <TableCell sx={{ pl: 4 }}>в том числе:</TableCell>
+              <TableCell></TableCell>
+              <TableCell></TableCell>
+              <TableCell></TableCell>
+              <TableCell></TableCell>
+            </TableRow>
+
+            {/* Детализация работ */}
+            {data.works && data.works.length > 0 ? (
+              data.works.map((work, index) => (
+                <TableRow key={work.id || index}>
+                  <TableCell align="center">{index + 1}</TableCell>
+                  <TableCell sx={{ pl: 6 }}>{work.name}</TableCell>
+                  <TableCell align="center">{work.code || ''}</TableCell>
+                  <TableCell align="right">
+                    {formatCurrency(work.totalPriceFromStart || 0)}
+                  </TableCell>
+                  <TableCell align="right">
+                    {formatCurrency(work.totalPriceFromYear || 0)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ bgcolor: '#e8f5e9' }}>
+                    {formatCurrency(work.totalPriceCurrent || 0)}
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell></TableCell>
+                <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Нет данных о выполненных работах
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
+
+            {/* Пустые строки для заполнения вручную */}
+            {[...Array(5)].map((_, i) => (
+              <TableRow key={`empty-${i}`}>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell sx={{ bgcolor: '#e8f5e9' }}></TableCell>
+              </TableRow>
+            ))}
+
+            {/* Итого */}
+            <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+              <TableCell colSpan={3} align="right" sx={{ fontWeight: 'bold', fontSize: '14px' }}>
+                Итого
+              </TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '14px' }}>
+                {formatCurrency(totalFromStart)}
+              </TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '14px' }}>
+                {formatCurrency(totalFromYearStart)}
+              </TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '14px', bgcolor: '#c8e6c9' }}>
+                {formatCurrency(totalCurrent)}
+              </TableCell>
+            </TableRow>
+
+            {/* Сумма НДС */}
+            <TableRow>
+              <TableCell colSpan={3} align="right" sx={{ fontWeight: 'bold' }}>
+                Сумма НДС
+              </TableCell>
+              <TableCell align="right">{formatCurrency(data.vat?.fromStart || 0)}</TableCell>
+              <TableCell align="right">{formatCurrency(data.vat?.fromYear || 0)}</TableCell>
+              <TableCell align="right" sx={{ bgcolor: '#e8f5e9' }}>
+                {formatCurrency(data.vat?.current || 0)}
+              </TableCell>
+            </TableRow>
+
+            {/* Всего с учетом НДС */}
+            <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+              <TableCell colSpan={3} align="right" sx={{ fontWeight: 'bold', fontSize: '14px' }}>
+                Всего с учетом НДС
+              </TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '14px' }}>
+                {formatCurrency((data.totals?.amountYTD || 0) + (data.vat?.fromStart || 0))}
+              </TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '14px' }}>
+                {formatCurrency((data.totals?.amountFromYear || 0) + (data.vat?.fromYear || 0))}
+              </TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '14px', bgcolor: '#c8e6c9' }}>
+                {formatCurrency((data.totals?.amountCurrent || 0) + (data.vat?.current || 0))}
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Подписи - Заказчик (Генподрядчик) */}
+      <Box sx={{ mb: 2, borderTop: '1px solid #000', pt: 2 }}>
+        <Typography variant="caption" fontWeight="bold" display="block" gutterBottom>
+          Заказчик (Генподрядчик)
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 4, mt: 2 }}>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="caption" color="text.secondary">
+              (должность)
+            </Typography>
+            <Box sx={{ borderBottom: '1px solid #000', minHeight: '24px', mt: 1 }}>
+              {data.customerSignatory?.position || ''}
+            </Box>
+          </Box>
+          <Box sx={{ flex: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              (подпись)
+            </Typography>
+            <Box sx={{ borderBottom: '1px solid #000', minHeight: '24px', mt: 1 }}></Box>
+          </Box>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="caption" color="text.secondary">
+              (расшифровка подписи)
+            </Typography>
+            <Box sx={{ borderBottom: '1px solid #000', minHeight: '24px', mt: 1 }}>
+              {data.customerSignatory?.fullName || ''}
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Подписи - Подрядчик (Субподрядчик) */}
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="caption" fontWeight="bold" display="block" gutterBottom>
+          Подрядчик (Субподрядчик)
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 4, mt: 2 }}>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="caption" color="text.secondary">
+              (должность)
+            </Typography>
+            <Box sx={{ borderBottom: '1px solid #000', minHeight: '24px', mt: 1 }}>
+              {data.contractorSignatory?.position || ''}
+            </Box>
+          </Box>
+          <Box sx={{ flex: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              (подпись)
+            </Typography>
+            <Box sx={{ borderBottom: '1px solid #000', minHeight: '24px', mt: 1 }}></Box>
+          </Box>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="caption" color="text.secondary">
+              (расшифровка подписи)
+            </Typography>
+            <Box sx={{ borderBottom: '1px solid #000', minHeight: '24px', mt: 1 }}>
+              {data.contractorSignatory?.fullName || ''}
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Примечания (если есть) */}
+      {data.notes && (
+        <Box sx={{ mt: 3, p: 2, bgcolor: '#f9f9f9', borderRadius: 1, border: '1px solid #ddd' }}>
+          <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+            Примечания
+          </Typography>
+          <Typography variant="body2">{data.notes}</Typography>
+        </Box>
+      )}
+
+      {/* Основание для составления КС-3 */}
+      <Box sx={{ mt: 2, p: 2, bgcolor: '#e3f2fd', borderRadius: 1, border: '1px solid #90caf9' }}>
+        <Typography variant="caption" color="primary.dark" display="block" gutterBottom fontWeight="bold">
+          Основание для составления КС-3
+        </Typography>
+        <Typography variant="body2" color="primary.dark">
+          Акт о приемке выполненных работ (КС-2) № {data.actNumber || '—'} от {formatDate(data.actDate)}
+        </Typography>
+      </Box>
+    </Box>
+  );
+};
+
+export default FormKS3;

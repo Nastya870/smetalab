@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test - Authentication</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        label {
+            font-weight: bold;
+            color: #555;
+            display: block;
+            margin-top: 10px;
+        }
+        .token-display {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 API Authentication Test</h1>
+        <p><strong>API Base URL:</strong> <code>http://localhost:3001/api</code></p>
+
+        <!-- Health Check -->
+        <div class="test-section">
+            <h2>1. Health Check</h2>
+            <button onclick="testHealth()">🏥 Test Health Endpoint</button>
+            <div id="health-result"></div>
+        </div>
+
+        <!-- Registration -->
+        <div class="test-section">
+            <h2>2. Registration</h2>
+            <label>Название компании:</label>
+            <input type="text" id="reg-company" value="Тестовая компания ООО" placeholder="Название компании">
+            
+            <label>Email:</label>
+            <input type="email" id="reg-email" value="test@example.com" placeholder="user@example.com">
+            
+            <label>Пароль:</label>
+            <input type="password" id="reg-password" value="SecurePass123!" placeholder="Минимум 8 символов">
+            
+            <label>Полное имя:</label>
+            <input type="text" id="reg-fullname" value="Тестов Иван Иванович" placeholder="Иванов Иван Иванович">
+            
+            <label>Телефон (опционально):</label>
+            <input type="tel" id="reg-phone" value="+7 (999) 123-45-67" placeholder="+7 (999) 123-45-67">
+            
+            <button onclick="testRegister()">📝 Register</button>
+            <div id="register-result"></div>
+        </div>
+
+        <!-- Login -->
+        <div class="test-section">
+            <h2>3. Login</h2>
+            <label>Email:</label>
+            <input type="email" id="login-email" value="test@example.com" placeholder="user@example.com">
+            
+            <label>Пароль:</label>
+            <input type="password" id="login-password" value="SecurePass123!" placeholder="Пароль">
+            
+            <button onclick="testLogin()">🔑 Login</button>
+            <div id="login-result"></div>
+        </div>
+
+        <!-- Get Me -->
+        <div class="test-section">
+            <h2>4. Get Current User</h2>
+            <p>Требуется access token (получается после login)</p>
+            <button onclick="testGetMe()">👤 Get Me</button>
+            <div id="getme-result"></div>
+        </div>
+
+        <!-- Logout -->
+        <div class="test-section">
+            <h2>5. Logout</h2>
+            <button onclick="testLogout()">🚪 Logout</button>
+            <div id="logout-result"></div>
+        </div>
+
+        <!-- Token Display -->
+        <div class="test-section">
+            <h2>📋 Current Tokens</h2>
+            <div class="token-display">
+                <strong>Access Token:</strong><br>
+                <span id="access-token">None</span>
+            </div>
+            <div class="token-display">
+                <strong>Refresh Token:</strong><br>
+                <span id="refresh-token">None</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001/api';
+        let accessToken = null;
+        let refreshToken = null;
+
+        function updateTokenDisplay() {
+            document.getElementById('access-token').textContent = accessToken || 'None';
+            document.getElementById('refresh-token').textContent = refreshToken || 'None';
+        }
+
+        function displayResult(elementId, data, isError = false) {
+            const element = document.getElementById(elementId);
+            element.className = 'result ' + (isError ? 'error' : 'success');
+            element.textContent = JSON.stringify(data, null, 2);
+        }
+
+        async function testHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                displayResult('health-result', data, !response.ok);
+            } catch (error) {
+                displayResult('health-result', { error: error.message }, true);
+            }
+        }
+
+        async function testRegister() {
+            try {
+                const body = {
+                    companyName: document.getElementById('reg-company').value,
+                    email: document.getElementById('reg-email').value,
+                    password: document.getElementById('reg-password').value,
+                    fullName: document.getElementById('reg-fullname').value,
+                    phone: document.getElementById('reg-phone').value
+                };
+
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.data?.tokens) {
+                    accessToken = data.data.tokens.accessToken;
+                    refreshToken = data.data.tokens.refreshToken;
+                    updateTokenDisplay();
+                    
+                    // Автоматически заполняем email и пароль для входа
+                    document.getElementById('login-email').value = body.email;
+                    document.getElementById('login-password').value = body.password;
+                }
+
+                displayResult('register-result', data, !response.ok);
+            } catch (error) {
+                displayResult('register-result', { error: error.message }, true);
+            }
+        }
+
+        async function testLogin() {
+            try {
+                const body = {
+                    email: document.getElementById('login-email').value,
+                    password: document.getElementById('login-password').value
+                };
+
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.data?.tokens) {
+                    accessToken = data.data.tokens.accessToken;
+                    refreshToken = data.data.tokens.refreshToken;
+                    updateTokenDisplay();
+                }
+
+                displayResult('login-result', data, !response.ok);
+            } catch (error) {
+                displayResult('login-result', { error: error.message }, true);
+            }
+        }
+
+        async function testGetMe() {
+            if (!accessToken) {
+                displayResult('getme-result', { error: 'No access token. Please login first.' }, true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                const data = await response.json();
+                displayResult('getme-result', data, !response.ok);
+            } catch (error) {
+                displayResult('getme-result', { error: error.message }, true);
+            }
+        }
+
+        async function testLogout() {
+            if (!refreshToken) {
+                displayResult('logout-result', { error: 'No refresh token. Please login first.' }, true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/logout`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refreshToken })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    accessToken = null;
+                    refreshToken = null;
+                    updateTokenDisplay();
+                }
+
+                displayResult('logout-result', data, !response.ok);
+            } catch (error) {
+                displayResult('logout-result', { error: error.message }, true);
+            }
+        }
+
+        // Auto-test health on page load
+        window.onload = () => {
+            console.log('🚀 API Test Page Loaded');
+            testHealth();
+        };
+    </script>
+</body>
+</html>

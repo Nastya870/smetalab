@@ -1,0 +1,293 @@
+/**
+ * Универсальный сервис для semantic search (OpenAI Embeddings)
+ * Используется во всех справочниках: материалы, работы, контрагенты и т.д.
+ */
+
+import OpenAI from 'openai';
+
+// Инициализируем OpenAI только если есть API ключ (для тестов может отсутствовать)
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    dangerouslyAllowBrowser: true // Required for some test environments that mimic browsers
+  })
+  : null;
+
+/**
+ * Получает embeddings для текстов через OpenAI API
+ * @param {Array<string>} texts - Массив текстов
+ * @returns {Promise<Array<Array<number>>>} - Массив векторов embeddings
+ */
+export async function getEmbeddings(texts) {
+  if (!openai) {
+    console.warn('⚠️  OpenAI API key not configured, skipping embeddings');
+    return texts.map(() => Array(1536).fill(0)); // Возвращаем нулевые векторы для тестов
+  }
+
+  try {
+    console.log(`🧠 [OpenAI Embeddings] Запрос для ${texts.length} текстов...`);
+
+    // OpenAI API лимит: 2048 текстов за запрос
+    const BATCH_SIZE = 2000;
+
+    if (texts.length <= BATCH_SIZE) {
+      // Маленький запрос - отправляем сразу
+      const response = await openai.embeddings.create({
+        model: 'text-embedding-3-small', // Дешевая модель: $0.00002/1K tokens
+        input: texts,
+        encoding_format: 'float'
+      });
+
+      console.log(`✅ [OpenAI Embeddings] Получено ${response.data.length} векторов`);
+      return response.data.map(item => item.embedding);
+    }
+
+    // Большой запрос - разбиваем на батчи
+    console.log(`📦 [Batching] Разбиваем ${texts.length} текстов на батчи по ${BATCH_SIZE}`);
+    const allEmbeddings = [];
+
+    for (let i = 0; i < texts.length; i += BATCH_SIZE) {
+      const batch = texts.slice(i, i + BATCH_SIZE);
+      console.log(`  🔄 Батч ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(texts.length / BATCH_SIZE)}: ${batch.length} текстов`);
+
+      const response = await openai.embeddings.create({
+        model: 'text-embedding-3-small',
+        input: batch,
+        encoding_format: 'float'
+      });
+
+      allEmbeddings.push(...response.data.map(item => item.embedding));
+    }
+
+    console.log(`✅ [OpenAI Embeddings] Получено ${allEmbeddings.length} векторов (батчами)`);
+    return allEmbeddings;
+  } catch (error) {
+    console.error('❌ [Embeddings] Ошибка получения embeddings:', error.message);
+    console.error('📋 [Embeddings] Error details:', error.response?.data || error);
+    throw error;
+  }
+}
+
+/**
+ * Вычисляет cosine similarity между двумя векторами
+ * @param {Array<number>} vec1 
+ * @param {Array<number>} vec2 
+ * @returns {number} - Значение от 0 до 1
+ */
+export function cosineSimilarity(vec1, vec2) {
+  const dotProduct = vec1.reduce((sum, val, i) => sum + val * vec2[i], 0);
+  const magnitude1 = Math.sqrt(vec1.reduce((sum, val) => sum + val * val, 0));
+  const magnitude2 = Math.sqrt(vec2.reduce((sum, val) => sum + val * val, 0));
+
+  return dotProduct / (magnitude1 * magnitude2);
+}
+
+/**
+ * Универсальная функция semantic search
+ * @param {string} query - Поисковый запрос
+ * @param {Array<Object>} items - Массив объектов для поиска
+ * @param {string} textField - Поле объекта для сравнения (например, 'name')
+ * @param {number} threshold - Порог similarity (0-1), по умолчанию 0.5
+ * @param {number} limit - Максимальное количество результатов
+ * @returns {Promise<Array<Object>>} - Отсортированные результаты с полем similarity
+ */
+export async function semanticSearch(query, items, textField = 'name', threshold = 0.3, limit = 50) {
+  if (!query || !items || items.length === 0) {
+    return [];
+  }
+
+  try {
+    console.log(`🔍 [Semantic Search] Поиск "${query}" среди ${items.length} записей (поле: ${textField}, порог: ${threshold})`);
+    const startTime = Date.now();
+
+    // Получаем embeddings для запроса и всех элементов
+    const allTexts = [query, ...items.map(item => item[textField] || '')];
+    const embeddings = await getEmbeddings(allTexts);
+
+    const queryEmbedding = embeddings[0];
+    const itemEmbeddings = embeddings.slice(1);
+
+    // Вычисляем similarity для каждого элемента
+    const results = items.map((item, index) => ({
+      ...item,
+      similarity: cosineSimilarity(queryEmbedding, itemEmbeddings[index])
+    }));
+
+    // Логируем топ-5 результатов для отладки
+    const top5 = results
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 5);
+    console.log('📊 [Top 5 Matches]:');
+    top5.forEach(r => console.log(`  ${(r.similarity * 100).toFixed(1)}% - ${r[textField]}`));
+
+    // Фильтруем по порогу и сортируем
+    const filtered = results
+      .filter(item => item.similarity >= threshold)
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, limit);
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [Semantic Search] Найдено ${filtered.length}/${items.length} за ${duration}ms`);
+
+    return filtered;
+  } catch (error) {
+    console.error('❌ [Semantic Search] Ошибка поиска:', error.message);
+    console.error('📋 [Semantic Search] Error stack:', error.stack);
+
+    // Fallback: простой текстовый поиск
+    console.log(`⚠️  [Semantic Search] Используем fallback (текстовый поиск) для "${query}"`);
+    return fallbackTextSearch(query, items, textField, limit);
+  }
+}
+
+/**
+ * Нормализует текст для улучшенного сравнения
+ */
+function normalizeForSearch(text) {
+  return text
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[^а-яa-z0-9\s]/g, ' ') // спецсимволы → пробелы
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Fallback: улучшенный текстовый поиск (если Mixedbread недоступен)
+ */
+function fallbackTextSearch(query, items, textField, limit) {
+  const queryNorm = normalizeForSearch(query);
+  const queryWords = queryNorm.split(' ').filter(w => w.length > 2); // слова > 2 букв
+
+  const results = items
+    .map(item => {
+      const textNorm = normalizeForSearch(item[textField] || '');
+      const textWords = textNorm.split(' ');
+
+      // Точное совпадение нормализованного текста
+      if (textNorm === queryNorm) {
+        return { ...item, similarity: 1.0 };
+      }
+
+      // Начинается с запроса
+      if (textNorm.startsWith(queryNorm)) {
+        return { ...item, similarity: 0.95 };
+      }
+
+      // Содержит весь запрос целиком
+      if (textNorm.includes(queryNorm)) {
+        return { ...item, similarity: 0.85 };
+      }
+
+      // Пословное совпадение с весами
+      let matchScore = 0;
+      let matchedWords = 0;
+
+      for (const qw of queryWords) {
+        for (const tw of textWords) {
+          // Точное совпадение слова
+          if (tw === qw) {
+            matchScore += 1.0;
+            matchedWords++;
+            break;
+          }
+          // Слово начинается с запроса
+          if (tw.startsWith(qw)) {
+            matchScore += 0.8;
+            matchedWords++;
+            break;
+          }
+          // Слово содержит запрос
+          if (tw.includes(qw)) {
+            matchScore += 0.6;
+            matchedWords++;
+            break;
+          }
+          // Запрос содержит слово (обратное)
+          if (qw.includes(tw) && tw.length > 2) {
+            matchScore += 0.5;
+            matchedWords++;
+            break;
+          }
+        }
+      }
+
+      if (matchedWords > 0) {
+        // Similarity = средний вес совпадений
+        const similarity = (matchScore / queryWords.length) * 0.75;
+        return { ...item, similarity };
+      }
+
+      return null;
+    })
+    .filter(item => item !== null && item.similarity >= 0.3) // порог 30%
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, limit);
+
+  console.log(`⚠️  [Fallback Search] Found ${results.length} results for "${query}"`);
+  return results;
+}
+
+/**
+ * Batch semantic search для множественных запросов
+ * Используется в OCR для сопоставления материалов
+ */
+export async function batchSemanticMatch(queries, items, textField = 'name', threshold = 0.5) {
+  if (!queries || queries.length === 0 || !items || items.length === 0) {
+    return queries.map(() => null);
+  }
+
+  try {
+    console.log(`🔍 [Batch Matching] ${queries.length} запросов × ${items.length} записей`);
+    const startTime = Date.now();
+
+    // Получаем embeddings для всех запросов и элементов
+    const allTexts = [
+      ...queries,
+      ...items.map(item => item[textField] || '')
+    ];
+
+    const embeddings = await getEmbeddings(allTexts);
+    const queryEmbeddings = embeddings.slice(0, queries.length);
+    const itemEmbeddings = embeddings.slice(queries.length);
+
+    // Для каждого запроса находим лучшее совпадение
+    const results = queryEmbeddings.map((queryEmb, queryIndex) => {
+      let bestMatch = null;
+      let bestScore = 0;
+
+      items.forEach((item, itemIndex) => {
+        const similarity = cosineSimilarity(queryEmb, itemEmbeddings[itemIndex]);
+
+        if (similarity > bestScore) {
+          bestScore = similarity;
+          bestMatch = { ...item, similarity };
+        }
+      });
+
+      if (bestMatch && bestScore >= threshold) {
+        console.log(`  ✅ "${queries[queryIndex]}" → "${bestMatch[textField]}" (${(bestScore * 100).toFixed(1)}%)`);
+        return bestMatch;
+      } else {
+        console.log(`  ⚠️  "${queries[queryIndex]}" → не найдено (лучший: ${(bestScore * 100).toFixed(1)}%)`);
+        return null;
+      }
+    });
+
+    const duration = Date.now() - startTime;
+    const matched = results.filter(r => r !== null).length;
+    console.log(`✅ [Batch Matching] ${matched}/${queries.length} сопоставлено за ${duration}ms`);
+
+    return results;
+  } catch (error) {
+    console.error('❌ [Batch Matching] Ошибка:', error.message);
+    return queries.map(() => null);
+  }
+}
+
+export default {
+  getEmbeddings,
+  cosineSimilarity,
+  semanticSearch,
+  batchSemanticMatch
+};

@@ -1,0 +1,111 @@
+name: CI Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_DB: smetalab_test
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Enable Corepack
+      run: corepack enable
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'yarn'
+
+    - name: Install dependencies
+      run: yarn install --immutable
+
+    - name: Run Database Migrations
+      run: npm run db:migrate
+      env:
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/smetalab_test
+        NODE_ENV: test
+
+    - name: Debug Tables
+      run: psql $DATABASE_URL -c '\dt'
+      env:
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/smetalab_test
+
+    - name: Run Unit Tests
+      run: npm run test:unit
+      env:
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/smetalab_test
+        NODE_ENV: test
+        JWT_ACCESS_SECRET: ci_test_secret_access
+        JWT_REFRESH_SECRET: ci_test_secret_refresh
+        OPENAI_API_KEY: sk-test-placeholder
+        PINECONE_API_KEY: test-placeholder
+
+    - name: Start Backend Server
+      run: |
+        npm run server &
+        echo "Waiting for server to start..."
+        for i in {1..30}; do
+          if curl -s http://localhost:3001/api/health | grep -q "API is running"; then
+            echo "Server is up!"
+            exit 0
+          fi
+          echo "Waiting..."
+          sleep 2
+        done
+        echo "Server failed to start"
+        exit 1
+      env:
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/smetalab_test
+        NODE_ENV: test
+        JWT_ACCESS_SECRET: ci_test_secret_access
+        JWT_REFRESH_SECRET: ci_test_secret_refresh
+        DISABLE_RATE_LIMITER: true
+        OPENAI_API_KEY: sk-test-placeholder
+        PINECONE_API_KEY: test-placeholder
+        PORT: 3001
+
+    - name: Run Integration Tests
+      run: npm run test:integration -- --threads=false
+      env:
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/smetalab_test
+        NODE_ENV: test
+        JWT_ACCESS_SECRET: ci_test_secret_access
+        JWT_REFRESH_SECRET: ci_test_secret_refresh
+        DISABLE_RATE_LIMITER: true
+        OPENAI_API_KEY: sk-test-placeholder
+        PINECONE_API_KEY: test-placeholder
+        API_URL: http://localhost:3001
+
+    - name: Run Security Tests
+      run: npm run test:security
+      env:
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/smetalab_test
+        NODE_ENV: test
+        JWT_ACCESS_SECRET: ci_test_secret_access
+        JWT_REFRESH_SECRET: ci_test_secret_refresh
+        RATE_LIMIT_MAX: 1000
+        OPENAI_API_KEY: sk-test-placeholder
+        PINECONE_API_KEY: test-placeholder

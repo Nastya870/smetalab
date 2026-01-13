@@ -1,0 +1,79 @@
+import { useEffect } from 'react';
+import { Outlet } from 'react-router-dom';
+
+// material-ui
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import AppBar from '@mui/material/AppBar';
+import Toolbar from '@mui/material/Toolbar';
+import Box from '@mui/material/Box';
+
+// project imports
+import Footer from './Footer';
+import Header from './Header';
+import Sidebar from './Sidebar';
+import MainContentStyled from './MainContentStyled';
+import Loader from 'ui-component/Loader';
+import Breadcrumbs from 'ui-component/extended/Breadcrumbs';
+import EmailVerificationBanner from 'components/EmailVerificationBanner';
+
+import useConfig from 'hooks/useConfig';
+import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu';
+
+// ==============================|| MAIN LAYOUT ||============================== //
+
+export default function MainLayout() {
+  const theme = useTheme();
+  const downMD = useMediaQuery(theme.breakpoints.down('md'));
+
+  const { borderRadius, miniDrawer } = useConfig();
+  const { menuMaster, menuMasterLoading } = useGetMenuMaster();
+  const drawerOpen = menuMaster?.isDashboardDrawerOpened;
+
+  useEffect(() => {
+    handlerDrawerOpen(!miniDrawer);
+  }, [miniDrawer]);
+
+  useEffect(() => {
+    downMD && handlerDrawerOpen(false);
+  }, [downMD]);
+
+  // horizontal menu-list bar : drawer
+
+  if (menuMasterLoading) return <Loader />;
+
+  return (
+    <Box sx={{ display: 'flex' }}>
+      {/* header - minimal SaaS style */}
+      <AppBar 
+        enableColorOnDark 
+        position="fixed" 
+        color="inherit" 
+        elevation={0} 
+        sx={{ 
+          bgcolor: 'background.default',
+          borderBottom: '1px solid #E8EBF1'
+        }}
+      >
+        <Toolbar sx={{ px: 2, py: 0, minHeight: '64px !important', height: 64 }}>
+          <Header />
+        </Toolbar>
+      </AppBar>
+
+      {/* menu / drawer */}
+      <Sidebar />
+
+      {/* main content */}
+      <MainContentStyled {...{ borderRadius, open: drawerOpen }}>
+        <Box sx={{ ...{ px: { xs: 0 } }, minHeight: 'calc(100vh - 128px)', display: 'flex', flexDirection: 'column' }}>
+          {/* breadcrumb */}
+          <Breadcrumbs />
+          {/* email verification banner */}
+          <EmailVerificationBanner />
+          <Outlet />
+          <Footer />
+        </Box>
+      </MainContentStyled>
+    </Box>
+  );
+}
