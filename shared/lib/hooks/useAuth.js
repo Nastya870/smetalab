@@ -12,16 +12,31 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadAuthData = () => {
+    const loadAuthData = async () => {
       try {
         if (isAuthenticated()) {
-          const userData = getCurrentUser();
+          let userData = getCurrentUser();
           const tenantData = getCurrentTenant();
           const userRoles = getUserRoles();
 
           setUser(userData);
           setTenant(tenantData);
           setRoles(userRoles);
+
+          // ✨ Если в данных пользователя нет флага isSuperAdmin, пробуем обновить профиль
+          if (userData && userData.isSuperAdmin === undefined) {
+            try {
+              const { getMe } = await import('services/authService');
+              const freshData = await getMe();
+              if (freshData && freshData.user) {
+                setUser(freshData.user);
+                // authService.getMe обычно сам обновляет localStorage, но на всякий случай:
+                // storageService.set('user', freshData.user);
+              }
+            } catch (e) {
+              console.error('Failed to auto-refresh user data:', e);
+            }
+          }
         }
       } catch (error) {
         console.error('Error loading auth data:', error);

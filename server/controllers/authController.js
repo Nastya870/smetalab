@@ -1039,6 +1039,18 @@ export const getMe = catchAsync(async (req, res) => {
 
     const user = userResult.rows[0];
 
+    // Проверяем является ли пользователь super_admin
+    const allUserRolesResult = await client.query(
+      `SELECT DISTINCT r.key
+       FROM user_role_assignments ura
+       JOIN roles r ON r.id = ura.role_id
+       WHERE ura.user_id = $1`,
+      [user.id]
+    );
+    const userRoleKeys = allUserRolesResult.rows.map(row => row.key);
+    const isSuperAdmin = userRoleKeys.includes('super_admin');
+    user.isSuperAdmin = isSuperAdmin;
+
     // Получаем текущую компанию
     const tenantResult = await client.query(
       `SELECT id, name, plan, status
@@ -1050,23 +1062,46 @@ export const getMe = catchAsync(async (req, res) => {
     const tenant = tenantResult.rows[0];
 
     // Получаем роли
-    const rolesResult = await client.query(
-      `SELECT r.key, r.name
-       FROM user_role_assignments ura
-       JOIN roles r ON r.id = ura.role_id
-       WHERE ura.user_id = $1 AND ura.tenant_id = $2`,
-      [userId, tenantId]
-    );
+    let rolesResult;
+    if (isSuperAdmin) {
+      rolesResult = await client.query(
+        `SELECT r.key, r.name
+         FROM user_role_assignments ura
+         JOIN roles r ON r.id = ura.role_id
+         WHERE ura.user_id = $1 AND (ura.tenant_id = $2 OR ura.tenant_id IS NULL)`,
+        [userId, tenantId]
+      );
+    } else {
+      rolesResult = await client.query(
+        `SELECT r.key, r.name
+         FROM user_role_assignments ura
+         JOIN roles r ON r.id = ura.role_id
+         WHERE ura.user_id = $1 AND ura.tenant_id = $2`,
+        [userId, tenantId]
+      );
+    }
 
     // Получаем разрешения
-    const permissionsResult = await client.query(
-      `SELECT DISTINCT p.key, p.name, p.resource, p.action
-       FROM user_role_assignments ura
-       JOIN role_permissions rp ON rp.role_id = ura.role_id
-       JOIN permissions p ON p.id = rp.permission_id
-       WHERE ura.user_id = $1 AND ura.tenant_id = $2`,
-      [userId, tenantId]
-    );
+    let permissionsResult;
+    if (isSuperAdmin) {
+      permissionsResult = await client.query(
+        `SELECT DISTINCT p.key, p.name, p.resource, p.action
+         FROM user_role_assignments ura
+         JOIN role_permissions rp ON rp.role_id = ura.role_id
+         JOIN permissions p ON p.id = rp.permission_id
+         WHERE ura.user_id = $1 AND (ura.tenant_id = $2 OR ura.tenant_id IS NULL)`,
+        [userId, tenantId]
+      );
+    } else {
+      permissionsResult = await client.query(
+        `SELECT DISTINCT p.key, p.name, p.resource, p.action
+         FROM user_role_assignments ura
+         JOIN role_permissions rp ON rp.role_id = ura.role_id
+         JOIN permissions p ON p.id = rp.permission_id
+         WHERE ura.user_id = $1 AND ura.tenant_id = $2`,
+        [userId, tenantId]
+      );
+    }
 
     return {
       user,

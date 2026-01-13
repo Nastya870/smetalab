@@ -6,9 +6,9 @@
 import storageService from './storageService';
 
 // API URL: в разработке - localhost, в production - Render backend
-const isProduction = typeof window !== 'undefined' && 
-                     (window.location.hostname.includes('vercel.app') || 
-                      window.location.hostname.includes('smeta-lab.ru'));
+const isProduction = typeof window !== 'undefined' &&
+  (window.location.hostname.includes('vercel.app') ||
+    window.location.hostname.includes('smeta-lab.ru'));
 
 const API_BASE_URL = isProduction
   ? 'https://smetalab-backend.onrender.com/api'
@@ -222,6 +222,12 @@ export const getMe = async () => {
         return getMe(); // Повторный запрос с новым токеном
       }
       throw new Error(result.message || 'Failed to get user data');
+    }
+
+    if (result.data) {
+      if (result.data.user) storageService.set('user', result.data.user);
+      if (result.data.tenant) storageService.set('tenant', result.data.tenant);
+      if (result.data.roles) storageService.set('roles', result.data.roles);
     }
 
     return result.data;
