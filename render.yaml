@@ -14,7 +14,7 @@ services:
     runtime: node
     plan: free  # free | starter | standard | pro
     region: frankfurt  # ⚠️ ВАЖНО: тот же регион что и PostgreSQL!
-    buildCommand: yarn install
+    buildCommand: corepack enable && yarn install
     startCommand: yarn db:migrate && yarn run start:server
     healthCheckPath: /api/health
     autoDeploy: true  # Автодеплой при push в master
