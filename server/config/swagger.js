@@ -11,7 +11,7 @@ const options = {
     openapi: '3.0.0',
     info: {
       title: 'Smeta Pro API',
-      version: '1.13.0',
+      version: '1.14.0',
       description: `
         Professional Estimate Management System API - полная документация всех эндпоинтов.
         
@@ -496,7 +496,7 @@ const options = {
             },
           },
         },
-        
+
         ProjectProfitData: {
           type: 'object',
           properties: {
@@ -754,6 +754,38 @@ const options = {
       {
         name: 'Health',
         description: 'Проверка состояния API',
+      },
+      {
+        name: 'Admin',
+        description: 'Административные функции (super_admin only): миграции, синхронизация Pinecone',
+      },
+      {
+        name: 'Contracts',
+        description: 'Управление договорами подряда с автозаполнением из контрагентов',
+      },
+      {
+        name: 'Estimate Templates',
+        description: 'Шаблоны смет для быстрого создания типовых работ',
+      },
+      {
+        name: 'Permissions',
+        description: 'Управление разрешениями и правами доступа пользователей',
+      },
+      {
+        name: 'Roles',
+        description: 'Управление ролями пользователей в системе',
+      },
+      {
+        name: 'Tenants',
+        description: 'Управление компаниями (тенантами) и их настройками',
+      },
+      {
+        name: 'Work Completions',
+        description: 'Отслеживание процента выполнения работ по сметам',
+      },
+      {
+        name: 'Search',
+        description: 'Семантический и умный AI-поиск по справочникам (OpenAI + Pinecone)',
       },
     ],
   },
