@@ -17,7 +17,11 @@ export const exportToCSV = catchAsync(async (req, res) => {
     if (isGlobal === 'true') params.isGlobal = 'true';
     if (isGlobal === 'false') params.isGlobal = 'false';
 
+    console.log('[MATERIALS EXPORT] Starting export with params:', { isGlobal, tenantId });
+
     const materials = await materialsRepository.findAll(params, tenantId);
+
+    console.log(`[MATERIALS EXPORT] Found ${materials.length} materials to export`);
 
     const csvHeader = 'Артикул,Наименование,Ед. изм.,Цена,Поставщик,Вес,Категория,Ссылка,Авторасчет,Расход\n';
 
