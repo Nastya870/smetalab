@@ -14,7 +14,7 @@ services:
     runtime: node
     plan: free  # free | starter | standard | pro
     region: frankfurt  # ⚠️ ВАЖНО: тот же регион что и PostgreSQL!
-    buildCommand: corepack enable && yarn install
+    buildCommand: yarn install
     startCommand: yarn db:migrate && yarn run start:server
     healthCheckPath: /api/health
     autoDeploy: true  # Автодеплой при push в master
@@ -36,6 +36,12 @@ services:
       # Port (Render устанавливает автоматически)
       - key: PORT
         value: 3001
+      
+      # Yarn Version Support
+      - key: YARN_VERSION
+        value: 4.9.1
+      - key: COREPACK_ENABLE
+        value: "1"
 
 # ===========================================
 # FRONTEND НА VERCEL (не на Render)
