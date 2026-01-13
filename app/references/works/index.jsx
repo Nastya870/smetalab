@@ -146,8 +146,7 @@ const WorksReferencePage = () => {
     return storageService.get('worksGlobalFilter', 'global');
   });
   const { success, error: showError, info: showInfo } = useNotifications();
-  const { getPrimaryRole } = useAuth();
-  const isSuperAdmin = getPrimaryRole() === 'super_admin';
+  const { isSuperAdmin } = useAuth();
   const [openImportDialog, setOpenImportDialog] = useState(false);
 
   // 🚀 NEW: Infinite Scroll state

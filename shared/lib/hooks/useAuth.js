@@ -44,22 +44,45 @@ export const useAuth = () => {
   }, []);
 
   /**
+   * Проверить наличие роли по ключу или имени
+   * @param {string} roleKeyOrName 
+   * @returns {boolean}
+   */
+  const hasRole = (roleKeyOrName) => {
+    if (!roles || !Array.isArray(roles)) return false;
+    return roles.some(r => {
+      if (typeof r === 'string') return r === roleKeyOrName;
+      return r.key === roleKeyOrName || r.name === roleKeyOrName;
+    });
+  };
+
+  /**
    * Получить основную роль пользователя
    * @returns {string|null}
    */
   const getPrimaryRole = () => {
-    if (!roles || roles.length === 0) return null;
-    
+    if (!roles || !Array.isArray(roles) || roles.length === 0) return null;
+
     // Приоритет ролей
     const rolePriority = ['super_admin', 'admin', 'manager', 'estimator', 'supplier'];
-    
-    for (const role of rolePriority) {
-      const found = roles.find((r) => r.key === role);
-      if (found) return found.key;
+
+    for (const roleKey of rolePriority) {
+      const found = roles.find((r) => {
+        if (typeof r === 'string') return r === roleKey;
+        return r.key === roleKey;
+      });
+      if (found) return typeof found === 'string' ? found : found.key;
     }
-    
-    return roles[0]?.key || null;
+
+    const firstRole = roles[0];
+    return typeof firstRole === 'string' ? firstRole : firstRole?.key || null;
   };
+
+  /**
+   * Вычисляемые флаги ролей
+   */
+  const isSuperAdmin = roles.some(r => (typeof r === 'string' ? r === 'super_admin' : r.key === 'super_admin'));
+  const isAdmin = roles.some(r => (typeof r === 'string' ? (r === 'admin' || r === 'super_admin') : (r.key === 'admin' || r.key === 'super_admin')));
 
   /**
    * Получить отображаемое имя роли
@@ -67,7 +90,7 @@ export const useAuth = () => {
    */
   const getRoleDisplayName = () => {
     const role = getPrimaryRole();
-    
+
     const roleNames = {
       super_admin: 'Системный администратор',
       admin: 'Администратор',
@@ -75,17 +98,8 @@ export const useAuth = () => {
       estimator: 'Сметчик',
       supplier: 'Снабженец'
     };
-    
-    return roleNames[role] || 'Пользователь';
-  };
 
-  /**
-   * Проверить, имеет ли пользователь определенную роль
-   * @param {string} roleName - Название роли
-   * @returns {boolean}
-   */
-  const hasRole = (roleName) => {
-    return roles.some((r) => r.name === roleName);
+    return roleNames[role] || 'Пользователь';
   };
 
   /**
@@ -94,7 +108,11 @@ export const useAuth = () => {
    * @returns {boolean}
    */
   const hasPermission = (permissionName) => {
-    return roles.some((role) => role.permissions?.some((p) => p.name === permissionName));
+    if (!roles || !Array.isArray(roles)) return false;
+    return roles.some((role) => {
+      if (typeof role === 'string') return false; // Строковые роли не содержат разрешений
+      return role.permissions?.some((p) => p.key === permissionName || p.name === permissionName);
+    });
   };
 
   /**
@@ -103,7 +121,7 @@ export const useAuth = () => {
    */
   const getGreeting = () => {
     const hour = new Date().getHours();
-    
+
     if (hour >= 5 && hour < 12) return 'Доброе утро';
     if (hour >= 12 && hour < 18) return 'Добрый день';
     if (hour >= 18 && hour < 23) return 'Добрый вечер';
@@ -116,6 +134,8 @@ export const useAuth = () => {
     roles,
     loading,
     isAuthenticated: isAuthenticated(),
+    isSuperAdmin,
+    isAdmin,
     getPrimaryRole,
     getRoleDisplayName,
     hasRole,

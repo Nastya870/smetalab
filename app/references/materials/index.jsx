@@ -191,8 +191,7 @@ const MaterialsReferencePage = () => {
     return storageService.get('materialsGlobalFilter', 'global');
   });
   const { success, error: showError, info: showInfo } = useNotifications();
-  const { getPrimaryRole } = useAuth();
-  const isSuperAdmin = getPrimaryRole() === 'super_admin';
+  const { isSuperAdmin } = useAuth();
 
   // Пагинация для Infinite Scroll
   const [page, setPage] = useState(1);
