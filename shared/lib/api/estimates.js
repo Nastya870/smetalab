@@ -15,8 +15,8 @@ const estimatesAPI = {
    * @returns {Promise<Array>} Массив смет проекта
    */
   getByProjectId: async (projectId) => {
-    const response = await axiosInstance.get('/estimates', { 
-      params: { projectId } 
+    const response = await axiosInstance.get('/estimates', {
+      params: { projectId }
     });
     return response.data;
   },
@@ -59,14 +59,14 @@ const estimatesAPI = {
     // 1. Обновляем основную информацию о смете
     const estimateData = { ...data };
     delete estimateData.items; // Удаляем items из основных данных
-    
+
     await axiosInstance.put(`/estimates/${id}`, estimateData);
-    
+
     // 2. Заменяем все позиции одним запросом (DELETE + INSERT в одной транзакции)
     const response = await axiosInstance.put(`/estimates/${id}/items/replace`, {
       items: data.items || []
     });
-    
+
     // 3. Возвращаем обновленную смету
     const fullEstimate = await axiosInstance.get(`/estimates/${id}/full`);
     return fullEstimate.data;
@@ -127,6 +127,41 @@ const estimatesAPI = {
    */
   deleteWorkCompletion: async (estimateId, estimateItemId) => {
     const response = await axiosInstance.delete(`/estimates/${estimateId}/work-completions/${estimateItemId}`);
+    return response.data;
+  },
+
+  /**
+   * Экспортировать смету в CSV
+   */
+  exportEstimate: async (estimateId) => {
+    const response = await axiosInstance.get(`/estimates/${estimateId}/export`, {
+      responseType: 'blob'
+    });
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Смета_${estimateId}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  /**
+   * Импортировать позиции в смету
+   */
+  importEstimate: async (estimateId, file, mode = 'add') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('mode', mode);
+
+    const response = await axiosInstance.post(`/estimates/${estimateId}/import`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+
     return response.data;
   }
 };

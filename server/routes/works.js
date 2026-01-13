@@ -10,10 +10,18 @@ import {
   getWorkCategories
 } from '../controllers/worksController.js';
 import { bulkCreateWorks } from '../controllers/worksBulkController.js';
+import {
+  exportToCSV,
+  importFromCSV,
+  exportTemplate
+} from '../controllers/worksImportExportController.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import { checkPermission, checkAnyPermission } from '../middleware/checkPermission.js';
+import multer from 'multer';
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
+
 
 /**
  * @route   GET /api/works/stats
@@ -28,6 +36,28 @@ router.get('/stats', getWorksStats);
  * @access  Public
  */
 router.get('/categories', getWorkCategories);
+
+/**
+ * @route   GET /api/works/export
+ * @desc    Экспорт работ в CSV
+ * @access  Private
+ */
+router.get('/export', authenticateToken, exportToCSV);
+
+/**
+ * @route   GET /api/works/export/template
+ * @desc    Экспорт шаблона CSV
+ * @access  Public
+ */
+router.get('/export/template', exportTemplate);
+
+/**
+ * @route   POST /api/works/import
+ * @desc    Импорт работ из CSV
+ * @access  Private
+ */
+router.post('/import', authenticateToken, upload.single('file'), importFromCSV);
+
 
 /**
  * @route   GET /api/works

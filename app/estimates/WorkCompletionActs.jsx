@@ -47,11 +47,14 @@ import {
   IconFilePlus,
   IconCopy,
   IconPencil,
-  IconFileOff
+  IconFileOff,
+  IconUpload
 } from '@tabler/icons-react';
 
 // API
 import workCompletionActsAPI from 'api/workCompletionActs';
+import ImportDialog from 'shared/ui/components/ImportDialog';
+import { useNotifications } from 'contexts/NotificationsContext';
 
 // Components
 import FormKS2View from 'shared/ui/forms/FormKS2View';
@@ -93,6 +96,10 @@ const WorkCompletionActs = ({ estimateId, projectId }) => {
   const [ks3Data, setKs3Data] = useState(null);
   const [ks2Loading, setKs2Loading] = useState(false);
   const [ks3Loading, setKs3Loading] = useState(false);
+  const [exportingCSV, setExportingCSV] = useState(false);
+  const [openImportDialog, setOpenImportDialog] = useState(false);
+
+  const { success, info, error: showError } = useNotifications();
 
   // Загрузка актов при монтировании
   useEffect(() => {
@@ -104,12 +111,12 @@ const WorkCompletionActs = ({ estimateId, projectId }) => {
       setLoading(true);
       setError(null);
       const data = await workCompletionActsAPI.getActsByEstimate(estimateId);
-      
+
       // ✅ Проверяем, что data - это массив
       if (Array.isArray(data)) {
         setActs(data);
       } else {
-setActs([]);
+        setActs([]);
       }
     } catch (err) {
       console.error('Error loading acts:', err);
@@ -124,21 +131,21 @@ setActs([]);
     try {
       setGenerating(true);
       setError(null);
-      
+
       const result = await workCompletionActsAPI.generateActs({
         estimateId,
         projectId,
         actType
       });
-      
+
       // Перезагрузка списка актов
       await loadActs();
     } catch (err) {
       console.error('Error generating act:', err);
-      
+
       // Проверяем, если это ошибка отсутствия выполненных работ
       const errorMessage = err.response?.data?.error || err.response?.data?.message;
-      
+
       if (errorMessage && errorMessage.includes('Выберите выполненные работы')) {
         setError(errorMessage);
       } else {
@@ -154,7 +161,7 @@ setActs([]);
       setDetailLoading(true);
       setDetailModalOpen(true);
       const actDetails = await workCompletionActsAPI.getActById(actId);
-      
+
       // ✅ API возвращает { act: {...}, items: [...], groupedItems: {...} }
       // Объединяем act с items для удобного использования в компоненте
       setSelectedAct({
@@ -198,14 +205,14 @@ setActs([]);
 
   const handleTabChange = async (event, newValue) => {
     setCurrentTab(newValue);
-// Загружаем данные КС-2 при переходе на вкладку 1
+    // Загружаем данные КС-2 при переходе на вкладку 1
     if (newValue === 1 && !ks2Data && selectedAct?.id) {
-await loadKS2Data(selectedAct.id);
+      await loadKS2Data(selectedAct.id);
     }
-    
+
     // Загружаем данные КС-3 при переходе на вкладку 2
     if (newValue === 2 && !ks3Data && selectedAct?.id) {
-await loadKS3Data(selectedAct.id);
+      await loadKS3Data(selectedAct.id);
     }
   };
 
@@ -219,11 +226,11 @@ await loadKS3Data(selectedAct.id);
     try {
       setKs2Loading(true);
       setError(null); // Очищаем предыдущие ошибки
-const data = await workCompletionActsAPI.getFormKS2(actId);
-if (data) {
+      const data = await workCompletionActsAPI.getFormKS2(actId);
+      if (data) {
         setKs2Data(data);
       } else {
-setError('Форма КС-2 не содержит данных');
+        setError('Форма КС-2 не содержит данных');
       }
     } catch (err) {
       console.error('[WorkCompletionActs] Error loading KS-2 data:', err);
@@ -244,11 +251,11 @@ setError('Форма КС-2 не содержит данных');
     try {
       setKs3Loading(true);
       setError(null); // Очищаем предыдущие ошибки
-const data = await workCompletionActsAPI.getFormKS3(actId);
-if (data) {
+      const data = await workCompletionActsAPI.getFormKS3(actId);
+      if (data) {
         setKs3Data(data);
       } else {
-setError('Форма КС-3 не содержит данных');
+        setError('Форма КС-3 не содержит данных');
       }
     } catch (err) {
       console.error('[WorkCompletionActs] Error loading KS-3 data:', err);
@@ -264,7 +271,7 @@ setError('Форма КС-3 не содержит данных');
       setError('Данные КС-2 не загружены');
       return;
     }
-    
+
     try {
       const filename = `КС-2_${ks2Data.actNumber || 'АКТ'}_${ks2Data.actDate || ''}.pdf`;
       generateKS2PDF(ks2Data, filename);
@@ -279,7 +286,7 @@ setError('Форма КС-3 не содержит данных');
       setError('Данные КС-3 не загружены');
       return;
     }
-    
+
     try {
       const filename = `КС-3_${ks3Data.actNumber || 'АКТ'}_${ks3Data.actDate || ''}.pdf`;
       generateKS3PDF(ks3Data, filename);
@@ -291,26 +298,50 @@ setError('Форма КС-3 не содержит данных');
 
   const handleChangeStatus = async (newStatus) => {
     if (!selectedAct) return;
-    
+
     try {
       setDetailLoading(true);
       await workCompletionActsAPI.updateActStatus(selectedAct.id, newStatus);
-      
+
       // Обновляем локальный state
       setSelectedAct(prev => ({
         ...prev,
         status: newStatus
       }));
-      
+
       // Обновляем список актов
       await loadActs();
-      
+
     } catch (err) {
       console.error('Error updating act status:', err);
       setError('Не удалось обновить статус акта');
     } finally {
       setDetailLoading(false);
     }
+  };
+
+  const handleExportCSV = async () => {
+    if (!estimateId) return;
+    try {
+      setExportingCSV(true);
+      info('Подготовка файла экспорта...');
+      await workCompletionActsAPI.exportCompletions(estimateId);
+      success('Файл экспорта успешно сформирован');
+    } catch (err) {
+      console.error('Export error:', err);
+      showError('Ошибка при экспорте выполненных работ', err.message);
+    } finally {
+      setExportingCSV(false);
+    }
+  };
+
+  const handleImportCSV = () => {
+    setOpenImportDialog(true);
+  };
+
+  const handleImportSuccess = () => {
+    loadActs();
+    success('Выполненные работы успешно импортированы');
   };
 
   const formatDate = (dateString) => {
@@ -382,9 +413,9 @@ setError('Форма КС-3 не содержит данных');
       {/* ═══════════════════════════════════════════════════════════════════
           ШАПКА СТРАНИЦЫ
       ═══════════════════════════════════════════════════════════════════ */}
-      <Stack 
-        direction={{ xs: 'column', md: 'row' }} 
-        justifyContent="space-between" 
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        justifyContent="space-between"
         alignItems={{ xs: 'flex-start', md: 'center' }}
         spacing={2}
         sx={{ mb: 3 }}
@@ -404,65 +435,114 @@ setError('Форма КС-3 не содержит данных');
             <IconFileCheck size={26} color={colors.primary} />
           </Box>
           <Box>
-            <Typography 
-              variant="h4" 
+            <Typography
+              variant="h4"
               component="h1"
-              sx={{ 
-                fontWeight: 700, 
+              sx={{
+                fontWeight: 700,
                 color: colors.textPrimary,
                 fontSize: { xs: '1.5rem', sm: '1.75rem' }
               }}
             >
               Акты выполненных работ
             </Typography>
-            <Typography 
-              variant="body2" 
+            <Typography
+              variant="body2"
               sx={{ color: colors.textSecondary, mt: 0.5 }}
             >
               Сформированные акты заказчика и специалиста
             </Typography>
           </Box>
         </Stack>
-        
-        {/* Кнопка обновления */}
-        <Button
-          variant="outlined"
-          startIcon={<IconRefresh size={18} />}
-          onClick={loadActs}
-          disabled={loading}
-          sx={{
-            borderColor: colors.border,
-            color: colors.textSecondary,
-            fontWeight: 500,
-            px: 2.5,
-            py: 1,
-            borderRadius: '10px',
-            textTransform: 'none',
-            '&:hover': {
-              borderColor: colors.primary,
-              color: colors.primary,
-              bgcolor: colors.primaryLight,
-            }
-          }}
-        >
-          Обновить
-        </Button>
+
+        {/* Кнопки импорта/экспорта */}
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            startIcon={exportingCSV ? <CircularProgress size={18} /> : <IconDownload size={18} />}
+            onClick={handleExportCSV}
+            disabled={loading || exportingCSV}
+            sx={{
+              borderColor: colors.border,
+              color: colors.textSecondary,
+              fontWeight: 500,
+              px: 2,
+              py: 1,
+              borderRadius: '10px',
+              textTransform: 'none',
+              '&:hover': {
+                borderColor: colors.primary,
+                color: colors.primary,
+                bgcolor: colors.primaryLight,
+              }
+            }}
+          >
+            Экспорт CSV
+          </Button>
+
+          <Button
+            variant="outlined"
+            startIcon={<IconUpload size={18} />}
+            onClick={handleImportCSV}
+            disabled={loading}
+            sx={{
+              borderColor: colors.border,
+              color: colors.textSecondary,
+              fontWeight: 500,
+              px: 2,
+              py: 1,
+              borderRadius: '10px',
+              textTransform: 'none',
+              '&:hover': {
+                borderColor: colors.primary,
+                color: colors.primary,
+                bgcolor: colors.primaryLight,
+              }
+            }}
+          >
+            Импорт CSV
+          </Button>
+
+          {/* Кнопка обновления */}
+          <Button
+            variant="outlined"
+            startIcon={<IconRefresh size={18} />}
+            onClick={loadActs}
+            disabled={loading}
+            sx={{
+              borderColor: colors.border,
+              color: colors.textSecondary,
+              fontWeight: 500,
+              px: 2.5,
+              py: 1,
+              borderRadius: '10px',
+              textTransform: 'none',
+              '&:hover': {
+                borderColor: colors.primary,
+                color: colors.primary,
+                bgcolor: colors.primaryLight,
+              }
+            }}
+          >
+            Обновить
+          </Button>
+        </Stack>
       </Stack>
 
       {/* ═══════════════════════════════════════════════════════════════════
           ПАНЕЛЬ ДЕЙСТВИЙ
       ═══════════════════════════════════════════════════════════════════ */}
-      <Paper 
-        sx={{ 
-          p: 2.5, 
-          mb: 3, 
+      <Paper
+        sx={{
+          p: 2.5,
+          mb: 3,
           borderRadius: '12px',
           border: `1px solid ${colors.border}`,
           bgcolor: '#fff'
         }}
       >
-        <Stack 
-          direction={{ xs: 'column', sm: 'row' }} 
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
           spacing={2}
           alignItems={{ xs: 'stretch', sm: 'center' }}
         >
@@ -544,8 +624,8 @@ setError('Форма КС-3 не содержит данных');
         </Stack>
 
         {generating && (
-          <Alert 
-            severity="info" 
+          <Alert
+            severity="info"
             icon={<CircularProgress size={18} sx={{ color: colors.primary }} />}
             sx={{ mt: 2, borderRadius: '10px' }}
           >
@@ -554,8 +634,8 @@ setError('Форма КС-3 не содержит данных');
         )}
 
         {error && (
-          <Alert 
-            severity="error" 
+          <Alert
+            severity="error"
             onClose={() => setError(null)}
             sx={{ mt: 2, borderRadius: '10px' }}
           >
@@ -567,8 +647,8 @@ setError('Форма КС-3 не содержит данных');
       {/* ═══════════════════════════════════════════════════════════════════
           ТАБЛИЦА АКТОВ
       ═══════════════════════════════════════════════════════════════════ */}
-      <Paper 
-        sx={{ 
+      <Paper
+        sx={{
           borderRadius: '16px',
           border: `1px solid ${colors.border}`,
           boxShadow: '0 4px 16px rgba(0,0,0,0.04)',
@@ -597,14 +677,14 @@ setError('Форма КС-3 не содержит данных');
             >
               <IconFileOff size={40} color="#9CA3AF" />
             </Box>
-            <Typography 
-              variant="h6" 
+            <Typography
+              variant="h6"
               sx={{ fontWeight: 600, color: '#374151', mb: 1 }}
             >
               Пока нет сформированных актов
             </Typography>
-            <Typography 
-              variant="body2" 
+            <Typography
+              variant="body2"
               sx={{ color: colors.textSecondary, maxWidth: 400, mx: 'auto' }}
             >
               Нажмите кнопку выше, чтобы создать первый акт выполненных работ
@@ -616,9 +696,9 @@ setError('Форма КС-3 не содержит данных');
               <Table sx={{ minWidth: 900 }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell 
-                      sx={{ 
-                        fontWeight: 700, 
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
                         bgcolor: colors.headerBg,
                         color: '#4B5563',
                         py: 1.5,
@@ -631,9 +711,9 @@ setError('Форма КС-3 не содержит данных');
                         <span>Номер акта</span>
                       </Stack>
                     </TableCell>
-                    <TableCell 
-                      sx={{ 
-                        fontWeight: 700, 
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
                         bgcolor: colors.headerBg,
                         color: '#4B5563',
                         py: 1.5,
@@ -646,9 +726,9 @@ setError('Форма КС-3 не содержит данных');
                         <span>Тип</span>
                       </Stack>
                     </TableCell>
-                    <TableCell 
-                      sx={{ 
-                        fontWeight: 700, 
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
                         bgcolor: colors.headerBg,
                         color: '#4B5563',
                         py: 1.5,
@@ -661,10 +741,10 @@ setError('Форма КС-3 не содержит данных');
                         <span>Дата</span>
                       </Stack>
                     </TableCell>
-                    <TableCell 
+                    <TableCell
                       align="right"
-                      sx={{ 
-                        fontWeight: 700, 
+                      sx={{
+                        fontWeight: 700,
                         bgcolor: colors.headerBg,
                         color: '#4B5563',
                         py: 1.5,
@@ -677,10 +757,10 @@ setError('Форма КС-3 не содержит данных');
                         <span>Работ</span>
                       </Stack>
                     </TableCell>
-                    <TableCell 
+                    <TableCell
                       align="right"
-                      sx={{ 
-                        fontWeight: 700, 
+                      sx={{
+                        fontWeight: 700,
                         bgcolor: colors.headerBg,
                         color: '#4B5563',
                         py: 1.5,
@@ -693,9 +773,9 @@ setError('Форма КС-3 не содержит данных');
                         <span>Сумма</span>
                       </Stack>
                     </TableCell>
-                    <TableCell 
-                      sx={{ 
-                        fontWeight: 700, 
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
                         bgcolor: colors.headerBg,
                         color: '#4B5563',
                         py: 1.5,
@@ -708,10 +788,10 @@ setError('Форма КС-3 не содержит данных');
                         <span>Статус</span>
                       </Stack>
                     </TableCell>
-                    <TableCell 
+                    <TableCell
                       align="center"
-                      sx={{ 
-                        fontWeight: 700, 
+                      sx={{
+                        fontWeight: 700,
                         bgcolor: colors.headerBg,
                         color: '#4B5563',
                         py: 1.5,
@@ -728,10 +808,10 @@ setError('Форма КС-3 не содержит данных');
                   {acts.map((act, index) => {
                     const typeStyles = getActTypeStyles(act.actType);
                     const statusStyles = getStatusStyles(act.status);
-                    
+
                     return (
-                      <TableRow 
-                        key={act.id} 
+                      <TableRow
+                        key={act.id}
                         sx={{
                           bgcolor: index % 2 === 0 ? '#fff' : '#FAFAFA',
                           '&:hover': { bgcolor: colors.cardBg },
@@ -744,10 +824,10 @@ setError('Форма КС-3 не содержит данных');
                       >
                         {/* Номер акта */}
                         <TableCell>
-                          <Typography 
-                            variant="body2" 
-                            sx={{ 
-                              fontWeight: 600, 
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: 600,
                               color: colors.primary,
                               fontFamily: 'monospace'
                             }}
@@ -755,7 +835,7 @@ setError('Форма КС-3 не содержит данных');
                             {act.actNumber}
                           </Typography>
                         </TableCell>
-                        
+
                         {/* Тип */}
                         <TableCell>
                           <Chip
@@ -766,35 +846,35 @@ setError('Форма КС-3 не содержит данных');
                               ...typeStyles,
                               fontWeight: 500,
                               height: 28,
-                              '& .MuiChip-icon': { 
+                              '& .MuiChip-icon': {
                                 color: typeStyles.color,
                                 ml: 0.5
                               }
                             }}
                           />
                         </TableCell>
-                        
+
                         {/* Дата */}
                         <TableCell>
                           <Typography variant="body2" sx={{ color: '#374151' }}>
                             {formatDate(act.actDate)}
                           </Typography>
                         </TableCell>
-                        
+
                         {/* Кол-во работ */}
                         <TableCell align="right">
                           <Typography variant="body2" sx={{ fontWeight: 500, color: '#374151' }}>
                             {act.workCount || 0}
                           </Typography>
                         </TableCell>
-                        
+
                         {/* Сумма */}
                         <TableCell align="right">
                           <Typography variant="body2" sx={{ fontWeight: 700, color: colors.green }}>
                             {formatCurrency(act.totalAmount)}
                           </Typography>
                         </TableCell>
-                        
+
                         {/* Статус */}
                         <TableCell>
                           <Chip
@@ -806,14 +886,14 @@ setError('Форма КС-3 не содержит данных');
                               color: statusStyles.color,
                               fontWeight: 500,
                               height: 28,
-                              '& .MuiChip-icon': { 
+                              '& .MuiChip-icon': {
                                 color: statusStyles.color,
                                 ml: 0.5
                               }
                             }}
                           />
                         </TableCell>
-                        
+
                         {/* Действия */}
                         <TableCell align="center">
                           <Stack direction="row" spacing={0.5} justifyContent="center">
@@ -821,10 +901,10 @@ setError('Форма КС-3 не содержит данных');
                               <IconButton
                                 size="small"
                                 onClick={() => handleViewDetails(act.id)}
-                                sx={{ 
+                                sx={{
                                   color: colors.textSecondary,
                                   transition: 'all 0.2s',
-                                  '&:hover': { 
+                                  '&:hover': {
                                     color: colors.primary,
                                     bgcolor: colors.primaryLight
                                   }
@@ -833,14 +913,14 @@ setError('Форма КС-3 не содержит данных');
                                 <IconEye size={20} />
                               </IconButton>
                             </Tooltip>
-                            
+
                             <Tooltip title="Скачать PDF">
-                              <IconButton 
+                              <IconButton
                                 size="small"
-                                sx={{ 
+                                sx={{
                                   color: colors.textSecondary,
                                   transition: 'all 0.2s',
-                                  '&:hover': { 
+                                  '&:hover': {
                                     color: colors.green,
                                     bgcolor: colors.greenLight
                                   }
@@ -849,15 +929,15 @@ setError('Форма КС-3 не содержит данных');
                                 <IconDownload size={20} />
                               </IconButton>
                             </Tooltip>
-                            
+
                             <Tooltip title="Удалить">
                               <IconButton
                                 size="small"
                                 onClick={() => handleDeleteAct(act.id)}
-                                sx={{ 
+                                sx={{
                                   color: colors.textSecondary,
                                   transition: 'all 0.2s',
-                                  '&:hover': { 
+                                  '&:hover': {
                                     color: colors.error,
                                     bgcolor: colors.errorLight
                                   }
@@ -874,12 +954,12 @@ setError('Форма КС-3 не содержит данных');
                 </TableBody>
               </Table>
             </Box>
-            
+
             {/* Итоговая строка */}
-            <Box 
-              sx={{ 
-                px: 2.5, 
-                py: 2, 
+            <Box
+              sx={{
+                px: 2.5,
+                py: 2,
                 bgcolor: colors.cardBg,
                 borderTop: `1px solid ${colors.border}`,
                 display: 'flex',
@@ -942,7 +1022,7 @@ setError('Форма КС-3 не содержит данных');
                   ...getActTypeStyles(selectedAct.actType),
                   fontWeight: 500,
                   height: 28,
-                  '& .MuiChip-icon': { 
+                  '& .MuiChip-icon': {
                     color: getActTypeStyles(selectedAct.actType).color,
                     ml: 0.5
                   }
@@ -950,11 +1030,11 @@ setError('Форма КС-3 не содержит данных');
               />
             )}
           </Stack>
-          
+
           {/* Вкладки */}
           <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 2 }}>
-            <Tabs 
-              value={currentTab} 
+            <Tabs
+              value={currentTab}
               onChange={handleTabChange}
               sx={{
                 '& .MuiTab-root': {
@@ -976,7 +1056,7 @@ setError('Форма КС-3 не содержит данных');
             </Tabs>
           </Box>
         </DialogTitle>
-        
+
         <DialogContent sx={{ p: 0 }}>
           {detailLoading ? (
             <Box display="flex" justifyContent="center" p={6}>
@@ -989,16 +1069,16 @@ setError('Форма КС-3 не содержит данных');
                 <Box sx={{ p: 3 }}>
                   <Stack spacing={3}>
                     {/* Шапка акта */}
-                    <Box 
-                      sx={{ 
-                        p: 2.5, 
-                        bgcolor: colors.cardBg, 
+                    <Box
+                      sx={{
+                        p: 2.5,
+                        bgcolor: colors.cardBg,
                         borderRadius: '12px',
                         border: `1px solid ${colors.border}`
                       }}
                     >
-                      <Stack 
-                        direction={{ xs: 'column', sm: 'row' }} 
+                      <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
                         spacing={3}
                         divider={<Divider orientation="vertical" flexItem />}
                       >
@@ -1010,7 +1090,7 @@ setError('Форма КС-3 не содержит данных');
                             {selectedAct.actNumber}
                           </Typography>
                         </Box>
-                        
+
                         <Box sx={{ flex: 1 }}>
                           <Typography variant="caption" sx={{ color: colors.textSecondary }}>
                             Дата
@@ -1019,7 +1099,7 @@ setError('Форма КС-3 не содержит данных');
                             {formatDate(selectedAct.actDate)}
                           </Typography>
                         </Box>
-                        
+
                         <Box sx={{ flex: 1 }}>
                           <Typography variant="caption" sx={{ color: colors.textSecondary }}>
                             Статус
@@ -1033,7 +1113,7 @@ setError('Форма КС-3 не содержит данных');
                                 bgcolor: getStatusStyles(selectedAct.status).bgcolor,
                                 color: getStatusStyles(selectedAct.status).color,
                                 fontWeight: 500,
-                                '& .MuiChip-icon': { 
+                                '& .MuiChip-icon': {
                                   color: getStatusStyles(selectedAct.status).color
                                 }
                               }}
@@ -1044,9 +1124,9 @@ setError('Форма КС-3 не содержит данных');
                     </Box>
 
                     {/* Таблица работ */}
-                    <Paper 
-                      sx={{ 
-                        borderRadius: '12px', 
+                    <Paper
+                      sx={{
+                        borderRadius: '12px',
                         border: `1px solid ${colors.border}`,
                         overflow: 'hidden'
                       }}
@@ -1085,10 +1165,10 @@ setError('Форма КС-3 не содержит данных');
                                   </TableCell>
                                 </TableRow>
                               )}
-                              
+
                               {/* Строка работы */}
                               {!item.isSection && (
-                                <TableRow 
+                                <TableRow
                                   sx={{
                                     '&:hover': { bgcolor: colors.cardBg },
                                     '& td': { borderBottom: `1px solid ${colors.border}` }
@@ -1128,7 +1208,7 @@ setError('Форма КС-3 не содержит данных');
                               )}
                             </React.Fragment>
                           ))}
-                          
+
                           {/* Итоговая строка */}
                           <TableRow sx={{ bgcolor: colors.greenLight }}>
                             <TableCell colSpan={5} align="right" sx={{ fontWeight: 700, fontSize: '0.9375rem', color: colors.greenDark }}>
@@ -1146,7 +1226,7 @@ setError('Форма КС-3 не содержит данных');
                   </Stack>
                 </Box>
               )}
-              
+
               {/* Вкладка 1: КС-2 */}
               {currentTab === 1 && (
                 <Box sx={{ p: 3 }}>
@@ -1159,7 +1239,7 @@ setError('Форма КС-3 не содержит данных');
                   )}
                 </Box>
               )}
-              
+
               {/* Вкладка 2: КС-3 */}
               {currentTab === 2 && (
                 <Box sx={{ p: 3 }}>
@@ -1175,11 +1255,11 @@ setError('Форма КС-3 не содержит данных');
             </>
           ) : null}
         </DialogContent>
-        
+
         <DialogActions sx={{ justifyContent: 'space-between', px: 3, py: 2.5, borderTop: `1px solid ${colors.border}` }}>
-          <Button 
-            onClick={handleCloseDetailModal} 
-            sx={{ 
+          <Button
+            onClick={handleCloseDetailModal}
+            sx={{
               color: '#7B8794',
               fontWeight: 500,
               textTransform: 'none',
@@ -1188,7 +1268,7 @@ setError('Форма КС-3 не содержит данных');
           >
             Закрыть
           </Button>
-          
+
           <Stack direction="row" spacing={1.5}>
             {/* Кнопки смены статуса */}
             {selectedAct && selectedAct.status === 'draft' && (
@@ -1207,7 +1287,7 @@ setError('Форма КС-3 не содержит данных');
                 На согласование
               </Button>
             )}
-            
+
             {selectedAct && selectedAct.status === 'pending' && (
               <>
                 <Button
@@ -1241,7 +1321,7 @@ setError('Форма КС-3 не содержит данных');
                 </Button>
               </>
             )}
-            
+
             {selectedAct && selectedAct.status === 'approved' && (
               <Button
                 variant="contained"
@@ -1258,7 +1338,7 @@ setError('Форма КС-3 не содержит данных');
                 Отметить оплаченным
               </Button>
             )}
-            
+
             {/* Кнопки для КС-2 и КС-3 */}
             {currentTab === 1 && (
               <>
@@ -1296,7 +1376,7 @@ setError('Форма КС-3 не содержит данных');
                 </Button>
               </>
             )}
-            
+
             {currentTab === 2 && (
               <>
                 <Button
@@ -1333,7 +1413,7 @@ setError('Форма КС-3 не содержит данных');
                 </Button>
               </>
             )}
-            
+
             {currentTab === 0 && (
               <Button
                 variant="contained"
@@ -1354,6 +1434,15 @@ setError('Форма КС-3 не содержит данных');
           </Stack>
         </DialogActions>
       </Dialog>
+      {/* ✅ Диалог импорта выполненных работ */}
+      <ImportDialog
+        open={openImportDialog}
+        onClose={() => setOpenImportDialog(false)}
+        onImport={(file, options) => workCompletionActsAPI.importCompletions(estimateId, file, options.mode)}
+        onSuccess={handleImportSuccess}
+        title="Импорт выполненных работ из CSV"
+        description="📄 Загрузите CSV файл с выполненными работами. Обязательные поля: Код, Наименование, Кол-во. Дополнительные: Дата, Примечание."
+      />
     </Box>
   );
 };

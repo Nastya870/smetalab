@@ -26,10 +26,17 @@ import {
   replaceAllEstimateItems
 } from '../controllers/estimateItemsController.js';
 import { exportEstimateToExcel } from '../controllers/exportEstimateController.js';
+import {
+  exportToCSV,
+  importFromCSV
+} from '../controllers/estimatesImportExportController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { checkPermission, checkAnyPermission } from '../middleware/checkPermission.js';
+import multer from 'multer';
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
+
 
 // Все routes требуют аутентификации
 router.use(authenticateToken);
@@ -98,6 +105,21 @@ router.put('/estimates/:estimateId/items/reorder', checkAnyPermission(['estimate
  * @access  Private (требуется estimates.read)
  */
 router.get('/estimates/:estimateId/items', checkPermission('estimates', 'read'), getEstimateItems);
+
+/**
+ * @route   GET /api/estimates/:estimateId/export
+ * @desc    Экспорт позиций сметы в CSV
+ * @access  Private
+ */
+router.get('/estimates/:estimateId/export', checkPermission('estimates', 'read'), exportToCSV);
+
+/**
+ * @route   POST /api/estimates/:estimateId/import
+ * @desc    Импорт позиций в смету из CSV
+ * @access  Private
+ */
+router.post('/estimates/:estimateId/import', checkAnyPermission(['estimates', 'update'], ['estimates', 'manage']), upload.single('file'), importFromCSV);
+
 
 /**
  * @route   POST /api/estimates/:estimateId/items

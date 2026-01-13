@@ -19,7 +19,9 @@ import {
   IconTrash,
   IconFileTypeXls,
   IconEdit,
-  IconSearch
+  IconSearch,
+  IconUpload,
+  IconDownload
 } from '@tabler/icons-react';
 
 /**
@@ -49,7 +51,10 @@ const EstimateHeader = ({
   onExportExcel,
   onSearch,
   searchQuery, // ✅ Controlled input
-  onEdit
+  onEdit,
+  onExportCSV,
+  onImportCSV,
+  exportingCSV
 }) => {
   return (
     <Box>
@@ -269,6 +274,52 @@ const EstimateHeader = ({
         >
           {exportingExcel ? 'Экспорт...' : 'Excel'}
         </Button>
+
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+        {/* Экспорт в CSV */}
+        <Button
+          variant="outlined"
+          startIcon={exportingCSV ? <CircularProgress size={16} /> : <IconDownload size={16} />}
+          onClick={onExportCSV}
+          size="small"
+          disabled={disableExport || exportingCSV}
+          sx={{
+            textTransform: 'none',
+            fontWeight: 500,
+            fontSize: '0.8125rem',
+            height: 34,
+            px: 1.5,
+            borderRadius: '8px',
+            color: '#4B5563',
+            borderColor: '#E5E7EB',
+            '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
+          }}
+        >
+          {exportingCSV ? 'Экспорт...' : 'Экспорт CSV'}
+        </Button>
+
+        {/* Импорт из CSV */}
+        <Button
+          variant="outlined"
+          startIcon={<IconUpload size={16} />}
+          onClick={onImportCSV}
+          size="small"
+          disabled={disableExport}
+          sx={{
+            textTransform: 'none',
+            fontWeight: 500,
+            fontSize: '0.8125rem',
+            height: 34,
+            px: 1.5,
+            borderRadius: '8px',
+            color: '#4B5563',
+            borderColor: '#E5E7EB',
+            '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
+          }}
+        >
+          Импорт CSV
+        </Button>
       </Box>
     </Box>
   );
@@ -307,7 +358,10 @@ EstimateHeader.propTypes = {
   onClear: PropTypes.func.isRequired,
   /** Обработчик экспорта в Excel */
   onExportExcel: PropTypes.func.isRequired,
-  onSearch: PropTypes.func
+  onSearch: PropTypes.func,
+  onExportCSV: PropTypes.func,
+  onImportCSV: PropTypes.func,
+  exportingCSV: PropTypes.bool
 };
 
 EstimateHeader.displayName = 'EstimateHeader';

@@ -70,6 +70,41 @@ export const getStatistics = async (filters = {}) => {
   return response.data;
 };
 
+/**
+ * Экспортировать глобальные закупки в CSV
+ */
+export const exportGlobalPurchases = async () => {
+  const response = await axiosInstance.get('/global-purchases/export', {
+    responseType: 'blob'
+  });
+
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', `Все_закупки_${new Date().toISOString().split('T')[0]}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+/**
+ * Импортировать глобальные закупки из CSV
+ */
+export const importGlobalPurchases = async (file, mode = 'add') => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('mode', mode);
+
+  const response = await axiosInstance.post('/global-purchases/import', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+
+  return response.data;
+};
+
 export default {
   createGlobalPurchase,
   getAllGlobalPurchases,
@@ -77,5 +112,7 @@ export default {
   updateGlobalPurchase,
   deleteGlobalPurchase,
   getCalendarDates,
-  getStatistics
+  getStatistics,
+  exportGlobalPurchases,
+  importGlobalPurchases
 };

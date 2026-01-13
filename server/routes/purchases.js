@@ -2,6 +2,11 @@ import express from 'express';
 import multer from 'multer';
 import { authenticateToken } from '../middleware/auth.js';
 import * as purchasesController from '../controllers/purchasesController.js';
+import {
+  exportToCSV,
+  importFromCSV
+} from '../controllers/purchasesImportExportController.js';
+
 
 const router = express.Router();
 
@@ -12,12 +17,13 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024 // 10MB
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-    if (allowedTypes.includes(file.mimetype)) {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'text/csv'];
+    if (allowedTypes.includes(file.mimetype) || file.originalname.endsWith('.csv')) {
       cb(null, true);
     } else {
-      cb(new Error('Неподдерживаемый формат файла. Используйте JPG, PNG, WebP или PDF'), false);
+      cb(new Error('Неподдерживаемый формат файла. Используйте JPG, PNG, WebP, PDF или CSV'), false);
     }
+
   }
 });
 
@@ -42,6 +48,21 @@ router.get('/estimate/:estimateId', purchasesController.getPurchasesByEstimate);
  * @route DELETE /api/purchases/estimate/:estimateId
  */
 router.delete('/estimate/:estimateId', purchasesController.deletePurchases);
+
+/**
+ * @route GET /api/purchases/estimate/:estimateId/export
+ * @desc Экспорт закупок в CSV
+ * @access Private
+ */
+router.get('/estimate/:estimateId/export', exportToCSV);
+
+/**
+ * @route POST /api/purchases/estimate/:estimateId/import
+ * @desc Импорт закупок из CSV
+ * @access Private
+ */
+router.post('/estimate/:estimateId/import', upload.single('file'), importFromCSV);
+
 
 /**
  * Добавить материал О/Ч в закупки проекта

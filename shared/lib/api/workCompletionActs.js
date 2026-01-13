@@ -11,16 +11,16 @@ const workCompletionActsAPI = {
    */
   generateActs: async ({ estimateId, projectId, actType = 'both' }) => {
     const startTime = Date.now();
-    
+
     const response = await axiosInstance.post('/work-completion-acts/generate', {
       estimateId,
       projectId,
       actType
     });
-    
+
     const duration = Date.now() - startTime;
     const result = response.data;
-    
+
     return result;
   },
 
@@ -31,7 +31,7 @@ const workCompletionActsAPI = {
    */
   getActsByEstimate: async (estimateId) => {
     const response = await axiosInstance.get(`/work-completion-acts/estimate/${estimateId}`);
-// ✅ Возвращаем массив актов из объекта response
+    // ✅ Возвращаем массив актов из объекта response
     return response.data.acts || [];
   },
 
@@ -105,6 +105,41 @@ const workCompletionActsAPI = {
    */
   updateSignatories: async (actId, signatories) => {
     const response = await axiosInstance.post(`/work-completion-acts/${actId}/signatories`, { signatories });
+    return response.data;
+  },
+
+  /**
+   * Экспортировать выполненные работы в CSV
+   */
+  exportCompletions: async (estimateId) => {
+    const response = await axiosInstance.get(`/work-completions/${estimateId}/export`, {
+      responseType: 'blob'
+    });
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Выполнение_${estimateId}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  /**
+   * Импортировать выполненные работы из CSV
+   */
+  importCompletions: async (estimateId, file, mode = 'add') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('mode', mode);
+
+    const response = await axiosInstance.post(`/work-completions/${estimateId}/import`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+
     return response.data;
   }
 };

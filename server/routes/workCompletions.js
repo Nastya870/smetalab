@@ -10,9 +10,16 @@ import {
   batchUpsertWorkCompletions,
   deleteWorkCompletion
 } from '../controllers/workCompletionsController.js';
+import {
+  exportToCSV,
+  importFromCSV
+} from '../controllers/completionsImportExportController.js';
 import { authenticateToken } from '../middleware/auth.js';
+import multer from 'multer';
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
+
 
 // Все routes требуют аутентификации
 router.use(authenticateToken);
@@ -23,6 +30,21 @@ router.use(authenticateToken);
  * @access  Private
  */
 router.get('/estimates/:estimateId/work-completions', getWorkCompletions);
+
+/**
+ * @route   GET /api/estimates/:estimateId/work-completions/export
+ * @desc    Экспорт выполненных работ в CSV
+ * @access  Private
+ */
+router.get('/estimates/:estimateId/work-completions/export', exportToCSV);
+
+/**
+ * @route   POST /api/estimates/:estimateId/work-completions/import
+ * @desc    Импорт выполненных работ из CSV
+ * @access  Private
+ */
+router.post('/estimates/:estimateId/work-completions/import', upload.single('file'), importFromCSV);
+
 
 /**
  * @route   POST /api/estimates/:estimateId/work-completions

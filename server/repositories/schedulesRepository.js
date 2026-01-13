@@ -9,7 +9,7 @@ import db from '../config/database.js';
  */
 export async function findByEstimateId(estimateId, tenantId, userId) {
   const client = await db.getClient();
-  
+
   try {
     // Устанавливаем контекст RLS
     await client.query(`
@@ -52,7 +52,7 @@ export async function findByEstimateId(estimateId, tenantId, userId) {
  */
 export async function generateFromEstimate(estimateId, projectId, tenantId, userId) {
   const client = await db.getClient();
-  
+
   try {
     console.log('[SCHEDULES REPO] Starting transaction...');
     await client.query('BEGIN');
@@ -99,7 +99,7 @@ export async function generateFromEstimate(estimateId, projectId, tenantId, user
 
     const estimateResult = await client.query(estimateQuery, [estimateId]);
     console.log('[SCHEDULES REPO] Found works:', estimateResult.rows.length);
-    
+
     if (estimateResult.rows.length === 0) {
       throw new Error('В смете нет работ для формирования графика');
     }
@@ -177,7 +177,7 @@ export async function generateFromEstimate(estimateId, projectId, tenantId, user
  */
 export async function deleteByEstimateId(estimateId, tenantId, userId) {
   const client = await db.getClient();
-  
+
   try {
     // Устанавливаем контекст RLS
     await client.query(`
@@ -200,6 +200,46 @@ export async function deleteByEstimateId(estimateId, tenantId, userId) {
 }
 
 /**
+ * Создать запись графика вручную
+ */
+export async function create(data, tenantId, userId) {
+  const {
+    projectId, estimateId, phase, workId, workCode,
+    workName, unit, quantity, unitPrice, totalPrice, positionNumber
+  } = data;
+
+  const query = `
+    INSERT INTO schedules (
+      tenant_id, project_id, estimate_id, phase, 
+      work_id, work_code, work_name, unit, 
+      quantity, unit_price, total_price, position_number, created_by
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    RETURNING *
+  `;
+
+  const values = [
+    tenantId,
+    projectId,
+    estimateId,
+    phase || 'Без фазы',
+    workId || null,
+    workCode || null,
+    workName,
+    unit || 'шт',
+    quantity || 0,
+    unitPrice || 0,
+    totalPrice || (quantity * unitPrice) || 0,
+    positionNumber || 0,
+    userId
+  ];
+
+  const result = await db.query(query, values);
+  return result.rows[0];
+}
+
+
+/**
  * Группировка работ графика по фазам для фронтенда
  * @param {Array} scheduleWorks - Массив работ из БД
  * @returns {Array} - Массив фаз с работами и итогами
@@ -209,7 +249,7 @@ export function groupByPhases(scheduleWorks) {
 
   scheduleWorks.forEach(work => {
     const phase = work.phase || 'Без фазы';
-    
+
     if (!phases[phase]) {
       phases[phase] = {
         phase: phase,

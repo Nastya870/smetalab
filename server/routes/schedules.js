@@ -1,8 +1,15 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import * as schedulesController from '../controllers/schedulesController.js';
+import {
+    exportToCSV,
+    importFromCSV
+} from '../controllers/schedulesImportExportController.js';
+import multer from 'multer';
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
+
 
 // Все роуты требуют авторизации
 router.use(authenticateToken);
@@ -20,6 +27,21 @@ router.post('/generate', schedulesController.generateSchedule);
  * @access Private
  */
 router.get('/estimate/:estimateId', schedulesController.getScheduleByEstimate);
+
+/**
+ * @route GET /api/schedules/estimate/:estimateId/export
+ * @desc Экспорт графика в CSV
+ * @access Private
+ */
+router.get('/estimate/:estimateId/export', exportToCSV);
+
+/**
+ * @route POST /api/schedules/estimate/:estimateId/import
+ * @desc Импорт графика из CSV
+ * @access Private
+ */
+router.post('/estimate/:estimateId/import', upload.single('file'), importFromCSV);
+
 
 /**
  * @route DELETE /api/schedules/estimate/:estimateId

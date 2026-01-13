@@ -16,7 +16,9 @@ import {
   IconDeviceFloppy,
   IconRefresh,
   IconPackage,
-  IconPlus
+  IconPlus,
+  IconUpload,
+  IconDownload
 } from '@tabler/icons-react';
 
 // Shared
@@ -30,6 +32,8 @@ import AddPurchaseDialog from './components/AddPurchaseDialog';
 import ExtraMaterialDialog from './components/ExtraMaterialDialog';
 import PurchasesTable from './components/PurchasesTable';
 import PurchasesSummary from './components/PurchasesSummary';
+import ImportDialog from 'shared/ui/components/ImportDialog';
+import { useNotifications } from 'contexts/NotificationsContext';
 
 const Purchases = ({ estimateId, projectId }) => {
   const {
@@ -57,8 +61,31 @@ const Purchases = ({ estimateId, projectId }) => {
     handleCloseExtraMaterialDialog,
     handleAddToGlobalPurchases,
     handleAddExtraMaterial,
-    getPurchaseStatus
+    getPurchaseStatus,
+    exportingCSV,
+    openImportDialog,
+    setOpenImportDialog,
+    handleExportCSV,
+    handleImportCSV,
+    handleImportSuccess
   } = usePurchases(estimateId, projectId);
+
+  const { success, info, error: showError } = useNotifications();
+
+  const onExportCSV = async () => {
+    try {
+      info('Подготовка файла экспорта...');
+      await handleExportCSV();
+      success('Файл экспорта успешно сформирован');
+    } catch (err) {
+      showError('Ошибка при экспорте закупок', err.message);
+    }
+  };
+
+  const onImportSuccess = () => {
+    handleImportSuccess();
+    success('Закупки успешно импортированы');
+  };
 
   return (
     <Box>
@@ -119,6 +146,38 @@ const Purchases = ({ estimateId, projectId }) => {
                 }}
               >
                 Добавить материал (О/Ч)
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={exportingCSV ? <CircularProgress size={20} /> : <IconDownload size={20} />}
+                onClick={onExportCSV}
+                disabled={loading || exportingCSV}
+                sx={{
+                  borderColor: colors.primary,
+                  color: colors.primary,
+                  fontWeight: 600,
+                  px: 2.5,
+                  borderRadius: '10px',
+                  textTransform: 'none'
+                }}
+              >
+                Экспорт CSV
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<IconUpload size={20} />}
+                onClick={handleImportCSV}
+                disabled={loading}
+                sx={{
+                  borderColor: colors.primary,
+                  color: colors.primary,
+                  fontWeight: 600,
+                  px: 2.5,
+                  borderRadius: '10px',
+                  textTransform: 'none'
+                }}
+              >
+                Импорт CSV
               </Button>
               <Button
                 variant="outlined"
@@ -270,6 +329,16 @@ const Purchases = ({ estimateId, projectId }) => {
         submitting={submitting}
         onSubmit={handleAddExtraMaterial}
         error={error}
+      />
+
+      {/* ✅ Диалог импорта закупок */}
+      <ImportDialog
+        open={openImportDialog}
+        onClose={() => setOpenImportDialog(false)}
+        onImport={(file, options) => purchasesAPI.importPurchases(estimateId, file, options.mode)}
+        onSuccess={onImportSuccess}
+        title="Импорт закупок из CSV"
+        description="📄 Загрузите CSV файл с закупками. Обязательные поля: Наименование, Кол-во, Цена. Дополнительные: Код, Ед изм, Дата."
       />
     </Box>
   );

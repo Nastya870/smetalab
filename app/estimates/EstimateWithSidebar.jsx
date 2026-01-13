@@ -25,7 +25,9 @@ import ObjectParametersSidebar from './ObjectParametersSidebar';
 import useMaterialsSearch from './hooks/useMaterialsSearch'; // ✅ Custom Hook for Materials
 import useWorksLibrary from './hooks/useWorksLibrary'; // ✅ Custom Hook for Works
 import useEstimateData from './hooks/useEstimateData'; // ✅ Custom Hook for Data
+import estimatesAPI from 'api/estimates';
 import EstimateHeader from './components/EstimateHeader';
+import ImportDialog from 'shared/ui/components/ImportDialog';
 import EstimateTotals from './components/EstimateTotals';
 import WorksTabs from './components/WorksTabs';
 import WorksSearchAndFilterBar from './components/WorksSearchAndFilterBar';
@@ -127,6 +129,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // ==============================|| STATE - EXPORT ||============================== //
 
   const [exportingExcel, setExportingExcel] = useState(false);
+  const [exportingCSV, setExportingCSV] = useState(false);
+  const [openImportDialog, setOpenImportDialog] = useState(false);
 
   // ==============================|| REFS ||============================== //
 
@@ -304,6 +308,41 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     } finally {
       setExportingExcel(false);
     }
+  };
+
+  // ============ ЭКСПОРТ В CSV ============
+  const handleExportCSV = async () => {
+    if (!estimateId) {
+      warning('Сначала сохраните смету');
+      return;
+    }
+    try {
+      setExportingCSV(true);
+      info('Подготовка файла экспорта...');
+      await estimatesAPI.exportEstimate(estimateId);
+      success('Файл экспорта успешно сформирован');
+    } catch (err) {
+      console.error('Export error:', err);
+      showError('Ошибка при экспорте сметы', err.message);
+    } finally {
+      setExportingCSV(false);
+    }
+  };
+
+  // ============ ИМПОРТ ИЗ CSV ============
+  const handleImportCSV = () => {
+    if (!estimateId) {
+      warning('Сначала сохраните смету');
+      return;
+    }
+    setOpenImportDialog(true);
+  };
+
+  const handleImportSuccess = () => {
+    // Перезагружаем страницу или данные сметы
+    window.location.reload();
+    // В идеале вызвать loadSavedEstimate из хука, но он там приватный.
+    // Перезагрузка - самый надежный способ обновить всё состояние.
   };
 
   // ==============================|| HANDLERS - TEMPLATE ||============================== //
@@ -605,6 +644,9 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         onOpenCoefficient={() => setCoefficientModalOpen(true)}
         onClear={clearEstimate}
         onExportExcel={handleExportExcel}
+        onExportCSV={handleExportCSV}
+        onImportCSV={handleImportCSV}
+        exportingCSV={exportingCSV}
         onSearch={setEstimateSearchQuery} // ✅ Pass search handler
         searchQuery={estimateSearchQuery} // ✅ Pass state
       />
@@ -753,6 +795,16 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           }));
         }}
         onSave={handleSaveTemplateConfirm}
+      />
+
+      {/* ✅ Диалог импорта сметы */}
+      <ImportDialog
+        open={openImportDialog}
+        onClose={() => setOpenImportDialog(false)}
+        onImport={(file, options) => estimatesAPI.importEstimate(estimateId, file, options.mode)}
+        onSuccess={handleImportSuccess}
+        title="Импорт позиций в смету"
+        description="📄 Загрузите CSV файл с позициями сметы. Обязательные поля: Наименование, Кол-во, Цена. Дополнительные: Код, Ед изм, Фаза, Раздел."
       />
 
       {/* 📚 OVERLAY DRAWER - Справочник работ (ФИНАЛЬНЫЙ РЕДИЗАЙН) */}

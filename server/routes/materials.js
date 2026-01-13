@@ -11,10 +11,18 @@ import {
   bulkImportMaterials, // ✅ Добавили
   searchMaterialsSemantic // 🧠 Semantic search
 } from '../controllers/materialsController.js';
+import {
+  exportToCSV,
+  importFromCSV,
+  exportTemplate
+} from '../controllers/materialsImportExportController.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import { checkPermission, checkAnyPermission } from '../middleware/checkPermission.js';
+import multer from 'multer';
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
+
 
 /**
  * @route   GET /api/materials/stats
@@ -36,6 +44,28 @@ router.get('/categories', getMaterialCategories);
  * @access  Public
  */
 router.get('/suppliers', getMaterialSuppliers);
+
+/**
+ * @route   GET /api/materials/export
+ * @desc    Экспорт материалов в CSV
+ * @access  Private
+ */
+router.get('/export', authenticateToken, exportToCSV);
+
+/**
+ * @route   GET /api/materials/export/template
+ * @desc    Экспорт шаблона CSV
+ * @access  Public
+ */
+router.get('/export/template', exportTemplate);
+
+/**
+ * @route   POST /api/materials/import
+ * @desc    Импорт материалов из CSV
+ * @access  Private
+ */
+router.post('/import', authenticateToken, upload.single('file'), importFromCSV);
+
 
 /**
  * @route   POST /api/materials/search

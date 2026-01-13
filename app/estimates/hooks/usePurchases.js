@@ -9,6 +9,8 @@ export const usePurchases = (estimateId, projectId) => {
     const [purchasesData, setPurchasesData] = useState([]);
     const [totalAmount, setTotalAmount] = useState(0);
     const [totalActualAmount, setTotalActualAmount] = useState(0);
+    const [exportingCSV, setExportingCSV] = useState(false);
+    const [openImportDialog, setOpenImportDialog] = useState(false);
 
     // Состояние диалогов
     const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -164,6 +166,27 @@ export const usePurchases = (estimateId, projectId) => {
         }
     };
 
+    const handleExportCSV = async () => {
+        if (!estimateId) return;
+        try {
+            setExportingCSV(true);
+            await purchasesAPI.exportPurchases(estimateId);
+        } catch (err) {
+            console.error('Export error:', err);
+            throw err;
+        } finally {
+            setExportingCSV(false);
+        }
+    };
+
+    const handleImportCSV = () => {
+        setOpenImportDialog(true);
+    };
+
+    const handleImportSuccess = async () => {
+        await fetchPurchases();
+    };
+
     const getPurchaseStatus = (material) => {
         const purchased = material.purchasedQuantity || 0;
         if (purchased === 0) return 'none';
@@ -200,6 +223,12 @@ export const usePurchases = (estimateId, projectId) => {
         handleCloseExtraMaterialDialog,
         handleAddToGlobalPurchases,
         handleAddExtraMaterial,
-        getPurchaseStatus
+        getPurchaseStatus,
+        exportingCSV,
+        openImportDialog,
+        setOpenImportDialog,
+        handleExportCSV,
+        handleImportCSV,
+        handleImportSuccess
     };
 };

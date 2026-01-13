@@ -30,11 +30,11 @@ import {
   Menu
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { 
-  IconRefresh, 
-  IconPlus, 
-  IconEdit, 
-  IconTrash, 
+import {
+  IconRefresh,
+  IconPlus,
+  IconEdit,
+  IconTrash,
   IconCalendar,
   IconDownload,
   IconFileTypeCsv,
@@ -42,7 +42,8 @@ import {
   IconFileTypePdf,
   IconFilter,
   IconChevronLeft,
-  IconChevronRight
+  IconChevronRight,
+  IconUpload
 } from '@tabler/icons-react';
 
 // API
@@ -52,6 +53,8 @@ import projectsAPI from 'api/projects';
 // utils
 import { formatCurrency } from 'utils/formatters';
 import { exportToCSV, exportToExcel, exportToPDF } from 'utils/purchasesExport';
+import ImportDialog from 'shared/ui/components/ImportDialog';
+import { useNotifications } from 'contexts/NotificationsContext';
 
 // Стили для кастомного DatePicker
 const datePickerSlotProps = {
@@ -92,7 +95,7 @@ const datePickerSlotProps = {
           width: 28,
           height: 28,
           color: '#6B7280',
-          '&:hover': { 
+          '&:hover': {
             bgcolor: '#F3F4F6',
             color: '#4B5563'
           }
@@ -160,7 +163,11 @@ const GlobalPurchases = () => {
   const [statistics, setStatistics] = useState(null);
   const [projects, setProjects] = useState([]);
   const [exportAnchorEl, setExportAnchorEl] = useState(null);
-  
+  const [exportingServerCSV, setExportingServerCSV] = useState(false);
+  const [openImportDialog, setOpenImportDialog] = useState(false);
+
+  const { success, info, error: showError } = useNotifications();
+
   // Состояния для диалога редактирования
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingPurchase, setEditingPurchase] = useState(null);
@@ -169,7 +176,7 @@ const GlobalPurchases = () => {
     purchasePrice: '',
     purchaseDate: ''
   });
-  
+
   // Фильтры
   const [filters, setFilters] = useState({
     projectId: '',
@@ -181,10 +188,10 @@ const GlobalPurchases = () => {
   useEffect(() => {
     const loadProjects = async () => {
       try {
-const response = await projectsAPI.getAll();
-// projectsAPI.getAll() возвращает { data: [...], pagination: {...} }
+        const response = await projectsAPI.getAll();
+        // projectsAPI.getAll() возвращает { data: [...], pagination: {...} }
         const projectsList = response.data || response.projects || [];
-setProjects(projectsList);
+        setProjects(projectsList);
       } catch (err) {
         console.error('❌ Ошибка загрузки проектов:', err);
       }
@@ -197,7 +204,7 @@ setProjects(projectsList);
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await globalPurchasesAPI.getAllGlobalPurchases(filters);
       setPurchases(response.purchases || []);
 
@@ -268,6 +275,30 @@ setProjects(projectsList);
     handleExportMenuClose();
   };
 
+  const handleExportServerCSV = async () => {
+    try {
+      setExportingServerCSV(true);
+      info('Подготовка файла экспорта...');
+      await globalPurchasesAPI.exportGlobalPurchases(filters);
+      success('Файл экспорта успешно сформирован');
+    } catch (err) {
+      console.error('Export error:', err);
+      showError('Ошибка при экспорте закупок', err.message);
+    } finally {
+      setExportingServerCSV(false);
+      handleExportMenuClose();
+    }
+  };
+
+  const handleImportCSV = () => {
+    setOpenImportDialog(true);
+  };
+
+  const handleImportSuccess = () => {
+    loadPurchases();
+    success('Закупки успешно импортированы');
+  };
+
   // Обработчики редактирования
   const handleOpenEditDialog = (purchase) => {
     setEditingPurchase(purchase);
@@ -296,21 +327,21 @@ setProjects(projectsList);
   const handleSaveEdit = async () => {
     try {
       setLoading(true);
-      
+
       // Валидация
       const quantity = parseFloat(editFormData.quantity);
       const purchasePrice = parseFloat(editFormData.purchasePrice);
-      
+
       if (isNaN(quantity) || quantity <= 0) {
         setError('Количество должно быть больше 0');
         return;
       }
-      
+
       if (isNaN(purchasePrice) || purchasePrice < 0) {
         setError('Цена не может быть отрицательной');
         return;
       }
-await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
+      await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
         quantity,
         purchasePrice,
         purchaseDate: editFormData.purchaseDate
@@ -318,9 +349,9 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
 
       // Обновляем список закупок
       await loadPurchases();
-      
+
       handleCloseEditDialog();
-      
+
     } catch (err) {
       console.error('❌ Ошибка обновления закупки:', err);
       setError('Не удалось обновить закупку');
@@ -373,6 +404,18 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
             </Box>
           </Stack>
         </MenuItem>
+        <Divider />
+        <MenuItem onClick={handleExportServerCSV} disabled={exportingServerCSV}>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            {exportingServerCSV ? <CircularProgress size={18} /> : <IconFileTypeCsv size={18} color="#4F46E5" />}
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8125rem', color: '#4F46E5' }}>CSV (Сервер)</Typography>
+              <Typography variant="caption" sx={{ color: '#9CA3AF', fontSize: '0.6875rem' }}>
+                Полный экспорт с сервера
+              </Typography>
+            </Box>
+          </Stack>
+        </MenuItem>
       </Menu>
 
       {/* Ошибка */}
@@ -383,9 +426,9 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
       )}
 
       {/* Единый белый контейнер */}
-      <Paper 
+      <Paper
         elevation={0}
-        sx={{ 
+        sx={{
           bgcolor: '#FFFFFF',
           borderRadius: '12px',
           pt: 3,
@@ -405,7 +448,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
               startIcon={<IconDownload size={16} />}
               onClick={handleExportMenuOpen}
               disabled={loading || purchases.length === 0}
-              sx={{ 
+              sx={{
                 height: 36,
                 fontSize: '0.8125rem',
                 textTransform: 'none',
@@ -416,16 +459,36 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
             >
               Экспорт
             </Button>
+            <Button
+              variant="outlined"
+              startIcon={<IconUpload size={16} />}
+              onClick={handleImportCSV}
+              disabled={loading}
+              sx={{
+                height: 36,
+                fontSize: '0.8125rem',
+                textTransform: 'none',
+                borderColor: '#E5E7EB',
+                color: '#6B7280',
+                borderRadius: '8px',
+                '&:hover': {
+                  bgcolor: '#F9FAFB',
+                  borderColor: '#D1D5DB'
+                }
+              }}
+            >
+              Импорт CSV
+            </Button>
             <IconButton
               onClick={handleRefresh}
               disabled={loading}
-              sx={{ 
+              sx={{
                 width: 36,
                 height: 36,
                 border: '1px solid #E5E7EB',
                 borderRadius: '8px',
                 color: '#6B7280',
-                '&:hover': { 
+                '&:hover': {
                   bgcolor: '#F9FAFB',
                   borderColor: '#D1D5DB'
                 }
@@ -445,13 +508,13 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                 Фильтры
               </Typography>
             </Stack>
-            
+
             {(filters.projectId || filters.dateFrom || filters.dateTo) && (
               <Button
                 size="small"
                 variant="text"
                 onClick={() => setFilters({ projectId: '', dateFrom: '', dateTo: '' })}
-                sx={{ 
+                sx={{
                   textTransform: 'none',
                   fontSize: '0.75rem',
                   color: '#EF4444',
@@ -462,7 +525,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
               </Button>
             )}
           </Stack>
-          
+
           <Grid container spacing={3} columnSpacing={3}>
             <Grid size={{ xs: 12, md: 4 }}>
               <TextField
@@ -496,7 +559,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                 ))}
               </TextField>
             </Grid>
-            
+
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <DatePicker
                 label="Период с"
@@ -510,7 +573,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                 }}
               />
             </Grid>
-            
+
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <DatePicker
                 label="Период по"
@@ -525,7 +588,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
               />
             </Grid>
           </Grid>
-          
+
           {/* Активные фильтры (чипы) */}
           {(filters.projectId || filters.dateFrom || filters.dateTo) && (
             <Stack direction="row" spacing={0.75} sx={{ mt: 1.5 }} flexWrap="wrap" gap={0.5}>
@@ -534,7 +597,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                   label={`Проект: ${projects.find(p => p.id === filters.projectId)?.name || 'Выбран'}`}
                   onDelete={() => handleFilterChange('projectId', '')}
                   size="small"
-                  sx={{ 
+                  sx={{
                     height: 24,
                     fontSize: '0.6875rem',
                     bgcolor: '#EEF2FF',
@@ -548,7 +611,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                   label={`С: ${new Date(filters.dateFrom).toLocaleDateString('ru-RU')}`}
                   onDelete={() => handleFilterChange('dateFrom', '')}
                   size="small"
-                  sx={{ 
+                  sx={{
                     height: 24,
                     fontSize: '0.6875rem',
                     bgcolor: '#F0F9FF',
@@ -562,7 +625,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                   label={`По: ${new Date(filters.dateTo).toLocaleDateString('ru-RU')}`}
                   onDelete={() => handleFilterChange('dateTo', '')}
                   size="small"
-                  sx={{ 
+                  sx={{
                     height: 24,
                     fontSize: '0.6875rem',
                     bgcolor: '#F0F9FF',
@@ -641,9 +704,9 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                     return Object.entries(groupedPurchases).map(([projectName, data], groupIndex) => (
                       <React.Fragment key={projectName}>
                         <TableRow>
-                          <TableCell 
-                            colSpan={8} 
-                            sx={{ 
+                          <TableCell
+                            colSpan={8}
+                            sx={{
                               bgcolor: '#F3F4F6',
                               borderLeft: '3px solid #6366F1',
                               py: 1,
@@ -671,9 +734,9 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                                 <Typography sx={{ fontWeight: 600, color: '#374151', fontSize: '0.8125rem' }}>
                                   {projectName}
                                 </Typography>
-                                <Chip 
-                                  label={`${data.purchases.length} поз.`} 
-                                  size="small" 
+                                <Chip
+                                  label={`${data.purchases.length} поз.`}
+                                  size="small"
                                   sx={{ height: 18, fontSize: '0.75rem', bgcolor: '#F3F4F6', color: '#6B7280', fontWeight: 500, border: '1px solid #E5E7EB' }}
                                 />
                               </Stack>
@@ -682,10 +745,10 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                         </TableRow>
 
                         {data.purchases.map((purchase) => (
-                          <TableRow 
-                            key={purchase.id} 
+                          <TableRow
+                            key={purchase.id}
                             hover
-                            sx={{ 
+                            sx={{
                               '&:hover': { bgcolor: '#FAFAFA' },
                               '& .MuiTableCell-root': { verticalAlign: 'middle' }
                             }}
@@ -698,9 +761,9 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                             <TableCell sx={{ py: 1, minWidth: 200, borderBottom: '1px solid #F3F4F6' }}>
                               <Stack direction="row" alignItems="center" spacing={0.75}>
                                 {purchase.is_extra_charge && (
-                                  <Chip 
-                                    label="О/Ч" 
-                                    size="small" 
+                                  <Chip
+                                    label="О/Ч"
+                                    size="small"
                                     sx={{ height: 18, fontSize: '0.5625rem', bgcolor: '#FEF3C7', color: '#92400E' }}
                                   />
                                 )}
@@ -787,13 +850,13 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                     ));
                   })()}
                 </TableBody>
-                
+
                 {/* Footer с итогом */}
                 {purchases.length > 0 && (
                   <TableFooter>
                     <TableRow>
-                      <TableCell 
-                        colSpan={6} 
+                      <TableCell
+                        colSpan={6}
                         align="right"
                         sx={{ bgcolor: '#F9FAFB', borderTop: '2px solid rgba(0,0,0,0.07)', pt: 2.5, pb: 2 }}
                       >
@@ -801,7 +864,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                           Итого по всем проектам:
                         </Typography>
                       </TableCell>
-                      <TableCell 
+                      <TableCell
                         align="right"
                         sx={{ bgcolor: '#F9FAFB', borderTop: '2px solid rgba(0,0,0,0.07)', pt: 2.5, pb: 2 }}
                       >
@@ -820,8 +883,8 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
       </Paper>
 
       {/* Диалог редактирования закупки */}
-      <Dialog 
-        open={editDialogOpen} 
+      <Dialog
+        open={editDialogOpen}
         onClose={handleCloseEditDialog}
         maxWidth="sm"
         fullWidth
@@ -839,7 +902,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
             </Box>
           </Stack>
         </DialogTitle>
-        
+
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 2 }}>
             {/* Информация о материале */}
@@ -869,7 +932,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                       </Box>
                     </Stack>
                   </Grid>
-                  
+
                   <Grid size={6}>
                     <Typography variant="caption" color="text.secondary">
                       Проект
@@ -878,7 +941,7 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                       {editingPurchase.project_name}
                     </Typography>
                   </Grid>
-                  
+
                   <Grid size={6}>
                     <Typography variant="caption" color="text.secondary">
                       Смета
@@ -910,9 +973,9 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
               type="number"
               value={editFormData.quantity}
               onChange={(e) => handleEditFormChange('quantity', e.target.value)}
-              inputProps={{ 
-                min: 0.01, 
-                step: 0.01 
+              inputProps={{
+                min: 0.01,
+                step: 0.01
               }}
               helperText={editingPurchase && `Ед. изм.: ${editingPurchase.unit}`}
               required
@@ -925,9 +988,9 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
               type="number"
               value={editFormData.purchasePrice}
               onChange={(e) => handleEditFormChange('purchasePrice', e.target.value)}
-              inputProps={{ 
-                min: 0, 
-                step: 0.01 
+              inputProps={{
+                min: 0,
+                step: 0.01
               }}
               helperText="Реальная цена закупки из чека"
               required
@@ -969,17 +1032,17 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
                   <Typography variant="caption" color="text.secondary">
                     Разница:
                   </Typography>
-                  <Typography 
+                  <Typography
                     variant="caption"
                     color={
-                      (parseFloat(editFormData.quantity || 0) * parseFloat(editFormData.purchasePrice || 0)) - 
-                      (editingPurchase?.total_price || 0) > 0 
-                        ? 'error.main' 
+                      (parseFloat(editFormData.quantity || 0) * parseFloat(editFormData.purchasePrice || 0)) -
+                        (editingPurchase?.total_price || 0) > 0
+                        ? 'error.main'
                         : 'success.main'
                     }
                   >
                     {editingPurchase && formatCurrency(
-                      (parseFloat(editFormData.quantity || 0) * parseFloat(editFormData.purchasePrice || 0)) - 
+                      (parseFloat(editFormData.quantity || 0) * parseFloat(editFormData.purchasePrice || 0)) -
                       editingPurchase.total_price
                     )}
                   </Typography>
@@ -988,13 +1051,13 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
             )}
           </Stack>
         </DialogContent>
-        
+
         <DialogActions>
           <Button onClick={handleCloseEditDialog}>
             Отмена
           </Button>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             onClick={handleSaveEdit}
             disabled={loading || !editFormData.quantity || !editFormData.purchasePrice}
           >
@@ -1002,6 +1065,16 @@ await globalPurchasesAPI.updateGlobalPurchase(editingPurchase.id, {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ✅ Диалог импорта закупок */}
+      <ImportDialog
+        open={openImportDialog}
+        onClose={() => setOpenImportDialog(false)}
+        onImport={globalPurchasesAPI.importGlobalPurchases}
+        onSuccess={handleImportSuccess}
+        title="Импорт закупок из CSV"
+        description="📄 Загрузите CSV файл с закупками. Обязательные поля: Проект, Смета, Материал, Кол-во, Цена. Дополнительные: Артикул, Ед изм, Дата."
+      />
     </Box>
   );
 };
