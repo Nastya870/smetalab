@@ -548,6 +548,7 @@ const MaterialsReferencePage = () => {
 
   // Открыть диалог импорта
   const [openImportDialog, setOpenImportDialog] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleOpenImport = () => {
     setOpenImportDialog(true);
@@ -565,6 +566,7 @@ const MaterialsReferencePage = () => {
   // Экспорт материалов
   const handleExport = async () => {
     try {
+      setIsExporting(true);
       showInfo('Подготовка файла экспорта...');
       await materialsImportExportAPI.exportMaterials({
         isGlobal: globalFilter === 'global' ? 'true' : 'false'
@@ -573,6 +575,8 @@ const MaterialsReferencePage = () => {
     } catch (err) {
       console.error('Export error:', err);
       showError('Ошибка при экспорте материалов', err.message);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -783,8 +787,9 @@ const MaterialsReferencePage = () => {
                   <Button
                     variant="outlined"
                     size="small"
-                    startIcon={<IconDownload size={16} />}
+                    startIcon={isExporting ? <CircularProgress size={16} color="inherit" /> : <IconDownload size={16} />}
                     onClick={handleExport}
+                    disabled={isExporting}
                     sx={{
                       textTransform: 'none',
                       height: 36,
@@ -793,7 +798,7 @@ const MaterialsReferencePage = () => {
                       '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
                     }}
                   >
-                    Экспорт
+                    {isExporting ? 'Экспорт...' : 'Экспорт'}
                   </Button>
                   <Button
                     variant="outlined"

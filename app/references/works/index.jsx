@@ -497,6 +497,9 @@ const WorksReferencePage = () => {
   };
 
   // Открыть диалог импорта
+  const [openImportDialog, setOpenImportDialog] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
   const handleOpenImport = () => {
     setOpenImportDialog(true);
   };
@@ -515,6 +518,7 @@ const WorksReferencePage = () => {
   // Экспорт работ
   const handleExport = async () => {
     try {
+      setIsExporting(true);
       showInfo('Подготовка файла экспорта...');
       await worksImportExportAPI.exportWorks({
         isGlobal: globalFilter === 'global' ? 'true' : 'false'
@@ -523,6 +527,8 @@ const WorksReferencePage = () => {
     } catch (err) {
       console.error('Export error:', err);
       showError('Ошибка при экспорте работ', err.message);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -722,8 +728,9 @@ const WorksReferencePage = () => {
                       <Button
                         variant="outlined"
                         size="small"
-                        startIcon={<IconDownload size={16} />}
+                        startIcon={isExporting ? <CircularProgress size={16} color="inherit" /> : <IconDownload size={16} />}
                         onClick={handleExport}
+                        disabled={isExporting}
                         sx={{
                           textTransform: 'none',
                           height: 36,
@@ -732,7 +739,7 @@ const WorksReferencePage = () => {
                           '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
                         }}
                       >
-                        Экспорт
+                        {isExporting ? 'Экспорт...' : 'Экспорт'}
                       </Button>
                       <Button
                         variant="outlined"
