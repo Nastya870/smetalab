@@ -1429,9 +1429,6 @@ CREATE TABLE IF NOT EXISTS materials (
   created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
   updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
   is_global boolean DEFAULT false,
-  auto_calculate boolean DEFAULT true,
-  consumption numeric DEFAULT 0,
-  consumption_unit VARCHAR(50),
   sku_number integer
 );
 
@@ -1871,7 +1868,6 @@ ALTER TABLE works ADD CONSTRAINT works_category_id_fkey FOREIGN KEY (category_id
 CREATE INDEX IF NOT EXISTS idx_act_signatories_act_id ON public.act_signatories USING btree (act_id);
 CREATE INDEX IF NOT EXISTS idx_act_signatories_role ON public.act_signatories USING btree (role);
 CREATE INDEX IF NOT EXISTS idx_act_signatories_tenant_id ON public.act_signatories USING btree (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_categories_parent ON public.categories USING btree (parent_id);
 CREATE INDEX IF NOT EXISTS idx_categories_tenant ON public.categories USING btree (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_categories_type ON public.categories USING btree (type);
 CREATE INDEX IF NOT EXISTS idx_contracts_contract_date ON public.contracts USING btree (contract_date DESC);
@@ -1879,7 +1875,6 @@ CREATE INDEX IF NOT EXISTS idx_contracts_contract_number ON public.contracts USI
 CREATE INDEX IF NOT EXISTS idx_contracts_contractor_id ON public.contracts USING btree (contractor_id);
 CREATE INDEX IF NOT EXISTS idx_contracts_created_at ON public.contracts USING btree (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_contracts_customer_id ON public.contracts USING btree (customer_id);
-CREATE INDEX IF NOT EXISTS idx_contracts_estimate_id ON public.contracts USING btree (estimate_id);
 CREATE INDEX IF NOT EXISTS idx_contracts_estimate_status ON public.contracts USING btree (estimate_id, status);
 CREATE INDEX IF NOT EXISTS idx_contracts_project_id ON public.contracts USING btree (project_id);
 CREATE INDEX IF NOT EXISTS idx_contracts_status ON public.contracts USING btree (status);
@@ -1899,18 +1894,14 @@ CREATE INDEX IF NOT EXISTS idx_email_verifications_email ON public.email_verific
 CREATE INDEX IF NOT EXISTS idx_email_verifications_expires_at ON public.email_verifications USING btree (expires_at);
 CREATE INDEX IF NOT EXISTS idx_email_verifications_token ON public.email_verifications USING btree (token);
 CREATE INDEX IF NOT EXISTS idx_email_verifications_user_id ON public.email_verifications USING btree (user_id);
-CREATE INDEX IF NOT EXISTS idx_estimate_item_materials_item_id ON public.estimate_item_materials USING btree (estimate_item_id);
 CREATE INDEX IF NOT EXISTS idx_estimate_item_materials_material_id ON public.estimate_item_materials USING btree (material_id);
 CREATE UNIQUE INDEX idx_estimate_item_materials_unique ON public.estimate_item_materials USING btree (estimate_item_id, material_id);
 CREATE INDEX IF NOT EXISTS idx_estimate_item_materials_weight ON public.estimate_item_materials USING btree (weight) WHERE (weight > (0)::numeric);
-CREATE INDEX IF NOT EXISTS idx_estimate_items_estimate_id ON public.estimate_items USING btree (estimate_id);
 CREATE INDEX IF NOT EXISTS idx_estimate_items_item_type ON public.estimate_items USING btree (item_type);
 CREATE INDEX IF NOT EXISTS idx_estimate_items_position ON public.estimate_items USING btree (estimate_id, position_number);
 CREATE INDEX IF NOT EXISTS idx_estimate_template_materials_material_id ON public.estimate_template_materials USING btree (material_id);
 CREATE INDEX IF NOT EXISTS idx_estimate_template_materials_sort_order ON public.estimate_template_materials USING btree (template_id, sort_order);
-CREATE INDEX IF NOT EXISTS idx_estimate_template_materials_template_id ON public.estimate_template_materials USING btree (template_id);
 CREATE INDEX IF NOT EXISTS idx_estimate_template_works_sort_order ON public.estimate_template_works USING btree (template_id, sort_order);
-CREATE INDEX IF NOT EXISTS idx_estimate_template_works_template_id ON public.estimate_template_works USING btree (template_id);
 CREATE INDEX IF NOT EXISTS idx_estimate_template_works_work_id ON public.estimate_template_works USING btree (work_id);
 CREATE INDEX IF NOT EXISTS idx_estimate_templates_category ON public.estimate_templates USING btree (category);
 CREATE INDEX IF NOT EXISTS idx_estimate_templates_created_by ON public.estimate_templates USING btree (created_by);
@@ -1919,23 +1910,18 @@ CREATE INDEX IF NOT EXISTS idx_estimates_created_at ON public.estimates USING bt
 CREATE INDEX IF NOT EXISTS idx_estimates_created_by ON public.estimates USING btree (created_by);
 CREATE INDEX IF NOT EXISTS idx_estimates_estimate_date ON public.estimates USING btree (estimate_date DESC);
 CREATE INDEX IF NOT EXISTS idx_estimates_name_gin ON public.estimates USING gin (name gin_trgm_ops);
-CREATE INDEX IF NOT EXISTS idx_estimates_project_id ON public.estimates USING btree (project_id);
 CREATE INDEX IF NOT EXISTS idx_estimates_project_status ON public.estimates USING btree (project_id, status);
 CREATE INDEX IF NOT EXISTS idx_estimates_status ON public.estimates USING btree (status);
-CREATE INDEX IF NOT EXISTS idx_estimates_tenant_id ON public.estimates USING btree (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_estimates_tenant_project ON public.estimates USING btree (tenant_id, project_id);
 CREATE INDEX IF NOT EXISTS idx_estimates_tenant_status ON public.estimates USING btree (tenant_id, status);
 CREATE INDEX IF NOT EXISTS idx_global_purchases_date ON public.global_purchases USING btree (purchase_date DESC);
 CREATE INDEX IF NOT EXISTS idx_global_purchases_estimate ON public.global_purchases USING btree (estimate_id);
 CREATE INDEX IF NOT EXISTS idx_global_purchases_material ON public.global_purchases USING btree (material_id);
 CREATE INDEX IF NOT EXISTS idx_global_purchases_project ON public.global_purchases USING btree (project_id);
-CREATE INDEX IF NOT EXISTS idx_global_purchases_tenant ON public.global_purchases USING btree (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_global_purchases_tenant_date ON public.global_purchases USING btree (tenant_id, purchase_date DESC);
-CREATE INDEX IF NOT EXISTS idx_materials_category ON public.materials USING btree (category);
 CREATE INDEX IF NOT EXISTS idx_materials_category_gin ON public.materials USING gin (category gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_materials_category_global ON public.materials USING btree (category, is_global, sku_number);
 CREATE INDEX IF NOT EXISTS idx_materials_global_only ON public.materials USING btree (sku_number) WHERE (is_global = true);
-CREATE INDEX IF NOT EXISTS idx_materials_is_global ON public.materials USING btree (is_global);
 CREATE INDEX IF NOT EXISTS idx_materials_is_global_category ON public.materials USING btree (is_global, category);
 CREATE INDEX IF NOT EXISTS idx_materials_is_global_sku ON public.materials USING btree (is_global DESC, sku);
 CREATE INDEX IF NOT EXISTS idx_materials_name_trgm ON public.materials USING gin (lower((name)::text) gin_trgm_ops);
@@ -1952,10 +1938,8 @@ CREATE INDEX IF NOT EXISTS idx_password_resets_token ON public.password_resets U
 CREATE INDEX IF NOT EXISTS idx_password_resets_user_id ON public.password_resets USING btree (user_id);
 CREATE INDEX IF NOT EXISTS idx_permissions_is_hidden ON public.permissions USING btree (is_hidden);
 CREATE INDEX IF NOT EXISTS idx_team_active ON public.project_team_members USING btree (project_id) WHERE (left_at IS NULL);
-CREATE INDEX IF NOT EXISTS idx_team_project_id ON public.project_team_members USING btree (project_id);
 CREATE INDEX IF NOT EXISTS idx_team_project_user ON public.project_team_members USING btree (project_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_team_role ON public.project_team_members USING btree (role);
-CREATE INDEX IF NOT EXISTS idx_team_tenant_id ON public.project_team_members USING btree (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_team_tenant_project ON public.project_team_members USING btree (tenant_id, project_id);
 CREATE INDEX IF NOT EXISTS idx_team_user_id ON public.project_team_members USING btree (user_id);
 CREATE INDEX IF NOT EXISTS idx_projects_client_gin ON public.projects USING gin (client gin_trgm_ops);
@@ -1971,16 +1955,13 @@ CREATE INDEX IF NOT EXISTS idx_projects_start_date ON public.projects USING btre
 CREATE INDEX IF NOT EXISTS idx_projects_status ON public.projects USING btree (status);
 CREATE UNIQUE INDEX idx_projects_tenant_contract_number ON public.projects USING btree (tenant_id, contract_number) WHERE (contract_number IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_projects_tenant_created_at ON public.projects USING btree (tenant_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_projects_tenant_id ON public.projects USING btree (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_projects_tenant_status ON public.projects USING btree (tenant_id, status);
 CREATE INDEX IF NOT EXISTS idx_purchases_with_remainder ON public.purchases USING btree (estimate_id) WHERE ((quantity - purchased_quantity) > (0)::numeric);
 CREATE INDEX IF NOT EXISTS idx_role_permissions_is_hidden ON public.role_permissions USING btree (role_id, is_hidden);
 CREATE INDEX IF NOT EXISTS idx_role_permissions_permission_id ON public.role_permissions USING btree (permission_id);
-CREATE INDEX IF NOT EXISTS idx_role_permissions_role_id ON public.role_permissions USING btree (role_id);
 CREATE UNIQUE INDEX idx_roles_key_global ON public.roles USING btree (key) WHERE (tenant_id IS NULL);
 CREATE UNIQUE INDEX idx_roles_key_tenant ON public.roles USING btree (key, tenant_id) WHERE (tenant_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_schedules_created_at ON public.schedules USING btree (created_at);
-CREATE INDEX IF NOT EXISTS idx_schedules_estimate_id ON public.schedules USING btree (estimate_id);
 CREATE INDEX IF NOT EXISTS idx_schedules_estimate_phase_position ON public.schedules USING btree (estimate_id, phase, position_number);
 CREATE INDEX IF NOT EXISTS idx_schedules_phase ON public.schedules USING btree (phase);
 CREATE INDEX IF NOT EXISTS idx_schedules_position ON public.schedules USING btree (position_number);
@@ -1993,13 +1974,10 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON public.sessions USING btree (
 CREATE INDEX IF NOT EXISTS idx_tenants_inn ON public.tenants USING btree (inn) WHERE (inn IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_tenants_ogrn ON public.tenants USING btree (ogrn) WHERE (ogrn IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_user_role_assignments_role_id ON public.user_role_assignments USING btree (role_id);
-CREATE INDEX IF NOT EXISTS idx_user_role_assignments_tenant_user ON public.user_role_assignments USING btree (tenant_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_user_role_assignments_user_id ON public.user_role_assignments USING btree (user_id);
 CREATE INDEX IF NOT EXISTS idx_user_tenants_default ON public.user_tenants USING btree (user_id, is_default) WHERE (is_default = true);
-CREATE INDEX IF NOT EXISTS idx_user_tenants_tenant_id ON public.user_tenants USING btree (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_user_tenants_user_id ON public.user_tenants USING btree (user_id);
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON public.users USING btree (created_at);
-CREATE INDEX IF NOT EXISTS idx_users_email ON public.users USING btree (email);
 CREATE INDEX IF NOT EXISTS idx_users_phone ON public.users USING btree (phone) WHERE (phone IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_users_status ON public.users USING btree (status);
 CREATE INDEX IF NOT EXISTS idx_mixedbread_state_entity_type ON public.vector_index_state USING btree (entity_type, scope);
@@ -2007,7 +1985,6 @@ CREATE INDEX IF NOT EXISTS idx_mixedbread_state_scope_tenant ON public.vector_in
 CREATE INDEX IF NOT EXISTS idx_mixedbread_state_tenant_id ON public.vector_index_state USING btree (tenant_id) WHERE (tenant_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_vector_index_state_entity ON public.vector_index_state USING btree (entity_type, db_id);
 CREATE INDEX IF NOT EXISTS idx_vector_index_state_last_seen ON public.vector_index_state USING btree (last_seen_at);
-CREATE INDEX IF NOT EXISTS idx_vector_index_state_scope ON public.vector_index_state USING btree (scope);
 CREATE INDEX IF NOT EXISTS idx_vector_index_state_tenant ON public.vector_index_state USING btree (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_act_items_act_id ON public.work_completion_act_items USING btree (act_id);
 CREATE INDEX IF NOT EXISTS idx_act_items_estimate_item_id ON public.work_completion_act_items USING btree (estimate_item_id);
@@ -2029,14 +2006,11 @@ CREATE INDEX IF NOT EXISTS idx_work_completions_tenant_id ON public.work_complet
 CREATE INDEX IF NOT EXISTS idx_work_materials_composite ON public.work_materials USING btree (work_id, tenant_id);
 CREATE INDEX IF NOT EXISTS idx_work_materials_material_id ON public.work_materials USING btree (material_id);
 CREATE INDEX IF NOT EXISTS idx_work_materials_tenant_id ON public.work_materials USING btree (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_work_materials_work_id ON public.work_materials USING btree (work_id);
 CREATE INDEX IF NOT EXISTS idx_works_category ON public.works USING btree (category);
 CREATE INDEX IF NOT EXISTS idx_works_category_gin ON public.works USING gin (category gin_trgm_ops);
-CREATE INDEX IF NOT EXISTS idx_works_code ON public.works USING btree (code);
 CREATE INDEX IF NOT EXISTS idx_works_code_gin ON public.works USING gin (code gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_works_global_code ON public.works USING btree (code) WHERE (is_global = true);
 CREATE INDEX IF NOT EXISTS idx_works_hierarchy ON public.works USING btree (phase, section, subsection) WHERE (phase IS NOT NULL);
-CREATE INDEX IF NOT EXISTS idx_works_is_global ON public.works USING btree (is_global);
 CREATE INDEX IF NOT EXISTS idx_works_is_global_category ON public.works USING btree (is_global, category);
 CREATE INDEX IF NOT EXISTS idx_works_is_global_code ON public.works USING btree (is_global DESC, code);
 CREATE INDEX IF NOT EXISTS idx_works_name_gin ON public.works USING gin (name gin_trgm_ops);
@@ -2130,3 +2104,261 @@ CREATE POLICY works_delete_policy ON works AS PERMISSIVE FOR DELETE TO public US
 CREATE POLICY works_insert_policy ON works AS PERMISSIVE FOR INSERT TO public WITH CHECK ((((is_global = false) AND (tenant_id = current_tenant_id())) OR ((is_global = true) AND is_super_admin())));
 CREATE POLICY works_tenant_isolation ON works AS PERMISSIVE FOR SELECT TO public USING (((is_global = true) OR (tenant_id IS NULL) OR (tenant_id = current_tenant_id()) OR is_super_admin()));
 CREATE POLICY works_update_policy ON works AS PERMISSIVE FOR UPDATE TO public USING ((((is_global = false) AND (tenant_id = current_tenant_id())) OR ((is_global = true) AND is_super_admin())));
+
+-- =====================================
+-- VIEWS
+-- =====================================
+
+CREATE OR REPLACE VIEW materials_with_global AS
+SELECT id,
+    sku,
+    name,
+    image,
+    unit,
+    price,
+    supplier,
+    weight,
+    category,
+    product_url,
+    show_image,
+    tenant_id,
+    created_by,
+    created_at,
+    updated_at,
+    is_global,
+    sku_number,
+        CASE
+            WHEN is_global THEN 'global'::text
+            ELSE 'tenant'::text
+        END AS source_type
+   FROM materials m;;
+
+CREATE OR REPLACE VIEW v_estimate_items_extended AS
+SELECT ei.id,
+    ei.estimate_id,
+    ei.position_number,
+    ei.item_type,
+    ei.name,
+    ei.description,
+    ei.code,
+    ei.unit,
+    ei.quantity,
+    ei.unit_price,
+    ei.total_price,
+    ei.overhead_percent,
+    ei.profit_percent,
+    ei.tax_percent,
+    ei.final_price,
+    ei.notes,
+    ei.is_optional,
+    ei.created_at,
+    ei.updated_at,
+    ei.source_type,
+    ei.phase,
+    ei.section,
+    ei.subsection,
+    ei.work_id,
+    e.name AS estimate_name,
+    e.status AS estimate_status,
+    e.project_id,
+    p.name AS project_name,
+    e.tenant_id
+   FROM ((estimate_items ei
+     JOIN estimates e ON ((ei.estimate_id = e.id)))
+     JOIN projects p ON ((e.project_id = p.id)));;
+
+CREATE OR REPLACE VIEW v_active_users_with_tenants AS
+SELECT u.id AS user_id,
+    u.email,
+    u.full_name,
+    u.status AS user_status,
+    t.id AS tenant_id,
+    t.name AS tenant_name,
+    t.status AS tenant_status,
+    ut.is_default,
+    ut.joined_at
+   FROM ((users u
+     JOIN user_tenants ut ON ((u.id = ut.user_id)))
+     JOIN tenants t ON ((t.id = ut.tenant_id)))
+  WHERE ((u.status = 'active'::text) AND (t.status = 'active'::text));;
+
+CREATE OR REPLACE VIEW v_user_permissions AS
+SELECT u.id AS user_id,
+    u.email,
+    t.id AS tenant_id,
+    t.name AS tenant_name,
+    r.id AS role_id,
+    r.key AS role_key,
+    r.name AS role_name,
+    p.id AS permission_id,
+    p.key AS permission_key,
+    p.name AS permission_name,
+    p.resource,
+    p.action
+   FROM (((((users u
+     JOIN user_role_assignments ura ON ((u.id = ura.user_id)))
+     JOIN roles r ON ((r.id = ura.role_id)))
+     LEFT JOIN tenants t ON ((t.id = ura.tenant_id)))
+     JOIN role_permissions rp ON ((rp.role_id = r.id)))
+     JOIN permissions p ON ((p.id = rp.permission_id)))
+  WHERE (u.status = 'active'::text);;
+
+CREATE OR REPLACE VIEW v_projects_extended AS
+SELECT p.id,
+    p.tenant_id,
+    p.name,
+    p.object_name,
+    p.description,
+    p.client,
+    p.contractor,
+    p.address,
+    p.start_date,
+    p.end_date,
+    p.actual_end_date,
+    p.status,
+    p.progress,
+    p.budget,
+    p.actual_cost,
+    p.created_by,
+    p.updated_by,
+    p.manager_id,
+    p.created_at,
+    p.updated_at,
+    p.contract_number,
+    u_created.full_name AS created_by_name,
+    u_created.email AS created_by_email,
+    u_manager.full_name AS manager_name,
+    u_manager.email AS manager_email,
+    t.name AS tenant_name,
+    t.plan AS tenant_plan,
+    (p.end_date - CURRENT_DATE) AS days_remaining,
+        CASE
+            WHEN ((p.status)::text = 'completed'::text) THEN true
+            WHEN (p.end_date < CURRENT_DATE) THEN true
+            ELSE false
+        END AS is_overdue,
+    ( SELECT count(*) AS count
+           FROM project_team_members
+          WHERE ((project_team_members.project_id = p.id) AND (project_team_members.left_at IS NULL))) AS team_size
+   FROM (((projects p
+     LEFT JOIN users u_created ON ((p.created_by = u_created.id)))
+     LEFT JOIN users u_manager ON ((p.manager_id = u_manager.id)))
+     LEFT JOIN tenants t ON ((p.tenant_id = t.id)));;
+
+CREATE OR REPLACE VIEW v_active_projects_with_team AS
+SELECT p.id AS project_id,
+    p.name AS project_name,
+    p.status,
+    p.progress,
+    p.tenant_id,
+    ptm.user_id,
+    ptm.role AS team_role,
+    ptm.can_edit,
+    u.full_name AS member_name,
+    u.email AS member_email
+   FROM ((projects p
+     JOIN project_team_members ptm ON ((ptm.project_id = p.id)))
+     JOIN users u ON ((u.id = ptm.user_id)))
+  WHERE (((p.status)::text = ANY ((ARRAY['planning'::character varying, 'active'::character varying])::text[])) AND (ptm.left_at IS NULL));;
+
+CREATE OR REPLACE VIEW v_estimates_with_project AS
+SELECT e.id,
+    e.tenant_id,
+    e.project_id,
+    e.name,
+    e.description,
+    e.estimate_type,
+    e.status,
+    e.total_amount,
+    e.currency,
+    e.estimate_date,
+    e.valid_until,
+    e.approved_at,
+    e.approved_by,
+    e.created_by,
+    e.updated_by,
+    e.created_at,
+    e.updated_at,
+    p.name AS project_name,
+    p.object_name AS project_object_name,
+    p.client AS project_client,
+    p.address AS project_address,
+    p.status AS project_status,
+    u_created.full_name AS created_by_name,
+    u_created.email AS created_by_email,
+    u_approved.full_name AS approved_by_name,
+    u_approved.email AS approved_by_email,
+    t.name AS tenant_name,
+    ( SELECT count(*) AS count
+           FROM estimate_items
+          WHERE (estimate_items.estimate_id = e.id)) AS items_count,
+    ( SELECT sum(estimate_items.quantity) AS sum
+           FROM estimate_items
+          WHERE (estimate_items.estimate_id = e.id)) AS total_quantity
+   FROM ((((estimates e
+     JOIN projects p ON ((e.project_id = p.id)))
+     LEFT JOIN users u_created ON ((e.created_by = u_created.id)))
+     LEFT JOIN users u_approved ON ((e.approved_by = u_approved.id)))
+     LEFT JOIN tenants t ON ((e.tenant_id = t.id)));;
+
+CREATE OR REPLACE VIEW v_estimate_materials_with_weight AS
+SELECT eim.id,
+    eim.estimate_item_id,
+    eim.material_id,
+    m.sku,
+    m.name AS material_name,
+    m.unit,
+    eim.quantity,
+    eim.unit_price,
+    eim.total_price,
+    eim.weight,
+    eim.total_weight,
+    eim.consumption_coefficient,
+    eim.auto_calculate,
+    m.supplier,
+    m.category
+   FROM (estimate_item_materials eim
+     JOIN materials m ON ((m.id = eim.material_id)));;
+
+CREATE OR REPLACE VIEW v_user_visible_menu AS
+SELECT DISTINCT u.id AS user_id,
+    u.email,
+    p.resource,
+    p.action,
+    p.name AS permission_name,
+    p.description,
+    rp.is_hidden,
+    r.key AS role_key,
+    r.name AS role_name
+   FROM ((((users u
+     JOIN user_role_assignments ura ON ((u.id = ura.user_id)))
+     JOIN roles r ON ((ura.role_id = r.id)))
+     JOIN role_permissions rp ON ((r.id = rp.role_id)))
+     JOIN permissions p ON ((rp.permission_id = p.id)))
+  WHERE ((p.action = ANY (ARRAY['view'::text, 'view_menu'::text])) AND (rp.is_hidden = false))
+  ORDER BY u.email, p.resource;;
+
+CREATE OR REPLACE VIEW works_with_global AS
+SELECT id,
+    code,
+    name,
+    unit,
+    base_price,
+    tenant_id,
+    created_by,
+    created_at,
+    updated_at,
+    is_global,
+    phase,
+    section,
+    subsection,
+    category,
+    category_id,
+        CASE
+            WHEN is_global THEN 'global'::text
+            ELSE 'tenant'::text
+        END AS source_type
+   FROM works w
+  WHERE ((is_global = true) OR (tenant_id = current_tenant_id()) OR is_super_admin());;
+
+

@@ -32,7 +32,7 @@ export const exportToCSV = catchAsync(async (req, res) => {
 
     console.log(`[MATERIALS EXPORT] Found ${materials.length} materials to export`);
 
-    const csvHeader = `Артикул${CSV_DELIMITER}Наименование${CSV_DELIMITER}Ед. изм.${CSV_DELIMITER}Цена${CSV_DELIMITER}Поставщик${CSV_DELIMITER}Вес${CSV_DELIMITER}Категория${CSV_DELIMITER}Ссылка${CSV_DELIMITER}Авторасчет${CSV_DELIMITER}Расход\n`;
+    const csvHeader = `Артикул${CSV_DELIMITER}Наименование${CSV_DELIMITER}Ед. изм.${CSV_DELIMITER}Цена${CSV_DELIMITER}Поставщик${CSV_DELIMITER}Вес${CSV_DELIMITER}Категория${CSV_DELIMITER}Ссылка\n`;
 
     const csvRows = materials.map(m => {
         return [
@@ -43,9 +43,7 @@ export const exportToCSV = catchAsync(async (req, res) => {
             escapeCsvField(m.supplier || ''),
             m.weight || 0,
             escapeCsvField(m.category || ''),
-            escapeCsvField(m.product_url || ''),
-            m.auto_calculate ? 'Да' : 'Нет',
-            m.consumption || 0
+            escapeCsvField(m.product_url || '')
         ].join(CSV_DELIMITER);
     }).join('\n');
 
@@ -63,10 +61,10 @@ export const exportToCSV = catchAsync(async (req, res) => {
  * Экспорт шаблона
  */
 export const exportTemplate = catchAsync(async (req, res) => {
-    const csvHeader = `Артикул${CSV_DELIMITER}Наименование${CSV_DELIMITER}Ед. изм.${CSV_DELIMITER}Цена${CSV_DELIMITER}Поставщик${CSV_DELIMITER}Вес${CSV_DELIMITER}Категория${CSV_DELIMITER}Ссылка${CSV_DELIMITER}Авторасчет${CSV_DELIMITER}Расход\n`;
+    const csvHeader = `Артикул${CSV_DELIMITER}Наименование${CSV_DELIMITER}Ед. изм.${CSV_DELIMITER}Цена${CSV_DELIMITER}Поставщик${CSV_DELIMITER}Вес${CSV_DELIMITER}Категория${CSV_DELIMITER}Ссылка\n`;
     const examples = [
-        `MAT-001${CSV_DELIMITER}Цемент М500${CSV_DELIMITER}мешок${CSV_DELIMITER}450${CSV_DELIMITER}СтройМир${CSV_DELIMITER}50${CSV_DELIMITER}Сухие смеси${CSV_DELIMITER}${CSV_DELIMITER}Да${CSV_DELIMITER}1`,
-        `MAT-002${CSV_DELIMITER}Кирпич красный${CSV_DELIMITER}шт${CSV_DELIMITER}15${CSV_DELIMITER}КирпичЗавод${CSV_DELIMITER}3.5${CSV_DELIMITER}Стеновые материалы${CSV_DELIMITER}${CSV_DELIMITER}Нет${CSV_DELIMITER}0`
+        `MAT-001${CSV_DELIMITER}Цемент М500${CSV_DELIMITER}мешок${CSV_DELIMITER}450${CSV_DELIMITER}СтройМир${CSV_DELIMITER}50${CSV_DELIMITER}Сухие смеси${CSV_DELIMITER}`,
+        `MAT-002${CSV_DELIMITER}Кирпич красный${CSV_DELIMITER}шт${CSV_DELIMITER}15${CSV_DELIMITER}КирпичЗавод${CSV_DELIMITER}3.5${CSV_DELIMITER}Стеновые материалы${CSV_DELIMITER}`
     ].join('\n');
 
     const csv = csvHeader + examples;
@@ -118,8 +116,6 @@ export const importFromCSV = catchAsync(async (req, res) => {
                     weight: parseNumber(row['Вес']),
                     category: row['Категория']?.trim() || '',
                     productUrl: row['Ссылка']?.trim() || '',
-                    autoCalculate: row['Авторасчет']?.toLowerCase() === 'да',
-                    consumption: parseNumber(row['Расход']),
                     isGlobal: isGlobal === 'true' || isGlobal === true
                 });
             })

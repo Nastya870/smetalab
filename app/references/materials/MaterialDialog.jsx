@@ -43,10 +43,10 @@ const MaterialDialog = ({ open, editMode, material, onClose, onSave, onDelete, o
   const units = ['м', 'м²', 'м³', 'шт', 'т', 'кг', 'л', 'упак.', 'рул.'];
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={onClose} 
-      maxWidth="md" 
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
       fullWidth
       fullScreen={isMobile}
       sx={{
@@ -165,7 +165,6 @@ const MaterialDialog = ({ open, editMode, material, onClose, onSave, onDelete, o
               }}
             />
           </Box>
-
           <TextField
             label="Вес на единицу (кг)"
             fullWidth
@@ -177,57 +176,7 @@ const MaterialDialog = ({ open, editMode, material, onClose, onSave, onDelete, o
             helperText="Вес одной единицы товара в килограммах"
           />
 
-          {/* ✅ НОВОЕ: Чекбокс "Автоматический расчёт" */}
-          <Box
-            sx={{
-              p: 2,
-              bgcolor: material.autoCalculate ? 'success.lighter' : 'warning.lighter',
-              borderRadius: 1,
-              border: '1px solid',
-              borderColor: material.autoCalculate ? 'success.main' : 'warning.main'
-            }}
-          >
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={material.autoCalculate !== false}
-                  onChange={(e) => onChange('autoCalculate', e.target.checked)}
-                  color="primary"
-                />
-              }
-              label={
-                <Box>
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    🤖 Автоматический расчёт количества
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {material.autoCalculate !== false
-                      ? 'Количество материала рассчитывается по формуле: количество работы × расход'
-                      : 'Количество материала вводится вручную в каждой смете'}
-                  </Typography>
-                </Box>
-              }
-            />
 
-            {/* Поле "Расход" показываем только если автоматический расчёт включён */}
-            {material.autoCalculate !== false && (
-              <TextField
-                label="Расход на единицу работы"
-                fullWidth
-                required
-                type="number"
-                value={material.consumption || ''}
-                onChange={(e) => onChange('consumption', parseFloat(e.target.value) || 0)}
-                variant="outlined"
-                helperText={`Например: 1.05 ${material.unit} материала на 1 единицу работы`}
-                inputProps={{
-                  step: 0.01,
-                  min: 0
-                }}
-                sx={{ mt: 2 }}
-              />
-            )}
-          </Box>
 
           <TextField
             label="URL товара"
@@ -291,9 +240,7 @@ MaterialDialog.propTypes = {
     weight: PropTypes.number,
     category: PropTypes.string,
     productUrl: PropTypes.string,
-    showImage: PropTypes.bool,
-    autoCalculate: PropTypes.bool, // ✅ Флаг автоматического расчёта
-    consumption: PropTypes.number // ✅ Расход материала
+    showImage: PropTypes.bool
   }).isRequired,
   onClose: PropTypes.func.isRequired,
   onSave: PropTypes.func.isRequired,

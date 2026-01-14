@@ -42,17 +42,15 @@ export const findAll = async (params = {}, tenantId) => {
 export const create = async (materialData, tenantId) => {
     const {
         sku, name, image, unit, price, supplier, weight,
-        category, productUrl, showImage, isGlobal,
-        autoCalculate, consumption
+        category, productUrl, showImage, isGlobal
     } = materialData;
 
     const query = `
     INSERT INTO materials (
       sku, name, image, unit, price, supplier, weight, 
-      category, product_url, show_image, is_global, tenant_id,
-      auto_calculate, consumption
+      category, product_url, show_image, is_global, tenant_id
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     RETURNING *
   `;
 
@@ -68,9 +66,7 @@ export const create = async (materialData, tenantId) => {
         productUrl || '',
         showImage !== false,
         isGlobal === true,
-        isGlobal ? null : tenantId,
-        autoCalculate !== false,
-        consumption || 0
+        isGlobal ? null : tenantId
     ];
 
     const result = await db.query(query, values);

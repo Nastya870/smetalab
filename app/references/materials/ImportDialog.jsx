@@ -72,7 +72,7 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
       complete: async (parseResult) => {
         try {
           const rows = parseResult.data;
-          
+
           if (rows.length === 0) {
             setError('CSV файл пустой или не содержит данных');
             setLoading(false);
@@ -88,8 +88,6 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
             'Цена': 'price',
             'Поставщик': 'supplier',
             'Вес (кг)': 'weight',
-            'Автоматический расчёт': 'autoCalculate',
-            'Расход на единицу': 'consumption',
             'URL изображения': 'image',
             'URL товара': 'productUrl',
             'Показывать изображение': 'showImage'
@@ -141,25 +139,9 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
               return;
             }
 
-            // ✅ Преобразование "да"/"нет" в boolean
-            const autoCalculate = normalizedRow.autoCalculate === 'да' || 
-                                  normalizedRow.autoCalculate === 'true' || 
-                                  normalizedRow.autoCalculate === true;
-            
-            const showImage = normalizedRow.showImage === 'да' || 
-                             normalizedRow.showImage === 'true' || 
-                             normalizedRow.showImage === true;
-
-            // ✅ Валидация consumption для автоматических материалов
-            const consumption = parseFloat(normalizedRow.consumption) || 0;
-            if (autoCalculate && consumption <= 0) {
-              errors.push({
-                line: lineNumber,
-                message: 'Для материалов с автоматическим расчётом необходимо указать расход (> 0)',
-                data: row
-              });
-              return;
-            }
+            const showImage = normalizedRow.showImage === 'да' ||
+              normalizedRow.showImage === 'true' ||
+              normalizedRow.showImage === true;
 
             materials.push({
               sku: normalizedRow.sku?.trim(),
@@ -169,8 +151,6 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
               price: price,
               supplier: normalizedRow.supplier?.trim(),
               weight: weight,
-              autoCalculate: autoCalculate, // ✅ Новое поле
-              consumption: consumption, // ✅ Новое поле
               image: normalizedRow.image?.trim() || '',
               productUrl: normalizedRow.productUrl?.trim() || '',
               showImage: showImage
@@ -190,21 +170,21 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
           }
 
           // 🔍 DEBUG: Логируем что отправляем
-// Отправляем данные на сервер
+          // Отправляем данные на сервер
           const importResult = await materialsImportExportAPI.importMaterials(materials, {
             mode,
             isGlobal
           });
-// ✅ ВСЕГДА показываем результат
+          // ✅ ВСЕГДА показываем результат
           // API возвращает { success, data: { successCount, errorCount, errors }, message }
           const resultData = importResult.data || importResult;
           if (resultData) {
             setResult(resultData);
           }
-          
+
           // ✅ ВСЕГДА обновляем список (даже если есть ошибки)
           onSuccess(); // Обновляем список материалов
-          
+
           // ✅ Автоматически закрываем модалку только если импорт полностью успешен
           if (resultData?.errorCount === 0 && resultData?.successCount > 0) {
             setTimeout(() => {
@@ -215,10 +195,10 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
           console.error('[IMPORT ERROR] Full error:', err);
           console.error('[IMPORT ERROR] Response:', err.response);
           console.error('[IMPORT ERROR] Response data:', err.response?.data);
-          
+
           const errorMessage = err.response?.data?.message || err.message || 'Ошибка при импорте файла';
           setError(errorMessage);
-          
+
           // Если сервер вернул детали (successCount, errorCount) - показываем их
           if (err.response?.data) {
             setResult(err.response.data);
@@ -264,7 +244,7 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
                 <b>Обязательные поля:</b> Артикул, Наименование, Категория, Единица измерения, Цена, Поставщик
               </Typography>
               <Typography variant="body2">
-                <b>Дополнительные поля:</b> Вес (кг), Автоматический расчёт (да/нет), Расход на единицу, URL изображения, URL товара, Показывать изображение (да/нет)
+                <b>Дополнительные поля:</b> Вес (кг), URL изображения, URL товара, Показывать изображение (да/нет)
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 💡 Совет: Скачайте шаблон, заполните его в Excel и загрузите обратно
@@ -288,9 +268,9 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
           <Box>
             <FormLabel component="legend">Режим импорта</FormLabel>
             <RadioGroup value={mode} onChange={(e) => setMode(e.target.value)}>
-              <FormControlLabel 
-                value="add" 
-                control={<Radio />} 
+              <FormControlLabel
+                value="add"
+                control={<Radio />}
                 label={
                   <Box>
                     <Typography variant="body1">Добавить/Обновить</Typography>
@@ -300,9 +280,9 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
                   </Box>
                 }
               />
-              <FormControlLabel 
-                value="replace" 
-                control={<Radio />} 
+              <FormControlLabel
+                value="replace"
+                control={<Radio />}
                 label={
                   <Box>
                     <Typography variant="body1">Заменить всё</Typography>
@@ -407,9 +387,9 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
         <Button onClick={handleClose} disabled={loading} size="small">
           Закрыть
         </Button>
-        <Button 
-          onClick={handleImport} 
-          variant="contained" 
+        <Button
+          onClick={handleImport}
+          variant="contained"
           disabled={!file || loading}
           size="small"
         >

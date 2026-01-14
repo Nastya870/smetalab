@@ -294,7 +294,6 @@ export async function findByIdWithDetails(estimateId, tenantId) {
           m.unit,
           m.category,
           m.price as material_base_price,
-          m.consumption,
           m.image
         FROM estimate_item_materials eim
         JOIN materials m ON eim.material_id = m.id

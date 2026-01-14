@@ -455,6 +455,7 @@ const useEstimateData = ({ projectId, estimateId, onUnsavedChanges }) => {
                 consumption: materialConsumption,
                 auto_calculate: autoCalculate,
                 autoCalculate: autoCalculate,
+                weight: material.weight || 0,
                 image: material.image || null,
                 showImage: material.image ? true : false
             };

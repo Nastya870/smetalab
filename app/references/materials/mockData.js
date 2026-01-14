@@ -170,7 +170,5 @@ export const emptyMaterial = {
   weight: 0,
   category: '',
   productUrl: '',
-  showImage: true,
-  autoCalculate: true, // ✅ По умолчанию автоматический расчёт включён
-  consumption: 0 // ✅ Расход материала (по умолчанию 0)
+  showImage: true
 };

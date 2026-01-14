@@ -318,8 +318,7 @@ const MaterialsReferencePage = () => {
         ...mat,
         productUrl: mat.product_url || mat.productUrl,
         showImage: mat.show_image !== undefined ? mat.show_image : mat.showImage,
-        isGlobal: mat.is_global !== undefined ? mat.is_global : mat.isGlobal,
-        autoCalculate: mat.auto_calculate !== undefined ? mat.auto_calculate : mat.autoCalculate
+        isGlobal: mat.is_global !== undefined ? mat.is_global : mat.isGlobal
       });
 
       // Обработка response

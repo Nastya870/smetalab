@@ -1,8 +1,8 @@
 import db from '../config/database.js';
-import { 
-  getCachedGlobalMaterials, 
+import {
+  getCachedGlobalMaterials,
   getCachedAllMaterials,
-  invalidateMaterialsCache 
+  invalidateMaterialsCache
 } from '../cache/referencesCache.js';
 import { catchAsync, BadRequestError, NotFoundError, ConflictError } from '../utils/errors.js';
 import { semanticSearch } from '../services/semanticSearchService.js';
@@ -156,187 +156,187 @@ const normalizeSearchQuery = (query) => {
  *         description: Ошибка сервера
  */
 export const getAllMaterials = catchAsync(async (req, res) => {
-  const { 
-    category, 
-    search, 
-    supplier, 
-    isGlobal, 
-    sort = 'sku', 
+  const {
+    category,
+    search,
+    supplier,
+    isGlobal,
+    sort = 'sku',
     order = 'ASC',
     page = 1,
     pageSize = 50, // По умолчанию 50 записей на страницу
     skipCount = 'false' // Пропустить COUNT(*) для ускорения последующих запросов
   } = req.query;
-    
-    // Pagination parameters
-    const pageNum = parseInt(page, 10);
-    const pageSizeNum = Math.min(parseInt(pageSize, 10), 50000); // Максимум 50000 записей (для загрузки всех материалов в справочнике)
-    const offset = (pageNum - 1) * pageSizeNum;
-    
-    // Если запрашиваются только глобальные материалы БЕЗ фильтров И без pagination - используем кеш
-    const useCache = isGlobal === 'true' && !category && !search && !supplier && 
-                     sort === 'sku' && order === 'ASC' && pageNum === 1 && pageSizeNum === 50;
-    
-    if (useCache) {
-      const cachedData = await getCachedGlobalMaterials(async () => {
-        const result = await db.query(
-          'SELECT * FROM materials WHERE is_global = TRUE ORDER BY sku_number ASC LIMIT 50'
-        );
-        return result.rows;
-      });
-      
-      // Получить total count для pagination
-      const countResult = await db.query(
-        'SELECT COUNT(*) as total FROM materials WHERE is_global = TRUE'
+
+  // Pagination parameters
+  const pageNum = parseInt(page, 10);
+  const pageSizeNum = Math.min(parseInt(pageSize, 10), 50000); // Максимум 50000 записей (для загрузки всех материалов в справочнике)
+  const offset = (pageNum - 1) * pageSizeNum;
+
+  // Если запрашиваются только глобальные материалы БЕЗ фильтров И без pagination - используем кеш
+  const useCache = isGlobal === 'true' && !category && !search && !supplier &&
+    sort === 'sku' && order === 'ASC' && pageNum === 1 && pageSizeNum === 50;
+
+  if (useCache) {
+    const cachedData = await getCachedGlobalMaterials(async () => {
+      const result = await db.query(
+        'SELECT * FROM materials WHERE is_global = TRUE ORDER BY sku_number ASC LIMIT 50'
       );
-      
-      return res.status(200).json({
-        success: true,
-        count: cachedData.length,
-        total: parseInt(countResult.rows[0].total, 10),
-        page: pageNum,
-        pageSize: pageSizeNum,
-        totalPages: Math.ceil(countResult.rows[0].total / pageSizeNum),
-        data: cachedData,
-        cached: true
-      });
-    }
-    
-    // ============================================
-    // ОПТИМИЗИРОВАННЫЕ ЗАПРОСЫ с использованием partial covering indexes
-    // Используем CTE (Common Table Expression) для подсчета и выборки в одном запросе
-    // ============================================
-    
-    const params = [];
-    let paramIndex = 1;
-    
-    // 🔍 DEBUG: Логирование для отладки
-    console.log('[MATERIALS DEBUG]', {
-      isGlobal,
-      hasUser: !!req.user,
-      tenantId: req.user?.tenantId,
-      userId: req.user?.userId,
-      search,
-      category,
-      supplier,
-      pageSize: pageSizeNum
+      return result.rows;
     });
 
-    // Построение WHERE условий
-    let whereConditions = [];
-    
-    // Фильтр по типу (оптимизированный для использования partial indexes)
-    if (isGlobal === 'true') {
-      // Использует idx_materials_global_only_covering
-      whereConditions.push('is_global = TRUE');
-    } else if (isGlobal === 'false') {
-      // Использует idx_materials_tenant_only_covering
-      whereConditions.push('is_global = FALSE');
-      if (req.user && req.user.tenantId) {
-        whereConditions.push(`tenant_id = $${paramIndex}`);
-        params.push(req.user.tenantId);
-        paramIndex++;
-      } else {
-        whereConditions.push('tenant_id IS NULL');
-      }
+    // Получить total count для pagination
+    const countResult = await db.query(
+      'SELECT COUNT(*) as total FROM materials WHERE is_global = TRUE'
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: cachedData.length,
+      total: parseInt(countResult.rows[0].total, 10),
+      page: pageNum,
+      pageSize: pageSizeNum,
+      totalPages: Math.ceil(countResult.rows[0].total / pageSizeNum),
+      data: cachedData,
+      cached: true
+    });
+  }
+
+  // ============================================
+  // ОПТИМИЗИРОВАННЫЕ ЗАПРОСЫ с использованием partial covering indexes
+  // Используем CTE (Common Table Expression) для подсчета и выборки в одном запросе
+  // ============================================
+
+  const params = [];
+  let paramIndex = 1;
+
+  // 🔍 DEBUG: Логирование для отладки
+  console.log('[MATERIALS DEBUG]', {
+    isGlobal,
+    hasUser: !!req.user,
+    tenantId: req.user?.tenantId,
+    userId: req.user?.userId,
+    search,
+    category,
+    supplier,
+    pageSize: pageSizeNum
+  });
+
+  // Построение WHERE условий
+  let whereConditions = [];
+
+  // Фильтр по типу (оптимизированный для использования partial indexes)
+  if (isGlobal === 'true') {
+    // Использует idx_materials_global_only_covering
+    whereConditions.push('is_global = TRUE');
+  } else if (isGlobal === 'false') {
+    // Использует idx_materials_tenant_only_covering
+    whereConditions.push('is_global = FALSE');
+    if (req.user && req.user.tenantId) {
+      whereConditions.push(`tenant_id = $${paramIndex}`);
+      params.push(req.user.tenantId);
+      paramIndex++;
     } else {
-      // Смешанный режим: глобальные + тенантные
-      if (req.user && req.user.tenantId) {
-        whereConditions.push(`(is_global = TRUE OR tenant_id = $${paramIndex})`);
-        params.push(req.user.tenantId);
-        paramIndex++;
-      } else {
-        whereConditions.push('is_global = TRUE');
-      }
+      whereConditions.push('tenant_id IS NULL');
     }
-    
-    // Фильтр по категории (использует idx_materials_category_btree)
-    if (category) {
-      whereConditions.push(`category = $${paramIndex}`);
-      params.push(category);
+  } else {
+    // Смешанный режим: глобальные + тенантные
+    if (req.user && req.user.tenantId) {
+      whereConditions.push(`(is_global = TRUE OR tenant_id = $${paramIndex})`);
+      params.push(req.user.tenantId);
       paramIndex++;
+    } else {
+      whereConditions.push('is_global = TRUE');
     }
-    
-    // Фильтр по поставщику (использует idx_materials_supplier_btree)
-    if (supplier) {
-      whereConditions.push(`supplier = $${paramIndex}`);
-      params.push(supplier);
-      paramIndex++;
-    }
-    
-    // ✅ ОПТИМИЗИРОВАННЫЙ ПОИСК с поддержкой множественных слов
-    // Производительность: ~90-100ms на 47k записей
-    if (search) {
-      const searchLower = search.toLowerCase().trim();
-      
-      // Разбиваем поисковый запрос на слова
-      const words = searchLower.split(/\s+/).filter(w => w.length > 0);
-      
-      if (words.length === 1) {
-        // Одно слово → оригинальный префиксный/подстрочный поиск
-        whereConditions.push(`(
+  }
+
+  // Фильтр по категории (использует idx_materials_category_btree)
+  if (category) {
+    whereConditions.push(`category = $${paramIndex}`);
+    params.push(category);
+    paramIndex++;
+  }
+
+  // Фильтр по поставщику (использует idx_materials_supplier_btree)
+  if (supplier) {
+    whereConditions.push(`supplier = $${paramIndex}`);
+    params.push(supplier);
+    paramIndex++;
+  }
+
+  // ✅ ОПТИМИЗИРОВАННЫЙ ПОИСК с поддержкой множественных слов
+  // Производительность: ~90-100ms на 47k записей
+  if (search) {
+    const searchLower = search.toLowerCase().trim();
+
+    // Разбиваем поисковый запрос на слова
+    const words = searchLower.split(/\s+/).filter(w => w.length > 0);
+
+    if (words.length === 1) {
+      // Одно слово → оригинальный префиксный/подстрочный поиск
+      whereConditions.push(`(
           LOWER(name) LIKE $${paramIndex} OR
           LOWER(sku) LIKE $${paramIndex} OR
           LOWER(name) LIKE $${paramIndex + 1} OR
           LOWER(sku) LIKE $${paramIndex + 1}
         )`);
-        params.push(`${searchLower}%`, `%${searchLower}%`);
-        paramIndex += 2;
-      } else {
-        // Несколько слов → каждое слово должно присутствовать (AND)
-        const wordConditions = words.map(word => {
-          const wordParamIndex = paramIndex;
-          params.push(`%${word}%`);
-          paramIndex++;
-          return `(LOWER(name) LIKE $${wordParamIndex} OR LOWER(sku) LIKE $${wordParamIndex})`;
-        });
-        whereConditions.push(`(${wordConditions.join(' AND ')})`);
-      }
+      params.push(`${searchLower}%`, `%${searchLower}%`);
+      paramIndex += 2;
+    } else {
+      // Несколько слов → каждое слово должно присутствовать (AND)
+      const wordConditions = words.map(word => {
+        const wordParamIndex = paramIndex;
+        params.push(`%${word}%`);
+        paramIndex++;
+        return `(LOWER(name) LIKE $${wordParamIndex} OR LOWER(sku) LIKE $${wordParamIndex})`;
+      });
+      whereConditions.push(`(${wordConditions.join(' AND ')})`);
     }
-    
-    const whereClause = whereConditions.length > 0 
-      ? 'WHERE ' + whereConditions.join(' AND ')
-      : '';
-    
-    // Сортировка (глобальные сначала, затем по указанному полю)
-    const allowedSortFields = ['sku', 'name', 'category', 'unit', 'price', 'supplier', 'weight', 'created_at', 'sku_number'];
-    let sortField = allowedSortFields.includes(sort) ? sort : 'sku';
-    // Если сортируем по sku, используем sku_number для правильной числовой сортировки
-    if (sortField === 'sku') {
-      sortField = 'sku_number';
-    }
-    const sortOrder = order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
-    
-    // ✅ СОРТИРОВКА ПО РЕЛЕВАНТНОСТИ при поиске (БЕЗ similarity для скорости)
-    let orderByClause;
-    if (search && search.trim().length > 0) {
-      const searchLower = search.toLowerCase().trim();
-      const words = searchLower.split(/\s+/).filter(w => w.length > 0);
-      
-      // Добавляем параметры для сортировки
-      params.push(searchLower); // Для CASE WHEN LOWER(sku) = $N (полное совпадение)
-      const skuExactParamIndex = paramIndex;
-      paramIndex++;
-      
-      params.push(searchLower); // Для CASE WHEN LOWER(name) = $N (полное совпадение)
-      const nameExactParamIndex = paramIndex;
-      paramIndex++;
-      
-      params.push(`${searchLower}%`); // Для CASE WHEN LOWER(name) LIKE $N (префикс)
-      const namePrefixParamIndex = paramIndex;
-      paramIndex++;
-      
-      params.push(`%${searchLower}%`); // Для CASE WHEN LOWER(name) LIKE $N (содержит всю фразу)
-      const nameContainsParamIndex = paramIndex;
-      paramIndex++;
-      
-      // Сортируем по релевантности БЕЗ similarity (для скорости):
-      // 1. Точное совпадение SKU
-      // 2. Точное совпадение названия
-      // 3. Префикс в названии
-      // 4. Содержит всю поисковую фразу
-      // 5. Остальные (содержат все слова по отдельности)
-      orderByClause = `
+  }
+
+  const whereClause = whereConditions.length > 0
+    ? 'WHERE ' + whereConditions.join(' AND ')
+    : '';
+
+  // Сортировка (глобальные сначала, затем по указанному полю)
+  const allowedSortFields = ['sku', 'name', 'category', 'unit', 'price', 'supplier', 'weight', 'created_at', 'sku_number'];
+  let sortField = allowedSortFields.includes(sort) ? sort : 'sku';
+  // Если сортируем по sku, используем sku_number для правильной числовой сортировки
+  if (sortField === 'sku') {
+    sortField = 'sku_number';
+  }
+  const sortOrder = order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+
+  // ✅ СОРТИРОВКА ПО РЕЛЕВАНТНОСТИ при поиске (БЕЗ similarity для скорости)
+  let orderByClause;
+  if (search && search.trim().length > 0) {
+    const searchLower = search.toLowerCase().trim();
+    const words = searchLower.split(/\s+/).filter(w => w.length > 0);
+
+    // Добавляем параметры для сортировки
+    params.push(searchLower); // Для CASE WHEN LOWER(sku) = $N (полное совпадение)
+    const skuExactParamIndex = paramIndex;
+    paramIndex++;
+
+    params.push(searchLower); // Для CASE WHEN LOWER(name) = $N (полное совпадение)
+    const nameExactParamIndex = paramIndex;
+    paramIndex++;
+
+    params.push(`${searchLower}%`); // Для CASE WHEN LOWER(name) LIKE $N (префикс)
+    const namePrefixParamIndex = paramIndex;
+    paramIndex++;
+
+    params.push(`%${searchLower}%`); // Для CASE WHEN LOWER(name) LIKE $N (содержит всю фразу)
+    const nameContainsParamIndex = paramIndex;
+    paramIndex++;
+
+    // Сортируем по релевантности БЕЗ similarity (для скорости):
+    // 1. Точное совпадение SKU
+    // 2. Точное совпадение названия
+    // 3. Префикс в названии
+    // 4. Содержит всю поисковую фразу
+    // 5. Остальные (содержат все слова по отдельности)
+    orderByClause = `
         ORDER BY 
           CASE 
             WHEN LOWER(sku) = $${skuExactParamIndex} THEN 1
@@ -348,33 +348,33 @@ export const getAllMaterials = catchAsync(async (req, res) => {
           is_global DESC,
           ${sortField} ${sortOrder}
       `;
-    } else {
-      orderByClause = `ORDER BY is_global DESC, ${sortField} ${sortOrder}`;
-    }
-    
-    // ============================================
-    // ОПТИМИЗИРОВАННЫЙ ЗАПРОС - явное указание колонок для covering index
-    // ============================================
-    // Пропускаем COUNT(*) OVER() для последующих запросов (ускорение в 10x)
-    const shouldSkipCount = skipCount === 'true' && pageNum > 1;
-    
-    const query = shouldSkipCount 
-      ? `
+  } else {
+    orderByClause = `ORDER BY is_global DESC, ${sortField} ${sortOrder}`;
+  }
+
+  // ============================================
+  // ОПТИМИЗИРОВАННЫЙ ЗАПРОС - явное указание колонок для covering index
+  // ============================================
+  // Пропускаем COUNT(*) OVER() для последующих запросов (ускорение в 10x)
+  const shouldSkipCount = skipCount === 'true' && pageNum > 1;
+
+  const query = shouldSkipCount
+    ? `
         SELECT 
           id, sku, sku_number, name, unit, price, weight,
           supplier, category, image, product_url, 
-          show_image, auto_calculate, is_global,
+          show_image, is_global,
           tenant_id, created_at, updated_at
         FROM materials
         ${whereClause}
         ${orderByClause}
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1};
       `
-      : `
+    : `
         SELECT 
           id, sku, sku_number, name, unit, price, weight,
           supplier, category, image, product_url, 
-          show_image, auto_calculate, is_global,
+          show_image, is_global,
           tenant_id, created_at, updated_at,
           COUNT(*) OVER() as total_count
         FROM materials
@@ -382,68 +382,68 @@ export const getAllMaterials = catchAsync(async (req, res) => {
         ${orderByClause}
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1};
       `;
-    
-    params.push(pageSizeNum, offset);
-    
-    console.log('[MATERIALS QUERY]', { 
-      isGlobal,
-      category,
-      supplier,
-      search,
-      pageSize: pageSizeNum,
-      paramsCount: params.length
-    });
-    
-    // ⏱️ Performance tracking
-    const queryStartTime = Date.now();
-    const result = await db.query(query, params);
-    const queryDuration = Date.now() - queryStartTime;
-    
-    // Логируем EXPLAIN для первого запроса чтобы увидеть используется ли индекс
-    if (queryDuration > 500) {
-      console.warn(`[MATERIALS SLOW QUERY] ${queryDuration}ms - checking query plan...`);
-      try {
-        const explainResult = await db.query(`EXPLAIN (ANALYZE, BUFFERS) ${query}`, params);
-        console.log('[MATERIALS QUERY PLAN]');
-        explainResult.rows.forEach(row => console.log(row['QUERY PLAN']));
-      } catch (err) {
-        console.error('[MATERIALS EXPLAIN ERROR]', err.message);
-      }
+
+  params.push(pageSizeNum, offset);
+
+  console.log('[MATERIALS QUERY]', {
+    isGlobal,
+    category,
+    supplier,
+    search,
+    pageSize: pageSizeNum,
+    paramsCount: params.length
+  });
+
+  // ⏱️ Performance tracking
+  const queryStartTime = Date.now();
+  const result = await db.query(query, params);
+  const queryDuration = Date.now() - queryStartTime;
+
+  // Логируем EXPLAIN для первого запроса чтобы увидеть используется ли индекс
+  if (queryDuration > 500) {
+    console.warn(`[MATERIALS SLOW QUERY] ${queryDuration}ms - checking query plan...`);
+    try {
+      const explainResult = await db.query(`EXPLAIN (ANALYZE, BUFFERS) ${query}`, params);
+      console.log('[MATERIALS QUERY PLAN]');
+      explainResult.rows.forEach(row => console.log(row['QUERY PLAN']));
+    } catch (err) {
+      console.error('[MATERIALS EXPLAIN ERROR]', err.message);
     }
-    
-    // Извлечь total из первой строки (если есть данные)
-    // Для последующих запросов (skipCount=true) возвращаем null, фронтенд использует кэшированное значение
-    const total = shouldSkipCount 
-      ? null 
-      : (result.rows.length > 0 ? parseInt(result.rows[0].total_count, 10) : 0);
-    
-    // Удалить total_count из результатов (технический столбец)
-    const transformStartTime = Date.now();
-    const data = shouldSkipCount
-      ? result.rows
-      : result.rows.map(row => {
-          const { total_count, ...rest } = row;
-          return rest;
-        });
-    const transformDuration = Date.now() - transformStartTime;
-    
-    console.log(`[MATERIALS PERFORMANCE] Query: ${queryDuration}ms, Rows: ${data.length}, Total: ${total}`);
-    console.log(`[MATERIALS PERFORMANCE] Transform: ${transformDuration}ms, Total: ${queryDuration + transformDuration}ms`);
-    
-    res.status(200).json({
-      success: true,
-      count: data.length,
-      total: total,
-      page: pageNum,
-      pageSize: pageSizeNum,
-      totalPages: Math.ceil(total / pageSizeNum),
-      data: data,
-      cached: false,
-      performance: {
-        queryTime: `${queryDuration}ms`,
-        totalTime: `${queryDuration + transformDuration}ms`
-      }
+  }
+
+  // Извлечь total из первой строки (если есть данные)
+  // Для последующих запросов (skipCount=true) возвращаем null, фронтенд использует кэшированное значение
+  const total = shouldSkipCount
+    ? null
+    : (result.rows.length > 0 ? parseInt(result.rows[0].total_count, 10) : 0);
+
+  // Удалить total_count из результатов (технический столбец)
+  const transformStartTime = Date.now();
+  const data = shouldSkipCount
+    ? result.rows
+    : result.rows.map(row => {
+      const { total_count, ...rest } = row;
+      return rest;
     });
+  const transformDuration = Date.now() - transformStartTime;
+
+  console.log(`[MATERIALS PERFORMANCE] Query: ${queryDuration}ms, Rows: ${data.length}, Total: ${total}`);
+  console.log(`[MATERIALS PERFORMANCE] Transform: ${transformDuration}ms, Total: ${queryDuration + transformDuration}ms`);
+
+  res.status(200).json({
+    success: true,
+    count: data.length,
+    total: total,
+    page: pageNum,
+    pageSize: pageSizeNum,
+    totalPages: Math.ceil(total / pageSizeNum),
+    data: data,
+    cached: false,
+    performance: {
+      queryTime: `${queryDuration}ms`,
+      totalTime: `${queryDuration + transformDuration}ms`
+    }
+  });
 });
 
 /**
@@ -504,7 +504,7 @@ export const getAllMaterials = catchAsync(async (req, res) => {
 export const getMaterialById = catchAsync(async (req, res) => {
   const { id } = req.params;
   const tenantId = req.user?.tenantId;
-  
+
   // 🔒 Tenant Isolation: глобальные материалы доступны всем, тенантные - только своей компании
   let query, params;
   if (tenantId) {
@@ -515,13 +515,13 @@ export const getMaterialById = catchAsync(async (req, res) => {
     query = 'SELECT * FROM materials WHERE id = $1 AND is_global = TRUE';
     params = [id];
   }
-  
+
   const result = await db.query(query, params);
-  
+
   if (result.rows.length === 0) {
     throw new NotFoundError('Материал не найден');
   }
-  
+
   res.status(200).json({
     success: true,
     data: result.rows[0]
@@ -604,14 +604,6 @@ export const getMaterialById = catchAsync(async (req, res) => {
  *                 type: boolean
  *                 default: false
  *                 description: Глобальный материал (только для админа)
- *               autoCalculate:
- *                 type: boolean
- *                 default: false
- *                 description: Автоматический расчёт количества
- *               consumption:
- *                 type: number
- *                 description: Расход на единицу работы (обязателен если autoCalculate=true)
- *                 example: 0.15
  *           example:
  *             sku: "MAT-456"
  *             name: "Краска акриловая белая 10л"
@@ -620,8 +612,6 @@ export const getMaterialById = catchAsync(async (req, res) => {
  *             supplier: "ООО Краски и Эмали"
  *             category: "Лакокрасочные материалы"
  *             weight: 12.5
- *             autoCalculate: true
- *             consumption: 0.2
  *     responses:
  *       201:
  *         description: Материал успешно создан
@@ -662,107 +652,96 @@ export const getMaterialById = catchAsync(async (req, res) => {
  *         description: Ошибка сервера
  */
 export const createMaterial = catchAsync(async (req, res) => {
-  const { 
-    sku, 
-    name, 
-    image, 
-    unit, 
-    price, 
-    supplier, 
-    weight, 
-    category, 
-    productUrl, 
+  const {
+    sku,
+    name,
+    image,
+    unit,
+    price,
+    supplier,
+    weight,
+    category,
+    productUrl,
     showImage,
-    isGlobal, // Новый параметр для создания глобальных материалов
-    autoCalculate, // ✅ Флаг автоматического расчёта
-    consumption // ✅ Расход материала на единицу работы
+    isGlobal // Новый параметр для создания глобальных материалов
   } = req.body;
-  
+
   // Валидация обязательных полей
   if (!sku || !name || !unit || price === undefined || !supplier || !category) {
     throw new BadRequestError('Обязательные поля: SKU, название, единица измерения, цена, поставщик, категория');
   }
 
-  // ✅ Валидация: если autoCalculate = true, consumption обязателен
-  if (autoCalculate === true && (!consumption || consumption <= 0)) {
-    throw new BadRequestError('Для автоматического расчёта необходимо указать расход (consumption > 0)');
-  }
-  
   // Проверка уникальности SKU
   const existing = await db.query(
     'SELECT id FROM materials WHERE sku = $1',
     [sku]
   );
-  
+
   if (existing.rows.length > 0) {
     throw new ConflictError('Материал с таким SKU уже существует');
   }
-    
-    // Проверка прав для создания глобальных материалов
-    // TODO: В будущем проверять роль пользователя (только админ может создавать глобальные)
-    if (isGlobal === true) {
-      // Пока разрешаем всем создавать глобальные для тестирования
-      // В production: if (!req.user || req.user.role !== 'admin') { return 403 }
-      console.log('⚠️ Создание глобального материала (в production только для админа)');
+
+  // Проверка прав для создания глобальных материалов
+  // TODO: В будущем проверять роль пользователя (только админ может создавать глобальные)
+  if (isGlobal === true) {
+    // Пока разрешаем всем создавать глобальные для тестирования
+    // В production: if (!req.user || req.user.role !== 'admin') { return 403 }
+    console.log('⚠️ Создание глобального материала (в production только для админа)');
+  }
+
+  let tenant_id = null;
+  let created_by = null;
+
+  // Для тенантных материалов получаем tenant_id из req.user (от auth middleware)
+  if (isGlobal !== true) {
+    if (!req.user || !req.user.userId || !req.user.tenantId) {
+      throw new BadRequestError('Требуется аутентификация для создания тенантного материала');
     }
-    
-    let tenant_id = null;
-    let created_by = null;
-    
-    // Для тенантных материалов получаем tenant_id из req.user (от auth middleware)
-    if (isGlobal !== true) {
-      if (!req.user || !req.user.userId || !req.user.tenantId) {
-        throw new BadRequestError('Требуется аутентификация для создания тенантного материала');
-      }
-      
-      // Используем данные из JWT токена
-      tenant_id = req.user.tenantId;
-      created_by = req.user.userId;
-      
-      console.log('[CREATE MATERIAL]', { 
-        tenant_id, 
-        created_by, 
-        sku,
-        isGlobal: false 
-      });
-    }
-    
-    // Создание материала
-    const result = await db.query(
-      `INSERT INTO materials (
-        sku, name, image, unit, price, supplier, weight, 
-        category, product_url, show_image, is_global, tenant_id, created_by,
-        auto_calculate, consumption
-      )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-       RETURNING *`,
-      [
-        sku, 
-        name, 
-        image || '', 
-        unit, 
-        price, 
-        supplier, 
-        weight || 0, 
-        category, 
-        productUrl || '', 
-        showImage !== false,
-        isGlobal === true, // Флаг глобального материала
-        tenant_id, // NULL для глобальных
-        created_by, // NULL для глобальных
-        autoCalculate !== false, // ✅ По умолчанию true
-        consumption || 0 // ✅ Расход (0 для ручных материалов)
-      ]
-    );
-    
-    // Инвалидация кеша после создания
-    invalidateMaterialsCache(tenant_id);
-    
-    res.status(201).json({
-      success: true,
-      message: `Материал успешно создан${isGlobal ? ' (глобальный)' : ''}`,
-      data: result.rows[0]
+
+    // Используем данные из JWT токена
+    tenant_id = req.user.tenantId;
+    created_by = req.user.userId;
+
+    console.log('[CREATE MATERIAL]', {
+      tenant_id,
+      created_by,
+      sku,
+      isGlobal: false
     });
+  }
+
+  const result = await db.query(
+    `INSERT INTO materials (
+        sku, name, image, unit, price, supplier, weight, 
+        category, product_url, show_image, is_global, tenant_id, created_by
+      )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       RETURNING *`,
+    [
+      sku,
+      name,
+      image || '',
+      unit,
+      price,
+      supplier,
+      weight || 0,
+      category,
+      productUrl || '',
+      showImage !== false,
+      isGlobal === true, // Флаг глобального материала
+      tenant_id, // NULL для глобальных
+      created_by // NULL для глобальных
+    ]
+  );
+
+  // Инвалидация кеша после создания
+  invalidateMaterialsCache(tenant_id);
+
+  res.status(201).json({
+    success: true,
+    message: `Материал успешно создан${isGlobal ? ' (глобальный)' : ''}`,
+    data: result.rows[0]
+  });
 });
 
 /**
@@ -815,15 +794,8 @@ export const createMaterial = catchAsync(async (req, res) => {
  *                 type: string
  *               showImage:
  *                 type: boolean
- *               autoCalculate:
- *                 type: boolean
- *               consumption:
- *                 type: number
- *           example:
  *             price: 475
  *             supplier: "Новый поставщик"
- *             autoCalculate: true
- *             consumption: 0.18
  *     responses:
  *       200:
  *         description: Материал успешно обновлён
@@ -848,60 +820,53 @@ export const createMaterial = catchAsync(async (req, res) => {
 export const updateMaterial = catchAsync(async (req, res) => {
   const { id } = req.params;
   const tenantId = req.user?.tenantId;
-  const { 
-    sku, 
-    name, 
-    image, 
-    unit, 
-    price, 
-    supplier, 
-    weight, 
-    category, 
-    productUrl, 
-    showImage,
-    autoCalculate, // ✅ Флаг автоматического расчёта
-    consumption // ✅ Расход материала
+  const {
+    sku,
+    name,
+    image,
+    unit,
+    price,
+    supplier,
+    weight,
+    category,
+    productUrl,
+    showImage
   } = req.body;
-  
+
   // 🔒 Tenant Isolation: проверка существования и прав доступа
   if (!tenantId) {
     throw new BadRequestError('Требуется аутентификация для обновления материала');
   }
-  
+
   const existing = await db.query(
     'SELECT id, is_global, tenant_id FROM materials WHERE id = $1 AND (is_global = TRUE OR tenant_id = $2)',
     [id, tenantId]
   );
-  
+
   if (existing.rows.length === 0) {
     throw new NotFoundError('Материал не найден или у вас нет прав для его редактирования');
   }
-  
+
   // Запрет редактирования глобальных материалов обычными пользователями
   if (existing.rows[0].is_global && req.user?.isSuperAdmin !== true) {
     throw new BadRequestError('Только суперадминистратор может редактировать глобальные материалы');
   }
-  
+
   // Проверка уникальности SKU (если SKU изменился)
   if (sku) {
     const skuCheck = await db.query(
       'SELECT id FROM materials WHERE sku = $1 AND id != $2',
       [sku, id]
     );
-    
+
     if (skuCheck.rows.length > 0) {
       throw new ConflictError('Материал с таким SKU уже существует');
     }
   }
-  
-  // ✅ Валидация: если autoCalculate = true, consumption обязателен
-  if (autoCalculate === true && consumption !== undefined && consumption <= 0) {
-    throw new BadRequestError('Для автоматического расчёта необходимо указать расход (consumption > 0)');
-  }
 
-    // Обновление материала
-    const result = await db.query(
-      `UPDATE materials 
+  // Обновление материала
+  const result = await db.query(
+    `UPDATE materials 
        SET sku = COALESCE($1, sku),
            name = COALESCE($2, name),
            image = COALESCE($3, image),
@@ -912,23 +877,20 @@ export const updateMaterial = catchAsync(async (req, res) => {
            category = COALESCE($8, category),
            product_url = COALESCE($9, product_url),
            show_image = COALESCE($10, show_image),
-           auto_calculate = COALESCE($11, auto_calculate),
-           consumption = COALESCE($12, consumption),
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $13
+       WHERE id = $11
        RETURNING *`,
-      [sku, name, image, unit, price, supplier, weight, category, productUrl, showImage, 
-       autoCalculate, consumption, id]
-    );
-    
-    // Инвалидация кеша после обновления
-    invalidateMaterialsCache(result.rows[0].tenant_id);
-    
-    res.status(200).json({
-      success: true,
-      message: 'Материал успешно обновлен',
-      data: result.rows[0]
-    });
+    [sku, name, image, unit, price, supplier, weight, category, productUrl, showImage, id]
+  );
+
+  // Инвалидация кеша после обновления
+  invalidateMaterialsCache(result.rows[0].tenant_id);
+
+  res.status(200).json({
+    success: true,
+    message: 'Материал успешно обновлен',
+    data: result.rows[0]
+  });
 });
 
 /**
@@ -978,44 +940,44 @@ export const updateMaterial = catchAsync(async (req, res) => {
 export const deleteMaterial = catchAsync(async (req, res) => {
   const { id } = req.params;
   const tenantId = req.user?.tenantId;
-  
+
   if (!tenantId) {
     throw new BadRequestError('Требуется аутентификация для удаления материала');
   }
-  
+
   // 🔒 Tenant Isolation: проверка существования материала и прав доступа
   const existing = await db.query(
     'SELECT id, sku, name, is_global, tenant_id FROM materials WHERE id = $1 AND (is_global = TRUE OR tenant_id = $2)',
     [id, tenantId]
   );
-  
+
   if (existing.rows.length === 0) {
     throw new NotFoundError('Материал не найден или у вас нет прав для его удаления');
   }
-  
+
   // Запрет удаления глобальных материалов обычными пользователями
   if (existing.rows[0].is_global && req.user?.isSuperAdmin !== true) {
     throw new BadRequestError('Только суперадминистратор может удалять глобальные материалы');
   }
-    
-    // Удаление материала
-    const deletedMaterial = existing.rows[0];
-    await db.query('DELETE FROM materials WHERE id = $1', [id]);
-    
-    // Инвалидация кеша после удаления
-    // Извлекаем tenant_id из удаленной записи (если была тенантная)
-    const tenantCheck = await db.query(
-      'SELECT tenant_id FROM materials WHERE id = $1',
-      [id]
-    );
-    const tenant_id = tenantCheck.rows.length > 0 ? tenantCheck.rows[0].tenant_id : null;
-    invalidateMaterialsCache(tenant_id);
-    
-    res.status(200).json({
-      success: true,
-      message: `Материал успешно удален${deletedMaterial.is_global ? ' (глобальный)' : ''}`,
-      data: deletedMaterial
-    });
+
+  // Удаление материала
+  const deletedMaterial = existing.rows[0];
+  await db.query('DELETE FROM materials WHERE id = $1', [id]);
+
+  // Инвалидация кеша после удаления
+  // Извлекаем tenant_id из удаленной записи (если была тенантная)
+  const tenantCheck = await db.query(
+    'SELECT tenant_id FROM materials WHERE id = $1',
+    [id]
+  );
+  const tenant_id = tenantCheck.rows.length > 0 ? tenantCheck.rows[0].tenant_id : null;
+  invalidateMaterialsCache(tenant_id);
+
+  res.status(200).json({
+    success: true,
+    message: `Материал успешно удален${deletedMaterial.is_global ? ' (глобальный)' : ''}`,
+    data: deletedMaterial
+  });
 });
 
 /**
@@ -1133,7 +1095,7 @@ export const getMaterialsStats = catchAsync(async (req, res) => {
     GROUP BY category
     ORDER BY category
   `);
-  
+
   const supplierStats = await db.query(`
     SELECT 
       supplier,
@@ -1144,7 +1106,7 @@ export const getMaterialsStats = catchAsync(async (req, res) => {
     ORDER BY count DESC
     LIMIT 10
   `);
-  
+
   const totalStats = await db.query(`
     SELECT 
       COUNT(*) as total_materials,
@@ -1156,7 +1118,7 @@ export const getMaterialsStats = catchAsync(async (req, res) => {
       SUM(CASE WHEN show_image AND image != '' THEN 1 ELSE 0 END) as with_images
     FROM materials
   `);
-  
+
   res.status(200).json({
     success: true,
     data: {
@@ -1214,7 +1176,7 @@ export const getMaterialCategories = catchAsync(async (req, res) => {
     GROUP BY category
     ORDER BY category
   `);
-  
+
   res.status(200).json({
     success: true,
     data: result.rows
@@ -1268,7 +1230,7 @@ export const getMaterialSuppliers = catchAsync(async (req, res) => {
     GROUP BY supplier
     ORDER BY supplier
   `);
-  
+
   res.status(200).json({
     success: true,
     data: result.rows
@@ -1452,101 +1414,101 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
     created_by = req.user.userId;
   }
 
-    // Если режим replace - удаляем существующие материалы
-    if (mode === 'replace') {
-      if (isGlobal) {
-        await db.query('DELETE FROM materials WHERE is_global = TRUE');
-        console.log('[BULK IMPORT] Удалены все глобальные материалы');
-      } else {
-        await db.query('DELETE FROM materials WHERE tenant_id = $1', [tenant_id]);
-        console.log(`[BULK IMPORT] Удалены все материалы tenant_id: ${tenant_id}`);
-      }
+  // Если режим replace - удаляем существующие материалы
+  if (mode === 'replace') {
+    if (isGlobal) {
+      await db.query('DELETE FROM materials WHERE is_global = TRUE');
+      console.log('[BULK IMPORT] Удалены все глобальные материалы');
+    } else {
+      await db.query('DELETE FROM materials WHERE tenant_id = $1', [tenant_id]);
+      console.log(`[BULK IMPORT] Удалены все материалы tenant_id: ${tenant_id}`);
     }
+  }
 
-    const successfulImports = [];
-    const failedImports = [];
+  const successfulImports = [];
+  const failedImports = [];
 
-    // Импортируем каждый материал
-    for (let i = 0; i < materials.length; i++) {
-      const material = materials[i];
-      
-      try {
-        // Валидация
-        if (!material.sku || !material.name || !material.category || !material.unit || material.price === undefined) {
-          throw new Error('Отсутствуют обязательные поля');
-        }
+  // Импортируем каждый материал
+  for (let i = 0; i < materials.length; i++) {
+    const material = materials[i];
 
-        // ✅ Валидация autoCalculate + consumption
-        if (material.autoCalculate === true && (!material.consumption || material.consumption <= 0)) {
-          throw new Error('Для автоматического расчёта необходимо указать расход (consumption > 0)');
-        }
+    try {
+      // Валидация
+      if (!material.sku || !material.name || !material.category || !material.unit || material.price === undefined) {
+        throw new Error('Отсутствуют обязательные поля');
+      }
 
-        // Проверка существования SKU
-        const existing = await db.query(
-          'SELECT id FROM materials WHERE sku = $1',
-          [material.sku]
-        );
+      // ✅ Валидация autoCalculate + consumption
+      if (material.autoCalculate === true && (!material.consumption || material.consumption <= 0)) {
+        throw new Error('Для автоматического расчёта необходимо указать расход (consumption > 0)');
+      }
 
-        if (existing.rows.length > 0 && mode === 'add') {
-          throw new Error(`Материал с SKU ${material.sku} уже существует`);
-        }
+      // Проверка существования SKU
+      const existing = await db.query(
+        'SELECT id FROM materials WHERE sku = $1',
+        [material.sku]
+      );
 
-        // Вставка материала
-        const result = await db.query(
-          `INSERT INTO materials (
+      if (existing.rows.length > 0 && mode === 'add') {
+        throw new Error(`Материал с SKU ${material.sku} уже существует`);
+      }
+
+      // Вставка материала
+      const result = await db.query(
+        `INSERT INTO materials (
             sku, name, image, unit, price, supplier, weight, 
             category, product_url, show_image, is_global, tenant_id, created_by,
             auto_calculate, consumption
           )
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
            RETURNING *`,
-          [
-            material.sku,
-            material.name,
-            material.image || '',
-            material.unit,
-            material.price,
-            material.supplier || '',
-            material.weight || 0,
-            material.category,
-            material.productUrl || '',
-            material.showImage !== false,
-            isGlobal === true,
-            tenant_id,
-            created_by,
-            material.autoCalculate !== false, // ✅ По умолчанию true
-            material.consumption || 0 // ✅ Расход
-          ]
-        );
+        [
+          material.sku,
+          material.name,
+          material.image || '',
+          material.unit,
+          material.price,
+          material.supplier || '',
+          material.weight || 0,
+          material.category,
+          material.productUrl || '',
+          material.showImage !== false,
+          isGlobal === true,
+          tenant_id,
+          created_by,
+          material.autoCalculate !== false, // ✅ По умолчанию true
+          material.consumption || 0 // ✅ Расход
+        ]
+      );
 
-        successfulImports.push({
-          sku: material.sku,
-          name: material.name,
-          id: result.rows[0].id
-        });
+      successfulImports.push({
+        sku: material.sku,
+        name: material.name,
+        id: result.rows[0].id
+      });
 
-      } catch (error) {
-        failedImports.push({
-          sku: material.sku,
-          name: material.name,
-          error: error.message
-        });
-      }
+    } catch (error) {
+      failedImports.push({
+        sku: material.sku,
+        name: material.name,
+        error: error.message
+      });
     }
+  }
 
-    // Инвалидация кеша
-    invalidateMaterialsCache(tenant_id);
+  // Инвалидация кеша
+  invalidateMaterialsCache(tenant_id);
 
-    console.log(`[BULK IMPORT] Успешно: ${successfulImports.length}, Ошибок: ${failedImports.length}`);
+  console.log(`[BULK IMPORT] Успешно: ${successfulImports.length}, Ошибок: ${failedImports.length}`);
 
-    res.status(201).json({
-      success: true,
-      message: `Импорт завершён: ${successfulImports.length} материалов добавлено, ${failedImports.length} ошибок`,
-      successCount: successfulImports.length,
-      errorCount: failedImports.length,
-      successfulImports,
-      failedImports
-    });
+  res.status(201).json({
+    success: true,
+    message: `Импорт завершён: ${successfulImports.length} материалов добавлено, ${failedImports.length} ошибок`,
+    successCount: successfulImports.length,
+    errorCount: failedImports.length,
+    successfulImports,
+    failedImports
+  });
 });
 
 /**
@@ -1580,7 +1542,7 @@ export const searchMaterialsSemantic = catchAsync(async (req, res) => {
       OR (tenant_id = $1)
     LIMIT 10000
   `;
-  
+
   const result = await db.query(materialsQuery, [tenantId || null]);
   const materials = result.rows;
 
@@ -1588,10 +1550,10 @@ export const searchMaterialsSemantic = catchAsync(async (req, res) => {
 
   // Выполняем semantic search
   const searchResults = await semanticSearch(
-    query, 
-    materials, 
+    query,
+    materials,
     'name', // поле для сравнения
-    threshold, 
+    threshold,
     limit
   );
 
