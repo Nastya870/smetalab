@@ -11,7 +11,7 @@ export const bulkCreateWorks = catchAsync(async (req, res) => {
   console.log('📦 Bulk import works started');
   const { tenantId, isSuperAdmin } = req.user;
   const { works, mode = 'add', isGlobal = false } = req.body;
-  
+
   console.log(`📊 Import params: mode=${mode}, isGlobal=${isGlobal}, works count=${works?.length}, tenantId=${tenantId}`);
 
   if (!works || !Array.isArray(works)) {
@@ -28,85 +28,90 @@ export const bulkCreateWorks = catchAsync(async (req, res) => {
     throw new BadRequestError('Только суперадмин может импортировать глобальные работы');
   }
 
-    // Если режим "replace" - удаляем существующие работы
+  // 🚀 УЛЬТРА-ОПТИМИЗАЦИЯ: Массовая вставка через UNNEST и ON CONFLICT
+  try {
+    // 🛡️ ДЕДУПЛИКАЦИЯ: Если в одной пачке попались одинаковые коды, 
+    // PostgreSQL выдаст ошибку "affect row a second time". Оставляем последний.
+    const uniqueWorksMap = new Map();
+    works.forEach(w => {
+      if (w.code) uniqueWorksMap.set(String(w.code).trim(), w);
+    });
+    const uniqueList = Array.from(uniqueWorksMap.values());
+
+    const codes = uniqueList.map(w => String(w.code || '').trim());
+    const names = uniqueList.map(w => String(w.name || '').trim());
+    const units = uniqueList.map(w => w.unit || 'шт');
+    const basePrices = uniqueList.map(w => parseFloat(w.basePrice) || 0);
+    const phases = uniqueList.map(w => w.phase || null);
+    const sections = uniqueList.map(w => w.section || null);
+    const subsections = uniqueList.map(w => w.subsection || null);
+
+    const params = [
+      codes, names, units, basePrices, phases, sections, subsections,
+      isGlobal === true, tenantId
+    ];
+
+    let query = `
+      INSERT INTO works (
+        code, name, unit, base_price, phase, section, subsection, is_global, tenant_id, created_at, updated_at
+      )
+      SELECT * FROM UNNEST(
+        $1::text[], $2::text[], $3::text[], $4::numeric[], $5::text[], $6::text[], $7::text[],
+        ARRAY_FILL($8::boolean, ARRAY[CARDINALITY($1::text[])]),
+        ARRAY_FILL($9::uuid, ARRAY[CARDINALITY($1::text[])]),
+        ARRAY_FILL(NOW(), ARRAY[CARDINALITY($1::text[])]),
+        ARRAY_FILL(NOW(), ARRAY[CARDINALITY($1::text[])])
+      )
+    `;
+
     if (mode === 'replace') {
-      if (isGlobal) {
-        await db.query('DELETE FROM works WHERE is_global = TRUE');
-      } else {
-        await db.query('DELETE FROM works WHERE is_global = FALSE AND tenant_id = $1', [tenantId]);
-      }
+      // Режим Upsert (Обновить существующие)
+      query += `
+        ON CONFLICT (code, is_global, COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'))
+        DO UPDATE SET 
+          name = EXCLUDED.name,
+          unit = EXCLUDED.unit,
+          base_price = EXCLUDED.base_price,
+          phase = EXCLUDED.phase,
+          section = EXCLUDED.section,
+          subsection = EXCLUDED.subsection,
+          updated_at = NOW()
+      `;
+    } else {
+      // Режим Add (Пропускать дубликаты)
+      query += `
+        ON CONFLICT (code, is_global, COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'))
+        DO NOTHING
+      `;
     }
 
-    // Импортируем работы
-    const imported = [];
-    const importErrors = [];
-    
-    console.log(`🔄 Starting import of ${works.length} works...`);
+    query += ' RETURNING code;';
 
-    for (let i = 0; i < works.length; i++) {
-      const workData = works[i];
-      try {
-        // Валидация обязательных полей
-        if (!workData.code || !workData.name) {
-          console.log(`⚠️  Work ${i+1}: Missing required fields`);
-          importErrors.push({
-            work: workData,
-            error: 'Отсутствуют обязательные поля: code или name'
-          });
-          continue;
-        }
+    const dbResult = await db.query(query, params);
+    const importedCodes = new Set(dbResult.rows.map(r => r.code));
 
-        // Валидация базовой цены
-        const basePrice = parseFloat(workData.basePrice) || 0;
-        if (basePrice < 0) {
-          importErrors.push({
-            work: workData,
-            error: 'Базовая цена не может быть отрицательной'
-          });
-          continue;
-        }
+    const failed = works.filter(w => !importedCodes.has(w.code)).map(w => ({
+      code: w.code,
+      name: w.name,
+      error: mode === 'add' ? 'Работа с таким кодом уже существует' : 'Ошибка при сохранении'
+    }));
 
-        // Вставляем работу
-        const result = await db.query(
-          `INSERT INTO works (code, name, unit, base_price, phase, section, subsection, is_global, tenant_id, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
-           RETURNING id, code, name, unit, base_price, phase, section, subsection, is_global, tenant_id`,
-          [
-            workData.code,
-            workData.name,
-            workData.unit || 'шт',
-            basePrice,
-            workData.phase || null,
-            workData.section || null,
-            workData.subsection || null,
-            isGlobal,
-            isGlobal ? null : tenantId
-          ]
-        );
+    invalidateWorksCache();
 
-        imported.push(result.rows[0]);
-        if ((i + 1) % 10 === 0) {
-          console.log(`✅ Imported ${i + 1}/${works.length} works`);
-        }
-      } catch (error) {
-        console.log(`❌ Error importing work ${i+1} (${workData.code}): ${error.message}`);
-        importErrors.push({
-          work: workData,
-          error: error.message
-        });
-      }
-    }
-
-  // Инвалидируем кэш
-  invalidateWorksCache();
-
-  console.log(`✅ Import completed: ${imported.length} success, ${importErrors.length} errors`);
-
-  res.status(StatusCodes.OK).json({
-    message: 'Импорт завершен',
-    successCount: imported.length,
-    errorCount: importErrors.length,
-    errors: importErrors.length > 0 ? importErrors : undefined,
-    mode: mode
-  });
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: 'Импорт завершен',
+      successCount: importedCodes.size,
+      errorCount: failed.length,
+      errors: failed.length > 0 ? failed : undefined,
+      mode: mode
+    });
+  } catch (err) {
+    console.error('[BULK WORKS IMPORT ERROR]', err);
+    throw err;
+  }
 });
+
+export default {
+  bulkCreateWorks
+};

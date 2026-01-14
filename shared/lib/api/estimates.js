@@ -157,7 +157,7 @@ const estimatesAPI = {
   },
 
   /**
-   * Импортировать позиции в смету
+   * Импортировать позиции в смету (JSON bulk)
    */
   importEstimate: async (estimateId, file, mode = 'add') => {
     const formData = new FormData();
@@ -170,6 +170,14 @@ const estimatesAPI = {
       }
     });
 
+    return response.data;
+  },
+
+  /**
+   * Массовый импорт позиций в смету (JSON)
+   */
+  bulkImportItems: async (estimateId, data) => {
+    const response = await axiosInstance.post(`/estimates/${estimateId}/bulk`, data);
     return response.data;
   }
 };

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import Papa from 'papaparse';
 
 // material-ui
 import {
@@ -75,36 +76,38 @@ const Schedule = ({ estimateId, projectId }) => {
     }
   }, [scheduleData]);
 
+  // Загрузка существующего графика
+  const loadSchedule = React.useCallback(async () => {
+    if (!estimateId) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await schedulesAPI.getByEstimateId(estimateId);
+
+      if (response.schedule) {
+        setScheduleData(response.schedule || []);
+        setScheduleGenerated(response.schedule?.length > 0);
+      }
+    } catch (err) {
+      // Если график не найден (404), это не ошибка - просто еще не создан
+      if (err.response?.status === 404) {
+        setScheduleData([]);
+        setScheduleGenerated(false);
+      } else {
+        console.error('Ошибка загрузки графика:', err);
+        setError('Не удалось загрузить график');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [estimateId]);
+
   // Загрузка существующего графика при монтировании
   useEffect(() => {
-    const loadSchedule = async () => {
-      if (!estimateId) return;
-
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await schedulesAPI.getByEstimateId(estimateId);
-
-        if (response.schedule && response.schedule.length > 0) {
-          setScheduleData(response.schedule);
-          setScheduleGenerated(true);
-        }
-      } catch (err) {
-        // Если график не найден (404), это не ошибка - просто еще не создан
-        if (err.response?.status === 404) {
-          // График ещё не создан
-        } else {
-          console.error('Ошибка загрузки графика:', err);
-          setError('Не удалось загрузить график');
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadSchedule();
-  }, [estimateId]);
+  }, [loadSchedule]);
 
   const handleGenerateSchedule = async () => {
     if (!estimateId || !projectId) {
@@ -174,24 +177,105 @@ const Schedule = ({ estimateId, projectId }) => {
     setOpenImportDialog(true);
   };
 
-  const handleImportSuccess = () => {
+  const processImportSchedule = async (file, options, setProgress) => {
+    if (!estimateId || !projectId) {
+      showError('Не указан ID сметы или проекта');
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (parseResult) => {
+          try {
+            const rows = parseResult.data;
+            if (rows.length === 0) return reject(new Error('Файл пуст'));
+
+            const fieldMapping = {
+              'Фаза': 'phase',
+              'Код': 'workCode',
+              'Артикул': 'workCode',
+              'Наименование': 'workName',
+              'Название': 'workName',
+              'Ед. изм.': 'unit',
+              'Ед.изм.': 'unit',
+              'Единица': 'unit',
+              'Кол-во': 'quantity',
+              'Количество': 'quantity',
+              'Цена': 'unitPrice',
+              'Стоимость': 'unitPrice',
+              'Сумма': 'totalPrice',
+              'Итого': 'totalPrice',
+              'Позиция': 'positionNumber',
+              'Дата начала': 'startDate',
+              'Начало': 'startDate',
+              'Дата окончания': 'endDate',
+              'Окончание': 'endDate'
+            };
+
+            const schedulesToImport = rows.map(row => {
+              const normalized = {};
+              const lowerCaseRow = {};
+              Object.keys(row).forEach(k => {
+                lowerCaseRow[k.trim().toLowerCase()] = row[k];
+              });
+
+              Object.keys(fieldMapping).forEach(rHeader => {
+                const lHeader = rHeader.toLowerCase();
+                if (lowerCaseRow[lHeader] !== undefined) {
+                  normalized[fieldMapping[rHeader]] = lowerCaseRow[lHeader];
+                }
+              });
+
+              return {
+                ...normalized,
+                quantity: parseFloat(String(normalized.quantity || '0').replace(/,/g, '.').replace(/\s/g, '')) || 0,
+                unitPrice: parseFloat(String(normalized.unitPrice || '0').replace(/,/g, '.').replace(/\s/g, '')) || 0,
+                totalPrice: parseFloat(String(normalized.totalPrice || '0').replace(/,/g, '.').replace(/\s/g, '')) || 0,
+                positionNumber: parseInt(normalized.positionNumber) || 0
+              };
+            });
+
+            const total = schedulesToImport.length;
+            const CHUNK_SIZE = 500;
+            let finalResult = { successCount: 0 };
+
+            for (let i = 0; i < total; i += CHUNK_SIZE) {
+              const chunk = schedulesToImport.slice(i, i + CHUNK_SIZE);
+
+              // В режиме 'replace' удаляем старые записи только при первой итерации
+              const currentMode = (options.mode === 'replace' && i === 0) ? 'replace' : 'add';
+
+              const result = await schedulesAPI.bulkImport(estimateId, {
+                schedules: chunk,
+                mode: currentMode,
+                projectId
+              });
+
+              finalResult.successCount += (result.successCount || 0);
+
+              if (setProgress) {
+                setProgress({ current: Math.min(i + CHUNK_SIZE, total), total });
+              }
+            }
+
+            // Явно возвращаем успех для диалога
+            resolve({ ...finalResult, success: true });
+          } catch (err) {
+            console.error('Import processing error:', err);
+            reject(err);
+          }
+        },
+        error: (err) => reject(err)
+      });
+    });
+  };
+
+  const handleImportSuccess = async () => {
     // Перезагружаем данные графика
-    const loadSchedule = async () => {
-      try {
-        setLoading(true);
-        const response = await schedulesAPI.getByEstimateId(estimateId);
-        if (response.schedule && response.schedule.length > 0) {
-          setScheduleData(response.schedule);
-          setScheduleGenerated(true);
-        }
-        success('График успешно импортирован');
-      } catch (err) {
-        console.error('Error reloading schedule:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadSchedule();
+    await loadSchedule();
+    success('График успешно импортирован');
   };
 
   const togglePhase = (phaseIndex) => {
@@ -872,10 +956,10 @@ const Schedule = ({ estimateId, projectId }) => {
       <ImportDialog
         open={openImportDialog}
         onClose={() => setOpenImportDialog(false)}
-        onImport={(file, options) => schedulesAPI.importSchedule(estimateId, file, options.mode)}
+        onImport={processImportSchedule}
         onSuccess={handleImportSuccess}
-        title="Импорт графика из CSV"
-        description="📄 Загрузите CSV файл с графиком работ. Обязательные поля: Фаза, Наименование, Кол-во, Цена. Дополнительные: Код, Ед изм."
+        title="Импорт графика работ"
+        description="📄 Загрузите CSV файл с графиком работ. Обязательные поля: Фаза, Наименование, Кол-во, Цена. Дополнительные: Код, Дата начала, Дата окончания."
       />
     </Box>
   );

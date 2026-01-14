@@ -1,5 +1,6 @@
 ﻿import React, { useState, useMemo, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
 import PropTypes from 'prop-types';
+import Papa from 'papaparse';
 
 // material-ui
 import {
@@ -341,7 +342,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   };
 
   // ============ ИМПОРТ ИЗ CSV ============
-  const handleImportCSV = () => {
+  const handleOpenImportDialog = () => {
     if (!estimateId) {
       warning('Сначала сохраните смету');
       return;
@@ -349,9 +350,115 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     setOpenImportDialog(true);
   };
 
+  const processImportCSV = async (file, options, setProgress) => {
+    return new Promise((resolve, reject) => {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (parseResult) => {
+          try {
+            const rows = parseResult.data;
+            if (rows.length === 0) return reject(new Error('Файл пуст'));
+
+            const fieldMapping = {
+              'Тип': 'item_type',
+              'Наименование': 'name',
+              'Название': 'name',
+              'Ед. изм.': 'unit',
+              'Ед.изм.': 'unit',
+              'Единица': 'unit',
+              'Кол-во': 'quantity',
+              'Количество': 'quantity',
+              'Цена': 'unit_price',
+              'Стоимость': 'unit_price',
+              'Фаза': 'phase',
+              'Стадия': 'phase',
+              'Раздел': 'section',
+              'Подраздел': 'subsection',
+              'Код': 'code',
+              'Артикул': 'code',
+              'Накладные %': 'overhead_percent',
+              'Прибыль %': 'profit_percent',
+              'Налог %': 'tax_percent'
+            };
+
+            const itemsToImport = rows.map(row => {
+              const normalized = {};
+              const lowerCaseRow = {};
+              Object.keys(row).forEach(k => {
+                lowerCaseRow[k.trim().toLowerCase()] = row[k];
+              });
+
+              Object.keys(fieldMapping).forEach(rHeader => {
+                const lHeader = rHeader.toLowerCase();
+                if (lowerCaseRow[lHeader] !== undefined) {
+                  normalized[fieldMapping[rHeader]] = lowerCaseRow[lHeader];
+                }
+              });
+
+              // Fallback for types
+              const typeStr = String(normalized.item_type || '').toLowerCase();
+              const isMaterial = typeStr.includes('мат') || typeStr.includes('mat');
+
+              return {
+                ...normalized,
+                item_type: isMaterial ? 'material' : 'work',
+                quantity: parseFloat(String(normalized.quantity || '0').replace(/,/g, '.').replace(/\s/g, '')) || 0,
+                unit_price: parseFloat(String(normalized.unit_price || '0').replace(/,/g, '.').replace(/\s/g, '')) || 0,
+                overhead_percent: parseFloat(normalized.overhead_percent) || 0,
+                profit_percent: parseFloat(normalized.profit_percent) || 0,
+                tax_percent: parseFloat(normalized.tax_percent) || 0
+              };
+            });
+
+            // Пакетная отправка (чанками)
+            const total = itemsToImport.length;
+            const CHUNK_SIZE = 500;
+            let finalResult = { successCount: 0 };
+
+            for (let i = 0; i < total; i += CHUNK_SIZE) {
+              const chunk = itemsToImport.slice(i, i + CHUNK_SIZE);
+
+              // В режиме 'replace' очищаем смету только при первой итерации
+              const currentMode = (options.mode === 'replace' && i === 0) ? 'replace' : 'add';
+
+              const result = await estimatesAPI.bulkImportItems(estimateId, {
+                items: chunk,
+                mode: currentMode
+              });
+
+              finalResult.successCount += (result.successCount || 0);
+
+              if (setProgress) {
+                setProgress({ current: Math.min(i + CHUNK_SIZE, total), total });
+              }
+            }
+
+            // Явно возвращаем успех для диалога
+            resolve({ ...finalResult, success: true });
+          } catch (err) {
+            console.error('Import processing error:', err);
+            reject(err);
+          }
+        },
+        error: (err) => reject(err)
+      });
+    });
+  };
+
   const handleImportSuccess = async () => {
-    // Вместо полной перезагрузки страницы вызываем обновление данных через хук
-    await loadSavedEstimate();
+    try {
+      // 1. Сначала уведомляем пользователя
+      success('Смета успешно импортирована');
+
+      // 2. Затем принудительно перезагружаем данные
+      // Мы не ждем завершения loadSavedEstimate для закрытия диалога (это сделает ImportDialog),
+      // но вызываем его немедленно.
+      await loadSavedEstimate();
+    } catch (err) {
+      console.error('Error after import refresh:', err);
+      showError('Ошибка при обновлении данных после импорта');
+    }
   };
 
   // ==============================|| HANDLERS - TEMPLATE ||============================== //
@@ -634,7 +741,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         onClear={async () => await clearEstimate()}
         onExportExcel={handleExportExcel}
         onExportCSV={handleExportCSV}
-        onImportCSV={handleImportCSV}
+        onImportCSV={handleOpenImportDialog}
         exportingCSV={exportingCSV}
         onSearch={setEstimateSearchQuery} // ✅ Pass search handler
         searchQuery={estimateSearchQuery} // ✅ Pass state
@@ -793,7 +900,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       <ImportDialog
         open={openImportDialog}
         onClose={() => setOpenImportDialog(false)}
-        onImport={(file, options) => estimatesAPI.importEstimate(estimateId, file, options.mode)}
+        onImport={processImportCSV}
         onSuccess={handleImportSuccess}
         title="Импорт позиций в смету"
         description="📄 Загрузите CSV файл с позициями сметы. Обязательные поля: Наименование, Кол-во, Цена. Дополнительные: Код, Ед изм, Фаза, Раздел."

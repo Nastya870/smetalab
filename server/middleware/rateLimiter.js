@@ -112,7 +112,7 @@ export const apiLimiter = rateLimit({
 export const heavyOperationsLimiter = rateLimit({
   ...commonOptions,
   windowMs: 60 * 1000, // 1 минута
-  max: parseRateLimit(process.env.HEAVY_LIMIT_MAX, 10), // 10 запросов
+  max: parseRateLimit(process.env.HEAVY_LIMIT_MAX, 500), // 500 запросов (адаптировано для чанкового импорта)
   message: {
     success: false,
     message: 'Слишком много запросов на экспорт/импорт. Подождите минуту.',

@@ -3,8 +3,9 @@ import { Readable } from 'stream';
 import { StatusCodes } from 'http-status-codes';
 import * as materialsRepository from '../repositories/materialsRepository.js';
 import { catchAsync, BadRequestError } from '../utils/errors.js';
+import { invalidateMaterialsCache } from '../cache/referencesCache.js';
 
-const BULK_IMPORT_LIMIT = 50000;
+const BULK_IMPORT_LIMIT = 100000;
 const CSV_DELIMITER = ';';
 
 const parseNumber = (value) => {
@@ -113,7 +114,16 @@ export const importFromCSV = catchAsync(async (req, res) => {
                 lineNumber++;
                 // Поддержка разных имен колонок
                 const sku = row['Артикул'] || row['sku'] || row['SKU'] || row['Код'] || row['код'];
-                const name = row['Наименование'] || row['name'] || row['Name'] || row['Наименование работ'];
+                const name = row['Наименование'] || row['Название'] || row['name'] || row['Name'] || row['Наименование работ'];
+
+                // Извлекаем числовую часть из SKU для sku_number (для правильной сортировки)
+                let skuNumber = null;
+                if (sku) {
+                    const match = String(sku).match(/\d+/);
+                    if (match) {
+                        skuNumber = parseInt(match[0], 10);
+                    }
+                }
 
                 if (!sku || !name) {
                     // Пропускаем пустые строки или строки без ключевых данных, но логируем
@@ -124,13 +134,14 @@ export const importFromCSV = catchAsync(async (req, res) => {
                 }
 
                 results.push({
-                    sku: sku.trim(),
-                    name: name.trim(),
+                    sku: String(sku).trim(),
+                    skuNumber: skuNumber,
+                    name: String(name).trim(),
                     unit: (row['Единица измерения'] || row['Ед. изм.'] || row['unit'] || row['Unit'])?.trim() || 'шт',
                     price: parseNumber(row['Цена'] || row['price'] || row['Price']),
-                    supplier: (row['Поставщик'] || row['supplier'] || row['Supplier'])?.trim() || '',
+                    supplier: (row['Поставщик'] || row['Бренд'] || row['supplier'] || row['Supplier'])?.trim() || '',
                     weight: parseNumber(row['Вес (кг)'] || row['Вес'] || row['weight'] || row['Weight']),
-                    category: (row['Категория'] || row['category'] || row['Category'])?.trim() || '',
+                    category: (row['Категория'] || row['Подкатегория'] || row['category'] || row['Category'])?.trim() || '',
                     productUrl: (row['URL товара'] || row['Ссылка на товар'] || row['Ссылка'] || row['product_url'])?.trim() || '',
                     image: (row['URL изображения'] || row['Ссылка на изображение'] || row['Изображение'] || row['image'])?.trim() || '',
                     isGlobal: isGlobalBool
@@ -184,6 +195,9 @@ export const importFromCSV = catchAsync(async (req, res) => {
             console.log(`[IMPORT] Progress: ${i}/${results.length}...`);
         }
     }
+
+    // Инвалидация кеша после импорта
+    invalidateMaterialsCache(tenantId);
 
     res.status(StatusCodes.OK).json({
         success: true,

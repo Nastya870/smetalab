@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import debounce from 'lodash.debounce';
 import storageService from '@/shared/lib/services/storageService';
+import Papa from 'papaparse';
 // InfiniteScroll больше не используется - собственная реализация через Intersection Observer
 
 // material-ui
@@ -508,7 +509,111 @@ const WorksReferencePage = () => {
     setOpenImportDialog(false);
   };
 
-  // Успешный импорт
+  // Массовый импорт с прогрессом
+  const handleImport = async (file, options, setProgress) => {
+    return new Promise((resolve, reject) => {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (parseResult) => {
+          try {
+            const rows = parseResult.data;
+            if (rows.length === 0) return reject(new Error('Файл пуст'));
+
+            const fieldMapping = {
+              'Код': 'code',
+              'Артикул': 'code',
+              'Наименование': 'name',
+              'Название': 'name',
+              'Единица измерения': 'unit',
+              'Ед. изм.': 'unit',
+              'Базовая цена': 'basePrice',
+              'Цена': 'basePrice',
+              'Стоимость': 'basePrice',
+              'Фаза': 'phase',
+              'Раздел': 'section',
+              'Подраздел': 'subsection',
+              'Категория': 'phase',
+              'Группа': 'phase'
+            };
+
+            const worksToImport = rows.map(row => {
+              const normalized = {};
+              // Приводим все заголовки к нижнему регистру для надежного поиска
+              const lowerCaseRow = {};
+              Object.keys(row).forEach(k => {
+                lowerCaseRow[k.trim().toLowerCase()] = row[k];
+              });
+
+              const lowerCaseMapping = {};
+              Object.keys(fieldMapping).forEach(k => {
+                lowerCaseMapping[k.toLowerCase()] = fieldMapping[k];
+              });
+
+              Object.keys(lowerCaseRow).forEach(key => {
+                const mappedKey = lowerCaseMapping[key] || key;
+                normalized[mappedKey] = lowerCaseRow[key];
+              });
+
+              return {
+                code: String(normalized.code || '').trim(),
+                name: String(normalized.name || '').trim(),
+                unit: normalized.unit?.trim() || 'шт',
+                basePrice: parseFloat(String(normalized.basePrice || '0').replace(/,/g, '.').replace(/\s/g, '')) || 0,
+                phase: normalized.phase?.trim() || '',
+                section: normalized.section?.trim() || '',
+                subsection: normalized.subsection?.trim() || ''
+              };
+            }).filter(w => w.code && w.name);
+
+            const total = worksToImport.length;
+            const CHUNK_SIZE = 500;
+            let successful = 0;
+            let failed = 0;
+            const allErrors = [];
+
+            // В режиме 'Update' (replace) МЫ НЕ МЕНЯЕМ МОДУ НА 'add', 
+            // так как сервер теперь умеет делать Upsert (Insert or Update).
+            const importMode = options.mode;
+
+            for (let i = 0; i < worksToImport.length; i += CHUNK_SIZE) {
+              const chunk = worksToImport.slice(i, i + CHUNK_SIZE);
+
+              const result = await worksAPI.bulkImport({
+                works: chunk,
+                mode: importMode,
+                isGlobal: options.isGlobal
+              });
+
+              successful += result.successCount || 0;
+              failed += result.errorCount || 0;
+              if (result.errors) {
+                allErrors.push(...result.errors.map(err => ({
+                  row: i + (err.index !== undefined ? err.index : 0) + 2,
+                  error: err.error
+                })));
+              }
+
+              if (setProgress) {
+                setProgress({ current: Math.min(i + CHUNK_SIZE, total), total });
+              }
+            }
+
+            resolve({
+              success: true,
+              successCount: successful,
+              errorCount: failed,
+              errors: allErrors
+            });
+          } catch (err) {
+            reject(err);
+          }
+        },
+        error: reject
+      });
+    });
+  };
+
   const handleImportSuccess = () => {
     fetchWorks(1, true); // Перезагрузить список работ с первой страницы
     success('Работы успешно импортированы');
@@ -987,7 +1092,7 @@ const WorksReferencePage = () => {
             <ImportDialog
               open={openImportDialog}
               onClose={handleCloseImport}
-              onImport={worksImportExportAPI.importWorks}
+              onImport={handleImport}
               onDownloadTemplate={worksImportExportAPI.downloadTemplate}
               onSuccess={handleImportSuccess}
               isGlobal={globalFilter === 'global'}

@@ -5,6 +5,7 @@ import {
     exportToCSV,
     importFromCSV
 } from '../controllers/schedulesImportExportController.js';
+import { bulkImportSchedules } from '../controllers/schedulesBulkController.js';
 import multer from 'multer';
 
 const router = express.Router();
@@ -35,12 +36,14 @@ router.get('/estimate/:estimateId', schedulesController.getScheduleByEstimate);
  */
 router.get('/estimate/:estimateId/export', exportToCSV);
 
+router.post('/estimate/:estimateId/import', upload.single('file'), importFromCSV);
+
 /**
- * @route POST /api/schedules/estimate/:estimateId/import
- * @desc Импорт графика из CSV
+ * @route POST /api/schedules/estimate/:estimateId/bulk
+ * @desc Высокопроизводительный импорт графика (JSON)
  * @access Private
  */
-router.post('/estimate/:estimateId/import', upload.single('file'), importFromCSV);
+router.post('/estimate/:estimateId/bulk', bulkImportSchedules);
 
 
 /**

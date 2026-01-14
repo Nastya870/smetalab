@@ -13,7 +13,7 @@ const materialsAPI = {
   getAll: async (params = {}) => {
     try {
       const queryParams = new URLSearchParams();
-      
+
       if (params.category) queryParams.append('category', params.category);
       if (params.supplier) queryParams.append('supplier', params.supplier);
       if (params.search) queryParams.append('search', params.search);
@@ -23,10 +23,10 @@ const materialsAPI = {
       if (params.pageSize) queryParams.append('pageSize', params.pageSize); // Размер страницы
       if (params.page) queryParams.append('page', params.page); // Номер страницы
       if (params.skipCount) queryParams.append('skipCount', params.skipCount); // Пропустить COUNT(*) для ускорения
-      
+
       const queryString = queryParams.toString();
       const endpoint = queryString ? `/materials?${queryString}` : '/materials';
-      
+
       const response = await axiosInstance.get(endpoint);
       // API возвращает { success: true, count: N, total: M, page: P, pageSize: S, data: [...] }
       // Возвращаем полный объект для поддержки пагинации
@@ -143,6 +143,19 @@ const materialsAPI = {
       return response.data.data || [];
     } catch (error) {
       console.error('Error fetching material suppliers:', error);
+      throw error;
+    }
+  },
+  /**
+   * Массовый импорт материалов
+   * @param {Object} data - { materials: [], mode: 'add'|'replace', isGlobal: boolean }
+   */
+  bulkImport: async (data) => {
+    try {
+      const response = await axiosInstance.post('/materials/bulk', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error bulk importing materials:', error);
       throw error;
     }
   }

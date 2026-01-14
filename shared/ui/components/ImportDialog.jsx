@@ -41,6 +41,7 @@ const ImportDialog = ({
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
+    const [progress, setProgress] = useState(null); // { current, total }
 
     const handleFileChange = (event) => {
         const selectedFile = event.target.files[0];
@@ -52,6 +53,7 @@ const ImportDialog = ({
             setFile(selectedFile);
             setError(null);
             setResult(null);
+            setProgress(null);
         }
     };
 
@@ -73,18 +75,26 @@ const ImportDialog = ({
         setLoading(true);
         setError(null);
         setResult(null);
+        setProgress(null);
 
         try {
-            const importResult = await onImport(file, { mode, isGlobal });
-            const resultData = importResult.data || importResult;
+            const importResult = await onImport(file, { mode, isGlobal }, setProgress);
+            const resultData = importResult?.data || importResult;
             setResult(resultData);
 
-            if (resultData.errorCount === 0 || resultData.success) {
+            // Если есть success: true или нет errorCount (или errorCount === 0), считаем успехом
+            const hasNoErrors = resultData?.errorCount === undefined || resultData?.errorCount === 0 || resultData?.errorCount === null;
+            const isSuccess = resultData?.success === true || (hasNoErrors && resultData?.successCount > 0);
+
+            console.log('[ImportDialog] Result:', { resultData, isSuccess, hasNoErrors });
+
+            if (isSuccess) {
                 if (onSuccess) {
+                    // Даем 500мс, чтобы пользователь увидел финальный статус (зеленую плашку)
                     setTimeout(() => {
                         onSuccess();
                         handleClose();
-                    }, 2000);
+                    }, 500);
                 }
             }
         } catch (err) {
@@ -93,6 +103,7 @@ const ImportDialog = ({
             setResult(err.response?.data);
         } finally {
             setLoading(false);
+            setProgress(null);
         }
     };
 
@@ -230,9 +241,9 @@ const ImportDialog = ({
                                     }}
                                     label={
                                         <Box sx={{ ml: 1 }}>
-                                            <Typography variant="body2" sx={{ fontWeight: 600, color: colors.textPrimary }}>Заменить всё</Typography>
+                                            <Typography variant="body2" sx={{ fontWeight: 600, color: colors.textPrimary }}>Обновить существующие</Typography>
                                             <Typography variant="caption" sx={{ color: colors.textSecondary, display: 'block' }}>
-                                                Удалить текущие данные и загрузить новые.
+                                                Обновит цены и данные для существующих позиций по артикулу (SKU).
                                             </Typography>
                                         </Box>
                                     }
@@ -290,9 +301,16 @@ const ImportDialog = ({
                     {/* Прогресс загрузки */}
                     {loading && (
                         <Box sx={{ textAlign: 'center', py: 1 }}>
-                            <LinearProgress sx={{ borderRadius: '4px', height: 6, bgcolor: colors.primaryLight, '& .MuiLinearProgress-bar': { bgcolor: colors.primary } }} />
+                            <LinearProgress
+                                variant={progress ? "determinate" : "indeterminate"}
+                                value={progress ? Math.round((progress.current / progress.total) * 100) : 0}
+                                sx={{ borderRadius: '4px', height: 6, bgcolor: colors.primaryLight, '& .MuiLinearProgress-bar': { bgcolor: colors.primary } }}
+                            />
                             <Typography variant="caption" sx={{ mt: 1.5, display: 'block', fontWeight: 600, color: colors.primary }}>
-                                Импортируем данные, пожалуйста подождите...
+                                {progress
+                                    ? `Импортировано ${progress.current} из ${progress.total} (${Math.round((progress.current / progress.total) * 100)}%)`
+                                    : 'Импортируем данные, пожалуйста подождите...'
+                                }
                             </Typography>
                         </Box>
                     )}
@@ -313,14 +331,14 @@ const ImportDialog = ({
                         <Box sx={{
                             p: 2,
                             borderRadius: '12px',
-                            bgcolor: (result.errorCount === 0 || (result.success && !result.errors?.length)) ? colors.greenLight : colors.warningLight,
-                            border: `1px solid ${(result.errorCount === 0 || (result.success && !result.errors?.length)) ? colors.green : colors.warning}30`
+                            bgcolor: (result.success || result.errorCount === 0 || result.errorCount === undefined) ? colors.greenLight : colors.warningLight,
+                            border: `1px solid ${(result.success || result.errorCount === 0 || result.errorCount === undefined) ? colors.green : colors.warning}30`
                         }}>
-                            {(result.errorCount === 0 || (result.success && !result.errors?.length)) ? (
+                            {(result.success || result.errorCount === 0 || result.errorCount === undefined) ? (
                                 <Stack direction="row" spacing={1.5} alignItems="center">
                                     <IconCheck size={24} color={colors.greenDark} />
                                     <Typography variant="body2" sx={{ fontWeight: 600, color: colors.greenDark }}>
-                                        Успешно импортировано: {result.successCount} записей
+                                        Успешно импортировано: {result.successCount || 0} записей
                                     </Typography>
                                 </Stack>
                             ) : (

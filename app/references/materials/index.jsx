@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import debounce from 'lodash.debounce';
 import storageService from '@/shared/lib/services/storageService';
+import Papa from 'papaparse';
 // InfiniteScroll больше не используется - собственная реализация через Intersection Observer
 
 // material-ui
@@ -314,12 +315,23 @@ const MaterialsReferencePage = () => {
       const response = await materialsAPI.getAll(params);
 
       // ✅ Функция нормализации snake_case → camelCase
-      const normalizeMaterial = (mat) => ({
-        ...mat,
-        productUrl: mat.product_url || mat.productUrl,
-        showImage: mat.show_image !== undefined ? mat.show_image : mat.showImage,
-        isGlobal: mat.is_global !== undefined ? mat.is_global : mat.isGlobal
-      });
+      const normalizeMaterial = (mat) => {
+        const image = mat.image || mat.image_url || mat.imageUrl || '';
+        const price = mat.price !== undefined ? mat.price : (mat.base_price !== undefined ? mat.base_price : mat.basePrice);
+        const showImage = (mat.show_image !== undefined && mat.show_image !== null)
+          ? mat.show_image
+          : (mat.showImage !== undefined && mat.showImage !== null ? mat.showImage : true);
+
+        return {
+          ...mat,
+          image,
+          image_url: image, // Для полной совместимости с мобильной версией
+          price: Number(price) || 0,
+          showImage: showImage === true || showImage === 'true' || showImage === 1,
+          isGlobal: mat.is_global !== undefined ? mat.is_global : mat.isGlobal,
+          productUrl: mat.product_url || mat.productUrl || ''
+        };
+      };
 
       // Обработка response
       let newMaterials = [];
@@ -555,6 +567,133 @@ const MaterialsReferencePage = () => {
 
   const handleCloseImport = () => {
     setOpenImportDialog(false);
+  };
+
+  // Массовый импорт с прогрессом
+  const handleImport = async (file, options, setProgress) => {
+    return new Promise((resolve, reject) => {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (parseResult) => {
+          try {
+            const rows = parseResult.data;
+            if (rows.length === 0) return reject(new Error('Файл пуст'));
+
+            const fieldMapping = {
+              'Артикул': 'sku',
+              'Наименование': 'name',
+              'Название': 'name',
+              'Категория': 'category',
+              'Подкатегория': 'category',
+              'Группа': 'category',
+              'Единица измерения': 'unit',
+              'Ед. изм.': 'unit',
+              'Ед': 'unit',
+              'Цена': 'price',
+              'Стоимость': 'price',
+              'Поставщик': 'supplier',
+              'Бренд': 'supplier',
+              'Производитель': 'supplier',
+              'Вес (кг)': 'weight',
+              'Вес': 'weight',
+              'URL изображения': 'image',
+              'Ссылка на изображение': 'image',
+              'Изображение': 'image',
+              'Фото': 'image',
+              'Фотография': 'image',
+              'Картинка': 'image',
+              'Изображение товара': 'image',
+              'URL товара': 'productUrl',
+              'Ссылка на товар': 'productUrl',
+              'Ссылка': 'productUrl',
+              'Сайт': 'productUrl',
+              'Показывать изображение': 'showImage',
+              'image': 'image',
+              'imageUrl': 'image',
+              'image_url': 'image'
+            };
+
+            const materialsToImport = rows.map(row => {
+              const normalized = {};
+              // Приводим все заголовки к нижнему регистру для надежного поиска
+              const lowerCaseRow = {};
+              Object.keys(row).forEach(k => {
+                lowerCaseRow[k.trim().toLowerCase()] = row[k];
+              });
+
+              const lowerCaseMapping = {};
+              Object.keys(fieldMapping).forEach(k => {
+                lowerCaseMapping[k.toLowerCase()] = fieldMapping[k];
+              });
+
+              Object.keys(lowerCaseRow).forEach(key => {
+                const mappedKey = lowerCaseMapping[key] || key;
+                normalized[mappedKey] = lowerCaseRow[key];
+              });
+
+              return {
+                sku: String(normalized.sku || '').trim(),
+                name: String(normalized.name || '').trim(),
+                unit: normalized.unit?.trim() || 'шт',
+                price: parseFloat(String(normalized.price || '0').replace(/,/g, '.').replace(/\s/g, '')) || 0,
+                category: normalized.category?.trim() || 'Прочее',
+                supplier: normalized.supplier?.trim() || '',
+                weight: parseFloat(String(normalized.weight || '0').replace(/,/g, '.').replace(/\s/g, '')) || 0,
+                image: normalized.image?.trim() || '',
+                productUrl: normalized.productUrl?.trim() || '',
+                showImage: normalized.showImage === undefined ? true : (normalized.showImage === 'да' || normalized.showImage === 'true' || normalized.showImage === true)
+              };
+            }).filter(m => m.sku && m.name);
+
+            const total = materialsToImport.length;
+            const CHUNK_SIZE = 500;
+            let successful = 0;
+            let failed = 0;
+            const allErrors = [];
+
+            // В режиме 'Update' (replace) МЫ НЕ МЕНЯЕМ МОДУ НА 'add', 
+            // так как сервер теперь умеет делать Upsert (Insert or Update).
+            const importMode = options.mode;
+
+            for (let i = 0; i < materialsToImport.length; i += CHUNK_SIZE) {
+              const chunk = materialsToImport.slice(i, i + CHUNK_SIZE);
+
+              const result = await materialsAPI.bulkImport({
+                materials: chunk,
+                mode: importMode,
+                isGlobal: options.isGlobal
+              });
+
+              successful += result.successCount || 0;
+              failed += result.errorCount || 0;
+
+              const serverErrors = result.errors || result.failedItems;
+              if (serverErrors) {
+                allErrors.push(...serverErrors.map(err => ({
+                  row: i + (err.index !== undefined ? err.index : 0) + 2,
+                  error: err.error
+                })));
+              }
+
+              if (setProgress) {
+                setProgress({ current: Math.min(i + CHUNK_SIZE, total), total });
+              }
+            }
+
+            resolve({
+              success: true,
+              successCount: successful,
+              errorCount: failed,
+              errors: allErrors
+            });
+          } catch (err) {
+            reject(err);
+          }
+        },
+        error: reject
+      });
+    });
   };
 
   const handleImportSuccess = () => {
@@ -1243,7 +1382,7 @@ const MaterialsReferencePage = () => {
         <ImportDialog
           open={openImportDialog}
           onClose={handleCloseImport}
-          onImport={materialsImportExportAPI.importMaterials}
+          onImport={handleImport}
           onDownloadTemplate={materialsImportExportAPI.downloadTemplate}
           onSuccess={handleImportSuccess}
           isGlobal={globalFilter === 'global'}

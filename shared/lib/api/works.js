@@ -13,25 +13,25 @@ const worksAPI = {
   getAll: async (params = {}) => {
     try {
       const queryParams = new URLSearchParams();
-      
+
       if (params.search) queryParams.append('search', params.search);
       if (params.sort) queryParams.append('sort', params.sort);
       if (params.order) queryParams.append('order', params.order);
       if (params.isGlobal) queryParams.append('isGlobal', params.isGlobal); // Фильтр по типу
       if (params.page) queryParams.append('page', params.page); // Pagination
       if (params.pageSize) queryParams.append('pageSize', params.pageSize); // Pagination
-      
+
       const queryString = queryParams.toString();
       const endpoint = queryString ? `/works?${queryString}` : '/works';
-      
+
       const response = await axiosInstance.get(endpoint);
       // API возвращает { success: true, count: N, total: X, page: Y, pageSize: Z, totalPages: W, data: [...] }
-      
+
       // Если запрошена pagination, возвращаем полный response
       if (params.page || params.pageSize) {
         return response.data;
       }
-      
+
       // Для обратной совместимости: без pagination возвращаем только массив data
       return response.data.data || [];
     } catch (error) {
@@ -113,8 +113,8 @@ const worksAPI = {
    */
   updateWorkPrice: async (workId, newPrice) => {
     try {
-      const response = await axiosInstance.patch(`/works/${workId}/price`, { 
-        basePrice: newPrice 
+      const response = await axiosInstance.patch(`/works/${workId}/price`, {
+        basePrice: newPrice
       });
       // API возвращает { success: true, message: "...", data: {...} }
       return response.data;
@@ -135,6 +135,19 @@ const worksAPI = {
       return response.data.data;
     } catch (error) {
       console.error('Error fetching works stats:', error);
+      throw error;
+    }
+  },
+  /**
+   * Массовый импорт работ
+   * @param {Object} data - { works: [], mode: 'add'|'replace', isGlobal: boolean }
+   */
+  bulkImport: async (data) => {
+    try {
+      const response = await axiosInstance.post('/works/bulk', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error bulk importing works:', error);
       throw error;
     }
   }

@@ -25,6 +25,7 @@ import {
   deleteAllEstimateItems,
   replaceAllEstimateItems
 } from '../controllers/estimateItemsController.js';
+import { bulkImportEstimateItems } from '../controllers/estimateItemsBulkController.js';
 import { exportEstimateToExcel } from '../controllers/exportEstimateController.js';
 import {
   exportToCSV,
@@ -113,12 +114,14 @@ router.get('/estimates/:estimateId/items', checkPermission('estimates', 'read'),
  */
 router.get('/estimates/:estimateId/export', checkPermission('estimates', 'read'), exportToCSV);
 
+router.post('/estimates/:estimateId/import', checkAnyPermission(['estimates', 'update'], ['estimates', 'manage']), upload.single('file'), importFromCSV);
+
 /**
- * @route   POST /api/estimates/:estimateId/import
- * @desc    Импорт позиций в смету из CSV
+ * @route   POST /api/estimates/:estimateId/bulk
+ * @desc    Высокопроизводительный импорт позиций в смету (JSON)
  * @access  Private
  */
-router.post('/estimates/:estimateId/import', checkAnyPermission(['estimates', 'update'], ['estimates', 'manage']), upload.single('file'), importFromCSV);
+router.post('/estimates/:estimateId/bulk', checkAnyPermission(['estimates', 'update'], ['estimates', 'manage']), bulkImportEstimateItems);
 
 
 /**

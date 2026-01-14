@@ -1414,79 +1414,104 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
     created_by = req.user.userId;
   }
 
-  // Если режим replace - удаляем существующие материалы
-  if (mode === 'replace') {
-    if (isGlobal) {
-      await db.query('DELETE FROM materials WHERE is_global = TRUE');
-      console.log('[BULK IMPORT] Удалены все глобальные материалы');
+  // В режиме 'replace' (теперь это 'Update') больше не удаляем всё сразу, 
+  // а обновляем существующие записи по SKU внутри цикла.
+
+  // 🚀 УЛЬТРА-ОПТИМИЗАЦИЯ: Массовая вставка через UNNEST и ON CONFLICT
+  try {
+    // 🛡️ ДЕДУПЛИКАЦИЯ: Если в одной пачке попались одинаковые SKU, 
+    // PostgreSQL выдаст ошибку "affect row a second time". Оставляем последний.
+    const uniqueMaterialsMap = new Map();
+    materials.forEach(m => {
+      if (m.sku) uniqueMaterialsMap.set(String(m.sku).trim(), m);
+    });
+    const uniqueList = Array.from(uniqueMaterialsMap.values());
+
+    const skus = uniqueList.map(m => String(m.sku || '').trim());
+    const skuNumbers = uniqueList.map(m => {
+      const match = String(m.sku || '').match(/\d+/);
+      return match ? parseInt(match[0], 10) : null;
+    });
+    const names = uniqueList.map(m => String(m.name || '').trim());
+    const images = uniqueList.map(m => m.image || '');
+    const units = uniqueList.map(m => m.unit || 'шт');
+    const prices = uniqueList.map(m => parseFloat(m.price) || 0);
+    const suppliers = uniqueList.map(m => m.supplier || '');
+    const weights = uniqueList.map(m => parseFloat(m.weight) || 0);
+    const categories = uniqueList.map(m => m.category || 'Прочее');
+    const productUrls = uniqueList.map(m => m.productUrl || '');
+    const showImages = uniqueList.map(m => m.showImage !== false);
+
+    // Подготовка параметров для UNNEST
+    const params = [
+      skus, skuNumbers, names, images, units, prices,
+      suppliers, weights, categories, productUrls, showImages,
+      isGlobal === true, tenant_id, created_by
+    ];
+
+    let query = `
+      INSERT INTO materials (
+        sku, sku_number, name, image, unit, price, supplier, weight, 
+        category, product_url, show_image, is_global, tenant_id, created_by
+      )
+      SELECT * FROM UNNEST(
+        $1::text[], $2::int[], $3::text[], $4::text[], $5::text[], $6::numeric[], 
+        $7::text[], $8::numeric[], $9::text[], $10::text[], $11::boolean[],
+        ARRAY_FILL($12::boolean, ARRAY[CARDINALITY($1::text[])]),
+        ARRAY_FILL($13::uuid, ARRAY[CARDINALITY($1::text[])]),
+        ARRAY_FILL($14::uuid, ARRAY[CARDINALITY($1::text[])])
+      )
+    `;
+
+    if (mode === 'replace') {
+      // Режим Upsert (Обновить существующие)
+      query += `
+        ON CONFLICT (sku, is_global, COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'))
+        DO UPDATE SET 
+          sku_number = EXCLUDED.sku_number,
+          name = EXCLUDED.name,
+          image = EXCLUDED.image,
+          unit = EXCLUDED.unit,
+          price = EXCLUDED.price,
+          supplier = EXCLUDED.supplier,
+          weight = EXCLUDED.weight,
+          category = EXCLUDED.category,
+          product_url = EXCLUDED.product_url,
+          show_image = EXCLUDED.show_image,
+          updated_at = NOW()
+      `;
     } else {
-      await db.query('DELETE FROM materials WHERE tenant_id = $1', [tenant_id]);
-      console.log(`[BULK IMPORT] Удалены все материалы tenant_id: ${tenant_id}`);
+      // Режим Add (Пропускать дубликаты)
+      query += `
+        ON CONFLICT (sku, is_global, COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'))
+        DO NOTHING
+      `;
     }
-  }
 
-  const successfulImports = [];
-  const failedImports = [];
+    query += ' RETURNING sku;';
 
-  // Импортируем каждый материал
-  for (let i = 0; i < materials.length; i++) {
-    const material = materials[i];
+    const result = await db.query(query, params);
+    const importedSkus = new Set(result.rows.map(r => r.sku));
 
-    try {
-      // Валидация
-      if (!material.sku || !material.name || !material.category || !material.unit || material.price === undefined) {
-        throw new Error('Отсутствуют обязательные поля');
-      }
+    // Считаем успешные и проваленные (для режима 'add')
+    const successful = materials.filter(m => importedSkus.has(m.sku));
+    const failed = materials.filter(m => !importedSkus.has(m.sku)).map((m, idx) => ({
+      sku: m.sku,
+      name: m.name,
+      error: mode === 'add' ? 'Артикул уже существует' : 'Ошибка при сохранении'
+    }));
 
+    return res.status(201).json({
+      success: true,
+      successCount: importedSkus.size,
+      errorCount: failed.length,
+      errors: failed,
+      mode: mode
+    });
 
-      // Проверка существования SKU
-      const existing = await db.query(
-        'SELECT id FROM materials WHERE sku = $1',
-        [material.sku]
-      );
-
-      if (existing.rows.length > 0 && mode === 'add') {
-        throw new Error(`Материал с SKU ${material.sku} уже существует`);
-      }
-
-      // Вставка материала
-      const result = await db.query(
-        `INSERT INTO materials (
-            sku, name, image, unit, price, supplier, weight, 
-            category, product_url, show_image, is_global, tenant_id, created_by
-          )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-           RETURNING *`,
-        [
-          material.sku,
-          material.name,
-          material.image || '',
-          material.unit,
-          material.price,
-          material.supplier || '',
-          material.weight || 0,
-          material.category,
-          material.productUrl || '',
-          material.showImage !== false,
-          isGlobal === true,
-          tenant_id,
-          created_by
-        ]
-      );
-
-      successfulImports.push({
-        sku: material.sku,
-        name: material.name,
-        id: result.rows[0].id
-      });
-
-    } catch (error) {
-      failedImports.push({
-        sku: material.sku,
-        name: material.name,
-        error: error.message
-      });
-    }
+  } catch (err) {
+    console.error('[BULK IMPORT ERROR]', err);
+    throw err;
   }
 
   // Инвалидация кеша
@@ -1500,7 +1525,8 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
     successCount: successfulImports.length,
     errorCount: failedImports.length,
     successfulImports,
-    failedImports
+    failedImports,
+    errors: failedImports
   });
 });
 

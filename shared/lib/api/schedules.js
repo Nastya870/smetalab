@@ -74,5 +74,9 @@ export default {
   getByEstimateId,
   deleteSchedule,
   exportSchedule,
-  importSchedule
+  importSchedule,
+  bulkImport: async (estimateId, data) => {
+    const response = await axiosInstance.post(`/schedules/estimate/${estimateId}/bulk`, data);
+    return response.data;
+  }
 };
