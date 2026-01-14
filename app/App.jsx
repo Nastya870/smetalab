@@ -26,6 +26,9 @@ import { NotificationsProvider } from 'shared/lib/contexts/NotificationsContext'
 import ErrorBoundary from 'shared/ui/components/ErrorBoundary';
 import ErrorFallback from 'shared/ui/components/ErrorFallback';
 
+// vercel insights
+import { SpeedInsights } from "@vercel/speed-insights/react";
+
 // ==============================|| APP ||============================== //
 
 export default function App() {
@@ -40,7 +43,7 @@ export default function App() {
 
   return (
     <ThemeCustomization>
-      <SnackbarProvider 
+      <SnackbarProvider
         maxSnack={3}
         anchorOrigin={{
           vertical: 'top',
@@ -58,6 +61,7 @@ export default function App() {
           <NavigationScroll>
             <ErrorBoundary fallback={<ErrorFallback />} onError={handleError}>
               <AuthProvider>
+                <SpeedInsights />
                 <PermissionsProvider>
                   <NotificationsProvider>
                     <RouterProvider router={router} />
