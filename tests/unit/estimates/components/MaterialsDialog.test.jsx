@@ -62,17 +62,17 @@ describe('MaterialsDialog', () => {
 
   it('should render search field with correct placeholder', () => {
     render(<MaterialsDialog {...defaultProps} />);
-    expect(screen.getByPlaceholderText(/Начните вводить название/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Введите и нажмите Enter/)).toBeInTheDocument();
   });
 
-  it('should call onSearchChange when typing in search field', () => {
-    const onSearchChange = vi.fn();
-    render(<MaterialsDialog {...defaultProps} onSearchChange={onSearchChange} />);
+  it('should update local search input when typing (no parent callback on change)', () => {
+    render(<MaterialsDialog {...defaultProps} />);
 
-    const searchField = screen.getByPlaceholderText(/Начните вводить название/);
+    const searchField = screen.getByPlaceholderText(/Введите и нажмите Enter/);
     fireEvent.change(searchField, { target: { value: 'Цемент' } });
 
-    expect(onSearchChange).toHaveBeenCalledWith('Цемент');
+    // Local state updated, input value changed
+    expect(searchField.value).toBe('Цемент');
   });
 
   it('should display total count text in chip', () => {
