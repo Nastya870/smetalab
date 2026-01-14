@@ -1438,10 +1438,6 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
         throw new Error('Отсутствуют обязательные поля');
       }
 
-      // ✅ Валидация autoCalculate + consumption
-      if (material.autoCalculate === true && (!material.consumption || material.consumption <= 0)) {
-        throw new Error('Для автоматического расчёта необходимо указать расход (consumption > 0)');
-      }
 
       // Проверка существования SKU
       const existing = await db.query(
@@ -1457,10 +1453,9 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
       const result = await db.query(
         `INSERT INTO materials (
             sku, name, image, unit, price, supplier, weight, 
-            category, product_url, show_image, is_global, tenant_id, created_by,
-            auto_calculate, consumption
+            category, product_url, show_image, is_global, tenant_id, created_by
           )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
            RETURNING *`,
         [
           material.sku,
@@ -1475,9 +1470,7 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
           material.showImage !== false,
           isGlobal === true,
           tenant_id,
-          created_by,
-          material.autoCalculate !== false, // ✅ По умолчанию true
-          material.consumption || 0 // ✅ Расход
+          created_by
         ]
       );
 
@@ -1499,7 +1492,7 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
   // Инвалидация кеша
   invalidateMaterialsCache(tenant_id);
 
-  console.log(`[BULK IMPORT] Успешно: ${successfulImports.length}, Ошибок: ${failedImports.length}`);
+  console.log(`[BULK IMPORT]Успешно: ${successfulImports.length}, Ошибок: ${failedImports.length} `);
 
   res.status(201).json({
     success: true,
@@ -1522,31 +1515,31 @@ export const searchMaterialsSemantic = catchAsync(async (req, res) => {
     throw new BadRequestError('Поисковый запрос не может быть пустым');
   }
 
-  console.log(`🔍 [Semantic Search Materials] Query: "${query}", tenant: ${tenantId || 'global'}`);
+  console.log(`🔍[Semantic Search Materials] Query: "${query}", tenant: ${tenantId || 'global'} `);
 
   // Загружаем все материалы (глобальные + тенантные)
   const materialsQuery = `
-    SELECT 
+      SELECT
       id,
-      sku,
-      name,
-      category,
-      unit,
-      price,
-      supplier,
-      weight,
-      is_global,
-      tenant_id
+        sku,
+        name,
+        category,
+        unit,
+        price,
+        supplier,
+        weight,
+        is_global,
+        tenant_id
     FROM materials
     WHERE is_global = TRUE
-      OR (tenant_id = $1)
+      OR(tenant_id = $1)
     LIMIT 10000
   `;
 
   const result = await db.query(materialsQuery, [tenantId || null]);
   const materials = result.rows;
 
-  console.log(`📦 [Materials] Loaded ${materials.length} materials for search`);
+  console.log(`📦[Materials] Loaded ${materials.length} materials for search`);
 
   // Выполняем semantic search
   const searchResults = await semanticSearch(

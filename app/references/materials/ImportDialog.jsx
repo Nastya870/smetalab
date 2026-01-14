@@ -85,11 +85,16 @@ const ImportDialog = ({ open, onClose, onSuccess, isGlobal = false }) => {
             'Наименование': 'name',
             'Категория': 'category',
             'Единица измерения': 'unit',
+            'Ед. изм.': 'unit',
             'Цена': 'price',
             'Поставщик': 'supplier',
             'Вес (кг)': 'weight',
+            'Вес': 'weight',
             'URL изображения': 'image',
+            'Ссылка на изображение': 'image',
             'URL товара': 'productUrl',
+            'Ссылка на товар': 'productUrl',
+            'Ссылка': 'productUrl',
             'Показывать изображение': 'showImage'
           };
 

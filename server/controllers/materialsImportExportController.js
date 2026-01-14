@@ -32,7 +32,7 @@ export const exportToCSV = catchAsync(async (req, res) => {
 
     console.log(`[MATERIALS EXPORT] Found ${materials.length} materials to export`);
 
-    const csvHeader = `Артикул${CSV_DELIMITER}Наименование${CSV_DELIMITER}Ед. изм.${CSV_DELIMITER}Цена${CSV_DELIMITER}Поставщик${CSV_DELIMITER}Вес${CSV_DELIMITER}Категория${CSV_DELIMITER}Ссылка\n`;
+    const csvHeader = `Артикул${CSV_DELIMITER}Наименование${CSV_DELIMITER}Единица измерения${CSV_DELIMITER}Цена${CSV_DELIMITER}Поставщик${CSV_DELIMITER}Вес (кг)${CSV_DELIMITER}Категория${CSV_DELIMITER}URL товара${CSV_DELIMITER}URL изображения\n`;
 
     const csvRows = materials.map(m => {
         return [
@@ -43,7 +43,8 @@ export const exportToCSV = catchAsync(async (req, res) => {
             escapeCsvField(m.supplier || ''),
             m.weight || 0,
             escapeCsvField(m.category || ''),
-            escapeCsvField(m.product_url || '')
+            escapeCsvField(m.product_url || ''),
+            escapeCsvField(m.image || '')
         ].join(CSV_DELIMITER);
     }).join('\n');
 
@@ -61,10 +62,10 @@ export const exportToCSV = catchAsync(async (req, res) => {
  * Экспорт шаблона
  */
 export const exportTemplate = catchAsync(async (req, res) => {
-    const csvHeader = `Артикул${CSV_DELIMITER}Наименование${CSV_DELIMITER}Ед. изм.${CSV_DELIMITER}Цена${CSV_DELIMITER}Поставщик${CSV_DELIMITER}Вес${CSV_DELIMITER}Категория${CSV_DELIMITER}Ссылка\n`;
+    const csvHeader = `Артикул${CSV_DELIMITER}Наименование${CSV_DELIMITER}Единица измерения${CSV_DELIMITER}Цена${CSV_DELIMITER}Поставщик${CSV_DELIMITER}Вес (кг)${CSV_DELIMITER}Категория${CSV_DELIMITER}URL товара${CSV_DELIMITER}URL изображения\n`;
     const examples = [
-        `MAT-001${CSV_DELIMITER}Цемент М500${CSV_DELIMITER}мешок${CSV_DELIMITER}450${CSV_DELIMITER}СтройМир${CSV_DELIMITER}50${CSV_DELIMITER}Сухие смеси${CSV_DELIMITER}`,
-        `MAT-002${CSV_DELIMITER}Кирпич красный${CSV_DELIMITER}шт${CSV_DELIMITER}15${CSV_DELIMITER}КирпичЗавод${CSV_DELIMITER}3.5${CSV_DELIMITER}Стеновые материалы${CSV_DELIMITER}`
+        `MAT-001${CSV_DELIMITER}Цемент М500${CSV_DELIMITER}мешок${CSV_DELIMITER}450${CSV_DELIMITER}СтройМир${CSV_DELIMITER}50${CSV_DELIMITER}Сухие смеси${CSV_DELIMITER}${CSV_DELIMITER}`,
+        `MAT-002${CSV_DELIMITER}Кирпич красный${CSV_DELIMITER}шт${CSV_DELIMITER}15${CSV_DELIMITER}КирпичЗавод${CSV_DELIMITER}3.5${CSV_DELIMITER}Стеновые материалы${CSV_DELIMITER}${CSV_DELIMITER}`
     ].join('\n');
 
     const csv = csvHeader + examples;
@@ -108,14 +109,15 @@ export const importFromCSV = catchAsync(async (req, res) => {
                 }
 
                 results.push({
-                    sku: row['Артикул'].trim(),
-                    name: row['Наименование'].trim(),
-                    unit: row['Ед. изм.']?.trim() || 'шт',
+                    sku: row['Артикул']?.trim(),
+                    name: row['Наименование']?.trim(),
+                    unit: (row['Единица измерения'] || row['Ед. изм.'])?.trim() || 'шт',
                     price: parseNumber(row['Цена']),
                     supplier: row['Поставщик']?.trim() || '',
-                    weight: parseNumber(row['Вес']),
+                    weight: parseNumber(row['Вес (кг)'] || row['Вес']),
                     category: row['Категория']?.trim() || '',
-                    productUrl: row['Ссылка']?.trim() || '',
+                    productUrl: (row['URL товара'] || row['Ссылка на товар'] || row['Ссылка'])?.trim() || '',
+                    image: (row['URL изображения'] || row['Ссылка на изображение'] || row['Изображение'])?.trim() || '',
                     isGlobal: isGlobal === 'true' || isGlobal === true
                 });
             })
