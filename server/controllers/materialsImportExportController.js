@@ -96,14 +96,11 @@ export const importFromCSV = catchAsync(async (req, res) => {
     const errors = [];
     let lineNumber = 1;
 
-    // Определяем разделитель (пробуем ; потом ,)
-    const content = file.buffer.toString('utf8');
-    const firstLine = content.split('\n')[0];
-    const delimiter = firstLine.includes(';') ? ';' : ',';
+    const delimiter = CSV_DELIMITER;
 
-    console.log(`[IMPORT] Detected delimiter: "${delimiter}" from first line: "${firstLine.substring(0, 50)}..."`);
+    console.log(`[IMPORT] Using forced delimiter: "${delimiter}"`);
 
-    const stream = Readable.from(content);
+    const stream = Readable.from(file.buffer.toString('utf8'));
 
     await new Promise((resolve, reject) => {
         stream
@@ -115,8 +112,8 @@ export const importFromCSV = catchAsync(async (req, res) => {
             .on('data', (row) => {
                 lineNumber++;
                 // Поддержка разных имен колонок
-                const sku = row['Артикул'] || row['sku'] || row['SKU'];
-                const name = row['Наименование'] || row['name'] || row['Name'];
+                const sku = row['Артикул'] || row['sku'] || row['SKU'] || row['Код'] || row['код'];
+                const name = row['Наименование'] || row['name'] || row['Name'] || row['Наименование работ'];
 
                 if (!sku || !name) {
                     // Пропускаем пустые строки или строки без ключевых данных, но логируем

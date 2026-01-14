@@ -5,7 +5,7 @@ import * as worksRepository from '../repositories/worksRepository.js';
 import { catchAsync, BadRequestError } from '../utils/errors.js';
 
 // Максимальное количество элементов в одном import запросе
-const BULK_IMPORT_LIMIT = 500;
+const BULK_IMPORT_LIMIT = 10000;
 const CSV_DELIMITER = ';';
 
 const parseNumber = (value) => {
@@ -127,11 +127,14 @@ export const importFromCSV = catchAsync(async (req, res) => {
       .on('data', (row) => {
         lineNumber++;
 
+        const name = row['Наименование']?.trim() || row['Наименование работ']?.trim();
+        const code = row['Код']?.trim() || row['Артикул']?.trim() || row['sku']?.trim();
+
         // Валидация обязательных полей
-        if (!row['Код'] || !row['Наименование']) {
+        if (!code || !name) {
           errors.push({
             line: lineNumber,
-            message: 'Отсутствуют обязательные поля: Код, Наименование',
+            message: 'Отсутствуют обязательные поля: Код/Артикул или Наименование',
             data: row
           });
           return;
@@ -149,10 +152,10 @@ export const importFromCSV = catchAsync(async (req, res) => {
         }
 
         results.push({
-          code: row['Код'].trim(),
-          name: row['Наименование'].trim(),
+          code: code,
+          name: name,
           category: row['Категория']?.trim() || '',
-          unit: row['Ед. изм.']?.trim() || '',
+          unit: (row['Ед. изм.'] || row['Единица измерения'] || row['unit'])?.trim() || '',
           basePrice: basePrice,
           phase: row['Фаза']?.trim() || null,
           section: row['Раздел']?.trim() || null,
@@ -196,19 +199,27 @@ export const importFromCSV = catchAsync(async (req, res) => {
     }
   }
 
-  // Импортируем работы
+  // Импортируем работы пачками для скорости
   const imported = [];
   const importErrors = [];
+  const BATCH_SIZE = 50;
 
-  for (const workData of results) {
-    try {
-      const created = await worksRepository.create(workData, tenantId);
-      imported.push(created);
-    } catch (error) {
-      importErrors.push({
-        work: workData,
-        error: error.message
-      });
+  for (let i = 0; i < results.length; i += BATCH_SIZE) {
+    const batch = results.slice(i, i + BATCH_SIZE);
+    await Promise.all(batch.map(async (workData) => {
+      try {
+        const created = await worksRepository.create(workData, tenantId);
+        imported.push(created);
+      } catch (error) {
+        importErrors.push({
+          work: workData,
+          error: error.message
+        });
+      }
+    }));
+
+    if (i % 500 === 0 && i > 0) {
+      console.log(`[WORKS IMPORT] Progress: ${i}/${results.length}...`);
     }
   }
 
