@@ -1296,7 +1296,10 @@ CREATE TABLE IF NOT EXISTS estimate_item_materials (
   updated_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
   auto_calculate boolean DEFAULT true,
   weight numeric DEFAULT 0,
-  total_weight numeric
+  total_weight numeric,
+  material_name VARCHAR(255),
+  material_sku VARCHAR(100),
+  material_unit VARCHAR(50)
 );
 
 -- estimate_items

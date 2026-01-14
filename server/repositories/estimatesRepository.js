@@ -288,17 +288,17 @@ export async function findByIdWithDetails(estimateId, tenantId) {
           eim.notes,
           eim.weight,
           eim.total_weight,
-          m.id as material_id,
-          m.sku,
-          m.name as material_name,
-          m.unit,
+          eim.material_id,
+          COALESCE(eim.material_sku, m.sku) as sku,
+          COALESCE(eim.material_name, m.name) as material_name,
+          COALESCE(eim.material_unit, m.unit) as unit,
           m.category,
           m.price as material_base_price,
           m.image
         FROM estimate_item_materials eim
-        JOIN materials m ON eim.material_id = m.id
+        LEFT JOIN materials m ON eim.material_id = m.id
         WHERE eim.estimate_item_id = ANY($1)
-        ORDER BY eim.estimate_item_id, m.name
+        ORDER BY eim.estimate_item_id, COALESCE(eim.material_name, m.name)
       `;
 
       const materialsResult = await pool.query(materialsQuery, [itemIds]);
@@ -459,8 +459,9 @@ export async function createWithDetails(data, tenantId, userId) {
           await client.query(
             `INSERT INTO estimate_item_materials (
               estimate_item_id, material_id, quantity, unit_price,
-              consumption_coefficient, auto_calculate, is_required, notes
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+              consumption_coefficient, auto_calculate, is_required, notes,
+              material_name, material_sku, material_unit
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
             [
               createdItem.id,
               material.material_id, // только реальный ID
@@ -469,7 +470,10 @@ export async function createWithDetails(data, tenantId, userId) {
               material.consumption || material.consumption_coefficient || 1.0,
               material.auto_calculate !== undefined ? material.auto_calculate : true,
               material.is_required !== false,
-              material.notes || ''
+              material.notes || '',
+              material.material_name || material.name || '',
+              material.sku || '',
+              material.unit || ''
             ]
           );
         }

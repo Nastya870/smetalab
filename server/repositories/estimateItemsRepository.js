@@ -51,7 +51,7 @@ export async function create(itemData, estimateId, tenantId) {
     WHERE id = $1 AND tenant_id = $2
   `;
   const checkResult = await db.query(checkQuery, [estimateId, tenantId]);
-  
+
   if (checkResult.rows.length === 0) {
     throw new Error('Смета не найдена или нет доступа');
   }
@@ -115,7 +115,7 @@ export async function create(itemData, estimateId, tenantId) {
 
   const result = await db.query(insertQuery, values);
   const createdItem = result.rows[0];
-  
+
   // Если есть материалы, добавляем их
   if (itemData.materials && Array.isArray(itemData.materials) && itemData.materials.length > 0) {
     for (const material of itemData.materials) {
@@ -124,12 +124,13 @@ export async function create(itemData, estimateId, tenantId) {
         console.log('Skipping material without material_id:', material);
         continue;
       }
-      
+
       await db.query(
         `INSERT INTO estimate_item_materials (
           estimate_item_id, material_id, quantity, unit_price,
-          consumption_coefficient, auto_calculate, is_required, notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          consumption_coefficient, auto_calculate, is_required, notes,
+          material_name, material_sku, material_unit
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [
           createdItem.id,
           material.material_id,
@@ -138,12 +139,15 @@ export async function create(itemData, estimateId, tenantId) {
           material.consumption || material.consumption_coefficient || 1.0,
           material.auto_calculate !== undefined ? material.auto_calculate : true,
           material.is_required !== false,
-          material.notes || ''
+          material.notes || '',
+          material.material_name || material.name || '',
+          material.sku || '',
+          material.unit || ''
         ]
       );
     }
   }
-  
+
   return createdItem;
 }
 
@@ -226,14 +230,14 @@ export async function deleteItem(id, tenantId) {
 export async function bulkCreateFromWorks(estimateId, workIds, tenantId, quantities = {}) {
   try {
     console.log('[bulkCreateFromWorks] Start:', { estimateId, workIds, tenantId, quantities });
-    
+
     // Проверяем доступ к смете
     const checkQuery = `
       SELECT id FROM estimates
       WHERE id = $1 AND tenant_id = $2
     `;
     const checkResult = await db.query(checkQuery, [estimateId, tenantId]);
-    
+
     if (checkResult.rows.length === 0) {
       throw new Error('Смета не найдена или нет доступа');
     }
@@ -256,10 +260,10 @@ export async function bulkCreateFromWorks(estimateId, workIds, tenantId, quantit
       WHERE id IN (${placeholders})
         AND (tenant_id = $${workIds.length + 1} OR is_global = true)
     `;
-    
+
     console.log('[bulkCreateFromWorks] Works query:', worksQuery);
     console.log('[bulkCreateFromWorks] Query params:', [...workIds, tenantId]);
-    
+
     const worksResult = await db.query(worksQuery, [...workIds, tenantId]);
     const works = worksResult.rows;
 
@@ -269,51 +273,51 @@ export async function bulkCreateFromWorks(estimateId, workIds, tenantId, quantit
       throw new Error('Работы не найдены');
     }
 
-  // Получаем уже существующие позиции в этой смете для проверки дубликатов
-  const existingItemsQuery = `
+    // Получаем уже существующие позиции в этой смете для проверки дубликатов
+    const existingItemsQuery = `
     SELECT code, name, unit FROM estimate_items
     WHERE estimate_id = $1
   `;
-  const existingItemsResult = await db.query(existingItemsQuery, [estimateId]);
-  const existingItems = existingItemsResult.rows;
+    const existingItemsResult = await db.query(existingItemsQuery, [estimateId]);
+    const existingItems = existingItemsResult.rows;
 
-  // Создаем Set для быстрой проверки дубликатов
-  const existingKeys = new Set();
-  existingItems.forEach(item => {
-    // Используем код как уникальный ключ (если есть), иначе name + unit
-    const key = item.code ? `code:${item.code}` : `name-unit:${item.name}|${item.unit}`;
-    existingKeys.add(key);
-  });
+    // Создаем Set для быстрой проверки дубликатов
+    const existingKeys = new Set();
+    existingItems.forEach(item => {
+      // Используем код как уникальный ключ (если есть), иначе name + unit
+      const key = item.code ? `code:${item.code}` : `name-unit:${item.name}|${item.unit}`;
+      existingKeys.add(key);
+    });
 
-  console.log('[bulkCreateFromWorks] Existing items in estimate:', existingKeys.size);
+    console.log('[bulkCreateFromWorks] Existing items in estimate:', existingKeys.size);
 
-  // Получаем текущий максимальный position_number
-  const positionQuery = `
+    // Получаем текущий максимальный position_number
+    const positionQuery = `
     SELECT COALESCE(MAX(position_number), 0) as max_position
     FROM estimate_items
     WHERE estimate_id = $1
   `;
-  const positionResult = await db.query(positionQuery, [estimateId]);
-  let positionNumber = positionResult.rows[0].max_position;
+    const positionResult = await db.query(positionQuery, [estimateId]);
+    let positionNumber = positionResult.rows[0].max_position;
 
-  // Создаем позиции для каждой работы (пропускаем дубликаты)
-  const createdItems = [];
-  const skippedItems = [];
-  
-  for (const work of works) {
-    // Проверяем, существует ли уже такая позиция
-    const workKey = work.code ? `code:${work.code}` : `name-unit:${work.name}|${work.unit}`;
-    
-    if (existingKeys.has(workKey)) {
-      console.log('[bulkCreateFromWorks] Skipping duplicate:', work.name, work.code);
-      skippedItems.push(work);
-      continue; // Пропускаем дубликат
-    }
+    // Создаем позиции для каждой работы (пропускаем дубликаты)
+    const createdItems = [];
+    const skippedItems = [];
 
-    positionNumber++;
-    const quantity = quantities[work.id] || 1; // По умолчанию 1
+    for (const work of works) {
+      // Проверяем, существует ли уже такая позиция
+      const workKey = work.code ? `code:${work.code}` : `name-unit:${work.name}|${work.unit}`;
 
-    const insertQuery = `
+      if (existingKeys.has(workKey)) {
+        console.log('[bulkCreateFromWorks] Skipping duplicate:', work.name, work.code);
+        skippedItems.push(work);
+        continue; // Пропускаем дубликат
+      }
+
+      positionNumber++;
+      const quantity = quantities[work.id] || 1; // По умолчанию 1
+
+      const insertQuery = `
       INSERT INTO estimate_items (
         estimate_id,
         position_number,
@@ -335,40 +339,40 @@ export async function bulkCreateFromWorks(estimateId, workIds, tenantId, quantit
       RETURNING *
     `;
 
-    const values = [
-      estimateId,
-      positionNumber,
-      'work',
-      work.name,
-      `Категория: ${work.category}`,
-      work.code,
-      work.unit,
-      quantity,
-      work.unit_price,
-      0, // overhead
-      0, // profit
-      0, // tax
-      work.is_global ? 'global' : 'tenant', // source_type
-      work.phase || null, // phase
-      work.section || null, // section
-      work.subsection || null // subsection
-    ];
+      const values = [
+        estimateId,
+        positionNumber,
+        'work',
+        work.name,
+        `Категория: ${work.category}`,
+        work.code,
+        work.unit,
+        quantity,
+        work.unit_price,
+        0, // overhead
+        0, // profit
+        0, // tax
+        work.is_global ? 'global' : 'tenant', // source_type
+        work.phase || null, // phase
+        work.section || null, // section
+        work.subsection || null // subsection
+      ];
 
-    const result = await db.query(insertQuery, values);
-    createdItems.push(result.rows[0]);
-    
-    // Добавляем ключ в Set для последующих проверок в этой же операции
-    existingKeys.add(workKey);
-  }
+      const result = await db.query(insertQuery, values);
+      createdItems.push(result.rows[0]);
 
-  console.log('[bulkCreateFromWorks] Created items:', createdItems.length);
-  console.log('[bulkCreateFromWorks] Skipped duplicates:', skippedItems.length);
-  
-  return {
-    created: createdItems,
-    skipped: skippedItems.length,
-    total: works.length
-  };
+      // Добавляем ключ в Set для последующих проверок в этой же операции
+      existingKeys.add(workKey);
+    }
+
+    console.log('[bulkCreateFromWorks] Created items:', createdItems.length);
+    console.log('[bulkCreateFromWorks] Skipped duplicates:', skippedItems.length);
+
+    return {
+      created: createdItems,
+      skipped: skippedItems.length,
+      total: works.length
+    };
   } catch (error) {
     console.error('[bulkCreateFromWorks] Error:', error);
     throw error;
@@ -385,7 +389,7 @@ export async function reorderItems(estimateId, itemsOrder, tenantId) {
     WHERE id = $1 AND tenant_id = $2
   `;
   const checkResult = await db.query(checkQuery, [estimateId, tenantId]);
-  
+
   if (checkResult.rows.length === 0) {
     throw new Error('Смета не найдена или нет доступа');
   }
@@ -415,17 +419,17 @@ export async function reorderItems(estimateId, itemsOrder, tenantId) {
  */
 export async function bulkCreate(estimateId, items, tenantId) {
   const client = await db.getClient();
-  
+
   try {
     await client.query('BEGIN');
-    
+
     // Проверяем доступ к смете
     const checkQuery = `
       SELECT id FROM estimates
       WHERE id = $1 AND tenant_id = $2
     `;
     const checkResult = await client.query(checkQuery, [estimateId, tenantId]);
-    
+
     if (checkResult.rows.length === 0) {
       throw new Error('Смета не найдена или нет доступа');
     }
@@ -444,7 +448,7 @@ export async function bulkCreate(estimateId, items, tenantId) {
     // Вставляем каждую позицию с материалами
     for (const itemData of items) {
       currentPosition++;
-      
+
       // Вставляем позицию
       const insertItemQuery = `
         INSERT INTO estimate_items (
@@ -495,7 +499,7 @@ export async function bulkCreate(estimateId, items, tenantId) {
 
       const itemResult = await client.query(insertItemQuery, itemValues);
       const createdItem = itemResult.rows[0];
-      
+
       // Вставляем материалы для этой позиции
       if (itemData.materials && Array.isArray(itemData.materials) && itemData.materials.length > 0) {
         for (const material of itemData.materials) {
@@ -504,7 +508,7 @@ export async function bulkCreate(estimateId, items, tenantId) {
             console.log('Skipping material without material_id:', material);
             continue;
           }
-          
+
           const insertMaterialQuery = `
             INSERT INTO estimate_item_materials (
               estimate_item_id,
@@ -514,10 +518,13 @@ export async function bulkCreate(estimateId, items, tenantId) {
               consumption_coefficient,
               auto_calculate,
               is_required,
-              notes
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+              notes,
+              material_name,
+              material_sku,
+              material_unit
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
           `;
-          
+
           const materialValues = [
             createdItem.id,
             material.material_id,
@@ -526,19 +533,22 @@ export async function bulkCreate(estimateId, items, tenantId) {
             material.consumption || material.consumption_coefficient || 1.0,
             material.auto_calculate !== undefined ? material.auto_calculate : true,
             material.is_required !== false,
-            material.notes || ''
+            material.notes || '',
+            material.material_name || material.name || '',
+            material.sku || '',
+            material.unit || ''
           ];
-          
+
           await client.query(insertMaterialQuery, materialValues);
         }
       }
-      
+
       createdItems.push(createdItem);
     }
-    
+
     await client.query('COMMIT');
     console.log(`✅ Bulk created ${createdItems.length} items with materials`);
-    
+
     return createdItems;
   } catch (error) {
     await client.query('ROLLBACK');
@@ -556,17 +566,17 @@ export async function bulkCreate(estimateId, items, tenantId) {
  */
 export async function deleteAllByEstimateId(estimateId, tenantId) {
   const client = await db.getClient();
-  
+
   try {
     await client.query('BEGIN');
-    
+
     // Проверяем доступ к смете
     const checkQuery = `
       SELECT id FROM estimates
       WHERE id = $1 AND tenant_id = $2
     `;
     const checkResult = await client.query(checkQuery, [estimateId, tenantId]);
-    
+
     if (checkResult.rows.length === 0) {
       throw new Error('Смета не найдена или нет доступа');
     }
@@ -586,10 +596,10 @@ export async function deleteAllByEstimateId(estimateId, tenantId) {
       WHERE estimate_id = $1
     `;
     const result = await client.query(deleteItemsQuery, [estimateId]);
-    
+
     await client.query('COMMIT');
     console.log(`✅ Deleted ${result.rowCount} items from estimate ${estimateId}`);
-    
+
     return result.rowCount;
   } catch (error) {
     await client.query('ROLLBACK');
@@ -609,18 +619,18 @@ export async function deleteAllByEstimateId(estimateId, tenantId) {
  */
 export async function replaceAllItems(estimateId, items, tenantId) {
   const client = await db.getClient();
-  
+
   try {
     await client.query('BEGIN');
     console.log(`[replaceAllItems] Starting transaction for estimate ${estimateId}`);
-    
+
     // 1. Проверяем доступ к смете
     const checkQuery = `
       SELECT id FROM estimates
       WHERE id = $1 AND tenant_id = $2
     `;
     const checkResult = await client.query(checkQuery, [estimateId, tenantId]);
-    
+
     if (checkResult.rows.length === 0) {
       throw new Error('Смета не найдена или нет доступа');
     }
@@ -650,7 +660,7 @@ export async function replaceAllItems(estimateId, items, tenantId) {
 
     for (const itemData of items) {
       currentPosition++;
-      
+
       // Вставляем позицию
       const insertItemQuery = `
         INSERT INTO estimate_items (
@@ -701,7 +711,7 @@ export async function replaceAllItems(estimateId, items, tenantId) {
 
       const itemResult = await client.query(insertItemQuery, itemValues);
       const createdItem = itemResult.rows[0];
-      
+
       // Вставляем материалы для этой позиции
       if (itemData.materials && Array.isArray(itemData.materials) && itemData.materials.length > 0) {
         for (const material of itemData.materials) {
@@ -710,7 +720,7 @@ export async function replaceAllItems(estimateId, items, tenantId) {
             console.log('[replaceAllItems] Skipping material without material_id:', material);
             continue;
           }
-          
+
           try {
             const insertMaterialQuery = `
               INSERT INTO estimate_item_materials (
@@ -721,10 +731,13 @@ export async function replaceAllItems(estimateId, items, tenantId) {
                 consumption_coefficient,
                 auto_calculate,
                 is_required,
-                notes
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                notes,
+                material_name,
+                material_sku,
+                material_unit
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             `;
-            
+
             const materialValues = [
               createdItem.id,
               material.material_id,
@@ -733,16 +746,19 @@ export async function replaceAllItems(estimateId, items, tenantId) {
               material.consumption || material.consumption_coefficient || 1.0,
               material.auto_calculate !== undefined ? material.auto_calculate : true,
               material.is_required !== false,
-              material.notes || ''
+              material.notes || '',
+              material.material_name || material.name || '',
+              material.sku || '',
+              material.unit || ''
             ];
-            
+
             console.log('[replaceAllItems] Inserting material:', {
               material_id: material.material_id,
               quantity: material.quantity,
               unit_price: material.unit_price || material.price,
               consumption: material.consumption || material.consumption_coefficient || 1.0
             });
-            
+
             await client.query(insertMaterialQuery, materialValues);
           } catch (materialError) {
             console.error('[replaceAllItems] ❌ Error inserting material:', materialError);
@@ -751,13 +767,13 @@ export async function replaceAllItems(estimateId, items, tenantId) {
           }
         }
       }
-      
+
       createdItems.push(createdItem);
     }
-    
+
     await client.query('COMMIT');
     console.log(`[replaceAllItems] ✅ COMMIT: Replaced with ${createdItems.length} new items`);
-    
+
     return createdItems;
   } catch (error) {
     await client.query('ROLLBACK');
