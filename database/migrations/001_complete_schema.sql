@@ -1933,6 +1933,7 @@ CREATE INDEX IF NOT EXISTS idx_materials_sku_trgm ON public.materials USING gin 
 CREATE INDEX IF NOT EXISTS idx_materials_supplier_trgm ON public.materials USING gin (lower((supplier)::text) gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_materials_tenant_id ON public.materials USING btree (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_materials_tenant_only ON public.materials USING btree (tenant_id, sku_number) WHERE (is_global = false);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_materials_sku_scope_unique ON public.materials USING btree (sku, is_global, COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'));
 CREATE INDEX IF NOT EXISTS idx_object_openings_tenant_parameter ON public.object_openings USING btree (tenant_id, parameter_id);
 CREATE INDEX IF NOT EXISTS idx_object_parameters_tenant_estimate ON public.object_parameters USING btree (tenant_id, estimate_id);
 CREATE INDEX IF NOT EXISTS idx_password_resets_email ON public.password_resets USING btree (email);
