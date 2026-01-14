@@ -17,9 +17,11 @@ import {
   ListItemText,
   Chip,
   Stack,
-  CircularProgress
+  CircularProgress,
+  Tooltip,
+  IconButton
 } from '@mui/material';
-import { IconSearch, IconPackage } from '@tabler/icons-react';
+import { IconSearch, IconPackage, IconRefresh } from '@tabler/icons-react';
 import { Virtuoso } from 'react-virtuoso';
 import { formatCurrency } from '../../projects/utils';
 
@@ -55,8 +57,20 @@ const MaterialsDialog = ({
   loadMoreRef,
   onClose,
   onSearchChange,
-  onSelect
+  onSelect,
+  syncStatus,
+  onSync,
+  onSearch
 }) => {
+
+  // Local state for input to avoid parent re-renders during typing
+  const [localSearchInput, setLocalSearchInput] = React.useState(searchQuery);
+  const inputRef = React.useRef(null);
+
+  // Sync local state when parent resets (e.g. dialog closed and reopened)
+  React.useEffect(() => {
+    setLocalSearchInput(searchQuery);
+  }, [searchQuery]);
 
   // Компонент строки для виртуализации
   const Row = (index, material) => (
@@ -172,6 +186,25 @@ const MaterialsDialog = ({
             )}
           </Box>
           <Stack direction="row" spacing={1} alignItems="center">
+            {onSync && (
+              <Tooltip title={syncStatus === 'syncing' ? 'Обновление...' : 'Обновить справочник'}>
+                <IconButton
+                  size="small"
+                  onClick={onSync}
+                  disabled={syncStatus === 'syncing'}
+                  sx={{
+                    color: syncStatus === 'success' ? 'success.main' : 'text.secondary',
+                    animation: syncStatus === 'syncing' ? 'spin 1s linear infinite' : 'none',
+                    '@keyframes spin': {
+                      '0%': { transform: 'rotate(0deg)' },
+                      '100%': { transform: 'rotate(360deg)' }
+                    }
+                  }}
+                >
+                  <IconRefresh size={20} />
+                </IconButton>
+              </Tooltip>
+            )}
             {loading && (
               <CircularProgress size={16} thickness={4} />
             )}
@@ -189,9 +222,15 @@ const MaterialsDialog = ({
           <TextField
             fullWidth
             size="small"
-            placeholder="Начните вводить название, артикул или поставщика..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Введите и нажмите Enter для поиска..."
+            value={localSearchInput}
+            onChange={(e) => setLocalSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && onSearch) {
+                e.preventDefault();
+                onSearch(localSearchInput);
+              }
+            }}
             autoFocus
             InputProps={{
               startAdornment: (
@@ -207,6 +246,21 @@ const MaterialsDialog = ({
               }
             }}
           />
+          <IconButton
+            onClick={() => onSearch && onSearch(localSearchInput)}
+            disabled={loading}
+            sx={{
+              bgcolor: '#7C3AED',
+              color: 'white',
+              borderRadius: 2,
+              width: 40,
+              height: 40,
+              '&:hover': { bgcolor: '#6D28D9' },
+              '&:disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' }
+            }}
+          >
+            <IconSearch size={20} />
+          </IconButton>
         </Box>
 
         {/* Подсказка при поиске */}
@@ -302,7 +356,10 @@ MaterialsDialog.propTypes = {
   ]),
   onClose: PropTypes.func.isRequired,
   onSearchChange: PropTypes.func.isRequired,
-  onSelect: PropTypes.func.isRequired
+  onSelect: PropTypes.func.isRequired,
+  syncStatus: PropTypes.string,
+  onSync: PropTypes.func,
+  onSearch: PropTypes.func
 };
 
 export default MaterialsDialog;

@@ -22,7 +22,7 @@ import { useNotifications } from 'contexts/NotificationsContext';
 import PriceCoefficientModal from './PriceCoefficientModal';
 import ObjectParametersSidebar from './ObjectParametersSidebar';
 
-import useMaterialsSearch from './hooks/useMaterialsSearch'; // ✅ Custom Hook for Materials
+import useIndexedMaterials from './hooks/useIndexedMaterials'; // ✅ Custom Hook for Materials (IndexedDB)
 import useWorksLibrary from './hooks/useWorksLibrary'; // ✅ Custom Hook for Works
 import useEstimateData from './hooks/useEstimateData'; // ✅ Custom Hook for Data
 import estimatesAPI from 'api/estimates';
@@ -83,15 +83,26 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   const [materialToReplace, setMaterialToReplace] = useState(null);
 
   // ✅ Hook: Поиск и загрузка материалов
+  // ✅ Hook: Поиск и загрузка материалов (IndexedDB)
   const {
     materials: allMaterialsForDialog,
     loading: loadingMaterials,
     hasMore: materialsHasMore,
     totalRecords: materialsTotalRecords,
-    page: materialsPage,
-    loadMaterials: loadMaterialsForDialog,
-    resetMaterials
-  } = useMaterialsSearch();
+    searchMaterials,
+    resetMaterials,
+    syncStatus: materialsSyncStatus,
+    lastSync: materialsLastSync,
+    syncMaterials
+  } = useIndexedMaterials();
+
+  const [materialsPage, setMaterialsPage] = useState(1);
+
+  // Wrapper to match old signature and update page state
+  const loadMaterialsForDialog = useCallback(async (page, reset, search) => {
+    setMaterialsPage(page);
+    await searchMaterials(search, page, 50);
+  }, [searchMaterials]);
 
   // ✅ Hook: Данные сметы
   const {
@@ -420,30 +431,10 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     await loadMaterialsForDialog(1, true);
   }, [loadMaterialsForDialog, resetMaterials]);
 
-  // ✅ НОВАЯ ЛОГИКА: Debounced серверный поиск (вместо клиентской фильтрации)
-  // Поиск запускается автоматически через 400ms после прекращения ввода
-  const debouncedSearchRef = useRef(null);
-
+  // ✅ Поиск только по Enter (без debounce)
   const handleMaterialSearchChange = useCallback((query) => {
     setMaterialSearchQuery(query);
-
-    // Очищаем предыдущий таймер
-    if (debouncedSearchRef.current) {
-      clearTimeout(debouncedSearchRef.current);
-    }
-
-    // Если пустой запрос - загружаем первую страницу без поиска
-    if (!query || query.trim().length === 0) {
-      loadMaterialsForDialog(1, true, '');
-      return;
-    }
-
-    // Запускаем поиск через 400ms
-    debouncedSearchRef.current = setTimeout(() => {
-      console.log(`🔍 Поиск материалов: "${query}"`);
-      loadMaterialsForDialog(1, true, query.trim());
-    }, 400); // Debounce 400ms
-  }, [loadMaterialsForDialog]);
+  }, []);
 
   // ✅ Убираем клиентскую фильтрацию - теперь все данные приходят с сервера
   const filteredMaterialsForDialog = allMaterialsForDialog;
@@ -754,6 +745,9 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
             handleReplaceMaterialConfirm(material);
           }
         }}
+        syncStatus={materialsSyncStatus}
+        onSync={syncMaterials}
+        onSearch={(query) => loadMaterialsForDialog(1, true, query)}
       />
 
       {/* Модальное окно коэффициента цен */}
