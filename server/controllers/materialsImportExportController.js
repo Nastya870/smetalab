@@ -4,11 +4,11 @@ import { StatusCodes } from 'http-status-codes';
 import * as materialsRepository from '../repositories/materialsRepository.js';
 import { catchAsync, BadRequestError } from '../utils/errors.js';
 
-const BULK_IMPORT_LIMIT = 1000;
+const BULK_IMPORT_LIMIT = 50000;
 const CSV_DELIMITER = ';';
 
 const parseNumber = (value) => {
-    if (!value) return 0;
+    if (value === undefined || value === null || value === '') return 0;
     // Заменяем запятую на точку и убираем неразрывные пробелы/обычные пробелы
     const normalized = String(value).replace(/,/g, '.').replace(/\s/g, '');
     const num = parseFloat(normalized);
@@ -85,72 +85,116 @@ export const importFromCSV = catchAsync(async (req, res) => {
     const { file } = req;
     const { mode = 'add', isGlobal = false } = req.body;
 
+    const isGlobalBool = isGlobal === 'true' || isGlobal === true;
+
     if (!file) throw new BadRequestError('Файл не загружен');
-    if (isGlobal && !isSuperAdmin) throw new BadRequestError('Только суперадмин может импортировать глобальные материалы');
+    if (isGlobalBool && !isSuperAdmin) {
+        throw new BadRequestError('Только суперадмин может импортировать глобальные материалы. Ваш статус: ' + (isSuperAdmin ? 'Admin' : 'User'));
+    }
 
     const results = [];
     const errors = [];
     let lineNumber = 1;
 
-    const stream = Readable.from(file.buffer.toString('utf8'));
+    // Определяем разделитель (пробуем ; потом ,)
+    const content = file.buffer.toString('utf8');
+    const firstLine = content.split('\n')[0];
+    const delimiter = firstLine.includes(';') ? ';' : ',';
+
+    console.log(`[IMPORT] Detected delimiter: "${delimiter}" from first line: "${firstLine.substring(0, 50)}..."`);
+
+    const stream = Readable.from(content);
 
     await new Promise((resolve, reject) => {
         stream
             .pipe(csvParser({
-                separator: CSV_DELIMITER,
-                mapHeaders: ({ header }) => header.trim(),
+                separator: delimiter,
+                mapHeaders: ({ header }) => header.trim().replace(/^\ufeff/, ''), // Убираем BOM если есть
                 skipEmptyLines: true
             }))
             .on('data', (row) => {
                 lineNumber++;
-                if (!row['Артикул'] || !row['Наименование']) {
-                    errors.push({ line: lineNumber, message: 'Отсутствуют Артикул или Наименование' });
+                // Поддержка разных имен колонок
+                const sku = row['Артикул'] || row['sku'] || row['SKU'];
+                const name = row['Наименование'] || row['name'] || row['Name'];
+
+                if (!sku || !name) {
+                    // Пропускаем пустые строки или строки без ключевых данных, но логируем
+                    if (Object.values(row).some(v => v)) {
+                        errors.push({ line: lineNumber, message: `Отсутствуют Артикул или Наименование. Колонки: ${Object.keys(row).join(',')}` });
+                    }
                     return;
                 }
 
                 results.push({
-                    sku: row['Артикул']?.trim(),
-                    name: row['Наименование']?.trim(),
-                    unit: (row['Единица измерения'] || row['Ед. изм.'])?.trim() || 'шт',
-                    price: parseNumber(row['Цена']),
-                    supplier: row['Поставщик']?.trim() || '',
-                    weight: parseNumber(row['Вес (кг)'] || row['Вес']),
-                    category: row['Категория']?.trim() || '',
-                    productUrl: (row['URL товара'] || row['Ссылка на товар'] || row['Ссылка'])?.trim() || '',
-                    image: (row['URL изображения'] || row['Ссылка на изображение'] || row['Изображение'])?.trim() || '',
-                    isGlobal: isGlobal === 'true' || isGlobal === true
+                    sku: sku.trim(),
+                    name: name.trim(),
+                    unit: (row['Единица измерения'] || row['Ед. изм.'] || row['unit'] || row['Unit'])?.trim() || 'шт',
+                    price: parseNumber(row['Цена'] || row['price'] || row['Price']),
+                    supplier: (row['Поставщик'] || row['supplier'] || row['Supplier'])?.trim() || '',
+                    weight: parseNumber(row['Вес (кг)'] || row['Вес'] || row['weight'] || row['Weight']),
+                    category: (row['Категория'] || row['category'] || row['Category'])?.trim() || '',
+                    productUrl: (row['URL товара'] || row['Ссылка на товар'] || row['Ссылка'] || row['product_url'])?.trim() || '',
+                    image: (row['URL изображения'] || row['Ссылка на изображение'] || row['Изображение'] || row['image'])?.trim() || '',
+                    isGlobal: isGlobalBool
                 });
             })
             .on('end', resolve)
             .on('error', reject);
     });
 
-    if (errors.length > 0) throw new BadRequestError('Ошибки в CSV', { errors });
-    if (results.length === 0) throw new BadRequestError('Файл пуст');
-    if (results.length > BULK_IMPORT_LIMIT) throw new BadRequestError(`Лимит ${BULK_IMPORT_LIMIT} превышен`);
+    if (errors.length > 100) {
+        throw new BadRequestError(`Слишком много ошибок в формате CSV (${errors.length}). Проверьте разделитель и заголовки.`, { firstErrors: errors.slice(0, 5) });
+    }
+
+    if (results.length === 0) {
+        throw new BadRequestError('Файл пуст или не удалось распознать заголовки. Ожидаются: Артикул, Наименование.');
+    }
+
+    if (results.length > BULK_IMPORT_LIMIT) {
+        throw new BadRequestError(`Превышен лимит импорта: ${results.length} > ${BULK_IMPORT_LIMIT}`);
+    }
+
+    console.log(`[IMPORT] Starting processing ${results.length} materials in mode: ${mode}`);
 
     if (mode === 'replace') {
-        const existing = await materialsRepository.findAll({ isGlobal: isGlobal.toString() }, tenantId);
-        for (const m of existing) await materialsRepository.deleteMaterial(m.id, tenantId);
+        console.log(`[IMPORT] Mode REPLACE: clearing existing materials (isGlobal: ${isGlobalBool})`);
+        const existing = await materialsRepository.findAll({ isGlobal: isGlobalBool.toString() }, tenantId);
+        // Удаляем пачками по 100 для скорости
+        for (let i = 0; i < existing.length; i += 100) {
+            const chunk = existing.slice(i, i + 100);
+            await Promise.all(chunk.map(m => materialsRepository.deleteMaterial(m.id, tenantId)));
+        }
     }
 
     const imported = [];
     const importErrors = [];
 
-    for (const data of results) {
-        try {
-            const created = await materialsRepository.create(data, tenantId);
-            imported.push(created);
-        } catch (e) {
-            importErrors.push({ sku: data.sku, error: e.message });
+    // Обрабатываем пачками по 50 для баланса скорости и стабильности
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < results.length; i += BATCH_SIZE) {
+        const batch = results.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map(async (data) => {
+            try {
+                const created = await materialsRepository.create(data, tenantId);
+                imported.push(created);
+            } catch (e) {
+                importErrors.push({ sku: data.sku, error: e.message });
+            }
+        }));
+
+        if (i % 500 === 0 && i > 0) {
+            console.log(`[IMPORT] Progress: ${i}/${results.length}...`);
         }
     }
 
     res.status(StatusCodes.OK).json({
+        success: true,
         message: 'Импорт завершен',
         successCount: imported.length,
         errorCount: importErrors.length,
-        errors: importErrors.length > 0 ? importErrors : undefined
+        totalProcessed: results.length,
+        errors: importErrors.length > 0 ? importErrors.slice(0, 100) : undefined // Ограничиваем список ошибок в ответе
     });
 });
 
