@@ -33,10 +33,7 @@
 ## 📁 Итоговая структура файлов
 
 ### Активные миграции (`database/migrations/`)
-- `001_complete_schema.sql` (Baseline)
-- `062_create_schema_version.sql`
-- `063_drop_suppliers.sql`
-- `064_cleanup_expired_tokens.sql`
+- `001_complete_schema.sql` (Baseline - включает всё до 069 включительно)
 
 ### Архив (`database/migrations_archive/`)
 - `original/` — старые SQL миграции (000-061)

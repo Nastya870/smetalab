@@ -36,18 +36,6 @@ const SocialProfile = Loadable(lazy(() => import('views/pages/account/SocialProf
 const UsersManagement = Loadable(lazy(() => import('views/admin/users')));
 const PermissionsManagement = Loadable(lazy(() => import('views/admin/permissions')));
 
-// utilities routing
-const UtilsTypography = Loadable(lazy(() => import('views/utilities/Typography')));
-const UtilsColor = Loadable(lazy(() => import('views/utilities/Color')));
-const UtilsShadow = Loadable(lazy(() => import('views/utilities/Shadow')));
-
-// sample page routing
-const SamplePage = Loadable(lazy(() => import('views/sample-page')));
-
-// test pages
-const NotificationTestPage = Loadable(lazy(() => import('views/test/NotificationTestPage')));
-const OCRTestPage = Loadable(lazy(() => import('views/test/OCRTest')));
-
 // ==============================|| MAIN ROUTING ||============================== //
 
 const MainRoutes = {
@@ -118,30 +106,6 @@ const MainRoutes = {
     {
       path: '/app/admin/permissions',
       element: <PermissionsManagement />
-    },
-    {
-      path: '/app/typography',
-      element: <UtilsTypography />
-    },
-    {
-      path: '/app/color',
-      element: <UtilsColor />
-    },
-    {
-      path: '/app/shadow',
-      element: <UtilsShadow />
-    },
-    {
-      path: '/app/sample-page',
-      element: <SamplePage />
-    },
-    {
-      path: '/app/test/notifications',
-      element: <NotificationTestPage />
-    },
-    {
-      path: '/app/test/ocr',
-      element: <OCRTestPage />
     }
   ]
 };

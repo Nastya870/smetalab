@@ -1,6 +1,6 @@
 {
-  "name": "berry-material-react-js",
-  "version": "4.1.2",
+  "name": "smetalab",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "dependencies": {

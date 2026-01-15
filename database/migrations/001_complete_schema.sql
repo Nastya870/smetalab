@@ -2365,4 +2365,13 @@ SELECT id,
    FROM works w
   WHERE ((is_global = true) OR (tenant_id = current_tenant_id()) OR is_super_admin());;
 
+-- =====================================
+-- ВЕРСИЯ СХЕМЫ
+-- =====================================
+
+INSERT INTO schema_version (id, description)
+VALUES (69, 'Baseline schema (includes all migrations up to 069)')
+ON CONFLICT (id) DO NOTHING;
+
+
 
