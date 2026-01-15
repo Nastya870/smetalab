@@ -7,13 +7,7 @@ import axios from 'axios';
 import { refreshAccessToken, logout, getAccessToken } from 'services/authService';
 
 // API URL: в разработке - localhost, в production - Render backend
-const isProduction = window.location.hostname.includes('vercel.app') || 
-                     window.location.hostname.includes('smeta-lab.ru');
-const isDevelopment = import.meta.env.MODE === 'development';
-
-const API_URL = isProduction
-  ? 'https://smetalab-backend.onrender.com/api'
-  : (import.meta.env.VITE_API_URL || 'http://localhost:3001') + '/api';
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001') + '/api';
 
 // Создаем экземпляр axios с базовым URL
 const axiosInstance = axios.create({
@@ -95,13 +89,13 @@ axiosInstance.interceptors.response.use(
       try {
         // Обновляем токен
         const newToken = await refreshAccessToken();
-        
+
         // Обновляем токен в заголовке оригинального запроса
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        
+
         // Обрабатываем очередь
         processQueue(null, newToken);
-        
+
         // Повторяем оригинальный запрос с новым токеном
         return axiosInstance(originalRequest);
       } catch (refreshError) {
