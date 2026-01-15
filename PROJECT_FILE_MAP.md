@@ -1,9 +1,9 @@
 # 📁 Полная карта файлов проекта SmetaLab
 
-> **Дата обновления:** 2026-01-13  
-> **Версия API:** 1.14.0  
+> **Дата обновления:** 2026-01-15  
+> **Версия:** 1.0.1  
 > **Статус:** Production Ready ✅  
-> **Последняя очистка:** ~84 MB удалено
+> **Последний коммит:** b71c7fb (fix: update yarn.lock to fix Render deploy)
 
 ## 📊 Легенда
 
@@ -20,37 +20,32 @@
 
 ---
 
-## 🌳 Структура проекта (после очистки)
+## 🌳 Структура проекта (v1.0.1)
 
 ```
-smetalab v6/
+smetalab v1.0.1/
+├── 📁 .agent/                           # ✅ Конфигурация агента (2 файла)
 ├── 📁 .github/                          # ✅ CI/CD конфигурация
-├── 📁 .vscode/                          # ✅ Настройки VS Code
+├── 📁 .vscode/                          # ✅ Настройки VS Code (1 файл)
 ├── 📁 .yarn/                            # ✅ Yarn конфигурация
-├── 📁 app/                              # ✅ Frontend (React) — 151 файл
-├── 📁 backups/                          # 📦 Бэкапы БД (1 файл)
-├── 📁 database/                         # ✅ Миграции и схема БД — 88 файлов
-├── 📁 db-export/                        # 📦 Экспорты данных
+├── 📁 app/                              # ✅ Frontend (React) — 146 файлов
+├── 📁 database/                         # ✅ Миграции и схема БД — 4 файла
 ├── 📁 docs/                             # 📝 Документация — 57 файлов
-├── 📁 export-for-edit/                  # 📦 CSV для редактирования
-├── 📁 exports/                          # 📦 Экспорты
-├── 📁 metrics/                          # 📦 Метрики
+├── 📁 exports/                          # 📦 Экспорты (3 файла)
+├── 📁 metrics/                          # 📦 Метрики (3 файла)
 ├── 📁 node_modules/                     # ✅ Зависимости (НЕ ТРОГАТЬ)
-├── 📁 playwright-report/                # 🧪 E2E отчёты
+├── 📁 playwright-report/                # 🧪 E2E отчёты (3 файла)
 ├── 📁 public/                           # ✅ Статические ресурсы — 10 файлов
-├── 📁 scripts/                          # 🔧 Скрипты — 63 файла
-├── 📁 server/                           # ✅ Backend (Express.js) — 99 файлов
-├── 📁 shared/                           # ✅ Общий код frontend — 118 файлов
-├── 📁 templates/                        # ✅ Шаблоны документов
-├── 📁 test-results/                     # 🧪 Результаты тестов
-├── 📁 tests/                            # ✅ Тесты — 115 файлов
-├── 📁 utils-scripts/                    # 🔧 Утилиты — 29 файлов
-└── [25 корневых файлов]
+├── 📁 scripts/                          # 🔧 Скрипты — 68 файлов
+├── 📁 server/                           # ✅ Backend (Express.js) — 105 файлов
+├── 📁 shared/                           # ✅ Общий код frontend — 116 файлов
+├── 📁 tests/                            # ✅ Тесты — 114 файлов
+└── [26 корневых файлов]
 ```
 
 ---
 
-## 📁 Корневые файлы (25 штук)
+## 📁 Корневые файлы (26 штук)
 
 ### Конфигурация — ✅ НУЖНЫ
 | Файл | Описание |
@@ -59,7 +54,6 @@ smetalab v6/
 | `.env.example` | Пример переменных |
 | `.env.production` | Prod конфигурация |
 | `.gitignore` | Игнор файлов git |
-| `.npmrc` | NPM конфигурация |
 | `.prettierrc` | Форматирование кода |
 | `.vercelignore` | Игнор для Vercel |
 | `.yarnrc.yml` | Yarn конфигурация |
@@ -69,29 +63,35 @@ smetalab v6/
 | `vitest.config.mjs` | Vitest тесты |
 | `playwright.config.js` | Playwright E2E |
 | `render.yaml` | Render.com деплой |
+| `vercel.json` | Vercel конфигурация |
 
 ### Зависимости — ✅ НУЖНЫ
 | Файл | Размер |
 |------|--------|
-| `package.json` | 4.8 KB |
-| `package-lock.json` | 299 KB |
-| `yarn.lock` | 360 KB |
+| `package.json` | 4.9 KB |
+| `package-lock.json` | 476 KB |
+| `yarn.lock` | 349 KB |
 
 ### Документация — 📝
 | Файл | Статус |
 |------|--------|
 | `README.md` | ✅ Главный README |
 | `PROJECT_FILE_MAP.md` | 🆕 Карта проекта |
-| `BUGLOG.md` | 📝 Лог багов |
-| `DEPLOYMENT_SUMMARY.md` | 📝 Итоги деплоя |
 | `TEST_REPORT.md` | 📝 Отчёт тестов |
-| `NEON_CLEANUP.md` | ⚠️ Устарел (Neon) |
 
 ### HTML
 | Файл | Статус |
 |------|--------|
 | `index.html` | ✅ Главная SPA страница |
 
+### Утилиты (временные)
+| Файл | Статус |
+|------|--------|
+| `check_db.js` | 🔧 Проверка БД |
+| `setup_index.js` | 🔧 Настройка индексов |
+| `setup_works_index.js` | 🔧 Индексы works |
+| `token_debug.json` | ⚠️ Отладка токенов |
+| `petrovich_for_import.csv` | 📦 Импорт материалов (14MB) |
 
 ---
 
@@ -105,24 +105,31 @@ smetalab v6/
 
 ---
 
-## 📁 server/ — Backend (99 файлов)
+## 📁 server/ — Backend (105 файлов)
 
 ```
 server/
-├── index.js                             # ✅ Главный сервер
+├── index.js                             # ✅ Главный сервер (10 KB)
 ├── README.md                            # 📝 Документация
+│
+├── 📁 cache/ (1 файл)                   # ✅ Кеширование
+│   └── referencesCache.js               # Кеш справочников
 │
 ├── 📁 config/ (7 файлов)                # ✅ Конфигурация
 │   ├── database.js                      # ✅ PostgreSQL
 │   ├── swagger.js                       # ✅ OpenAPI
-│   ├── swagger-additional-docs.js       # 🆕 Новая документация
 │   └── swagger-*.js                     # ✅ Дополнительные
 │
-├── 📁 controllers/ (28 файлов)          # ✅ Контроллеры API
-│   ├── authController.js                # Аутентификация
-│   ├── estimatesController.js           # Сметы
-│   ├── materialsController.js           # Материалы
-│   ├── projectsController.js            # Проекты
+├── 📁 controllers/ (36 файлов)          # ✅ Контроллеры API
+│   ├── authController.js                # Аутентификация (47 KB)
+│   ├── materialsController.js           # Материалы (61 KB)
+│   ├── projectsController.js            # Проекты (47 KB)
+│   ├── worksController.js               # Работы (35 KB)
+│   ├── estimatesController.js           # Сметы (30 KB)
+│   ├── usersController.js               # Пользователи (33 KB)
+│   ├── workCompletionActsController.js  # Акты (34 KB)
+│   ├── *BulkController.js               # 🆕 Bulk операции
+│   ├── *ImportExportController.js       # 🆕 Импорт/Экспорт
 │   └── ...                              # Все остальные
 │
 ├── 📁 routes/ (23 файла)                # ✅ Маршруты API
@@ -131,123 +138,129 @@ server/
 ├── 📁 middleware/ (6 файлов)            # ✅ Middleware
 │   ├── auth.js                          # JWT
 │   ├── checkPermission.js               # Права доступа
-│   └── ...
+│   ├── rateLimiter.js                   # Rate limiting
+│   └── errorHandler.js                  # Обработка ошибок
 │
 ├── 📁 services/ (8 файлов)              # ✅ Бизнес-логика
 │   ├── emailService.js                  # Resend
 │   ├── pineconeClient.js                # AI-поиск
+│   ├── semanticSearchService.js         # Семантический поиск
 │   └── ...
 │
-├── 📁 repositories/ (13 файлов)         # ✅ Слой данных
+├── 📁 repositories/ (14 файлов)         # ✅ Слой данных
 ├── 📁 utils/ (7 файлов)                 # ✅ Утилиты
-└── 📁 templates/ (3 файла)              # ✅ Email шаблоны
+└── 📁 templates/ (1 файл)               # ✅ Email шаблоны
 ```
 
 ---
 
-## 📁 app/ — Frontend React (151 файл)
+## 📁 app/ — Frontend React (146 файлов)
 
 ```
 app/
 ├── index.jsx                            # ✅ Точка входа
 ├── App.jsx                              # ✅ Главный компонент
+├── config.js                            # ✅ Конфигурация
 │
-├── 📁 admin/                            # ✅ Админ-панель
-├── 📁 counterparties/                   # ✅ Контрагенты
-├── 📁 dashboard/                        # ✅ Дашборд (15 файлов)
-├── 📁 estimates/                        # ✅ Сметы (35 файлов)
-├── 📁 estimate-templates/               # ✅ Шаблоны смет
-├── 📁 layout/                           # ✅ Макет (22 файла)
-├── 📁 pages/                            # ✅ Страницы (22 файла)
-├── 📁 projects/                         # ✅ Проекты (11 файлов)
-├── 📁 purchases/                        # ✅ Закупки
-├── 📁 references/                       # ✅ Справочники (10 файлов)
-├── 📁 routes/                           # ✅ Роутинг
-└── 📁 menu-items/                       # ✅ Меню
+├── 📁 admin/ (6 файлов)                 # ✅ Админ-панель
+├── 📁 counterparties/ (2 файла)         # ✅ Контрагенты
+├── 📁 dashboard/ (15 файлов)            # ✅ Дашборд
+├── 📁 estimates/ (36 файлов)            # ✅ Сметы (главный модуль)
+├── 📁 estimate-templates/ (2 файла)     # ✅ Шаблоны смет
+├── 📁 layout/ (22 файла)                # ✅ Макет
+├── 📁 menu-items/ (7 файлов)            # ✅ Меню навигации
+├── 📁 pages/ (22 файла)                 # ✅ Страницы (auth, errors)
+├── 📁 projects/ (11 файлов)             # ✅ Проекты
+├── 📁 purchases/ (1 файл)               # ✅ Закупки
+├── 📁 references/ (10 файлов)           # ✅ Справочники
+├── 📁 routes/ (6 файлов)                # ✅ React Router
+└── 📁 utilities/ (3 файла)              # ✅ Утилиты
 ```
 
 ---
 
-## 📁 database/ — База данных (88 файлов)
+## 📁 database/ — База данных (4 файла)
 
 ```
 database/
-├── README.md                            # 📝 Описание
-├── ER_DIAGRAM.md                        # 📝 ER диаграмма
-├── MIGRATIONS_ANALYSIS.md               # 📝 Анализ миграций
+├── 📁 migrations/ (3 файла)             # ✅ Миграции
+│   ├── 001_complete_schema.sql          # ✅ Единая схема (91 KB)
+│   ├── README.md                        # 📝 Документация
+│   └── REFACTORING_RESULTS.md           # 📝 Результаты рефакторинга
 │
-├── 📁 migrations/ (7 файлов)            # ✅ Актуальные миграции
-│   ├── 001_complete_schema.sql          # ✅ Baseline для новых БД
-│   ├── 062_create_schema_version.sql    # ✅ Версионирование
-│   ├── 063_drop_suppliers.sql           # ✅ Удаление suppliers
-│   ├── 064_cleanup_expired_tokens.sql   # ✅ Очистка токенов
-│   └── *.md                             # 📝 Документация
-│
-├── 📁 migrations_archive/ (70 файлов)   # 📦 Архив миграций
-│   └── 002-061                          # История (НЕ УДАЛЯТЬ)
-│
-├── 📁 seeds/ (3 файла)                  # ✅ Сиды
-│   ├── 001_create_system_tenant.sql     # ✅ Системный тенант
-│   ├── 002_seed_roles_permissions.sql   # ✅ Роли (59 разрешений)
-│   └── 003_create_test_superadmin.sql   # 🧪 Тестовый админ
-│
-└── 📁 scripts/ (2 файла)                # 🔧 Скрипты
+└── 📁 seeds/ (1 файл)                   # ✅ Начальные данные
+    └── 002_seed_roles_permissions.sql   # ✅ Роли и разрешения (17 KB)
 ```
+
+> **Примечание:** После рефакторинга все 70+ миграций объединены в одну 001_complete_schema.sql
 
 ---
 
-## 📁 scripts/ — Администрирование (63 файла)
+## 📁 scripts/ — Администрирование (68 файлов)
 
 ```
 scripts/
 ├── README.md                            # 📝 Документация
 │
 # ===== АКТУАЛЬНЫЕ =====
-├── runMigrations.js                     # ✅ Главный скрипт миграций
-├── generateBaseline.js                  # ✅ Генерация baseline
+├── runMigrations.js                     # ✅ Главный скрипт миграций (8 KB)
+├── generateBaseline.js                  # ✅ Генерация baseline (11 KB)
 ├── pinecone-sync-cron.mjs               # ✅ Синхронизация Pinecone
 ├── set-super-admin.mjs                  # ✅ Назначение супер-админа
 │
 # ===== УТИЛИТЫ =====
 ├── backup-neon-to-file.mjs              # 🔧 Бэкап БД
-├── check-db-schema.mjs                  # 🔧 Проверка схемы
 ├── list-users-roles.mjs                 # 🔧 Список пользователей
-├── verify-migration.mjs                 # 🔧 Проверка миграций
+├── import-to-render.mjs                 # 🔧 Импорт на Render (11 KB)
+├── migrate-to-render.mjs                # 🔧 Миграция на Render (10 KB)
 │
 # ===== DEPRECATED =====
-├── 📁 _deprecated/ (9 файлов)           # 📦 Устаревшие миграции
+├── 📁 _deprecated/ (9 файлов)           # 📦 Устаревшие скрипты
 │
-# ===== ТЕСТОВЫЕ =====
-└── test-*.mjs                           # 🧪 Тестовые скрипты
+# ===== ОСТАЛЬНЫЕ =====
+└── [50+ скриптов]                       # 🔧 Различные утилиты
 ```
 
 ---
 
-## 📁 tests/ — Тесты (115 файлов)
+## 📁 tests/ — Тесты (114 файлов)
 
 ```
 tests/
-├── README.md                            # 📝 Документация
+├── README.md                            # 📝 Документация (17 KB)
 ├── setup.js                             # ✅ Настройка
+├── TODO.md                              # 📝 Планы
 │
 ├── 📁 unit/ (32 файла)                  # ✅ Unit тесты
 ├── 📁 integration/ (16 файлов)          # ✅ Integration тесты
-├── 📁 e2e/ (35 файлов)                  # ✅ E2E тесты
+├── 📁 e2e/ (34 файла)                   # ✅ E2E тесты (Playwright)
 ├── 📁 security/ (7 файлов)              # ✅ Security тесты
+├── 📁 performance/ (1 файл)             # 🧪 Performance тесты
+├── 📁 production/ (2 файла)             # ✅ Production smoke tests
 ├── 📁 fixtures/                         # ✅ Тестовые данные
-└── 📁 shared/                           # ✅ Общие хелперы
+├── 📁 shared/ (4 файла)                 # ✅ Общие хелперы
+├── 📁 scripts/ (2 файла)                # 🔧 Скрипты для тестов
+├── 📁 docs/ (9 файлов)                  # 📝 Документация тестов
+└── 📁 results/ (1 файл)                 # 📦 Результаты
 ```
 
 ---
 
-## 📁 shared/ — Общий frontend код (118 файлов)
+## 📁 shared/ — Общий frontend код (116 файлов)
 
 ```
 shared/
-├── 📁 assets/ (11 файлов)               # ✅ Ресурсы
-├── 📁 lib/ (61 файл)                    # ✅ Библиотеки, хуки, сторы
-├── 📁 ui/ (45 файлов)                   # ✅ UI компоненты
-└── 📁 styles/                           # ✅ Стили, тема MUI
+├── 📁 assets/ (11 файлов)               # ✅ Ресурсы (иконки, изображения)
+├── 📁 lib/ (61 файл)                    # ✅ Библиотеки
+│   ├── api/                             # API клиенты
+│   ├── contexts/                        # React contexts
+│   ├── hooks/                           # Custom hooks
+│   ├── services/                        # Сервисы (auth, etc)
+│   └── store/                           # Zustand stores
+├── 📁 styles/ (1 файл)                  # ✅ Стили
+└── 📁 ui/ (43 файла)                    # ✅ UI компоненты
+    ├── components/                      # Переиспользуемые компоненты
+    └── themes/                          # Тема MUI
 ```
 
 ---
@@ -259,11 +272,15 @@ docs/
 ├── DEPLOY_GUIDE.md                      # ✅ Гайд деплоя
 ├── PERFORMANCE_ANALYSIS.md              # 📝 Анализ производительности
 ├── TYPOGRAPHY_SYSTEM.md                 # 📝 Типографика
+├── WORK_PRICE_EDITING.md                # 📝 Редактирование цен
+├── OPTIMIZATION_*.md                    # 📝 Оптимизации (10 файлов)
+├── NOTIFICATIONS_SYSTEM.md              # 📝 Уведомления
 │
 ├── 📁 archive/ (13 файлов)              # 📦 Старая документация
 ├── 📁 refactoring/ (11 файлов)          # 📝 Рефакторинг
 ├── 📁 technical/ (12 файлов)            # 📝 Технические доки
-└── 📁 operations/                       # 📝 Операции
+├── 📁 testing/ (1 файл)                 # 📝 Тестирование
+└── 📁 operations/ (1 файл)              # 📝 Операции
 ```
 
 ---
@@ -271,7 +288,7 @@ docs/
 ## 📁 Локальные папки (НЕ в git)
 
 | Папка | В .gitignore | Генерируется |
-|-------|--------------|--------------|
+|-------|--------------|--------------| 
 | `node_modules/` | ✅ | `yarn install` |
 | `dist/` | ✅ | `yarn build` |
 | `coverage/` | ✅ | `yarn test --coverage` |
@@ -284,33 +301,28 @@ docs/
 
 | Категория | Файлов | Описание |
 |-----------|--------|----------|
-| **Frontend (app/)** | 151 | React компоненты |
-| **Backend (server/)** | 99 | Express.js API |
-| **Shared** | 118 | Общий код |
-| **Tests** | 115 | Тесты всех видов |
-| **Database** | 88 | Миграции, сиды |
-| **Scripts** | 63 | Админ-скрипты |
+| **Frontend (app/)** | 146 | React компоненты |
+| **Backend (server/)** | 105 | Express.js API (36 контроллеров) |
+| **Shared** | 116 | Общий код |
+| **Tests** | 114 | Тесты всех видов |
+| **Database** | 4 | Миграции объединены |
+| **Scripts** | 68 | Админ-скрипты |
 | **Docs** | 57 | Документация |
-| **Config** | 25 | Корневые файлы |
-| **ИТОГО** | ~750 | Без node_modules |
+| **Config** | 26 | Корневые файлы |
+| **ИТОГО** | ~640 | Без node_modules |
 
 ---
 
-## 🧹 История очистки (2026-01-13)
+## 🔄 История изменений
 
-### Удалено:
-| Элемент | Размер |
-|---------|--------|
-| `_archived-scripts/` | 55 файлов |
-| `dist/` | ~15 MB |
-| `coverage/` | 7.7 MB |
-| `.ag_logs/` | 2.4 MB |
-| `.vercel/` | 633 B |
-| `backups/neon-backup-2025-12-18.sql` | 56 MB |
-| Временные файлы (.bak, .json) | ~1.5 MB |
-| **ИТОГО** | **~85.5 MB** |
+### 2026-01-15 (v1.0.1)
+- ✅ Исправлен `yarn.lock` для деплоя на Render
+- ✅ Миграции объединены в один файл `001_complete_schema.sql`
+- ✅ Удалена папка `utils-scripts/` (29 файлов → перенесены/удалены)
+- ✅ Удалена папка `migrations_archive/` (70 файлов)
+- ✅ Добавлен уникальный индекс `idx_materials_sku_scope_unique`
+- ✅ Bulk controllers для materials и works
 
-### Осталось после очистки:
-- 22 директории
-- 25 корневых файлов
-- ~750 файлов кода (без node_modules)
+### 2026-01-13
+- Большая очистка проекта (~85 MB удалено)
+- Создана эта карта файлов

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getCurrentUser, getCurrentTenant, getUserRoles, isAuthenticated } from 'services/authService';
+import { getCurrentUser, getCurrentTenant, getUserRoles, isAuthenticated, getMe } from 'services/authService';
 
 /**
  * Custom hook для доступа к данным аутентификации
@@ -26,7 +26,6 @@ export const useAuth = () => {
           // ✨ Если в данных пользователя нет флага isSuperAdmin, пробуем обновить профиль
           if (userData && userData.isSuperAdmin === undefined) {
             try {
-              const { getMe } = await import('services/authService');
               const freshData = await getMe();
               if (freshData && freshData.user) {
                 setUser(freshData.user);
