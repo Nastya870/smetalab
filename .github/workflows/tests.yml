@@ -109,3 +109,15 @@ jobs:
         RATE_LIMIT_MAX: 1000
         OPENAI_API_KEY: sk-test-placeholder
         PINECONE_API_KEY: test-placeholder
+
+  deploy:
+    name: Deploy to Production
+    needs: test
+    if: github.ref == 'refs/heads/master' && success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Deploy
+        if: env.RENDER_DEPLOY_HOOK != ''
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
