@@ -270,7 +270,7 @@ npm run prettier
 | Компонент | Платформа | URL |
 |-----------|-----------|-----|
 | **Frontend** | Vercel | https://smeta-lab.ru |
-| **Backend** | Render Web Service | https://smetalab-backend.onrender.com |
+| **Backend** | Render Web Service | https://api.smeta-lab.ru (alias to smetalab-backend.onrender.com) |
 | **Database** | Render PostgreSQL | Frankfurt region |
 
 ### Переменные окружения
@@ -303,8 +303,8 @@ VITE_APP_NAME=Сметное приложение
 
 ### Автоматический деплой
 
-- **Vercel**: Автодеплой при push в `main` (frontend)
-- **Render**: Автодеплой при push в `main` (backend)
+- **Vercel**: автодеплой frontend при push в `main/master`
+- **Render**: **Strict CI/CD Gate** — деплой запускается *только* после успешного прохождения всех тестов в GitHub Actions (via Deploy Hook).
 - **База данных**: Миграции запускаются автоматически при деплое backend
 
 ---
@@ -499,5 +499,5 @@ VITE_APP_NAME=Сметное приложение
 
 ---
 
-**Версия**: v6.1.0  
-**Последнее обновление**: 14 Января 2026
+**Версия**: v6.1.1  
+**Последнее обновление**: 16 Января 2026
