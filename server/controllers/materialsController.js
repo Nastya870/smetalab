@@ -6,6 +6,7 @@ import {
 } from '../cache/referencesCache.js';
 import { catchAsync, BadRequestError, NotFoundError, ConflictError } from '../utils/errors.js';
 import { semanticSearch } from '../services/semanticSearchService.js';
+import categoriesRepository from '../repositories/categoriesRepository.js';
 
 /**
  * Нормализует поисковый запрос для унифицированного поиска
@@ -360,6 +361,7 @@ export const getAllMaterials = catchAsync(async (req, res) => {
 
   const query = shouldSkipCount
     ? `
+        SELECT
           id, sku, sku_number, name, unit, price, weight,
           supplier, category, category_id, category_full_path, image, product_url, 
           show_image, is_global,
@@ -370,6 +372,7 @@ export const getAllMaterials = catchAsync(async (req, res) => {
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1};
       `
     : `
+        SELECT
           id, sku, sku_number, name, unit, price, weight,
           supplier, category, category_id, category_full_path, image, product_url, 
           show_image, is_global,
@@ -1668,4 +1671,3 @@ export default {
   bulkImportMaterials, // ✅ Добавили
   searchMaterialsSemantic // 🧠 Semantic search
 };
-import categoriesRepository from '../repositories/categoriesRepository.js';

@@ -11,9 +11,14 @@ const options = {
     openapi: '3.0.0',
     info: {
       title: 'Smeta Pro API',
-      version: '1.14.0',
+      version: '1.15.0',
       description: `
         Professional Estimate Management System API - полная документация всех эндпоинтов.
+        
+        **Новые функции v1.15:**
+        - 🌳 4-уровневая иерархия категорий в справочниках (Материалы, Работы)
+        - 📊 Поддержка категорий в закупках и импорте/экспорте
+        - 🏷️ Автоматический путь категории в API (category_full_path)
         
         **Новые функции v1.13:**
         - 📊 Виджет параметров объекта в смете
@@ -220,6 +225,18 @@ const options = {
             category: {
               type: 'string',
               nullable: true,
+              description: 'Название категории (устаревшее)',
+            },
+            category_id: {
+              type: 'string',
+              format: 'uuid',
+              nullable: true,
+              description: 'ID иерархической категории',
+            },
+            category_full_path: {
+              type: 'string',
+              nullable: true,
+              description: 'Полный путь категории (Уровень 1 / Уровень 2 / ...)',
             },
             price: {
               type: 'number',
@@ -265,6 +282,13 @@ const options = {
             category: {
               type: 'string',
               nullable: true,
+              description: 'Название категории (устаревшее)',
+            },
+            category_id: {
+              type: 'string',
+              format: 'uuid',
+              nullable: true,
+              description: 'ID иерархической категории',
             },
             basePrice: {
               type: 'number',

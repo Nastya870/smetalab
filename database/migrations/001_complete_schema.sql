@@ -1432,7 +1432,9 @@ CREATE TABLE IF NOT EXISTS materials (
   created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
   updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
   is_global boolean DEFAULT false,
-  sku_number integer
+  sku_number integer,
+  category_id uuid,
+  category_full_path text
 );
 
 -- object_openings
@@ -1553,7 +1555,8 @@ CREATE TABLE IF NOT EXISTS purchases (
   updated_at timestamp with time zone DEFAULT now(),
   material_image text,
   purchased_quantity numeric DEFAULT 0,
-  is_extra_charge boolean DEFAULT false
+  is_extra_charge boolean DEFAULT false,
+  category_id uuid
 );
 
 -- role_permissions
@@ -1827,7 +1830,7 @@ CREATE TABLE IF NOT EXISTS works (
 -- PRIMARY KEYS & UNIQUE CONSTRAINTS
 -- =====================================
 
-ALTER TABLE categories ADD CONSTRAINT categories_parent_id_name_tenant_id_is_global_key UNIQUE (parent_id, name, tenant_id, is_global);
+ALTER TABLE categories ADD CONSTRAINT categories_parent_id_name_tenant_id_is_global_type_key UNIQUE (parent_id, name, tenant_id, is_global, type);
 ALTER TABLE categories ADD CONSTRAINT categories_pkey PRIMARY KEY (id);
 ALTER TABLE counterparties ADD CONSTRAINT counterparties_pkey PRIMARY KEY (id);
 ALTER TABLE estimate_items ADD CONSTRAINT estimate_items_pkey PRIMARY KEY (id);
@@ -1933,6 +1936,8 @@ CREATE INDEX IF NOT EXISTS idx_materials_sku_trgm ON public.materials USING gin 
 CREATE INDEX IF NOT EXISTS idx_materials_supplier_trgm ON public.materials USING gin (lower((supplier)::text) gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_materials_tenant_id ON public.materials USING btree (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_materials_tenant_only ON public.materials USING btree (tenant_id, sku_number) WHERE (is_global = false);
+CREATE INDEX IF NOT EXISTS idx_materials_category_id ON public.materials (category_id);
+CREATE INDEX IF NOT EXISTS idx_materials_category_full_path ON public.materials USING gin (category_full_path gin_trgm_ops);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_materials_sku_scope_unique ON public.materials USING btree (sku, is_global, COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'));
 CREATE INDEX IF NOT EXISTS idx_object_openings_tenant_parameter ON public.object_openings USING btree (tenant_id, parameter_id);
 CREATE INDEX IF NOT EXISTS idx_object_parameters_tenant_estimate ON public.object_parameters USING btree (tenant_id, estimate_id);
@@ -2370,7 +2375,7 @@ SELECT id,
 -- =====================================
 
 INSERT INTO schema_version (id, description)
-VALUES (69, 'Baseline schema (includes all migrations up to 069)')
+VALUES (71, 'Baseline schema (includes all migrations up to 071)')
 ON CONFLICT (id) DO NOTHING;
 
 
