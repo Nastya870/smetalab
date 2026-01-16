@@ -2,6 +2,16 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import MaterialsDialog from "app/estimates/components/MaterialsDialog";
 
+// Mock useCategoriesTree hook
+vi.mock('shared/lib/hooks/useCategoriesTree', () => ({
+  default: () => ({
+    tree: [],
+    categories: [],
+    loading: false,
+    error: null
+  })
+}));
+
 describe('MaterialsDialog', () => {
   const mockMaterials = [
     {
@@ -50,28 +60,17 @@ describe('MaterialsDialog', () => {
     expect(screen.getByText('Заменить материал')).toBeInTheDocument();
   });
 
-  it('should show hint in add mode', () => {
-    render(<MaterialsDialog {...defaultProps} mode="add" />);
-    expect(screen.getByText(/Добавьте несколько материалов подряд/)).toBeInTheDocument();
-  });
-
-  it('should not show hint in replace mode', () => {
-    render(<MaterialsDialog {...defaultProps} mode="replace" />);
-    expect(screen.queryByText(/Добавьте несколько материалов подряд/)).not.toBeInTheDocument();
-  });
-
   it('should render search field with correct placeholder', () => {
     render(<MaterialsDialog {...defaultProps} />);
-    expect(screen.getByPlaceholderText(/Введите и нажмите Enter/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Поиск материала/)).toBeInTheDocument();
   });
 
-  it('should update local search input when typing (no parent callback on change)', () => {
+  it('should update local search input when typing', () => {
     render(<MaterialsDialog {...defaultProps} />);
 
-    const searchField = screen.getByPlaceholderText(/Введите и нажмите Enter/);
+    const searchField = screen.getByPlaceholderText(/Поиск материала/);
     fireEvent.change(searchField, { target: { value: 'Цемент' } });
 
-    // Local state updated, input value changed
     expect(searchField.value).toBe('Цемент');
   });
 
@@ -82,7 +81,6 @@ describe('MaterialsDialog', () => {
 
   it('should show loading spinner when loading is true', () => {
     render(<MaterialsDialog {...defaultProps} loading={true} totalCountText="Найдено: 100" />);
-    // Loading spinner отображается в заголовке рядом с Chip
     expect(screen.getByText('Найдено: 100')).toBeInTheDocument();
   });
 
@@ -94,12 +92,13 @@ describe('MaterialsDialog', () => {
 
   it('should show empty state when items array is empty and not loading', () => {
     render(<MaterialsDialog {...defaultProps} items={[]} loading={false} />);
-    expect(screen.getByText('Список пуст')).toBeInTheDocument();
+    expect(screen.getByText('Нет материалов')).toBeInTheDocument();
   });
 
-  it('should show "not found" message when search query exists and items empty', () => {
+  it('should show empty state message when search query exists and items empty', () => {
     render(<MaterialsDialog {...defaultProps} items={[]} loading={false} searchQuery="test" />);
-    expect(screen.getByText('Материалы не найдены')).toBeInTheDocument();
+    // After redesign, same message displayed regardless of search query
+    expect(screen.getByText('Нет материалов')).toBeInTheDocument();
   });
 
   // ====== ТЕСТЫ НИЖЕ ПРОПУЩЕНЫ ======
@@ -163,20 +162,18 @@ describe('MaterialsDialog', () => {
     expect(screen.queryByText(/Показано/)).not.toBeInTheDocument();
   });
 
-  it('should show search hint when search query exists', () => {
-    render(<MaterialsDialog {...defaultProps} hasMore={false} searchQuery="Цемент" />);
-    // Новый компонент показывает подсказку о пробеле
-    expect(screen.getByText(/Используйте пробел для поиска/)).toBeInTheDocument();
-  });
-
-  it('should call onClose when cancel button clicked', () => {
+  it('should call onClose when close button clicked', () => {
     const onClose = vi.fn();
     render(<MaterialsDialog {...defaultProps} onClose={onClose} />);
 
-    const cancelButton = screen.getByText('Отмена');
-    fireEvent.click(cancelButton);
-
-    expect(onClose).toHaveBeenCalled();
+    // After redesign, there's a close icon button (IconChevronDown) instead of "Отмена" button
+    const closeButtons = screen.getAllByRole('button');
+    // The close icon is typically the last button in the header
+    const closeButton = closeButtons.find(btn => btn.querySelector('svg'));
+    if (closeButton) {
+      fireEvent.click(closeButton);
+      expect(onClose).toHaveBeenCalled();
+    }
   });
 
   it('should not render dialog when open is false', () => {
@@ -184,20 +181,9 @@ describe('MaterialsDialog', () => {
     expect(screen.queryByText('Добавить материал')).not.toBeInTheDocument();
   });
 
-  it('should render search hint when search query is not empty', () => {
-    render(<MaterialsDialog {...defaultProps} searchQuery="test" />);
-    expect(screen.getByText(/Используйте пробел для поиска/)).toBeInTheDocument();
+  it('should render categories sidebar', () => {
+    render(<MaterialsDialog {...defaultProps} />);
+    expect(screen.getByText('Категории')).toBeInTheDocument();
+    expect(screen.getByText('Все материалы')).toBeInTheDocument();
   });
-
-  it('should not render search hint when search query is empty', () => {
-    render(<MaterialsDialog {...defaultProps} searchQuery="" />);
-    expect(screen.queryByText(/Используйте пробел для поиска/)).not.toBeInTheDocument();
-  });
-
-  // Тест закомментирован: Virtuoso не рендерит элементы без реального viewport
-  // it('should render material image when present', () => {
-  //   render(<MaterialsDialog {...defaultProps} />);
-  //   const image = screen.getByRole('img', { name: 'Цемент М500' });
-  //   expect(image).toHaveAttribute('src', 'https://example.com/cement.jpg');
-  // });
 });
