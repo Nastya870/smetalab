@@ -84,6 +84,30 @@ const PurchasesTable = ({
                     </Stack>
                 </TableCell>
 
+                {/* Категория */}
+                <TableCell>
+                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                        {material.categoryFullPath ? (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
+                                {material.categoryFullPath.split(' / ').map((part, idx, arr) => (
+                                    <React.Fragment key={idx}>
+                                        <Typography sx={{ fontSize: '0.7rem', color: idx === arr.length - 1 ? colors.primary : '#9CA3AF', fontWeight: idx === arr.length - 1 ? 500 : 400 }}>
+                                            {part}
+                                        </Typography>
+                                        {idx < arr.length - 1 && (
+                                            <Typography sx={{ fontSize: '0.7rem', color: '#D1D5DB' }}>›</Typography>
+                                        )}
+                                    </React.Fragment>
+                                ))}
+                            </Box>
+                        ) : (
+                            <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary }}>
+                                {material.category || '—'}
+                            </Typography>
+                        )}
+                    </Box>
+                </TableCell>
+
                 {/* Фото */}
                 <TableCell align="center">
                     {material.image ? (
@@ -238,6 +262,7 @@ const PurchasesTable = ({
                         <TableRow>
                             <TableCell rowSpan={2} sx={styles.header}>Артикул</TableCell>
                             <TableCell rowSpan={2} sx={styles.header}>Наименование материала</TableCell>
+                            <TableCell rowSpan={2} sx={styles.header}>Категория</TableCell>
                             <TableCell rowSpan={2} align="center" sx={styles.header}>Фото</TableCell>
                             <TableCell rowSpan={2} align="center" sx={styles.header}>Ед.</TableCell>
                             <TableCell rowSpan={2} align="right" sx={styles.header}>Нужно</TableCell>
@@ -267,7 +292,7 @@ const PurchasesTable = ({
                         {extraMaterials.length > 0 && (
                             <>
                                 <TableRow>
-                                    <TableCell colSpan={13} sx={{ bgcolor: colors.warningLight, borderTop: `2px solid ${colors.warning}`, py: 1.5 }}>
+                                    <TableCell colSpan={14} sx={{ bgcolor: colors.warningLight, borderTop: `2px solid ${colors.warning}`, py: 1.5 }}>
                                         <Stack direction="row" alignItems="center" spacing={1.5}>
                                             <Chip label="О/Ч" size="small" sx={{ bgcolor: colors.warning, color: '#fff', fontWeight: 600 }} />
                                             <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#92400E' }}>

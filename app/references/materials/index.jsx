@@ -136,12 +136,34 @@ const MaterialTableRow = React.memo(({ material, formatPrice, showImageColumn, h
           </Typography>
         </Stack>
       </TableCell>
+      <TableCell sx={{ minWidth: '180px', py: 1, borderBottom: '1px solid #F3F4F6' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+          {material.category_full_path ? (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
+              {material.category_full_path.split(' / ').map((part, idx, arr) => (
+                <React.Fragment key={idx}>
+                  <Typography sx={{ fontSize: '0.75rem', color: idx === arr.length - 1 ? '#374151' : '#9CA3AF', fontWeight: idx === arr.length - 1 ? 500 : 400 }}>
+                    {part}
+                  </Typography>
+                  {idx < arr.length - 1 && (
+                    <Typography sx={{ fontSize: '0.75rem', color: '#D1D5DB' }}>›</Typography>
+                  )}
+                </React.Fragment>
+              ))}
+            </Box>
+          ) : (
+            <Typography sx={{ fontSize: '0.75rem', color: '#374151' }}>
+              {material.category || '—'}
+            </Typography>
+          )}
+        </Box>
+      </TableCell>
       <TableCell align="center" sx={{ width: '80px', py: 1, borderBottom: '1px solid #F3F4F6' }}>
         <Typography sx={{ fontSize: '0.8125rem', color: '#374151' }}>{material.unit || '—'}</Typography>
       </TableCell>
       <TableCell align="right" sx={{ width: '120px', py: 1, borderBottom: '1px solid #F3F4F6' }}>
         <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}>
-          {formatPrice(material.base_price || material.basePrice)}
+          {formatPrice(material.base_price || material.basePrice || material.price)}
         </Typography>
       </TableCell>
       <TableCell align="center" sx={{ width: '90px', py: 1, pr: 2, borderBottom: '1px solid #F3F4F6' }}>
@@ -330,7 +352,8 @@ const MaterialsReferencePage = () => {
           price: Number(price) || 0,
           showImage: showImage === true || showImage === 'true' || showImage === 1,
           isGlobal: mat.is_global !== undefined ? mat.is_global : mat.isGlobal,
-          productUrl: mat.product_url || mat.productUrl || ''
+          productUrl: mat.product_url || mat.productUrl || '',
+          category_full_path: mat.category_full_path || mat.categoryFullPath || null
         };
       };
 

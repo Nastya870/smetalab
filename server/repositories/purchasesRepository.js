@@ -60,6 +60,8 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
         m.sku as material_sku,
         m.name as material_name,
         m.category,
+        m.category_id,
+        m.category_full_path,
         m.unit,
         m.image as material_image,
         m.price as catalog_price,
@@ -82,6 +84,8 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
          m.sku, 
          m.name, 
          m.category, 
+         m.category_id,
+         m.category_full_path,
          m.unit,
          m.image,
          m.price
@@ -123,7 +127,8 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
         insertValues.push(
           `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, ` +
           `$${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, ` +
-          `$${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10}, $${paramIndex + 11}, $${paramIndex + 12})`
+          `$${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10}, $${paramIndex + 11}, ` +
+          `$${paramIndex + 12}, $${paramIndex + 13}, $${paramIndex + 14})`
         );
 
         insertParams.push(
@@ -134,6 +139,8 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
           material.material_sku,
           material.material_name,
           material.category,
+          material.category_id,
+          material.category_full_path,
           material.unit,
           material.material_image,
           quantity,
@@ -142,7 +149,7 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
           purchasedQty // Восстанавливаем purchased_quantity
         );
 
-        paramIndex += 13;
+        paramIndex += 15;
       }
 
       if (insertValues.length > 0) {
@@ -150,7 +157,7 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
         await client.query(
           `INSERT INTO purchases (
             tenant_id, project_id, estimate_id, material_id,
-            material_sku, material_name, category, unit, material_image,
+            material_sku, material_name, category, category_id, category_full_path, unit, material_image,
             quantity, unit_price, total_price, purchased_quantity
            ) VALUES ${insertValues.join(', ')}`,
           insertParams
@@ -171,6 +178,8 @@ export const generatePurchases = async (tenantId, projectId, estimateId, userId)
       sku: m.material_sku,
       name: m.material_name,
       category: m.category,
+      categoryId: m.category_id,
+      categoryFullPath: m.category_full_path,
       unit: m.unit,
       image: m.material_image,
       quantity: parseFloat(m.quantity) || 0,
@@ -228,6 +237,8 @@ export const getPurchasesByEstimate = async (tenantId, estimateId, userId) => {
         p.material_sku as sku,
         p.material_name as name,
         p.category,
+        p.category_id,
+        p.category_full_path,
         p.unit,
         p.material_image as image,
         p.quantity,
@@ -248,7 +259,7 @@ export const getPurchasesByEstimate = async (tenantId, estimateId, userId) => {
          AND gp.tenant_id = p.tenant_id
        WHERE p.tenant_id = $1 AND p.estimate_id = $2
        GROUP BY p.id, p.material_id, p.material_sku, p.material_name, 
-                p.category, p.unit, p.material_image, p.quantity, 
+                p.category, p.category_id, p.category_full_path, p.unit, p.material_image, p.quantity, 
                 p.unit_price, p.total_price, p.purchased_quantity, p.is_extra_charge
        ORDER BY 
          COALESCE(p.is_extra_charge, false) ASC,
@@ -264,6 +275,8 @@ export const getPurchasesByEstimate = async (tenantId, estimateId, userId) => {
       sku: row.sku,
       name: row.name,
       category: row.category,
+      categoryId: row.category_id,
+      categoryFullPath: row.category_full_path,
       unit: row.unit,
       image: row.image,
       quantity: parseFloat(row.quantity) || 0,
@@ -325,7 +338,7 @@ export const createExtraCharge = async (tenantId, projectId, estimateId, materia
 
     // Получаем данные материала (может быть глобальным или тенантным)
     const materialResult = await client.query(
-      `SELECT id, sku, name, category, unit, image 
+      `SELECT id, sku, name, category, category_id, category_full_path, unit, image 
        FROM materials 
        WHERE id = $1 
          AND (tenant_id = $2 OR is_global = TRUE)`,
@@ -348,13 +361,15 @@ export const createExtraCharge = async (tenantId, projectId, estimateId, materia
         material_sku,
         material_name,
         category,
+        category_id,
+        category_full_path,
         unit,
         material_image,
         quantity,
         unit_price,
         total_price,
         is_extra_charge
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, true)
       RETURNING *`,
       [
         tenantId,
@@ -364,6 +379,8 @@ export const createExtraCharge = async (tenantId, projectId, estimateId, materia
         material.sku,
         material.name,
         material.category,
+        material.category_id,
+        material.category_full_path,
         material.unit,
         material.image,
         quantity,
@@ -382,6 +399,8 @@ export const createExtraCharge = async (tenantId, projectId, estimateId, materia
       sku: material.sku,
       name: material.name,
       category: material.category,
+      categoryId: material.category_id,
+      categoryFullPath: material.category_full_path,
       unit: material.unit,
       image: material.image,
       isExtraCharge: true,

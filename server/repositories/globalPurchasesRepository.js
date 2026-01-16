@@ -16,7 +16,7 @@ export const createGlobalPurchase = async (tenantId, userId, purchaseData) => {
   } = purchaseData;
 
   const client = await db.getClient();
-  
+
   try {
     await client.query('BEGIN');
 
@@ -28,7 +28,7 @@ export const createGlobalPurchase = async (tenantId, userId, purchaseData) => {
 
     // Получаем данные материала для денормализации
     const materialResult = await client.query(
-      `SELECT m.id, m.sku, m.name, m.unit, m.category, m.image,
+      `SELECT m.id, m.sku, m.name, m.unit, m.category, m.category_id, m.category_full_path, m.image,
               p.name as project_name,
               e.name as estimate_name
        FROM materials m, projects p, estimates e
@@ -47,11 +47,11 @@ export const createGlobalPurchase = async (tenantId, userId, purchaseData) => {
     const result = await client.query(
       `INSERT INTO global_purchases (
         tenant_id, project_id, estimate_id, material_id,
-        material_sku, material_name, material_image, unit, category,
+        material_sku, material_name, material_image, unit, category, category_id, category_full_path,
         quantity, purchase_price, total_price,
         source_purchase_id, purchase_date,
         project_name, estimate_name, created_by, is_extra_charge
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
        RETURNING *`,
       [
         tenantId,
@@ -63,6 +63,8 @@ export const createGlobalPurchase = async (tenantId, userId, purchaseData) => {
         material.image,
         material.unit,
         material.category,
+        material.category_id,
+        material.category_full_path,
         quantity,
         purchasePrice,
         totalPrice,
@@ -103,14 +105,14 @@ export const createGlobalPurchase = async (tenantId, userId, purchaseData) => {
  */
 export const findAllGlobalPurchases = async (tenantId, userId, filters = {}) => {
   const { projectId, estimateId, materialId, dateFrom, dateTo } = filters;
-  
+
   console.log('🗄️ [REPOSITORY] findAllGlobalPurchases');
   console.log('   tenantId:', tenantId);
   console.log('   userId:', userId);
   console.log('   filters:', filters);
-  
+
   const client = await db.getClient();
-  
+
   try {
     // Устанавливаем контекст RLS
     await client.query(`
@@ -127,7 +129,7 @@ export const findAllGlobalPurchases = async (tenantId, userId, filters = {}) => 
       LEFT JOIN materials m ON gp.material_id = m.id
       WHERE gp.tenant_id = $1
     `;
-    
+
     const params = [tenantId];
     let paramIndex = 2;
 
@@ -172,7 +174,7 @@ export const findAllGlobalPurchases = async (tenantId, userId, filters = {}) => 
     console.log('   📦 Params:', params);
 
     const result = await client.query(query, params);
-    
+
     console.log(`   ✅ Найдено записей: ${result.rows.length}`);
 
     return result.rows;
@@ -187,7 +189,7 @@ export const findAllGlobalPurchases = async (tenantId, userId, filters = {}) => 
  */
 export const findGlobalPurchaseById = async (tenantId, userId, purchaseId) => {
   const client = await db.getClient();
-  
+
   try {
     // Устанавливаем контекст RLS
     await client.query(`
@@ -216,9 +218,9 @@ export const findGlobalPurchaseById = async (tenantId, userId, purchaseId) => {
  */
 export const updateGlobalPurchase = async (tenantId, userId, purchaseId, updateData) => {
   const { quantity, purchasePrice, purchaseDate } = updateData;
-  
+
   const client = await db.getClient();
-  
+
   try {
     await client.query('BEGIN');
 
@@ -286,7 +288,7 @@ export const updateGlobalPurchase = async (tenantId, userId, purchaseId, updateD
  */
 export const deleteGlobalPurchase = async (tenantId, userId, purchaseId) => {
   const client = await db.getClient();
-  
+
   try {
     await client.query('BEGIN');
 
@@ -343,7 +345,7 @@ export const deleteGlobalPurchase = async (tenantId, userId, purchaseId) => {
  */
 export const getCalendarDates = async (tenantId, userId, year, month) => {
   const client = await db.getClient();
-  
+
   try {
     // Устанавливаем контекст RLS
     await client.query(`
@@ -381,9 +383,9 @@ export const getCalendarDates = async (tenantId, userId, year, month) => {
  */
 export const getStatistics = async (tenantId, userId, filters = {}) => {
   const { projectId, dateFrom, dateTo } = filters;
-  
+
   const client = await db.getClient();
-  
+
   try {
     // Устанавливаем контекст RLS
     await client.query(`
@@ -401,7 +403,7 @@ export const getStatistics = async (tenantId, userId, filters = {}) => {
       FROM global_purchases
       WHERE tenant_id = $1
     `;
-    
+
     const params = [tenantId];
     let paramIndex = 2;
 
@@ -424,7 +426,7 @@ export const getStatistics = async (tenantId, userId, filters = {}) => {
     }
 
     const result = await client.query(query, params);
-    
+
     return {
       totalPurchases: parseInt(result.rows[0].total_purchases) || 0,
       uniqueMaterials: parseInt(result.rows[0].unique_materials) || 0,

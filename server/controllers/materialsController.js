@@ -360,9 +360,8 @@ export const getAllMaterials = catchAsync(async (req, res) => {
 
   const query = shouldSkipCount
     ? `
-        SELECT 
           id, sku, sku_number, name, unit, price, weight,
-          supplier, category, image, product_url, 
+          supplier, category, category_id, category_full_path, image, product_url, 
           show_image, is_global,
           tenant_id, created_at, updated_at
         FROM materials
@@ -371,9 +370,8 @@ export const getAllMaterials = catchAsync(async (req, res) => {
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1};
       `
     : `
-        SELECT 
           id, sku, sku_number, name, unit, price, weight,
-          supplier, category, image, product_url, 
+          supplier, category, category_id, category_full_path, image, product_url, 
           show_image, is_global,
           tenant_id, created_at, updated_at,
           COUNT(*) OVER() as total_count
@@ -1427,39 +1425,94 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
     });
     const uniqueList = Array.from(uniqueMaterialsMap.values());
 
-    const skus = uniqueList.map(m => String(m.sku || '').trim());
-    const skuNumbers = uniqueList.map(m => {
+    const skus = [];
+    const skuNumbers = [];
+    const names = [];
+    const images = [];
+    const units = [];
+    const prices = [];
+    const suppliers = [];
+    const weights = [];
+    const categories = []; // Старое поле (нижний уровень)
+    const categoryIds = []; // NEW
+    const categoryFullPaths = []; // NEW
+    const productUrls = [];
+    const showImages = [];
+
+    // Кэш для ускорения резолвинга категорий в рамках одного импорта
+    const categoryCache = new Map();
+
+    for (const m of uniqueList) {
+      skus.push(String(m.sku || '').trim());
+
       const match = String(m.sku || '').match(/\d+/);
-      return match ? parseInt(match[0], 10) : null;
-    });
-    const names = uniqueList.map(m => String(m.name || '').trim());
-    const images = uniqueList.map(m => m.image || '');
-    const units = uniqueList.map(m => m.unit || 'шт');
-    const prices = uniqueList.map(m => parseFloat(m.price) || 0);
-    const suppliers = uniqueList.map(m => m.supplier || '');
-    const weights = uniqueList.map(m => parseFloat(m.weight) || 0);
-    const categories = uniqueList.map(m => m.category || 'Прочее');
-    const productUrls = uniqueList.map(m => m.productUrl || '');
-    const showImages = uniqueList.map(m => m.showImage !== false);
+      skuNumbers.push(match ? parseInt(match[0], 10) : null);
+
+      names.push(String(m.name || '').trim());
+      images.push(m.image || '');
+      units.push(m.unit || 'шт');
+      prices.push(parseFloat(m.price) || 0);
+      suppliers.push(m.supplier || '');
+      weights.push(parseFloat(m.weight) || 0);
+      productUrls.push(m.productUrl || '');
+      showImages.push(m.showImage !== false);
+
+      // Резолвинг иерархии категорий
+      const levels = [
+        m.category_lv1,
+        m.category_lv2,
+        m.category_lv3,
+        m.category_lv4
+      ].filter(Boolean);
+
+      // Если ни одного уровня нет, используем старое поле или "Прочее"
+      if (levels.length === 0 && m.category) {
+        levels.push(m.category);
+      }
+      if (levels.length === 0) {
+        levels.push('Прочее');
+      }
+
+      const cacheKey = levels.join(' > ');
+      let resolved;
+
+      if (categoryCache.has(cacheKey)) {
+        resolved = categoryCache.get(cacheKey);
+      } else {
+        resolved = await categoriesRepository.resolveHierarchy(levels, {
+          tenantId: tenant_id,
+          isGlobal: isGlobal === true,
+          type: 'material'
+        });
+        categoryCache.set(cacheKey, resolved);
+      }
+
+      categories.push(levels[levels.length - 1]); // Старое поле = имя последнего уровня
+      categoryIds.push(resolved.id);
+      categoryFullPaths.push(resolved.fullPath);
+    }
+
 
     // Подготовка параметров для UNNEST
     const params = [
       skus, skuNumbers, names, images, units, prices,
-      suppliers, weights, categories, productUrls, showImages,
+      suppliers, weights, categories, categoryIds, categoryFullPaths,
+      productUrls, showImages,
       isGlobal === true, tenant_id, created_by
     ];
 
     let query = `
       INSERT INTO materials (
         sku, sku_number, name, image, unit, price, supplier, weight, 
-        category, product_url, show_image, is_global, tenant_id, created_by
+        category, category_id, category_full_path, product_url, show_image, is_global, tenant_id, created_by
       )
       SELECT * FROM UNNEST(
         $1::text[], $2::int[], $3::text[], $4::text[], $5::text[], $6::numeric[], 
-        $7::text[], $8::numeric[], $9::text[], $10::text[], $11::boolean[],
-        ARRAY_FILL($12::boolean, ARRAY[CARDINALITY($1::text[])]),
-        ARRAY_FILL($13::uuid, ARRAY[CARDINALITY($1::text[])]),
-        ARRAY_FILL($14::uuid, ARRAY[CARDINALITY($1::text[])])
+        $7::text[], $8::numeric[], $9::text[], $10::uuid[], $11::text[], 
+        $12::text[], $13::boolean[],
+        ARRAY_FILL($14::boolean, ARRAY[CARDINALITY($1::text[])]),
+        ARRAY_FILL($15::uuid, ARRAY[CARDINALITY($1::text[])]),
+        ARRAY_FILL($16::uuid, ARRAY[CARDINALITY($1::text[])])
       )
     `;
 
@@ -1476,6 +1529,8 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
           supplier = EXCLUDED.supplier,
           weight = EXCLUDED.weight,
           category = EXCLUDED.category,
+          category_id = EXCLUDED.category_id,
+          category_full_path = EXCLUDED.category_full_path,
           product_url = EXCLUDED.product_url,
           show_image = EXCLUDED.show_image,
           updated_at = NOW()
@@ -1550,6 +1605,8 @@ export const searchMaterialsSemantic = catchAsync(async (req, res) => {
         sku,
         name,
         category,
+        category_id,
+        category_full_path,
         unit,
         price,
         supplier,
@@ -1587,6 +1644,8 @@ export const searchMaterialsSemantic = catchAsync(async (req, res) => {
       sku: item.sku,
       name: item.name,
       category: item.category,
+      category_id: item.category_id,
+      category_full_path: item.category_full_path,
       unit: item.unit,
       price: item.price,
       supplier: item.supplier,
@@ -1609,3 +1668,4 @@ export default {
   bulkImportMaterials, // ✅ Добавили
   searchMaterialsSemantic // 🧠 Semantic search
 };
+import categoriesRepository from '../repositories/categoriesRepository.js';

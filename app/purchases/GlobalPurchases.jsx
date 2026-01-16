@@ -776,6 +776,28 @@ const GlobalPurchases = () => {
                                       Арт: {purchase.material_sku}
                                     </Typography>
                                   )}
+                                  {/* Иерархические категории */}
+                                  <Box sx={{ mt: 0.5 }}>
+
+                                    {purchase.category_full_path ? (
+                                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.25, alignItems: 'center' }}>
+                                        {purchase.category_full_path.split(' / ').map((part, idx, arr) => (
+                                          <React.Fragment key={idx}>
+                                            <Typography sx={{ fontSize: '0.65rem', color: idx === arr.length - 1 ? '#4F46E5' : '#9CA3AF', fontWeight: idx === arr.length - 1 ? 500 : 400 }}>
+                                              {part}
+                                            </Typography>
+                                            {idx < arr.length - 1 && (
+                                              <Typography sx={{ fontSize: '0.65rem', color: '#D1D5DB' }}>›</Typography>
+                                            )}
+                                          </React.Fragment>
+                                        ))}
+                                      </Box>
+                                    ) : (
+                                      <Typography sx={{ fontSize: '0.65rem', color: '#9CA3AF' }}>
+                                        {purchase.category || '—'}
+                                      </Typography>
+                                    )}
+                                  </Box>
                                 </Box>
                               </Stack>
                             </TableCell>

@@ -48,9 +48,9 @@ export const create = async (materialData, tenantId) => {
     const query = `
     INSERT INTO materials (
       sku, sku_number, name, image, unit, price, supplier, weight, 
-      category, product_url, show_image, is_global, tenant_id
+      category, category_id, category_full_path, product_url, show_image, is_global, tenant_id
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     RETURNING *
   `;
 
@@ -63,12 +63,15 @@ export const create = async (materialData, tenantId) => {
         price || 0,
         supplier || '',
         weight || 0,
-        category || '',
+        category || '', // Оставляем старое поле для обратной совместимости (нижний уровень)
+        materialData.categoryId || null,
+        materialData.categoryFullPath || null,
         productUrl || '',
         showImage !== false,
         isGlobal === true,
         isGlobal ? null : tenantId
     ];
+
 
     const result = await db.query(query, values);
     return result.rows[0];

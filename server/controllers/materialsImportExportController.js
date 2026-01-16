@@ -2,6 +2,7 @@ import csvParser from 'csv-parser';
 import { Readable } from 'stream';
 import { StatusCodes } from 'http-status-codes';
 import * as materialsRepository from '../repositories/materialsRepository.js';
+import categoriesRepository from '../repositories/categoriesRepository.js';
 import { catchAsync, BadRequestError } from '../utils/errors.js';
 import { invalidateMaterialsCache } from '../cache/referencesCache.js';
 
@@ -33,9 +34,11 @@ export const exportToCSV = catchAsync(async (req, res) => {
 
     console.log(`[MATERIALS EXPORT] Found ${materials.length} materials to export`);
 
-    const csvHeader = `Артикул${CSV_DELIMITER}Наименование${CSV_DELIMITER}Единица измерения${CSV_DELIMITER}Цена${CSV_DELIMITER}Поставщик${CSV_DELIMITER}Вес (кг)${CSV_DELIMITER}Категория${CSV_DELIMITER}URL товара${CSV_DELIMITER}URL изображения\n`;
+    const csvHeader = `Артикул${CSV_DELIMITER}Наименование${CSV_DELIMITER}Единица измерения${CSV_DELIMITER}Цена${CSV_DELIMITER}Поставщик${CSV_DELIMITER}Вес (кг)${CSV_DELIMITER}Категория LV1${CSV_DELIMITER}Категория LV2${CSV_DELIMITER}Категория LV3${CSV_DELIMITER}Категория LV4${CSV_DELIMITER}URL товара${CSV_DELIMITER}URL изображения\n`;
 
     const csvRows = materials.map(m => {
+        // Мы можем попробовать восстановить уровни из full_path, если они там есть через разделитель
+        const pathParts = (m.category_full_path || m.category || '').split(' / ');
         return [
             escapeCsvField(m.sku),
             escapeCsvField(m.name),
@@ -43,7 +46,10 @@ export const exportToCSV = catchAsync(async (req, res) => {
             m.price || 0,
             escapeCsvField(m.supplier || ''),
             m.weight || 0,
-            escapeCsvField(m.category || ''),
+            escapeCsvField(pathParts[0] || ''),
+            escapeCsvField(pathParts[1] || ''),
+            escapeCsvField(pathParts[2] || ''),
+            escapeCsvField(pathParts[3] || ''),
             escapeCsvField(m.product_url || ''),
             escapeCsvField(m.image || '')
         ].join(CSV_DELIMITER);
@@ -63,10 +69,11 @@ export const exportToCSV = catchAsync(async (req, res) => {
  * Экспорт шаблона
  */
 export const exportTemplate = catchAsync(async (req, res) => {
-    const csvHeader = `Артикул${CSV_DELIMITER}Наименование${CSV_DELIMITER}Единица измерения${CSV_DELIMITER}Цена${CSV_DELIMITER}Поставщик${CSV_DELIMITER}Вес (кг)${CSV_DELIMITER}Категория${CSV_DELIMITER}URL товара${CSV_DELIMITER}URL изображения\n`;
+    const csvHeader = `Артикул${CSV_DELIMITER}Наименование${CSV_DELIMITER}Единица измерения${CSV_DELIMITER}Цена${CSV_DELIMITER}Поставщик${CSV_DELIMITER}Вес (кг)${CSV_DELIMITER}Категория LV1${CSV_DELIMITER}Категория LV2${CSV_DELIMITER}Категория LV3${CSV_DELIMITER}Категория LV4${CSV_DELIMITER}URL товара${CSV_DELIMITER}URL изображения\n`;
+
     const examples = [
-        `MAT-001${CSV_DELIMITER}Цемент М500${CSV_DELIMITER}мешок${CSV_DELIMITER}450${CSV_DELIMITER}СтройМир${CSV_DELIMITER}50${CSV_DELIMITER}Сухие смеси${CSV_DELIMITER}${CSV_DELIMITER}`,
-        `MAT-002${CSV_DELIMITER}Кирпич красный${CSV_DELIMITER}шт${CSV_DELIMITER}15${CSV_DELIMITER}КирпичЗавод${CSV_DELIMITER}3.5${CSV_DELIMITER}Стеновые материалы${CSV_DELIMITER}${CSV_DELIMITER}`
+        `MAT-001${CSV_DELIMITER}Цемент М500${CSV_DELIMITER}мешок${CSV_DELIMITER}450${CSV_DELIMITER}СтройМир${CSV_DELIMITER}50${CSV_DELIMITER}Сухие смеси${CSV_DELIMITER}Цемент${CSV_DELIMITER}${CSV_DELIMITER}${CSV_DELIMITER}${CSV_DELIMITER}`,
+        `MAT-002${CSV_DELIMITER}Кирпич красный${CSV_DELIMITER}шт${CSV_DELIMITER}15${CSV_DELIMITER}КирпичЗавод${CSV_DELIMITER}3.5${CSV_DELIMITER}Стеновые материалы${CSV_DELIMITER}Кирпич${CSV_DELIMITER}${CSV_DELIMITER}${CSV_DELIMITER}${CSV_DELIMITER}`
     ].join('\n');
 
     const csv = csvHeader + examples;
@@ -141,7 +148,13 @@ export const importFromCSV = catchAsync(async (req, res) => {
                     price: parseNumber(row['Цена'] || row['price'] || row['Price']),
                     supplier: (row['Поставщик'] || row['Бренд'] || row['supplier'] || row['Supplier'])?.trim() || '',
                     weight: parseNumber(row['Вес (кг)'] || row['Вес'] || row['weight'] || row['Weight']),
-                    category: (row['Категория'] || row['Подкатегория'] || row['category'] || row['Category'])?.trim() || '',
+                    // Иерархические категории
+                    category_lv1: (row['category_lv1'] || row['Категория LV1'] || row['Категория'])?.trim(),
+                    category_lv2: (row['category_lv2'] || row['Категория LV2'])?.trim(),
+                    category_lv3: (row['category_lv3'] || row['Категория LV3'])?.trim(),
+                    category_lv4: (row['category_lv4'] || row['Категория LV4'])?.trim(),
+                    // Сохраняем и обычную категорию для совместимости
+                    category: (row['Категория'] || row['category'])?.trim() || '',
                     productUrl: (row['URL товара'] || row['Ссылка на товар'] || row['Ссылка'] || row['product_url'])?.trim() || '',
                     image: (row['URL изображения'] || row['Ссылка на изображение'] || row['Изображение'] || row['image'])?.trim() || '',
                     isGlobal: isGlobalBool
@@ -180,19 +193,48 @@ export const importFromCSV = catchAsync(async (req, res) => {
 
     // Обрабатываем пачками по 50 для баланса скорости и стабильности
     const BATCH_SIZE = 50;
-    for (let i = 0; i < results.length; i += BATCH_SIZE) {
-        const batch = results.slice(i, i + BATCH_SIZE);
-        await Promise.all(batch.map(async (data) => {
-            try {
-                const created = await materialsRepository.create(data, tenantId);
-                imported.push(created);
-            } catch (e) {
-                importErrors.push({ sku: data.sku, error: e.message });
-            }
-        }));
+    const categoryCache = new Map();
 
-        if (i % 500 === 0 && i > 0) {
-            console.log(`[IMPORT] Progress: ${i}/${results.length}...`);
+    for (const data of results) {
+        try {
+            // Резолвим иерархию категорий
+            const levels = [
+                data.category_lv1,
+                data.category_lv2,
+                data.category_lv3,
+                data.category_lv4
+            ].filter(Boolean);
+
+            if (levels.length === 0 && data.category) {
+                levels.push(data.category);
+            }
+            if (levels.length === 0) {
+                levels.push('Прочее');
+            }
+
+            const cacheKey = levels.join(' > ');
+            let resolved;
+
+            if (categoryCache.has(cacheKey)) {
+                resolved = categoryCache.get(cacheKey);
+            } else {
+                resolved = await categoriesRepository.resolveHierarchy(levels, {
+                    tenantId: tenantId,
+                    isGlobal: isGlobalBool,
+                    type: 'material'
+                });
+                categoryCache.set(cacheKey, resolved);
+            }
+
+            // Обогащаем данные для сохранения
+            data.category = levels[levels.length - 1]; // Совместимость
+            data.categoryId = resolved.id;
+            data.categoryFullPath = resolved.fullPath;
+
+            const created = await materialsRepository.create(data, tenantId);
+            imported.push(created);
+        } catch (e) {
+            importErrors.push({ sku: data.sku, error: e.message });
         }
     }
 
