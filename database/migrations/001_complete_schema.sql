@@ -1411,7 +1411,9 @@ CREATE TABLE IF NOT EXISTS global_purchases (
   created_by uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  is_extra_charge boolean DEFAULT false
+  is_extra_charge boolean DEFAULT false,
+  category_id uuid,
+  category_full_path text
 );
 
 -- materials
@@ -1556,7 +1558,8 @@ CREATE TABLE IF NOT EXISTS purchases (
   material_image text,
   purchased_quantity numeric DEFAULT 0,
   is_extra_charge boolean DEFAULT false,
-  category_id uuid
+  category_id uuid,
+  category_full_path text
 );
 
 -- role_permissions
@@ -1876,6 +1879,8 @@ CREATE INDEX IF NOT EXISTS idx_act_signatories_role ON public.act_signatories US
 CREATE INDEX IF NOT EXISTS idx_act_signatories_tenant_id ON public.act_signatories USING btree (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_categories_tenant ON public.categories USING btree (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_categories_type ON public.categories USING btree (type);
+CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON public.categories USING btree (parent_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_name_parent_scope_unique ON public.categories (name, parent_id, COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'));
 CREATE INDEX IF NOT EXISTS idx_contracts_contract_date ON public.contracts USING btree (contract_date DESC);
 CREATE INDEX IF NOT EXISTS idx_contracts_contract_number ON public.contracts USING btree (contract_number);
 CREATE INDEX IF NOT EXISTS idx_contracts_contractor_id ON public.contracts USING btree (contractor_id);
@@ -1925,6 +1930,8 @@ CREATE INDEX IF NOT EXISTS idx_global_purchases_estimate ON public.global_purcha
 CREATE INDEX IF NOT EXISTS idx_global_purchases_material ON public.global_purchases USING btree (material_id);
 CREATE INDEX IF NOT EXISTS idx_global_purchases_project ON public.global_purchases USING btree (project_id);
 CREATE INDEX IF NOT EXISTS idx_global_purchases_tenant_date ON public.global_purchases USING btree (tenant_id, purchase_date DESC);
+CREATE INDEX IF NOT EXISTS idx_global_purchases_category_id ON public.global_purchases USING btree (category_id);
+CREATE INDEX IF NOT EXISTS idx_purchases_category_id ON public.purchases USING btree (category_id);
 CREATE INDEX IF NOT EXISTS idx_materials_category_gin ON public.materials USING gin (category gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_materials_category_global ON public.materials USING btree (category, is_global, sku_number);
 CREATE INDEX IF NOT EXISTS idx_materials_global_only ON public.materials USING btree (sku_number) WHERE (is_global = true);
