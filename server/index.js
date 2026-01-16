@@ -46,6 +46,9 @@ import errorHandler from './middleware/errorHandler.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Доверяем прокси Cloudflare/Render для корректного определения IP пользователей
+app.set('trust proxy', 1);
+
 // CORS Configuration
 const allowedOrigins = [
   'http://localhost:5173',

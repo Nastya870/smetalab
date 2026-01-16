@@ -198,7 +198,8 @@ const MaterialsReferencePage = () => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [totalRecords, setTotalRecords] = useState(0);
-  const PAGE_SIZE = 50;
+  const INITIAL_PAGE_SIZE = 30;
+  const PAGE_SIZE = 30; // Размер порции при скролле
   const [initialLoading, setInitialLoading] = useState(true); // Первая загрузка
 
   // 🔧 Ref для контейнера со скроллом
@@ -305,7 +306,7 @@ const MaterialsReferencePage = () => {
 
       const params = {
         page: pageNumber,
-        pageSize: search ? 1000 : PAGE_SIZE, // При поиске загружаем больше результатов
+        pageSize: search ? 1000 : (pageNumber === 1 ? INITIAL_PAGE_SIZE : PAGE_SIZE),
         skipCount: pageNumber > 1 ? 'true' : 'false' // Пропускаем COUNT(*) на последующих страницах для ускорения
       };
       if (globalFilter === 'global') params.isGlobal = 'true';
@@ -393,9 +394,8 @@ const MaterialsReferencePage = () => {
         }
       },
       {
-        // Убрали root - теперь Observer следит относительно viewport, а не контейнера
-        // Это предотвращает прыжки скролла при изменении высоты
-        rootMargin: '200px', // Начинаем загрузку за 200px до конца
+        root: scrollContainerRef.current, // Привязываем к контейнеру со скроллом
+        rootMargin: '0px 0px 2500px 0px', // Упреждение: 2500px снизу
         threshold: 0.01
       }
     );

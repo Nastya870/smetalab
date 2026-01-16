@@ -7,13 +7,22 @@ console.log('📊 Анализ дубликатов в CSV файле...\n');
 const csvContent = fs.readFileSync(csvFile, 'utf-8');
 const lines = csvContent.split('\n');
 const headerLine = lines[0].replace(/\uFEFF/, ''); // Remove BOM
-const headers = headerLine.split(';').map(h => h.trim());
+
+// Автоматически определяем разделитель
+let separator = ';';
+if (headerLine.includes('\t')) separator = '\t';
+else if (headerLine.includes(';')) separator = ';';
+else if (headerLine.includes(',')) separator = ',';
+
+console.log(`📡 Используемый разделитель: [${separator === '\t' ? 'TAB' : separator}]`);
+
+const headers = headerLine.split(separator).map(h => h.trim());
 
 console.log('📋 Обнаружены столбцы:', headers.join(', '));
 console.log('');
 
 const rows = lines.slice(1).filter(line => line.trim()).map((line, index) => {
-    const values = line.split(';');
+    const values = line.split(separator);
     const row = {};
     headers.forEach((header, i) => {
         row[header] = values[i] ? values[i].trim() : '';
