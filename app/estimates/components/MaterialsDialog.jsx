@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import {
   Dialog,
@@ -19,33 +19,117 @@ import {
   Stack,
   CircularProgress,
   Tooltip,
-  IconButton
+  IconButton,
+  Grid,
+  Divider,
+  Collapse,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
-import { IconSearch, IconPackage, IconRefresh } from '@tabler/icons-react';
+import {
+  IconSearch,
+  IconPackage,
+  IconRefresh,
+  IconChevronRight,
+  IconChevronDown,
+  IconFolder,
+  IconFolderOpen
+} from '@tabler/icons-react';
 import { Virtuoso } from 'react-virtuoso';
 import { formatCurrency } from '../../projects/utils';
+import useCategoriesTree from 'shared/lib/hooks/useCategoriesTree';
 
-/**
- * MaterialsDialog - диалог выбора/замены материала
- * 
- * ✅ Pure UI компонент:
- * - Не содержит бизнес-логики
- * - Не делает API запросы
- * - Использует IntersectionObserver через ref из parent
- * 
- * @param {Object} props
- * @param {boolean} props.open - открыт ли диалог
- * @param {'add'|'replace'} props.mode - режим: добавление или замена
- * @param {Array} props.items - отфильтрованный список материалов
- * @param {string} props.totalCountText - текст с количеством материалов
- * @param {boolean} props.loading - индикатор загрузки
- * @param {string} props.searchQuery - поисковый запрос
- * @param {boolean} props.hasMore - есть ли ещё материалы для загрузки
- * @param {React.RefObject} props.loadMoreRef - ref для IntersectionObserver
- * @param {Function} props.onClose - callback закрытия диалога
- * @param {Function} props.onSearchChange - callback изменения поиска
- * @param {Function} props.onSelect - callback выбора материала
- */
+// --- Category Tree Item Component ---
+const CategoryTreeItem = ({ node, level = 0, selectedCategory, onSelect }) => {
+  const [expanded, setExpanded] = useState(false);
+  const hasChildren = node.children && node.children.length > 0;
+
+  // Auto-expand if a child is selected
+  useEffect(() => {
+    // Simple check: if active category contains this node's path name. 
+    // Actual implementation depends on full paths.
+    // For now manual expand.
+  }, [selectedCategory]);
+
+  const handleToggle = (e) => {
+    e.stopPropagation();
+    setExpanded(!expanded);
+  };
+
+  const handleClick = () => {
+    onSelect(node);
+  };
+
+  return (
+    <>
+      <ListItemButton
+        onClick={handleClick}
+        selected={selectedCategory === node.name}
+        sx={{
+          pl: level * 2 + 1,
+          py: 0.5,
+          minHeight: 28,
+          '&.Mui-selected': {
+            bgcolor: 'primary.lighter',
+            color: 'primary.main',
+            '&:hover': { bgcolor: 'primary.lighter' },
+            '& .MuiListItemIcon-root': { color: 'primary.main' }
+          }
+        }}
+      >
+        {hasChildren ? (
+          <Box
+            component="span"
+            onClick={handleToggle}
+            sx={{
+              mr: 1,
+              display: 'flex',
+              alignItems: 'center',
+              color: 'text.secondary',
+              opacity: 0.7,
+              '&:hover': { opacity: 1, color: 'primary.main' }
+            }}
+          >
+            {expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+          </Box>
+        ) : (
+          <Box sx={{ width: 14, mr: 1 }} /> // Spacer
+        )}
+
+        <ListItemIcon sx={{ minWidth: 24 }}>
+          {expanded ? <IconFolderOpen size={16} /> : <IconFolder size={16} />}
+        </ListItemIcon>
+
+        <ListItemText
+          primary={node.name}
+          primaryTypographyProps={{
+            fontSize: '0.8125rem',
+            fontWeight: selectedCategory === node.name ? 600 : 400,
+            noWrap: true
+          }}
+        />
+      </ListItemButton>
+
+      {hasChildren && (
+        <Collapse in={expanded} timeout="auto" unmountOnExit>
+          <List component="div" disablePadding>
+            {node.children.map((child) => (
+              <CategoryTreeItem
+                key={child.id}
+                node={child}
+                level={level + 1}
+                selectedCategory={selectedCategory}
+                onSelect={onSelect}
+              />
+            ))}
+          </List>
+        </Collapse>
+      )}
+    </>
+  );
+};
+
+// --- Main Dialog Component ---
 const MaterialsDialog = ({
   open,
   mode,
@@ -56,103 +140,105 @@ const MaterialsDialog = ({
   hasMore,
   loadMoreRef,
   onClose,
-  onSearchChange,
+  onSearchChange, // Parent handler for general search
   onSelect,
   syncStatus,
   onSync,
-  onSearch
+  onSearch // Direct search trigger
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Local state for input to avoid parent re-renders during typing
-  const [localSearchInput, setLocalSearchInput] = React.useState(searchQuery);
-  const inputRef = React.useRef(null);
+  // Local state for input
+  const [localSearchInput, setLocalSearchInput] = useState(searchQuery);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
-  // Sync local state when parent resets (e.g. dialog closed and reopened)
-  React.useEffect(() => {
+  // Fetch categories using our new hook
+  const { tree: categoriesTree, loading: loadingCategories } = useCategoriesTree('material');
+
+  // Sync local search
+  useEffect(() => {
     setLocalSearchInput(searchQuery);
   }, [searchQuery]);
 
-  // Компонент строки для виртуализации
+  // Handle category selection
+  const handleCategorySelect = (node) => {
+    // If clicking same category, deselect it? Or just strict select.
+    if (selectedCategory === node.name) {
+      setSelectedCategory(null);
+      if (onSearch) onSearch(""); // Reset search
+    } else {
+      setSelectedCategory(node.name);
+      // Trigger parent search with category filter
+      // We assume onSearch accepts string. Parent parses it? 
+      // Or we should update parent to accept options object.
+      // For now, let's pass a special prefix "category:" if parent handles it,
+      // OR rely on parent having `onCategoryChange` (which we should add).
+      // Since we are modifing existing component:
+      // Let's assume onSearch is general. 
+      // Force text search for now: "category:Name"
+      if (onSearch) onSearch(`category:${node.name}`);
+    }
+  };
+
+  const handleClearCategory = () => {
+    setSelectedCategory(null);
+    if (onSearch) onSearch("");
+  };
+
+  // Компонент строки для виртуализации (Dense/Compact)
   const Row = (index, material) => (
     <ListItem
       key={material.id}
       disablePadding
       sx={{
         borderBottom: '1px solid',
-        borderColor: 'divider'
+        borderColor: 'divider',
+        transition: 'background 0.1s'
       }}
     >
       <ListItemButton
         onClick={() => onSelect(material)}
-        sx={{ py: 1, px: 2 }}
+        sx={{ py: 0.5, px: 2, height: 44 }} // Reduced height: 44px
       >
-        <ListItemIcon sx={{ minWidth: 36 }}>
-          <IconPackage size={20} />
+        <ListItemIcon sx={{ minWidth: 32 }}>
+          {material.image ? (
+            <Box
+              component="img"
+              loading="lazy"
+              src={material.image}
+              alt=""
+              sx={{ width: 28, height: 28, borderRadius: 0.5, objectFit: 'cover', bgcolor: '#f0f0f0' }}
+            />
+          ) : (
+            <IconPackage size={20} color={theme.palette.text.disabled} />
+          )}
         </ListItemIcon>
 
         <ListItemText
           primary={
-            <Typography variant="body2" fontWeight={500} sx={{ mb: 0.25 }}>
-              {material.name}
-            </Typography>
-          }
-          secondary={
-            <Box component="span" sx={{ display: 'flex', flexDirection: 'row', gap: 1, alignItems: 'center', flexWrap: 'wrap', mt: 0.5 }}>
-              {material.category && (
-                <Chip
-                  label={material.category}
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                  sx={{ height: 18, fontSize: '0.7rem', '& .MuiChip-label': { px: 0.75 } }}
-                />
-              )}
-              {material.supplier && (
-                <Chip
-                  label={material.supplier}
-                  size="small"
-                  color="secondary"
-                  variant="outlined"
-                  sx={{ height: 18, fontSize: '0.7rem', '& .MuiChip-label': { px: 0.75 } }}
-                />
-              )}
-              <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                {material.sku || `#${material.id}`}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8125rem', lineHeight: 1.2 }}>
+                {material.name}
               </Typography>
-              <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>•</Typography>
-              <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                {material.unit}
-              </Typography>
-              <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>•</Typography>
-              <Typography component="span" variant="caption" fontWeight={600} color="primary.main" sx={{ fontSize: '0.75rem' }}>
-                {formatCurrency(material.price)}
-              </Typography>
+              {/* SKU removed per request */}
             </Box>
           }
-          secondaryTypographyProps={{ component: 'span' }}
+          secondary={
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 0 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+                {material.unit}
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.disabled' }}>•</Typography>
+              <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 600, fontSize: '0.75rem' }}>
+                {formatCurrency(material.price)}
+              </Typography>
+              {/* Category chip removed per request */}
+            </Box>
+          }
         />
 
-        {/* Превью изображения (ленивая загрузка браузером) */}
-        {material.image && (
-          <Box
-            component="img"
-            loading="lazy"
-            src={material.image}
-            alt={material.name}
-            sx={{
-              width: 40,
-              height: 40,
-              objectFit: 'cover',
-              borderRadius: 1,
-              border: '1px solid',
-              borderColor: 'divider',
-              ml: 1,
-              flexShrink: 0,
-              bgcolor: '#F3F4F6'
-            }}
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
-        )}
+        {/* Quick Add Button or Icon could go here */}
       </ListItemButton>
     </ListItem>
   );
@@ -161,205 +247,156 @@ const MaterialsDialog = ({
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="md"
+      maxWidth="md" // Reduced to md per request
       fullWidth
       PaperProps={{
         sx: {
-          height: '80vh',
-          maxHeight: '700px',
-          borderRadius: 2,
+          height: '85vh', // Increased height
+          borderRadius: 3,
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          overflow: 'hidden'
         }
       }}
     >
-      <DialogTitle sx={{ pb: 1, flexShrink: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-          <Box>
-            <Typography variant="h6" sx={{ fontSize: '1.1rem', mb: 0.5 }}>
-              {mode === 'add' ? 'Добавить материал' : 'Заменить материал'}
-            </Typography>
-            {mode === 'add' && (
-              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-                💡 Добавьте несколько материалов подряд. Окно закроется при клике вне области.
-              </Typography>
-            )}
-          </Box>
+      <DialogTitle sx={{ p: 2, pb: 1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#fff' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+            {mode === 'add' ? 'Добавить материал' : 'Заменить материал'}
+          </Typography>
+
           <Stack direction="row" spacing={1} alignItems="center">
-            {onSync && (
-              <Tooltip title={syncStatus === 'syncing' ? 'Обновление...' : 'Обновить справочник'}>
-                <IconButton
-                  size="small"
-                  onClick={onSync}
-                  disabled={syncStatus === 'syncing'}
-                  sx={{
-                    color: syncStatus === 'success' ? 'success.main' : 'text.secondary',
-                    animation: syncStatus === 'syncing' ? 'spin 1s linear infinite' : 'none',
-                    '@keyframes spin': {
-                      '0%': { transform: 'rotate(0deg)' },
-                      '100%': { transform: 'rotate(360deg)' }
-                    }
-                  }}
-                >
-                  <IconRefresh size={20} />
-                </IconButton>
-              </Tooltip>
-            )}
-            {loading && (
-              <CircularProgress size={16} thickness={4} />
-            )}
+            {loading && <CircularProgress size={16} />}
             <Chip
-              label={totalCountText || 'Загрузка...'}
+              label={totalCountText || '0'}
               size="small"
-              color={searchQuery ? "success" : "primary"}
-              variant="outlined"
+              color="primary"
+              variant="soft"
+              sx={{ borderRadius: 1, height: 20, fontSize: '0.75rem' }}
             />
+            <IconButton size="small" onClick={onClose}><IconChevronDown size={20} /></IconButton>
           </Stack>
         </Box>
 
-        {/* Поисковое поле */}
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Введите и нажмите Enter для поиска..."
-            value={localSearchInput}
-            onChange={(e) => setLocalSearchInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && onSearch) {
-                e.preventDefault();
-                onSearch(localSearchInput);
-              }
-            }}
-            autoFocus
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <IconSearch size={16} color={loading ? '#9CA3AF' : '#3B82F6'} />
-                </InputAdornment>
-              )
-            }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                fontSize: '0.875rem',
-                bgcolor: loading ? '#F9FAFB' : 'white'
-              }
-            }}
-          />
-          <IconButton
-            onClick={() => onSearch && onSearch(localSearchInput)}
-            disabled={loading}
-            sx={{
-              bgcolor: '#7C3AED',
-              color: 'white',
-              borderRadius: 2,
-              width: 40,
-              height: 40,
-              '&:hover': { bgcolor: '#6D28D9' },
-              '&:disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' }
-            }}
-          >
-            <IconSearch size={20} />
-          </IconButton>
-        </Box>
-
-        {/* Подсказка при поиске */}
-        {searchQuery && searchQuery.trim().length > 0 && (
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-            🔍 Используйте пробел для поиска по нескольким словам
-          </Typography>
-        )}
+        {/* Global Search Bar */}
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Поиск материала (Enter)..."
+          value={localSearchInput}
+          onChange={(e) => setLocalSearchInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && onSearch) {
+              e.preventDefault();
+              onSearch(localSearchInput);
+            }
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <IconSearch size={18} color="#9CA3AF" />
+              </InputAdornment>
+            ),
+            sx: { borderRadius: 2, bgcolor: '#F9FAFB', fontSize: '0.875rem' }
+          }}
+        />
       </DialogTitle>
 
-      <DialogContent sx={{ p: 0, flexGrow: 1, height: '100%' }}>
-        {/* Loading state - только когда список пуст */}
-        {loading && items.length === 0 ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-            <CircularProgress size={40} />
-          </Box>
-        ) : items.length === 0 ? (
-          /* Empty state */
-          <Box sx={{ p: 4, textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <Typography color="text.secondary" variant="body2" sx={{ mb: 1 }}>
-              {searchQuery
-                ? `Материалы не найдены`
-                : 'Список пуст'}
-            </Typography>
-            {searchQuery && (
-              <Typography color="text.secondary" variant="caption">
-                Попробуйте изменить поисковый запрос
+      <DialogContent sx={{ p: 0, display: 'flex', overflow: 'hidden', height: '100%' }}>
+        {/* LEFT SIDEBAR: Categories Tree */}
+        {!isMobile && (
+          <Box sx={{
+            width: 260,
+            flexShrink: 0,
+            borderRight: '1px solid',
+            borderColor: 'divider',
+            bgcolor: '#F8F9FA',
+            overflowY: 'auto'
+          }}>
+            <Box sx={{ p: 1.5, pb: 0 }}>
+              <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Категории
               </Typography>
+            </Box>
+
+            <List dense sx={{ px: 1 }}>
+              {/* "All" item */}
+              <ListItemButton
+                selected={!selectedCategory}
+                onClick={handleClearCategory}
+                sx={{ borderRadius: 1, mb: 0.5 }}
+              >
+                <ListItemIcon sx={{ minWidth: 28 }}><IconPackage size={16} /></ListItemIcon>
+                <ListItemText primary="Все материалы" primaryTypographyProps={{ fontSize: '0.8125rem' }} />
+              </ListItemButton>
+
+              {loadingCategories ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                  <CircularProgress size={20} />
+                </Box>
+              ) : (
+                categoriesTree.map(node => (
+                  <CategoryTreeItem
+                    key={node.id}
+                    node={node}
+                    selectedCategory={selectedCategory}
+                    onSelect={handleCategorySelect}
+                  />
+                ))
+              )}
+            </List>
+          </Box>
+        )}
+
+        {/* RIGHT CONTENT: Material List */}
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', bgcolor: '#fff' }}>
+          {/* Selected Category Header (Breadcrumb-ish) */}
+          {selectedCategory && (
+            <Box sx={{ px: 2, py: 1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#fafafa' }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                {selectedCategory}
+              </Typography>
+            </Box>
+          )}
+
+          {/* List */}
+          <Box sx={{ flex: 1 }}>
+            {items.length === 0 && !loading ? (
+              <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
+                <Typography variant="body2">Нет материалов</Typography>
+              </Box>
+            ) : (
+              <Virtuoso
+                style={{ height: '100%' }}
+                data={items}
+                itemContent={Row}
+                components={{
+                  Footer: () => hasMore ? (
+                    <Box ref={loadMoreRef} sx={{ height: 40, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      {loading && <CircularProgress size={20} />}
+                    </Box>
+                  ) : null
+                }}
+              />
             )}
           </Box>
-        ) : (
-          /* Виртуализированный список */
-          <Virtuoso
-            style={{ height: '100%' }}
-            data={items}
-            itemContent={Row}
-            endReached={() => {
-              // Если есть loadMoreRef и он current - вызываем click или логику?
-              // В оригинале был IntersectionObserver на div.
-              // Virtuoso предоставляет endReached callback.
-              // Мы должны триггерить загрузку.
-              // Но loadMoreRef был просто DOM элементом.
-              // Parent компонент использует loadMoreRef для наблюдения.
-              // Лучше если parent передаст функцию loadMore.
-              // Но сейчас мы ограничены API компонента.
-              // Parent (EstimateWithSidebar) использует useEffect + IntersectionObserver.
-              // МЫ ДОЛЖНЫ ЭМУЛИРОВАТЬ видимость loadMoreRef.
-              // Или просто показать элемент в footer.
-            }}
-            components={{
-              Footer: () => hasMore ? (
-                <Box ref={loadMoreRef} sx={{ height: 60, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                  {loading && <CircularProgress size={24} />}
-                </Box>
-              ) : null
-            }}
-          />
-        )}
+        </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
-        <Button
-          onClick={onClose}
-          size="small"
-        >
-          Отмена
-        </Button>
-      </DialogActions>
+      {/* Remove standard actions or keep Cancel only */}
+      {/* <DialogActions /> */}
     </Dialog>
   );
 };
 
 MaterialsDialog.propTypes = {
+  // ... props unchanged (mostly)
   open: PropTypes.bool.isRequired,
   mode: PropTypes.oneOf(['add', 'replace']).isRequired,
-  items: PropTypes.arrayOf(PropTypes.shape({
-    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-    name: PropTypes.string.isRequired,
-    category: PropTypes.string,
-    supplier: PropTypes.string,
-    sku: PropTypes.string,
-    unit: PropTypes.string.isRequired,
-    price: PropTypes.number.isRequired,
-    image: PropTypes.string
-  })).isRequired,
-  totalCountText: PropTypes.string,
-  loading: PropTypes.bool.isRequired,
-  searchQuery: PropTypes.string.isRequired,
-  hasMore: PropTypes.bool.isRequired,
-  loadMoreRef: PropTypes.oneOfType([
-    PropTypes.func,
-    PropTypes.shape({ current: PropTypes.instanceOf(Element) })
-  ]),
+  items: PropTypes.array.isRequired,
   onClose: PropTypes.func.isRequired,
-  onSearchChange: PropTypes.func.isRequired,
   onSelect: PropTypes.func.isRequired,
-  syncStatus: PropTypes.string,
-  onSync: PropTypes.func,
-  onSearch: PropTypes.func
+  totalCountText: PropTypes.string
 };
 
 export default MaterialsDialog;

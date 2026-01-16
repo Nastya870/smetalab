@@ -89,8 +89,16 @@ export const getClient = async () => {
   // Обернем release для логирования
   client.release = () => {
     client.release = release;
+    // Удаляем слушатель ошибок при возврате в пул, чтобы не дублировать их
+    client.removeAllListeners('error');
     return release();
   };
+
+  // Добавляем слушатель ошибок для предотвращения падения процесса при разрыве соединения
+  client.on('error', (err) => {
+    console.error('❌ Database client connection error:', err.message);
+    // Не выбрасываем ошибку здесь, так как она будет выброшена в активном запросе
+  });
 
   return client;
 };
@@ -106,7 +114,12 @@ export const transaction = async (callback) => {
     await client.query('COMMIT');
     return result;
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      // Игнорируем ошибки при роллбеке, если соединение уже потеряно
+      console.error('⚠️ Rollback failed (likely due to connection loss):', rollbackError.message);
+    }
     throw error;
   } finally {
     client.release();

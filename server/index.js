@@ -42,6 +42,7 @@ import adminRoutes from './routes/admin.js'; // 🔧 Admin Operations
 import { apiLimiter, heavyOperationsLimiter } from './middleware/rateLimiter.js';
 import { sanitizeErrorMessage } from './utils/sanitize.js';
 import errorHandler from './middleware/errorHandler.js';
+import categoriesRoutes from './routes/categories.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -215,6 +216,7 @@ app.use('/api/contracts', contractsRoutes);
 app.use('/api/tenants', tenantsRoutes);
 app.use('/api/estimate-templates', estimateTemplatesRoutes);
 app.use('/api/permissions', permissionsRoutes);
+app.use('/api/categories', categoriesRoutes);
 // app.use('/api/search', searchRoutes); // 🧠 Universal Semantic Search (DISABLED - requires Pinecone/OpenAI)
 app.use('/api/admin', adminRoutes); // 🔧 Admin Operations (migrations, sync)
 

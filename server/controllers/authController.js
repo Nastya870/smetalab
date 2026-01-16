@@ -653,13 +653,12 @@ export const login = catchAsync(async (req, res) => {
       }
     }
 
-    console.log(`🔐 Login ${email}: найдено ${permissionsResult.rows.length} разрешений для JWT токена`);
-
     // 7. Генерируем токены (передаем роли, разрешения и email_verified)
     const tokens = generateTokens(user.id, selectedTenantId, user.email, rolesResult.rows, user.email_verified, permissionsResult.rows);
 
     // 8. Сохраняем refresh token с учетом "запомнить меня" (48 часов вместо 30 дней)
     const expiresAt = getRefreshTokenExpiration(rememberMe);
+
     await client.query(
       `INSERT INTO sessions (user_id, tenant_id, refresh_token, expires_at, device_info, ip_address)
          VALUES ($1, $2, $3, $4, $5, $6)`,

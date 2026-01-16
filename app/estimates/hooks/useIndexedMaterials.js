@@ -247,8 +247,25 @@ const useIndexedMaterials = () => {
 
             allItems = allMaterialsCache.current;
 
-            // Filter using fullTextSearch
-            const filtered = fullTextSearch(allItems, query, ['name', 'sku', 'supplier', 'category']);
+            // Если query начинается с "category:", фильтруем по точной категории
+            let textQuery = query;
+            let categoryFilter = null;
+
+            if (query.startsWith('category:')) {
+                categoryFilter = query.substring(9).trim(); // "category:Name" -> "Name"
+                textQuery = ''; // Сбрасываем текстовый поиск, так как мы только фильтруем
+            }
+
+            let filtered = allItems;
+
+            if (categoryFilter) {
+                // Фильтрация по категории (точное совпадение или startWith для подкатегорий?)
+                // Для простоты пока используем точное или вхождение
+                filtered = allItems.filter(item => item.category === categoryFilter || item.category?.startsWith(categoryFilter + ' /'));
+            } else if (textQuery) {
+                // Filter using fullTextSearch
+                filtered = fullTextSearch(allItems, textQuery, ['name', 'sku', 'supplier', 'category']);
+            }
 
             // Pagination
             const total = filtered.length;

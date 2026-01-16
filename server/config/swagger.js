@@ -808,6 +808,10 @@ const options = {
         description: 'Отслеживание процента выполнения работ по сметам',
       },
       {
+        name: 'Categories',
+        description: 'Иерархический справочник категорий',
+      },
+      {
         name: 'Search',
         description: 'Семантический и умный AI-поиск по справочникам (OpenAI + Pinecone)',
       },
