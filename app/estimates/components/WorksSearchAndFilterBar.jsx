@@ -20,7 +20,7 @@ const WorksSearchAndFilterBar = ({
   loading = false // 🧠 Индикатор AI-поиска
 }) => {
   return (
-    <Box sx={{ px: 2.5, pb: 1.5, display: 'flex', gap: 1.5 }}>
+    <Box sx={{ px: 2, pb: 1, display: 'flex', gap: 1.5 }}>
       <TextField
         fullWidth
         size="small"
@@ -40,7 +40,7 @@ const WorksSearchAndFilterBar = ({
         }}
         sx={{
           '& .MuiOutlinedInput-root': {
-            height: 40,
+            height: 36,
             borderRadius: '8px',
             bgcolor: '#F9FAFB',
             '& fieldset': { borderColor: '#E5E7EB' },
@@ -48,7 +48,7 @@ const WorksSearchAndFilterBar = ({
             '&.Mui-focused fieldset': { borderColor: '#635BFF', borderWidth: '2px' }
           },
           '& .MuiInputBase-input': {
-            fontSize: '0.875rem'
+            fontSize: '0.8125rem'
           }
         }}
       />
@@ -58,9 +58,9 @@ const WorksSearchAndFilterBar = ({
           size="small"
           startIcon={<IconFilter size={16} color="#6B7280" />}
           onClick={onOpenFilters}
-          sx={{ 
+          sx={{
             minWidth: 'auto',
-            height: 40,
+            height: 36,
             px: 1.5,
             borderRadius: '8px',
             textTransform: 'none',
@@ -69,7 +69,7 @@ const WorksSearchAndFilterBar = ({
             color: '#6B7280',
             bgcolor: '#F9FAFB',
             borderColor: '#E5E7EB',
-            '&:hover': { 
+            '&:hover': {
               borderColor: '#D1D5DB',
               bgcolor: '#F3F4F6'
             }

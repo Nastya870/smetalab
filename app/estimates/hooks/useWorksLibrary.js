@@ -32,6 +32,15 @@ const useWorksLibrary = (initialSourceType = 'global') => {
 
         const now = Date.now();
 
+        // ✅ Автоматическая инвалидация кеша, если был импорт в справочнике
+        const needsSync = localStorage.getItem('works_need_sync') === 'true';
+        if (needsSync) {
+            console.log('🔄 [useWorksLibrary] Automatic cache invalidation triggered by import...');
+            worksCache.current = { global: null, tenant: null };
+            worksCacheTimestamp.current = { global: null, tenant: null };
+            localStorage.removeItem('works_need_sync');
+        }
+
         // Проверяем кеш
         if (worksCache.current[currentType] &&
             worksCacheTimestamp.current[currentType] &&

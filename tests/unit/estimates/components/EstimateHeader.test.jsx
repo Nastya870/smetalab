@@ -29,7 +29,7 @@ describe('EstimateHeader', () => {
 
   it('should render estimate ID', () => {
     render(<EstimateHeader {...defaultProps} />);
-    expect(screen.getByText(/ID: 12345678.../)).toBeInTheDocument();
+    expect(screen.getByText(/#12345678/)).toBeInTheDocument();
   });
 
   it('should render "Без названия" when estimateName is empty', () => {
@@ -39,7 +39,7 @@ describe('EstimateHeader', () => {
 
   it('should render "новая" in ID when estimateIdShort is "новая"', () => {
     render(<EstimateHeader {...defaultProps} estimateIdShort="новая" />);
-    expect(screen.getByText(/ID: новая.../)).toBeInTheDocument();
+    expect(screen.getByText(/#новая/)).toBeInTheDocument();
   });
 
   describe('Toggle Sidebar Button', () => {
@@ -56,10 +56,10 @@ describe('EstimateHeader', () => {
     it('should call onToggleSidebar when clicked', () => {
       const onToggleSidebar = vi.fn();
       render(<EstimateHeader {...defaultProps} onToggleSidebar={onToggleSidebar} />);
-      
+
       const button = screen.getByText('Режим расчёта');
       fireEvent.click(button);
-      
+
       expect(onToggleSidebar).toHaveBeenCalledTimes(1);
     });
   });
@@ -78,10 +78,10 @@ describe('EstimateHeader', () => {
     it('should call onSave when clicked', () => {
       const onSave = vi.fn();
       render(<EstimateHeader {...defaultProps} onSave={onSave} />);
-      
+
       const button = screen.getByText('Сохранить');
       fireEvent.click(button);
-      
+
       expect(onSave).toHaveBeenCalledTimes(1);
     });
 
@@ -96,10 +96,10 @@ describe('EstimateHeader', () => {
     it('should call onSaveAsTemplate when clicked', () => {
       const onSaveAsTemplate = vi.fn();
       render(<EstimateHeader {...defaultProps} onSaveAsTemplate={onSaveAsTemplate} />);
-      
+
       const button = screen.getByText('Шаблон');
       fireEvent.click(button);
-      
+
       expect(onSaveAsTemplate).toHaveBeenCalledTimes(1);
     });
 
@@ -114,10 +114,10 @@ describe('EstimateHeader', () => {
     it('should call onOpenCoefficient when clicked', () => {
       const onOpenCoefficient = vi.fn();
       render(<EstimateHeader {...defaultProps} onOpenCoefficient={onOpenCoefficient} />);
-      
+
       const button = screen.getByText('Коэффициент');
       fireEvent.click(button);
-      
+
       expect(onOpenCoefficient).toHaveBeenCalledTimes(1);
     });
 
@@ -132,10 +132,10 @@ describe('EstimateHeader', () => {
     it('should call onClear when clicked', () => {
       const onClear = vi.fn();
       render(<EstimateHeader {...defaultProps} onClear={onClear} />);
-      
+
       const button = screen.getByText('Очистить');
       fireEvent.click(button);
-      
+
       expect(onClear).toHaveBeenCalledTimes(1);
     });
 
@@ -160,10 +160,10 @@ describe('EstimateHeader', () => {
     it('should call onExportExcel when clicked', () => {
       const onExportExcel = vi.fn();
       render(<EstimateHeader {...defaultProps} onExportExcel={onExportExcel} />);
-      
+
       const button = screen.getByText('Excel');
       fireEvent.click(button);
-      
+
       expect(onExportExcel).toHaveBeenCalledTimes(1);
     });
 

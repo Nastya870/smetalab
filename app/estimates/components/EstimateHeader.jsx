@@ -59,18 +59,19 @@ const EstimateHeader = ({
   return (
     <Box>
       {/* ✅ Заголовок компонента */}
-      <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+      <Box sx={{ mb: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0 }}>
           <Typography
             sx={{
-              fontSize: '1.5rem',
+              fontSize: '1rem',
               fontWeight: 600,
               color: '#111827',
-              lineHeight: 1.3
+              lineHeight: 1.2
             }}
           >
             Смета: {estimateName || 'Без названия'}
           </Typography>
+          <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>#{estimateIdShort}</Typography>
           <IconButton
             onClick={onEdit}
             size="small"
@@ -79,29 +80,21 @@ const EstimateHeader = ({
               '&:hover': { color: '#635BFF', bgcolor: '#EEF2FF' }
             }}
           >
-            <IconEdit size={20} />
+            <IconEdit size={16} />
           </IconButton>
         </Box>
-        <Typography
-          sx={{
-            fontSize: '0.8125rem',
-            color: '#6B7280'
-          }}
-        >
-          ID: {estimateIdShort}...
-        </Typography>
       </Box>
 
       {/* ✅ Панель действий - новый дизайн */}
       <Box
         sx={{
-          mb: 2,
+          mb: 1,
           display: 'flex',
           gap: 1,
           alignItems: 'center',
           flexWrap: 'wrap',
-          py: 1,
-          px: 1.5,
+          py: 0.5,
+          px: 1,
           bgcolor: '#FFFFFF',
           borderRadius: '10px',
           border: '1px solid #E5E7EB'
@@ -144,7 +137,7 @@ const EstimateHeader = ({
             textTransform: 'none',
             fontWeight: 500,
             fontSize: '0.8125rem',
-            height: 34,
+            height: 32,
             px: 1.5,
             borderRadius: '8px',
             ...(sidebarVisible ? {
@@ -173,7 +166,7 @@ const EstimateHeader = ({
             textTransform: 'none',
             fontWeight: 500,
             fontSize: '0.8125rem',
-            height: 34,
+            height: 32,
             px: 1.5,
             borderRadius: '8px',
             bgcolor: '#635BFF',
@@ -196,7 +189,7 @@ const EstimateHeader = ({
             textTransform: 'none',
             fontWeight: 500,
             fontSize: '0.8125rem',
-            height: 34,
+            height: 32,
             px: 1.5,
             borderRadius: '8px',
             color: '#635BFF',
@@ -218,7 +211,7 @@ const EstimateHeader = ({
             textTransform: 'none',
             fontWeight: 500,
             fontSize: '0.8125rem',
-            height: 34,
+            height: 32,
             px: 1.5,
             borderRadius: '8px',
             color: '#374151',
@@ -240,7 +233,7 @@ const EstimateHeader = ({
             textTransform: 'none',
             fontWeight: 500,
             fontSize: '0.8125rem',
-            height: 34,
+            height: 32,
             px: 1.5,
             borderRadius: '8px',
             color: '#DC2626',
@@ -264,7 +257,7 @@ const EstimateHeader = ({
             textTransform: 'none',
             fontWeight: 500,
             fontSize: '0.8125rem',
-            height: 34,
+            height: 32,
             px: 1.5,
             borderRadius: '8px',
             color: '#16A34A',
@@ -288,7 +281,7 @@ const EstimateHeader = ({
             textTransform: 'none',
             fontWeight: 500,
             fontSize: '0.8125rem',
-            height: 34,
+            height: 32,
             px: 1.5,
             borderRadius: '8px',
             color: '#4B5563',
@@ -310,7 +303,7 @@ const EstimateHeader = ({
             textTransform: 'none',
             fontWeight: 500,
             fontSize: '0.8125rem',
-            height: 34,
+            height: 32,
             px: 1.5,
             borderRadius: '8px',
             color: '#4B5563',

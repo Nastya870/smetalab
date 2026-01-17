@@ -3,6 +3,7 @@ import { lazy } from 'react';
 // project imports
 import Loadable from 'ui-component/Loadable';
 import MinimalLayout from 'layout/MinimalLayout';
+import ErrorBoundary from './ErrorBoundary';
 
 // maintenance routing
 const LoginPage = Loadable(lazy(() => import('views/pages/authentication/Login')));
@@ -18,6 +19,7 @@ const TermsOfServicePage = Loadable(lazy(() => import('pages/TermsOfService')));
 const AuthenticationRoutes = {
   path: '/',
   element: <MinimalLayout />,
+  errorElement: <ErrorBoundary />,
   children: [
     {
       path: '/auth/login',
@@ -40,7 +42,7 @@ const AuthenticationRoutes = {
       element: <LoginPage />
     },
     {
-      path: '/pages/register', 
+      path: '/pages/register',
       element: <RegisterPage />
     },
     {

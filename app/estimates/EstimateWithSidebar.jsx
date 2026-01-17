@@ -103,7 +103,10 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // Wrapper to match old signature and update page state
   const loadMaterialsForDialog = useCallback(async (page, reset, search) => {
     setMaterialsPage(page);
-    await searchMaterials(search, page, 50);
+    // ✅ Повышаем лимит до 5000, если есть поиск или выбрана категория, 
+    // чтобы пользователь видел "всё" сразу. В обычном режиме - 500.
+    const limit = (search && search.length > 0) ? 5000 : 500;
+    await searchMaterials(search, page, limit);
   }, [searchMaterials]);
 
   // ✅ Hook: Данные сметы
@@ -123,7 +126,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
 
   // ==============================|| CONSTANTS ||============================== //
 
-  const MATERIALS_PAGE_SIZE = 50;
+  const MATERIALS_PAGE_SIZE = 500;
   const MATERIALS_CACHE_TTL = 5 * 60 * 1000; // 5 минут
   const WORKS_CACHE_TTL = 10 * 60 * 1000; // 10 минут
 
@@ -721,7 +724,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // ==============================|| JSX ||============================== //
 
   return (
-    <Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
       {/* ✅ Заголовок компонента и панель действий */}
       <EstimateHeader
         onEdit={handleEditMetadata}
@@ -749,7 +752,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       />
 
       {/* Основной контейнер - смета на всю ширину (справочник теперь overlay drawer) */}
-      <Box sx={{ display: 'flex', gap: 2, height: 'calc(100vh - 280px)', minHeight: 500 }}>
+      <Box sx={{ display: 'flex', gap: 2, flex: 1, minHeight: 0, mb: 0.5 }}>
         {/* Справочник работ перенесен в Drawer (см. ниже) - этот блок будет удален */}
         <Box sx={{ display: 'none' }}>
         </Box >
@@ -758,6 +761,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         <Paper
           sx={{
             flex: 1,
+            minHeight: 0,
+            height: '100%',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -939,15 +944,15 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#FFFFFF' }}>
           {/* ✅ ХЕДЕР */}
           <Box sx={{
-            px: 2.5,
-            py: 2,
+            px: 2,
+            py: 1.5,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             borderBottom: '1px solid #E5E7EB'
           }}>
             <Typography sx={{
-              fontSize: '1.125rem',
+              fontSize: '1rem',
               fontWeight: 600,
               color: '#111827'
             }}>

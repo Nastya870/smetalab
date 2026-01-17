@@ -17,12 +17,12 @@ const EstimateTotals = ({ worksTotal, materialsTotal, totalWeight }) => {
       sx={{
         borderTop: '2px solid #E5E7EB',
         bgcolor: '#FFFFFF',
-        px: 2.5,
-        py: 1.5,
+        px: 2,
+        py: 0.75,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'flex-end',
-        gap: 4,
+        gap: 3,
         flexShrink: 0
       }}
     >
@@ -31,10 +31,10 @@ const EstimateTotals = ({ worksTotal, materialsTotal, totalWeight }) => {
         <Typography sx={{ fontSize: '0.7rem', color: '#6B7280' }}>
           Итого за работы:
         </Typography>
-        <Box sx={{ 
-          px: 1.5, 
-          py: 0.5, 
-          bgcolor: '#F0FDF4', 
+        <Box sx={{
+          px: 1.5,
+          py: 0.5,
+          bgcolor: '#F0FDF4',
           borderRadius: '6px',
           border: '1px solid #BBF7D0'
         }}>
@@ -49,10 +49,10 @@ const EstimateTotals = ({ worksTotal, materialsTotal, totalWeight }) => {
         <Typography sx={{ fontSize: '0.7rem', color: '#6B7280' }}>
           Итого за материалы:
         </Typography>
-        <Box sx={{ 
-          px: 1.5, 
-          py: 0.5, 
-          bgcolor: '#FEF3C7', 
+        <Box sx={{
+          px: 1.5,
+          py: 0.5,
+          bgcolor: '#FEF3C7',
           borderRadius: '6px',
           border: '1px solid #FCD34D'
         }}>
@@ -67,17 +67,17 @@ const EstimateTotals = ({ worksTotal, materialsTotal, totalWeight }) => {
         <Typography sx={{ fontSize: '0.7rem', color: '#6B7280' }}>
           Вес:
         </Typography>
-        <Box sx={{ 
-          px: 1.5, 
-          py: 0.5, 
-          bgcolor: '#EFF6FF', 
+        <Box sx={{
+          px: 1.5,
+          py: 0.5,
+          bgcolor: '#EFF6FF',
           borderRadius: '6px',
           border: '1px solid #BFDBFE'
         }}>
           <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: '#2563EB' }}>
-            {totalWeight.toLocaleString('ru-RU', { 
-              minimumFractionDigits: 2, 
-              maximumFractionDigits: 3 
+            {totalWeight.toLocaleString('ru-RU', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 3
             })} кг
           </Typography>
         </Box>

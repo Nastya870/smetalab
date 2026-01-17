@@ -34,7 +34,7 @@ import {
   useMediaQuery,
   useTheme
 } from '@mui/material';
-import { IconPlus, IconEdit, IconTrash, IconSearch, IconExternalLink, IconWorld, IconBuilding, IconUpload, IconDownload } from '@tabler/icons-react';
+import { IconPlus, IconEdit, IconTrash, IconSearch, IconExternalLink, IconWorld, IconBuilding, IconUpload, IconDownload, IconDatabaseX } from '@tabler/icons-react';
 
 // project imports
 import EmptyState from './EmptyState';
@@ -608,8 +608,16 @@ const MaterialsReferencePage = () => {
               'Наименование': 'name',
               'Название': 'name',
               'Категория': 'category',
-              'Подкатегория': 'category',
-              'Группа': 'category',
+              'Категория LV1': 'categoryLv1',
+              'Категория LV2': 'categoryLv2',
+              'Категория LV3': 'categoryLv3',
+              'Категория LV4': 'categoryLv4',
+              'LV1': 'categoryLv1',
+              'LV2': 'categoryLv2',
+              'LV3': 'categoryLv3',
+              'LV4': 'categoryLv4',
+              'Подкатегория': 'categoryLv2',
+              'Группа': 'categoryLv3',
               'Единица измерения': 'unit',
               'Ед. изм.': 'unit',
               'Ед': 'unit',
@@ -660,7 +668,12 @@ const MaterialsReferencePage = () => {
                 name: String(normalized.name || '').trim(),
                 unit: normalized.unit?.trim() || 'шт',
                 price: parseFloat(String(normalized.price || '0').replace(/,/g, '.').replace(/\s/g, '')) || 0,
-                category: normalized.category?.trim() || 'Прочее',
+                // Новая структура категорий
+                category: normalized.category?.trim(),
+                categoryLv1: normalized.categoryLv1?.trim(),
+                categoryLv2: normalized.categoryLv2?.trim(),
+                categoryLv3: normalized.categoryLv3?.trim(),
+                categoryLv4: normalized.categoryLv4?.trim(),
                 supplier: normalized.supplier?.trim() || '',
                 weight: parseFloat(String(normalized.weight || '0').replace(/,/g, '.').replace(/\s/g, '')) || 0,
                 image: normalized.image?.trim() || '',
@@ -704,6 +717,9 @@ const MaterialsReferencePage = () => {
               }
             }
 
+            // ✅ Сигнализируем всем компонентам, что данные обновились и нужна синхронизация
+            localStorage.setItem('materials_need_sync', 'true');
+
             resolve({
               success: true,
               successCount: successful,
@@ -738,6 +754,32 @@ const MaterialsReferencePage = () => {
       showError('Ошибка при экспорте материалов', err.message);
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  // Очистить весь справочник (ТОЛЬКО для суперадмина)
+  const [isClearing, setIsClearing] = useState(false);
+  const handleClearAll = async () => {
+    if (!isSuperAdmin) {
+      showError('Только суперадмин может очистить справочник');
+      return;
+    }
+
+    if (!window.confirm('⚠️ ВНИМАНИЕ! Вы уверены, что хотите УДАЛИТЬ ВСЕ материалы и категории? Это действие необратимо!')) {
+      return;
+    }
+
+    try {
+      setIsClearing(true);
+      const response = await materialsAPI.clearAll();
+      localStorage.setItem('materials_need_sync', 'true');
+      success(response.message || 'Справочник материалов очищен');
+      fetchMaterials(1, true);
+    } catch (err) {
+      console.error('Clear all error:', err);
+      showError('Ошибка при очистке справочника', err.message);
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -787,22 +829,102 @@ const MaterialsReferencePage = () => {
           bgcolor: '#FFFFFF',
           borderRadius: '12px',
           border: '1px solid #E5E7EB',
-          p: 4,
+          p: { xs: 1.5, sm: 2 },
           display: 'flex',
           flexDirection: 'column',
           flex: 1,
           overflow: 'hidden'
         }}
       >
-        {/* Шапка */}
-        <Box sx={{ mb: 3 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: '#1F2937' }} data-testid="materials-title">
+        {/* Шапка и Кнопки управления */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, gap: 2, flexWrap: 'wrap' }}>
+          <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: '#1F2937' }} data-testid="materials-title">
             Строительные материалы
           </Typography>
+
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+            {(globalFilter === 'tenant' || isSuperAdmin) && (
+              <>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={isExporting ? <CircularProgress size={16} color="inherit" /> : <IconDownload size={16} />}
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  sx={{
+                    textTransform: 'none',
+                    height: 32,
+                    fontSize: '0.8125rem',
+                    borderColor: '#E5E7EB',
+                    color: '#4B5563',
+                    '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
+                  }}
+                >
+                  {isExporting ? 'Экспорт...' : 'Экспорт'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<IconUpload size={16} />}
+                  onClick={handleOpenImport}
+                  data-testid="materials-import-btn"
+                  sx={{
+                    textTransform: 'none',
+                    height: 32,
+                    fontSize: '0.8125rem',
+                    borderColor: '#E5E7EB',
+                    color: '#4B5563',
+                    '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
+                  }}
+                >
+                  Импорт
+                </Button>
+                {isSuperAdmin && (
+                  <Tooltip title="Удалить ВСЕ материалы и категории">
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      color="error"
+                      startIcon={isClearing ? <CircularProgress size={14} /> : <IconDatabaseX size={16} />}
+                      onClick={handleClearAll}
+                      disabled={isClearing}
+                      data-testid="materials-clear-all-btn"
+                      sx={{
+                        textTransform: 'none',
+                        height: 32,
+                        fontSize: '0.8125rem',
+                        borderColor: '#FECACA',
+                        color: '#DC2626',
+                        '&:hover': { borderColor: '#F87171', bgcolor: '#FEF2F2' }
+                      }}
+                    >
+                      Очистить
+                    </Button>
+                  </Tooltip>
+                )}
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<IconPlus size={16} />}
+                  onClick={handleOpenCreate}
+                  data-testid="materials-add-btn"
+                  sx={{
+                    textTransform: 'none',
+                    height: 32,
+                    fontSize: '0.8125rem',
+                    bgcolor: '#6366F1',
+                    '&:hover': { bgcolor: '#4F46E5' }
+                  }}
+                >
+                  Добавить
+                </Button>
+              </>
+            )}
+          </Stack>
         </Box>
 
-        {/* Поиск и фильтр */}
-        <Box sx={{ mb: 2 }}>
+        {/* Поиск и фильтр по типу */}
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 1 }}>
           <TextField
             fullWidth
             placeholder="Поиск по названию, коду, поставщику или единице измерения..."
@@ -815,8 +937,9 @@ const MaterialsReferencePage = () => {
             data-testid="materials-search"
             size="small"
             sx={{
+              flex: 1,
               '& .MuiOutlinedInput-root': {
-                height: 44,
+                height: 38,
                 bgcolor: '#FFFFFF',
                 borderRadius: '8px',
                 fontSize: '0.875rem',
@@ -826,6 +949,7 @@ const MaterialsReferencePage = () => {
               },
               '& .MuiInputBase-input': {
                 color: '#374151',
+                py: 0.75,
                 '&::placeholder': { color: '#9CA3AF', opacity: 1 }
               }
             }}
@@ -838,167 +962,88 @@ const MaterialsReferencePage = () => {
             }}
           />
 
-          {/* Фильтр по типу (глобальный/тенантный) - отступ 16px */}
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={{ xs: 2, sm: 2 }}
-            sx={{
-              mt: 2,
-              alignItems: { xs: 'stretch', sm: 'center' },
-              justifyContent: 'space-between',
-              gap: 2
-            }}
+          {/* Toggle Switch - фиолетовый стиль, высота 32px */}
+          <Tooltip
+            title={globalFilter === 'global' ? 'Глобальные материалы' : 'Мои материалы'}
+            arrow
+            placement="top"
           >
-            <Stack
-              direction="row"
-              spacing={2}
+            <Box
+              onClick={() => setGlobalFilter(globalFilter === 'global' ? 'tenant' : 'global')}
               sx={{
-                alignItems: 'center',
-                width: { xs: '100%', sm: 'auto' }
+                position: 'relative',
+                width: 76,
+                height: 32,
+                bgcolor: '#F3E8FF',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                flexShrink: 0,
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  bgcolor: '#EDE9FE'
+                }
               }}
             >
-              {/* Toggle Switch - фиолетовый стиль, высота 36px */}
-              <Tooltip
-                title={globalFilter === 'global' ? 'Глобальные материалы' : 'Мои материалы'}
-                arrow
-                placement="top"
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 2,
+                  left: globalFilter === 'global' ? 2 : 'calc(50% - 2px)',
+                  width: 'calc(50% - 2px)',
+                  height: 28,
+                  bgcolor: '#EDE9FE',
+                  borderRadius: '4px',
+                  transition: 'left 0.2s ease',
+                  border: '1px solid #C4B5FD'
+                }}
+              />
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '50%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 1
+                }}
               >
-                <Box
-                  onClick={() => setGlobalFilter(globalFilter === 'global' ? 'tenant' : 'global')}
-                  sx={{
-                    position: 'relative',
-                    width: 80,
-                    height: 36,
-                    bgcolor: '#F3E8FF',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                      bgcolor: '#EDE9FE'
-                    }
+                <IconWorld
+                  size={16}
+                  style={{
+                    color: globalFilter === 'global' ? '#5B21B6' : '#6B7280'
                   }}
-                >
-                  {/* Переключатель - активный */}
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: 2,
-                      left: globalFilter === 'global' ? 2 : 'calc(50% - 2px)',
-                      width: 'calc(50% - 2px)',
-                      height: 32,
-                      bgcolor: '#EDE9FE',
-                      borderRadius: '4px',
-                      transition: 'left 0.2s ease',
-                      border: '1px solid #C4B5FD'
-                    }}
-                  />
+                />
+              </Box>
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  width: '50%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 1
+                }}
+              >
+                <IconBuilding
+                  size={16}
+                  style={{
+                    color: globalFilter === 'tenant' ? '#5B21B6' : '#6B7280'
+                  }}
+                />
+              </Box>
+            </Box>
+          </Tooltip>
+        </Box>
 
-                  {/* Иконки */}
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '50%',
-                      height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      zIndex: 1
-                    }}
-                  >
-                    <IconWorld
-                      size={16}
-                      style={{
-                        color: globalFilter === 'global' ? '#5B21B6' : '#6B7280',
-                        fontWeight: globalFilter === 'global' ? 500 : 400
-                      }}
-                    />
-                  </Box>
-
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      right: 0,
-                      width: '50%',
-                      height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      zIndex: 1
-                    }}
-                  >
-                    <IconBuilding
-                      size={16}
-                      style={{
-                        color: globalFilter === 'tenant' ? '#5B21B6' : '#6B7280',
-                        fontWeight: globalFilter === 'tenant' ? 500 : 400
-                      }}
-                    />
-                  </Box>
-                </Box>
-              </Tooltip>
-            </Stack>
-
-            {/* Кнопки управления */}
-            <Stack direction="row" spacing={1}>
-              {(globalFilter === 'tenant' || isSuperAdmin) && (
-                <>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={isExporting ? <CircularProgress size={16} color="inherit" /> : <IconDownload size={16} />}
-                    onClick={handleExport}
-                    disabled={isExporting}
-                    sx={{
-                      textTransform: 'none',
-                      height: 36,
-                      borderColor: '#E5E7EB',
-                      color: '#4B5563',
-                      '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
-                    }}
-                  >
-                    {isExporting ? 'Экспорт...' : 'Экспорт'}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<IconUpload size={16} />}
-                    onClick={handleOpenImport}
-                    data-testid="materials-import-btn"
-                    sx={{
-                      textTransform: 'none',
-                      height: 36,
-                      borderColor: '#E5E7EB',
-                      color: '#4B5563',
-                      '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' }
-                    }}
-                  >
-                    Импорт
-                  </Button>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    startIcon={<IconPlus size={16} />}
-                    onClick={handleOpenCreate}
-                    data-testid="materials-add-btn"
-                    sx={{
-                      textTransform: 'none',
-                      height: 36,
-                      bgcolor: '#6366F1',
-                      '&:hover': { bgcolor: '#4F46E5' }
-                    }}
-                  >
-                    Добавить
-                  </Button>
-                </>
-              )}
-            </Stack>
-          </Stack>
-
-          {/* Переключатели видимости колонок */}
-          <Stack direction="row" spacing={3} sx={{ mt: 2 }}>
+        {/* Переключатели и Статистика на одной линии */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 2 }}>
+          <Stack direction="row" spacing={2.5}>
             <FormControlLabel
               control={
                 <Switch
@@ -1011,7 +1056,8 @@ const MaterialsReferencePage = () => {
                   }}
                 />
               }
-              label={<Typography sx={{ fontSize: '0.8125rem', color: '#6B7280' }}>Показывать изображения</Typography>}
+              label={<Typography sx={{ fontSize: '0.75rem', color: '#6B7280' }}>Фото</Typography>}
+              sx={{ m: 0 }}
             />
             <FormControlLabel
               control={
@@ -1025,15 +1071,19 @@ const MaterialsReferencePage = () => {
                   }}
                 />
               }
-              label={<Typography sx={{ fontSize: '0.8125rem', color: '#6B7280' }}>Показывать поставщика</Typography>}
+              label={<Typography sx={{ fontSize: '0.75rem', color: '#6B7280' }}>Поставщик</Typography>}
+              sx={{ m: 0 }}
             />
           </Stack>
-        </Box>
 
-        {/* Статистика - отступ 16px сверху, 24px снизу до таблицы */}
-        <Box sx={{ mt: 2, mb: 2 }}>
-          <Typography sx={{ fontSize: '0.875rem', color: '#6B7280' }}>
-            {searchTerm ? `Найдено: ${filteredMaterials.length}` : `Загружено: ${materials.length} из ${totalRecords}`} • Категорий: {new Set(materials.map((m) => m.category)).size}
+          <Typography sx={{ fontSize: '0.8125rem', color: '#9CA3AF', fontWeight: 500 }}>
+            {searchTerm ? (
+              <>Найдено: <Box component="span" sx={{ color: '#4B5563' }}>{filteredMaterials.length}</Box></>
+            ) : (
+              <>Загружено: <Box component="span" sx={{ color: '#4B5563' }}>{materials.length}</Box> из {totalRecords}</>
+            )}
+            <Box component="span" sx={{ mx: 1, color: '#E5E7EB' }}>|</Box>
+            Категорий: <Box component="span" sx={{ color: '#4B5563' }}>{new Set(materials.map((m) => m.category)).size}</Box>
           </Typography>
         </Box>
 

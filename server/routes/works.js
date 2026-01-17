@@ -7,7 +7,8 @@ import {
   updateWorkPrice,
   deleteWork,
   getWorksStats,
-  getWorkCategories
+  getWorkCategories,
+  clearAllWorks
 } from '../controllers/worksController.js';
 import { bulkCreateWorks } from '../controllers/worksBulkController.js';
 import {
@@ -108,6 +109,23 @@ router.put('/:id', authenticateToken, checkAnyPermission(['works', 'update'], ['
  * @body    { basePrice: number }
  */
 router.patch('/:id/price', authenticateToken, checkAnyPermission(['works', 'update'], ['works', 'manage']), updateWorkPrice);
+
+/**
+ * @swagger
+ * /api/works/clear-all:
+ *   delete:
+ *     summary: Очистить ВЕСЬ справочник работ (Суперадмин)
+ *     description: Удаляет все записи из таблиц works и categories (тип work). Только для super_admin.
+ *     tags: [Works]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Справочник очищен
+ *       403:
+ *         description: Недостаточно прав (требуется super_admin)
+ */
+router.delete('/clear-all', authenticateToken, clearAllWorks);
 
 /**
  * @route   DELETE /api/works/:id

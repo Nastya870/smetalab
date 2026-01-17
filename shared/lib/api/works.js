@@ -150,6 +150,20 @@ const worksAPI = {
       console.error('Error bulk importing works:', error);
       throw error;
     }
+  },
+
+  /**
+   * Очистить ВЕСЬ справочник работ (ТОЛЬКО для суперадмина)
+   * @returns {Promise<Object>} - { success: true, message: "..." }
+   */
+  clearAll: async () => {
+    try {
+      const response = await axiosInstance.delete('/works/clear-all');
+      return response.data;
+    } catch (error) {
+      console.error('Error clearing all works:', error);
+      throw error;
+    }
   }
 };
 

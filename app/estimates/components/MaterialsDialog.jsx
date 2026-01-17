@@ -217,12 +217,13 @@ const MaterialsDialog = ({
         </ListItemIcon>
 
         <ListItemText
+          primaryTypographyProps={{ component: 'div' }}
+          secondaryTypographyProps={{ component: 'div' }}
           primary={
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8125rem', lineHeight: 1.2 }}>
                 {material.name}
               </Typography>
-              {/* SKU removed per request */}
             </Box>
           }
           secondary={
@@ -234,7 +235,6 @@ const MaterialsDialog = ({
               <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 600, fontSize: '0.75rem' }}>
                 {formatCurrency(material.price)}
               </Typography>
-              {/* Category chip removed per request */}
             </Box>
           }
         />
@@ -260,9 +260,9 @@ const MaterialsDialog = ({
         }
       }}
     >
-      <DialogTitle sx={{ p: 2, pb: 1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#fff' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+      <DialogTitle sx={{ p: 1.5, pb: 1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#fff' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Typography variant="h6" sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>
             {mode === 'add' ? 'Добавить материал' : 'Заменить материал'}
           </Typography>
 

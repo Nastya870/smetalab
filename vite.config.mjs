@@ -24,6 +24,22 @@ export default defineConfig(({ mode }) => {
   console.log('🔧 [Vite Config] VITE_API_URL:', process.env.VITE_API_URL);
 
   return {
+    optimizeDeps: {
+      include: [
+        '@mui/material',
+        '@mui/system',
+        '@mui/icons-material',
+        '@mui/x-date-pickers',
+        '@tabler/icons-react',
+        'react',
+        'react-dom',
+        'react-router-dom',
+        'dayjs',
+        'axios'
+      ],
+      // Force optimization even if entries are not detected automatically
+      force: true
+    },
     server: {
       // this ensures that the browser opens upon server start
       open: true,
@@ -101,12 +117,12 @@ export default defineConfig(({ mode }) => {
             ) {
               return next();
             }
-            
+
             // For all other requests (app routes), serve index.html
             if (req.url.startsWith('/app') || req.url.startsWith('/pages') || req.url.startsWith('/auth')) {
               req.url = '/';
             }
-            
+
             next();
           });
         }

@@ -5,6 +5,16 @@
 import db from '../config/database.js';
 
 /**
+ * Утилита для проверки и приведения к числу ID из справочников (work_id, material_id)
+ * Предотвращает ошибки типа данных (например, если передан UUID вместо integer)
+ */
+const toIntId = (id) => {
+  if (!id) return null;
+  const s = String(id);
+  return /^\d+$/.test(s) ? parseInt(s, 10) : null;
+};
+
+/**
  * Получить все позиции сметы
  */
 export async function findByEstimateId(estimateId, tenantId) {
@@ -107,7 +117,7 @@ export async function create(itemData, estimateId, tenantId) {
     itemData.notes || null,
     itemData.is_optional || false,
     itemData.source_type || 'tenant',
-    itemData.workId || null, // ✅ Добавлено! Сохраняем ID работы из справочника
+    toIntId(itemData.workId), // ✅ Используем toIntId для защиты от UUID
     itemData.phase || null,
     itemData.section || null,
     itemData.subsection || null
@@ -116,12 +126,12 @@ export async function create(itemData, estimateId, tenantId) {
   const result = await db.query(insertQuery, values);
   const createdItem = result.rows[0];
 
-  // Если есть материалы, добавляем их
   if (itemData.materials && Array.isArray(itemData.materials) && itemData.materials.length > 0) {
     for (const material of itemData.materials) {
-      // Пропускаем материалы без material_id
-      if (!material.material_id) {
-        console.log('Skipping material without material_id:', material);
+      // Проверяем ID материала
+      const matId = toIntId(material.material_id);
+      if (!matId) {
+        console.log('Skipping material with invalid ID:', material);
         continue;
       }
 
@@ -133,7 +143,7 @@ export async function create(itemData, estimateId, tenantId) {
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [
           createdItem.id,
-          material.material_id,
+          matId,
           material.quantity,
           material.unit_price || material.price,
           material.consumption || material.consumption_coefficient || 1.0,
@@ -491,7 +501,7 @@ export async function bulkCreate(estimateId, items, tenantId) {
         itemData.notes || null,
         itemData.is_optional || false,
         itemData.source_type || 'tenant',
-        itemData.workId || null,
+        toIntId(itemData.workId),
         itemData.phase || null,
         itemData.section || null,
         itemData.subsection || null
@@ -503,9 +513,10 @@ export async function bulkCreate(estimateId, items, tenantId) {
       // Вставляем материалы для этой позиции
       if (itemData.materials && Array.isArray(itemData.materials) && itemData.materials.length > 0) {
         for (const material of itemData.materials) {
-          // Пропускаем материалы без material_id
-          if (!material.material_id) {
-            console.log('Skipping material without material_id:', material);
+          // Проверяем ID материала
+          const matId = toIntId(material.material_id);
+          if (!matId) {
+            console.log('Skipping material with invalid ID:', material);
             continue;
           }
 
@@ -527,7 +538,7 @@ export async function bulkCreate(estimateId, items, tenantId) {
 
           const materialValues = [
             createdItem.id,
-            material.material_id,
+            matId,
             material.quantity,
             material.unit_price || material.price,
             material.consumption || material.consumption_coefficient || 1.0,
@@ -703,7 +714,7 @@ export async function replaceAllItems(estimateId, items, tenantId) {
         itemData.notes || null,
         itemData.is_optional || false,
         itemData.source_type || 'tenant',
-        itemData.workId || null,
+        toIntId(itemData.workId),
         itemData.phase || null,
         itemData.section || null,
         itemData.subsection || null
@@ -715,9 +726,10 @@ export async function replaceAllItems(estimateId, items, tenantId) {
       // Вставляем материалы для этой позиции
       if (itemData.materials && Array.isArray(itemData.materials) && itemData.materials.length > 0) {
         for (const material of itemData.materials) {
-          // Пропускаем материалы без material_id
-          if (!material.material_id) {
-            console.log('[replaceAllItems] Skipping material without material_id:', material);
+          // Проверяем ID материала
+          const matId = toIntId(material.material_id);
+          if (!matId) {
+            console.log('[replaceAllItems] Skipping material with invalid ID:', material);
             continue;
           }
 
@@ -740,7 +752,7 @@ export async function replaceAllItems(estimateId, items, tenantId) {
 
             const materialValues = [
               createdItem.id,
-              material.material_id,
+              matId,
               material.quantity,
               material.unit_price || material.price,
               material.consumption || material.consumption_coefficient || 1.0,

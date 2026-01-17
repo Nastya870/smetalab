@@ -55,9 +55,11 @@ const useIndexedMaterials = () => {
                     }
 
                     // Initial check if we need sync
-                    if (!last || (Date.now() - parseInt(last) > SYNC_INTERVAL)) {
+                    const needsSyncFlag = localStorage.getItem('materials_need_sync') === 'true';
+                    if (!last || needsSyncFlag || (Date.now() - parseInt(last) > SYNC_INTERVAL)) {
                         // Don't auto-sync immediately to avoid blocking UI on first load
                         // Let the user trigger it or do it in background after a delay
+                        console.log('🔄 Automatic material sync triggered...');
                         setTimeout(() => syncMaterials(database), 1000);
                     }
                 };
@@ -122,11 +124,12 @@ const useIndexedMaterials = () => {
                     unit: item.unit,
                     price: item.price,
                     category: item.category,
+                    category_full_path: item.category_full_path, // Сохраняем полный путь для иерархического поиска
                     supplier: item.supplier,
                     image: item.image,
                     is_global: item.is_global,
                     // Add search string for faster filtering if needed
-                    _search: `${item.name} ${item.sku} ${item.supplier || ''}`.toLowerCase()
+                    _search: `${item.name} ${item.sku} ${item.supplier || ''} ${item.category || ''}`.toLowerCase()
                 };
                 store.put(normalized);
                 addedCount++;
@@ -136,6 +139,7 @@ const useIndexedMaterials = () => {
                 console.log(`✅ Sync complete. Saved ${addedCount} items.`);
                 const now = Date.now();
                 localStorage.setItem(SYNC_KEY, now.toString());
+                localStorage.removeItem('materials_need_sync'); // ✅ Сбрасываем флаг, так как данные актуальны
                 setLastSync(new Date(now));
                 setSyncStatus('success');
                 setSyncing(false);
@@ -261,7 +265,11 @@ const useIndexedMaterials = () => {
             if (categoryFilter) {
                 // Фильтрация по категории (точное совпадение или startWith для подкатегорий?)
                 // Для простоты пока используем точное или вхождение
-                filtered = allItems.filter(item => item.category === categoryFilter || item.category?.startsWith(categoryFilter + ' /'));
+                const cf = categoryFilter.toLowerCase();
+                filtered = allItems.filter(item =>
+                    item.category?.toLowerCase() === cf ||
+                    item.category_full_path?.toLowerCase().includes(cf)
+                );
             } else if (textQuery) {
                 // Filter using fullTextSearch
                 filtered = fullTextSearch(allItems, textQuery, ['name', 'sku', 'supplier', 'category']);

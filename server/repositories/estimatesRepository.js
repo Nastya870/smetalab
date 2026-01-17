@@ -260,11 +260,13 @@ export async function findByIdWithDetails(estimateId, tenantId) {
     const estimate = estimateResult.rows[0];
     console.log(`[findByIdWithDetails] Found estimate: ${estimate.name}`);
 
-    // Получаем позиции сметы (включая work_id для проверки дублей)
+    // Получаем позиции сметы с базовой ценой из справочника работ
     const itemsQuery = `
-      SELECT * FROM estimate_items 
-      WHERE estimate_id = $1 
-      ORDER BY position_number
+      SELECT ei.*, w.base_price as work_base_price
+      FROM estimate_items ei
+      LEFT JOIN works w ON ei.work_id = w.id
+      WHERE ei.estimate_id = $1 
+      ORDER BY ei.position_number
     `;
 
     const itemsResult = await pool.query(itemsQuery, [estimateId]);

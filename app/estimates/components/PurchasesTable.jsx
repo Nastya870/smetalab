@@ -44,7 +44,7 @@ const PurchasesTable = ({
                     '&:hover': { bgcolor: isExtra ? alpha(colors.warning, 0.15) : colors.cardBg },
                     transition: 'background-color 0.15s',
                     '& td': {
-                        py: 1.5,
+                        py: 0.75,
                         borderBottom: `1px solid ${colors.border}`
                     },
                     ...(!isExtra && status === 'over' && {
@@ -62,7 +62,7 @@ const PurchasesTable = ({
                                 sx={{ bgcolor: colors.warning, color: '#fff', fontSize: '0.65rem', height: 18, fontWeight: 600 }}
                             />
                         )}
-                        <Typography variant="body2" sx={{ fontWeight: 500, color: colors.primary, fontFamily: 'monospace' }}>
+                        <Typography variant="caption" sx={{ fontWeight: 500, color: colors.primary, fontFamily: 'monospace', fontSize: '0.75rem' }}>
                             {material.sku || '-'}
                         </Typography>
                     </Stack>
@@ -78,7 +78,7 @@ const PurchasesTable = ({
                                 {status === 'over' && <IconAlertTriangle size={16} color={colors.error} />}
                             </>
                         )}
-                        <Typography variant="body2" sx={{ color: '#374151', fontWeight: isExtra ? 500 : 400 }}>
+                        <Typography variant="caption" sx={{ color: '#374151', fontWeight: isExtra ? 500 : 400, fontSize: '0.75rem' }}>
                             {material.name}
                         </Typography>
                     </Stack>
@@ -144,14 +144,14 @@ const PurchasesTable = ({
 
                 {/* Ед. изм. */}
                 <TableCell align="center">
-                    <Typography variant="body2" sx={{ color: colors.textSecondary }}>
+                    <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.75rem' }}>
                         {material.unit}
                     </Typography>
                 </TableCell>
 
                 {/* Нужно */}
                 <TableCell align="right">
-                    <Typography variant="body2" sx={{ fontWeight: 500, color: '#374151' }}>
+                    <Typography variant="caption" sx={{ fontWeight: 500, color: '#374151', fontSize: '0.75rem' }}>
                         {material.quantity.toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                     </Typography>
                 </TableCell>
@@ -159,8 +159,8 @@ const PurchasesTable = ({
                 {/* Закуплено */}
                 <TableCell align="right">
                     <Typography
-                        variant="body2"
-                        sx={{ fontWeight: 600, color: material.purchasedQuantity > 0 ? colors.green : colors.textSecondary }}
+                        variant="caption"
+                        sx={{ fontWeight: 600, color: material.purchasedQuantity > 0 ? colors.green : colors.textSecondary, fontSize: '0.75rem' }}
                     >
                         {(material.purchasedQuantity || 0).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                     </Typography>
@@ -177,20 +177,20 @@ const PurchasesTable = ({
                 >
                     {status === 'complete' ? (
                         <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.5}>
-                            <IconCheck size={16} color={colors.green} />
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: colors.green }}>Закуплено</Typography>
+                            <IconCheck size={14} color={colors.green} />
+                            <Typography variant="caption" sx={{ fontWeight: 600, color: colors.green, fontSize: '0.75rem' }}>Закуплено</Typography>
                         </Stack>
                     ) : status === 'none' && !isExtra ? (
-                        <Typography variant="body2" sx={{ color: '#9CA3AF', textAlign: 'right' }}>—</Typography>
+                        <Typography variant="caption" sx={{ color: '#9CA3AF', textAlign: 'right', fontSize: '0.75rem' }}>—</Typography>
                     ) : (
                         <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.5}>
                             <IconAlertTriangle
-                                size={16}
+                                size={14}
                                 color={status === 'over' ? colors.error : (isExtra ? '#92400E' : colors.warning)}
                             />
                             <Typography
-                                variant="body2"
-                                sx={{ fontWeight: 600, color: status === 'over' ? colors.error : (isExtra ? '#92400E' : colors.warning) }}
+                                variant="caption"
+                                sx={{ fontWeight: 600, color: status === 'over' ? colors.error : (isExtra ? '#92400E' : colors.warning), fontSize: '0.75rem' }}
                             >
                                 {remainder.toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                             </Typography>
@@ -200,12 +200,12 @@ const PurchasesTable = ({
 
                 {/* ПЛАН */}
                 <TableCell align="right" sx={{ borderLeft: `2px solid ${colors.border}`, bgcolor: isExtra ? alpha(colors.warning, 0.05) : 'inherit' }}>
-                    <Typography variant="body2" sx={{ color: isExtra ? '#92400E' : '#374151', fontWeight: isExtra ? 500 : 400 }}>
+                    <Typography variant="caption" sx={{ color: isExtra ? '#92400E' : '#374151', fontWeight: isExtra ? 500 : 400, fontSize: '0.75rem' }}>
                         {formatCurrency(material.price)}
                     </Typography>
                 </TableCell>
                 <TableCell align="right" sx={{ bgcolor: isExtra ? alpha(colors.warning, 0.05) : 'inherit' }}>
-                    <Typography variant="body2" sx={{ fontWeight: isExtra ? 700 : 600, color: isExtra ? '#92400E' : '#1F2937' }}>
+                    <Typography variant="caption" sx={{ fontWeight: isExtra ? 700 : 600, color: isExtra ? '#92400E' : '#1F2937', fontSize: '0.75rem' }}>
                         {formatCurrency(material.total)}
                     </Typography>
                 </TableCell>
@@ -213,20 +213,20 @@ const PurchasesTable = ({
                 {/* ФАКТ */}
                 <TableCell align="right" sx={{ borderLeft: `2px solid ${colors.green}`, bgcolor: isExtra ? alpha(colors.warning, 0.05) : 'inherit' }}>
                     {material.avgPurchasePrice ? (
-                        <Typography variant="body2" sx={{ fontWeight: 500, color: colors.green }}>
+                        <Typography variant="caption" sx={{ fontWeight: 500, color: colors.green, fontSize: '0.75rem' }}>
                             {formatCurrency(material.avgPurchasePrice)}
                         </Typography>
                     ) : (
-                        <Typography variant="body2" sx={{ color: '#D1D5DB' }}>—</Typography>
+                        <Typography variant="caption" sx={{ color: '#D1D5DB', fontSize: '0.75rem' }}>—</Typography>
                     )}
                 </TableCell>
                 <TableCell align="right" sx={{ bgcolor: isExtra ? alpha(colors.warning, 0.05) : 'inherit' }}>
                     {material.actualTotalPrice > 0 ? (
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: colors.green }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: colors.green, fontSize: '0.75rem' }}>
                             {formatCurrency(material.actualTotalPrice)}
                         </Typography>
                     ) : (
-                        <Typography variant="body2" sx={{ color: '#D1D5DB' }}>—</Typography>
+                        <Typography variant="caption" sx={{ color: '#D1D5DB', fontSize: '0.75rem' }}>—</Typography>
                     )}
                 </TableCell>
 
@@ -255,9 +255,9 @@ const PurchasesTable = ({
     };
 
     return (
-        <Paper sx={{ overflow: 'hidden', borderRadius: '12px', border: `1px solid ${colors.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-            <Box sx={{ overflowX: 'auto' }}>
-                <Table size="medium" sx={{ minWidth: 1100 }}>
+        <Paper sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', borderRadius: '12px', border: `1px solid ${colors.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            <Box sx={{ flex: 1, overflow: 'auto' }}>
+                <Table stickyHeader size="small" sx={{ minWidth: 1100 }}>
                     <TableHead>
                         <TableRow>
                             <TableCell rowSpan={2} sx={styles.header}>Артикул</TableCell>
@@ -316,17 +316,22 @@ const styles = {
         fontWeight: 700,
         bgcolor: colors.headerBg,
         color: '#4B5563',
-        py: 1.5,
+        py: 0.5,
         borderBottom: `1px solid ${colors.border}`,
-        fontSize: '0.8125rem'
+        fontSize: '10px !important',
+        lineHeight: '1.2 !important',
+        zIndex: 10 // Ensure header is above content
     },
     headerSub: {
         fontWeight: 700,
         bgcolor: colors.headerBg,
         color: '#4B5563',
-        py: 1.25,
+        py: 0.5,
         borderBottom: `1px solid ${colors.border}`,
-        fontSize: '0.8125rem'
+        fontSize: '10px !important',
+        lineHeight: '1.2 !important',
+        top: 22, // Matches actual first header row height (py:0.5 + fontSize:10px + borders)
+        zIndex: 10
     }
 };
 

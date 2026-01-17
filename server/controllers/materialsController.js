@@ -1448,6 +1448,36 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
     const showImages = [];
 
     // Кэш для ускорения резолвинга категорий в рамках одного импорта
+    // Загружаем все существующие категории сразу
+    const existingCats = await categoriesRepository.findAll({ tenantId: tenant_id, type: 'material' });
+
+    // Строим индекс для мгновенного поиска по паре (name + parent_id)
+    const catLookup = new Map();
+    existingCats.forEach(c => {
+      const key = `${c.name.trim().toLowerCase()}_${c.parent_id || 'root'}`;
+      catLookup.set(key, c);
+    });
+
+    // Вспомогательная функция для быстрого поиска ID категории в памяти (O(1))
+    const findInExisting = (levels) => {
+      let currentParentId = null;
+      let fullPath = [];
+
+      for (const name of levels) {
+        if (!name) continue;
+        const trimmedName = name.trim();
+        const key = `${trimmedName.toLowerCase()}_${currentParentId || 'root'}`;
+        const found = catLookup.get(key);
+
+        if (!found) return null;
+
+        currentParentId = found.id;
+        fullPath.push(trimmedName);
+      }
+
+      return { id: currentParentId, fullPath: fullPath.join(' / ') };
+    };
+
     const categoryCache = new Map();
 
     for (const m of uniqueList) {
@@ -1465,12 +1495,12 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
       productUrls.push(m.productUrl || '');
       showImages.push(m.showImage !== false);
 
-      // Резолвинг иерархии категорий
+      // Резолвинг иерархии категорий (поддерживаем camelCase и snake_case)
       const levels = [
-        m.category_lv1,
-        m.category_lv2,
-        m.category_lv3,
-        m.category_lv4
+        m.categoryLv1 || m.category_lv1,
+        m.categoryLv2 || m.category_lv2,
+        m.categoryLv3 || m.category_lv3,
+        m.categoryLv4 || m.category_lv4
       ].filter(Boolean);
 
       // Если ни одного уровня нет, используем старое поле или "Прочее"
@@ -1487,15 +1517,25 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
       if (categoryCache.has(cacheKey)) {
         resolved = categoryCache.get(cacheKey);
       } else {
-        resolved = await categoriesRepository.resolveHierarchy(levels, {
-          tenantId: tenant_id,
-          isGlobal: isGlobal === true,
-          type: 'material'
-        });
+        // Сначала пробуем найти в памяти через наш индекс
+        const inMemory = findInExisting(levels);
+        if (inMemory) {
+          resolved = inMemory;
+        } else {
+          // Если в памяти нет, идем в базу (один раз на уникальную цепочку)
+          resolved = await categoriesRepository.resolveHierarchy(levels, {
+            tenantId: tenant_id,
+            isGlobal: isGlobal === true,
+            type: 'material'
+          });
+          // ВАЖНО: Мы не обновляем catLookup здесь, так как resolveHierarchy может создать 
+          // несколько уровней. Но за счет categoryCache.set(cacheKey, resolved) ниже 
+          // повторные такие же цепочки не пойдут в базу.
+        }
         categoryCache.set(cacheKey, resolved);
       }
 
-      categories.push(levels[levels.length - 1]); // Старое поле = имя последнего уровня
+      categories.push(levels[levels.length - 1]);
       categoryIds.push(resolved.id);
       categoryFullPaths.push(resolved.fullPath);
     }
@@ -1652,6 +1692,48 @@ export const searchMaterialsSemantic = catchAsync(async (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/materials/clear-all:
+ *   delete:
+ *     summary: Очистить ВЕСЬ справочник материалов (ТОЛЬКО для суперадмина)
+ *     tags: [Materials]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Справочник очищен
+ *       403:
+ *         description: Требуются права суперадмина
+ */
+export const clearAllMaterials = catchAsync(async (req, res) => {
+  const { isSuperAdmin } = req.user;
+
+  if (!isSuperAdmin) {
+    throw new BadRequestError('Только суперадмин может очистить справочник материалов');
+  }
+
+  console.log('[CLEAR ALL MATERIALS] Superadmin initiated full clear');
+
+  // Удаляем все материалы
+  const deleteResult = await db.query('DELETE FROM materials');
+  const deletedCount = deleteResult.rowCount;
+
+  // Удаляем все категории материалов
+  const deleteCategoriesResult = await db.query(`DELETE FROM categories WHERE type = 'material'`);
+  const deletedCategories = deleteCategoriesResult.rowCount;
+
+  // Очищаем кэш
+  invalidateMaterialsCache();
+
+  console.log(`[CLEAR ALL MATERIALS] Deleted ${deletedCount} materials and ${deletedCategories} categories`);
+
+  res.status(200).json({
+    success: true,
+    message: `Справочник очищен: удалено ${deletedCount} материалов и ${deletedCategories} категорий`
+  });
+});
+
 export default {
   getAllMaterials,
   getMaterialById,
@@ -1661,6 +1743,7 @@ export default {
   getMaterialsStats,
   getMaterialCategories,
   getMaterialSuppliers,
-  bulkImportMaterials, // ✅ Добавили
-  searchMaterialsSemantic // 🧠 Semantic search
+  bulkImportMaterials,
+  searchMaterialsSemantic,
+  clearAllMaterials
 };

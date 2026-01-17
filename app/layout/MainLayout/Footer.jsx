@@ -9,12 +9,12 @@ export default function Footer() {
       sx={{
         alignItems: 'center',
         justifyContent: 'space-between',
-        pt: 3,
-        pb: 2.5,
+        pt: 1.5,
+        pb: 1,
         mt: 'auto'
       }}
     >
-      <Typography 
+      <Typography
         variant="caption"
         sx={{
           opacity: 0.65,

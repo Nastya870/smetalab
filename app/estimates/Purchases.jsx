@@ -88,43 +88,41 @@ const Purchases = ({ estimateId, projectId }) => {
   };
 
   return (
-    <Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       {/* ШАПКА СТРАНИЦЫ */}
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         justifyContent="space-between"
         alignItems={{ xs: 'flex-start', sm: 'center' }}
         spacing={2}
-        sx={{ mb: 3 }}
+        sx={{ mb: 1.5, flexShrink: 0 }}
       >
         <Stack direction="row" alignItems="center" spacing={2}>
           <Box
             sx={{
-              width: 48,
-              height: 48,
-              borderRadius: '12px',
+              width: 36,
+              height: 36,
+              borderRadius: '10px',
               bgcolor: colors.primaryLight,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}
           >
-            <IconPackage size={26} color={colors.primary} />
+            <IconPackage size={20} color={colors.primary} />
           </Box>
           <Box>
             <Typography
-              variant="h4"
-              component="h1"
+              variant="h6"
               sx={{
                 fontWeight: 700,
-                color: colors.textPrimary,
-                fontSize: { xs: '1.5rem', sm: '1.75rem' }
+                color: colors.textPrimary
               }}
             >
               Закупки
             </Typography>
-            <Typography variant="body2" sx={{ color: colors.textSecondary, mt: 0.5 }}>
-              Материалы, сгруппированные и суммированные по всей смете
+            <Typography variant="caption" sx={{ color: colors.textSecondary, display: 'block', lineHeight: 1 }}>
+              Материалы, сгруппированные по всей смете
             </Typography>
           </Box>
         </Stack>
@@ -139,13 +137,15 @@ const Purchases = ({ estimateId, projectId }) => {
                 sx={{
                   bgcolor: colors.primary,
                   fontWeight: 600,
-                  px: 2.5,
-                  borderRadius: '10px',
+                  px: 2,
+                  height: 32,
+                  fontSize: '0.8125rem',
+                  borderRadius: '8px',
                   textTransform: 'none',
-                  boxShadow: '0 4px 14px 0 rgba(79, 70, 229, 0.39)'
+                  boxShadow: 'none'
                 }}
               >
-                Добавить материал (О/Ч)
+                Добавить материал
               </Button>
               <Button
                 variant="outlined"
@@ -153,12 +153,18 @@ const Purchases = ({ estimateId, projectId }) => {
                 onClick={onExportCSV}
                 disabled={loading || exportingCSV}
                 sx={{
-                  borderColor: colors.primary,
-                  color: colors.primary,
+                  borderColor: colors.border,
+                  color: '#4B5563',
                   fontWeight: 600,
-                  px: 2.5,
-                  borderRadius: '10px',
-                  textTransform: 'none'
+                  px: 1.5,
+                  height: 32,
+                  fontSize: '0.8125rem',
+                  borderRadius: '8px',
+                  textTransform: 'none',
+                  '&:hover': {
+                    borderColor: '#D1D5DB',
+                    bgcolor: '#F9FAFB'
+                  }
                 }}
               >
                 Экспорт CSV
@@ -169,12 +175,18 @@ const Purchases = ({ estimateId, projectId }) => {
                 onClick={handleImportCSV}
                 disabled={loading}
                 sx={{
-                  borderColor: colors.primary,
-                  color: colors.primary,
+                  borderColor: colors.border,
+                  color: '#4B5563',
                   fontWeight: 600,
-                  px: 2.5,
-                  borderRadius: '10px',
-                  textTransform: 'none'
+                  px: 1.5,
+                  height: 32,
+                  fontSize: '0.8125rem',
+                  borderRadius: '8px',
+                  textTransform: 'none',
+                  '&:hover': {
+                    borderColor: '#D1D5DB',
+                    bgcolor: '#F9FAFB'
+                  }
                 }}
               >
                 Импорт CSV
@@ -185,12 +197,18 @@ const Purchases = ({ estimateId, projectId }) => {
                 onClick={handleGeneratePurchases}
                 disabled={loading}
                 sx={{
-                  borderColor: colors.primary,
-                  color: colors.primary,
+                  borderColor: colors.border,
+                  color: '#4B5563',
                   fontWeight: 600,
-                  px: 2.5,
-                  borderRadius: '10px',
-                  textTransform: 'none'
+                  px: 1.5,
+                  height: 32,
+                  fontSize: '0.8125rem',
+                  borderRadius: '8px',
+                  textTransform: 'none',
+                  '&:hover': {
+                    borderColor: '#D1D5DB',
+                    bgcolor: '#F9FAFB'
+                  }
                 }}
               >
                 Обновить
@@ -218,128 +236,134 @@ const Purchases = ({ estimateId, projectId }) => {
         </Stack>
       </Stack>
 
-      {/* ИНДИКАТОР ЗАГРУЗКИ */}
-      {loading && (
-        <Paper sx={{ p: 6, textAlign: 'center', borderRadius: '16px', border: `1px solid ${colors.border}` }}>
-          <CircularProgress sx={{ color: colors.primary }} />
-          <Typography variant="body1" sx={{ color: colors.textSecondary, mt: 2 }}>
-            Загрузка данных...
-          </Typography>
-        </Paper>
-      )}
+      <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden', pr: 0.5 }}>
+        {/* ИНДИКАТОР ЗАГРУЗКИ */}
+        {loading && (
+          <Paper sx={{ p: 6, textAlign: 'center', borderRadius: '16px', border: `1px solid ${colors.border}` }}>
+            <CircularProgress sx={{ color: colors.primary }} />
+            <Typography variant="body1" sx={{ color: colors.textSecondary, mt: 2 }}>
+              Загрузка данных...
+            </Typography>
+          </Paper>
+        )}
 
-      {/* ОШИБКА */}
-      {error && !loading && (
-        <Alert severity="error" sx={{ mb: 3, borderRadius: '12px' }}>
-          {error}
-        </Alert>
-      )}
+        {/* ОШИБКА */}
+        {error && !loading && (
+          <Alert severity="error" sx={{ mb: 3, borderRadius: '12px' }}>
+            {error}
+          </Alert>
+        )}
 
-      {/* ЗАГЛУШКА */}
-      {!loading && !purchasesGenerated && (
-        <Paper
-          sx={{
-            p: 6,
-            textAlign: 'center',
-            borderRadius: '16px',
-            border: `1px solid ${colors.border}`,
-            bgcolor: '#FAFAFA'
-          }}
-        >
-          <Box
+        {/* ЗАГЛУШКА */}
+        {!loading && !purchasesGenerated && (
+          <Paper
             sx={{
-              width: 80,
-              height: 80,
-              borderRadius: '20px',
-              bgcolor: colors.primaryLight,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              mx: 'auto',
-              mb: 3
+              p: 6,
+              textAlign: 'center',
+              borderRadius: '16px',
+              border: `1px solid ${colors.border}`,
+              bgcolor: '#FAFAFA'
             }}
           >
-            <IconShoppingCart size={40} color={colors.primary} style={{ opacity: 0.7 }} />
-          </Box>
-          <Typography variant="h5" sx={{ fontWeight: 600, color: '#374151', mb: 1 }}>
-            Закупки ещё не сформированы
-          </Typography>
-          <Typography variant="body1" sx={{ color: colors.textSecondary, mb: 4, maxWidth: 400, mx: 'auto' }}>
-            Нажмите кнопку «Сформировать закупки» для создания списка материалов на основе сметы
-          </Typography>
-          <Button
-            variant="contained"
-            size="large"
-            startIcon={<IconDeviceFloppy size={22} />}
-            onClick={handleGeneratePurchases}
-            disabled={loading || !estimateId || !projectId}
-            sx={{
-              bgcolor: colors.primary,
-              fontWeight: 600,
-              px: 4,
-              py: 1.5,
-              borderRadius: '12px',
-              textTransform: 'none'
-            }}
-          >
-            Сформировать закупки
-          </Button>
-        </Paper>
-      )}
+            <Box
+              sx={{
+                width: 80,
+                height: 80,
+                borderRadius: '20px',
+                bgcolor: colors.primaryLight,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                mx: 'auto',
+                mb: 3
+              }}
+            >
+              <IconShoppingCart size={40} color={colors.primary} style={{ opacity: 0.7 }} />
+            </Box>
+            <Typography variant="h5" sx={{ fontWeight: 600, color: '#374151', mb: 1 }}>
+              Закупки ещё не сформированы
+            </Typography>
+            <Typography variant="body1" sx={{ color: colors.textSecondary, mb: 4, maxWidth: 400, mx: 'auto' }}>
+              Нажмите кнопку «Сформировать закупки» для создания списка материалов на основе сметы
+            </Typography>
+            <Button
+              variant="contained"
+              size="large"
+              startIcon={<IconDeviceFloppy size={22} />}
+              onClick={handleGeneratePurchases}
+              disabled={loading || !estimateId || !projectId}
+              sx={{
+                bgcolor: colors.primary,
+                fontWeight: 600,
+                px: 4,
+                py: 1.5,
+                borderRadius: '12px',
+                textTransform: 'none'
+              }}
+            >
+              Сформировать закупки
+            </Button>
+          </Paper>
+        )}
 
-      {/* ТАБЛИЦА И ИТОГИ */}
-      {!loading && purchasesGenerated && (
-        <>
-          <PurchasesTable
-            regularMaterials={regularMaterials}
-            extraMaterials={extraMaterials}
-            getPurchaseStatus={getPurchaseStatus}
-            onOpenAddDialog={handleOpenAddDialog}
-          />
+        {/* ТАБЛИЦА И ИТОГИ */}
+        {!loading && purchasesGenerated && (
+          <>
+            <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', mb: 2 }}>
+              <PurchasesTable
+                regularMaterials={regularMaterials}
+                extraMaterials={extraMaterials}
+                getPurchaseStatus={getPurchaseStatus}
+                onOpenAddDialog={handleOpenAddDialog}
+              />
+            </Box>
 
-          <PurchasesSummary
-            totalAmount={totalAmount}
-            totalActualAmount={totalActualAmount}
-            regularMaterials={regularMaterials}
-            extraMaterials={extraMaterials}
-            getPurchaseStatus={getPurchaseStatus}
-          />
-        </>
-      )}
+            <Box sx={{ flexShrink: 0 }}>
+              <PurchasesSummary
+                totalAmount={totalAmount}
+                totalActualAmount={totalActualAmount}
+                regularMaterials={regularMaterials}
+                extraMaterials={extraMaterials}
+                getPurchaseStatus={getPurchaseStatus}
+              />
+            </Box>
+          </>
+        )}
 
-      {/* ДИАЛОГИ */}
-      <AddPurchaseDialog
-        open={addDialogOpen}
-        onClose={handleCloseAddDialog}
-        material={selectedMaterial}
-        form={purchaseForm}
-        setForm={setPurchaseForm}
-        submitting={submitting}
-        onSubmit={handleAddToGlobalPurchases}
-        error={error}
-      />
+        {/* ДИАЛОГИ */}
+        <AddPurchaseDialog
+          open={addDialogOpen}
+          onClose={handleCloseAddDialog}
+          material={selectedMaterial}
+          form={purchaseForm}
+          setForm={setPurchaseForm}
+          submitting={submitting}
+          onSubmit={handleAddToGlobalPurchases}
+          error={error}
+        />
 
-      <ExtraMaterialDialog
-        open={addExtraMaterialDialogOpen}
-        onClose={handleCloseExtraMaterialDialog}
-        materials={materials}
-        loadingMaterials={loadingMaterials}
-        form={extraMaterialForm}
-        setForm={setExtraMaterialForm}
-        submitting={submitting}
-        onSubmit={handleAddExtraMaterial}
-        error={error}
-      />
+        <ExtraMaterialDialog
+          open={addExtraMaterialDialogOpen}
+          onClose={handleCloseExtraMaterialDialog}
+          materials={materials}
+          loadingMaterials={loadingMaterials}
+          form={extraMaterialForm}
+          setForm={setExtraMaterialForm}
+          submitting={submitting}
+          onSubmit={handleAddExtraMaterial}
+          error={error}
+        />
 
-      {/* ✅ Диалог импорта закупок */}
-      <ImportDialog
-        open={openImportDialog}
-        onClose={() => setOpenImportDialog(false)}
-        onImport={(file, options) => purchasesAPI.importPurchases(estimateId, file, options.mode)}
-        onSuccess={onImportSuccess}
-        title="Импорт закупок из CSV"
-        description="📄 Загрузите CSV файл с закупками. Обязательные поля: Наименование, Кол-во, Цена. Дополнительные: Код, Ед изм, Дата."
-      />
+        {/* ✅ Диалог импорта закупок */}
+        <ImportDialog
+          open={openImportDialog}
+          onClose={() => setOpenImportDialog(false)}
+          onImport={(file, options) => purchasesAPI.importPurchases(estimateId, file, options.mode)}
+          onSuccess={onImportSuccess}
+          title="Импорт закупок из CSV"
+          description="📄 Загрузите CSV файл с закупками. Обязательные поля: Наименование, Кол-во, Цена. Дополнительные: Код, Ед изм, Дата."
+        />
+      </Box>
     </Box>
   );
 };

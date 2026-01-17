@@ -8,8 +8,9 @@ import {
   getMaterialsStats,
   getMaterialCategories,
   getMaterialSuppliers,
-  bulkImportMaterials, // ✅ Добавили
-  searchMaterialsSemantic // 🧠 Semantic search
+  bulkImportMaterials,
+  searchMaterialsSemantic,
+  clearAllMaterials
 } from '../controllers/materialsController.js';
 import {
   exportToCSV,
@@ -119,6 +120,23 @@ router.post('/', authenticateToken, checkPermission('materials', 'create'), crea
  * @body    { sku?, name?, image?, unit?, price?, supplier?, weight?, category?, productUrl?, showImage? }
  */
 router.put('/:id', authenticateToken, checkAnyPermission(['materials', 'update'], ['materials', 'manage']), updateMaterial);
+
+/**
+ * @swagger
+ * /api/materials/clear-all:
+ *   delete:
+ *     summary: Очистить ВЕСЬ справочник материалов (Суперадмин)
+ *     description: Удаляет все записи из таблиц materials и categories (тип material). Только для super_admin.
+ *     tags: [Materials]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Справочник очищен
+ *       403:
+ *         description: Недостаточно прав (требуется super_admin)
+ */
+router.delete('/clear-all', authenticateToken, clearAllMaterials);
 
 /**
  * @route   DELETE /api/materials/:id

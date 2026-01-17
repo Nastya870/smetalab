@@ -19,10 +19,12 @@ const pool = new Pool({
     rejectUnauthorized: false
   },
   // Настройки для локальной разработки и production
-  max: process.env.NODE_ENV === 'production' ? 1 : 10, // 10 соединений локально, 1 на serverless
-  idleTimeoutMillis: 30000, // 30 секунд idle timeout
-  connectionTimeoutMillis: 10000, // 10 секунд на подключение
-  allowExitOnIdle: process.env.NODE_ENV === 'production' // Только для serverless
+  max: process.env.NODE_ENV === 'production' ? 3 : 10, // 3 соединения в production, 10 локально
+  idleTimeoutMillis: 60000, // 60 секунд idle timeout (Render может быть медленным)
+  connectionTimeoutMillis: 15000, // 15 секунд на подключение
+  allowExitOnIdle: false, // Не закрывать соединения
+  keepAlive: true, // Поддерживать соединение активным
+  keepAliveInitialDelayMillis: 10000 // Проверка keepalive каждые 10 секунд
 });
 
 // Обработка ошибок пула (логируем, но не завершаем процесс в serverless)
@@ -104,26 +106,47 @@ export const getClient = async () => {
 };
 
 /**
- * Выполнить запросы в транзакции
+ * Выполнить запросы в транзакции с retry-логикой
  */
-export const transaction = async (callback) => {
-  const client = await getClient();
-  try {
-    await client.query('BEGIN');
-    const result = await callback(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (error) {
+export const transaction = async (callback, retries = 3) => {
+  let lastError;
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const client = await getClient();
     try {
-      await client.query('ROLLBACK');
-    } catch (rollbackError) {
-      // Игнорируем ошибки при роллбеке, если соединение уже потеряно
-      console.error('⚠️ Rollback failed (likely due to connection loss):', rollbackError.message);
+      await client.query('BEGIN');
+      const result = await callback(client);
+      await client.query('COMMIT');
+      if (attempt > 1) {
+        console.log(`Transaction succeeded on attempt ${attempt}`);
+      }
+      return result;
+    } catch (error) {
+      lastError = error;
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        // Игнорируем ошибки при роллбеке, если соединение уже потеряно
+        console.error('⚠️ Rollback failed (likely due to connection loss):', rollbackError.message);
+      }
+
+      console.error(`Transaction error (attempt ${attempt}/${retries}):`, error.message);
+
+      // Если это последняя попытка или ошибка не связана с подключением
+      if (attempt === retries || !isConnectionError(error)) {
+        throw error;
+      }
+
+      // Ждем перед повторной попыткой (exponential backoff)
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+      console.log(`Retrying transaction in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    } finally {
+      client.release();
     }
-    throw error;
-  } finally {
-    client.release();
   }
+
+  throw lastError;
 };
 
 /**
