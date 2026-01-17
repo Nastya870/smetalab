@@ -65,7 +65,7 @@ export default function MainLayout() {
 
       {/* main content */}
       <MainContentStyled {...{ borderRadius, open: drawerOpen }}>
-        <Box sx={{ px: { xs: 0 }, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <Box sx={{ px: { xs: 0 }, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
           {/* breadcrumb */}
           <Breadcrumbs />
           {/* email verification banner */}

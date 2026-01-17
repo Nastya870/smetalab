@@ -16,7 +16,7 @@ const MainContentStyled = styled('main', {
   height: 'calc(100vh - 88px)',
   display: 'flex',
   flexDirection: 'column',
-  overflow: 'hidden',
+  overflow: 'visible',
   flexGrow: 1,
   padding: 20,
   marginTop: 88,
