@@ -615,6 +615,8 @@ const WorksReferencePage = () => {
   };
 
   const handleImportSuccess = () => {
+    // ✅ Сигнализируем Смете, что данные обновились и нужна инвалидация кеша
+    localStorage.setItem('works_need_sync', 'true');
     fetchWorks(1, true); // Перезагрузить список работ с первой страницы
     success('Работы успешно импортированы');
   };
@@ -651,6 +653,7 @@ const WorksReferencePage = () => {
     try {
       setIsClearing(true);
       const response = await worksAPI.clearAll();
+      localStorage.setItem('works_need_sync', 'true');
       success(response.message || 'Справочник работ очищен');
       fetchWorks(1, true);
     } catch (err) {

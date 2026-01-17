@@ -717,6 +717,9 @@ const MaterialsReferencePage = () => {
               }
             }
 
+            // ✅ Сигнализируем всем компонентам, что данные обновились и нужна синхронизация
+            localStorage.setItem('materials_need_sync', 'true');
+
             resolve({
               success: true,
               successCount: successful,
@@ -769,6 +772,7 @@ const MaterialsReferencePage = () => {
     try {
       setIsClearing(true);
       const response = await materialsAPI.clearAll();
+      localStorage.setItem('materials_need_sync', 'true');
       success(response.message || 'Справочник материалов очищен');
       fetchMaterials(1, true);
     } catch (err) {

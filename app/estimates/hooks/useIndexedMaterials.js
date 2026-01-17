@@ -55,9 +55,11 @@ const useIndexedMaterials = () => {
                     }
 
                     // Initial check if we need sync
-                    if (!last || (Date.now() - parseInt(last) > SYNC_INTERVAL)) {
+                    const needsSyncFlag = localStorage.getItem('materials_need_sync') === 'true';
+                    if (!last || needsSyncFlag || (Date.now() - parseInt(last) > SYNC_INTERVAL)) {
                         // Don't auto-sync immediately to avoid blocking UI on first load
                         // Let the user trigger it or do it in background after a delay
+                        console.log('🔄 Automatic material sync triggered...');
                         setTimeout(() => syncMaterials(database), 1000);
                     }
                 };
@@ -137,6 +139,7 @@ const useIndexedMaterials = () => {
                 console.log(`✅ Sync complete. Saved ${addedCount} items.`);
                 const now = Date.now();
                 localStorage.setItem(SYNC_KEY, now.toString());
+                localStorage.removeItem('materials_need_sync'); // ✅ Сбрасываем флаг, так как данные актуальны
                 setLastSync(new Date(now));
                 setSyncStatus('success');
                 setSyncing(false);

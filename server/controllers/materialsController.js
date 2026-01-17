@@ -1448,6 +1448,36 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
     const showImages = [];
 
     // Кэш для ускорения резолвинга категорий в рамках одного импорта
+    // Загружаем все существующие категории сразу
+    const existingCats = await categoriesRepository.findAll({ tenantId: tenant_id, type: 'material' });
+
+    // Строим индекс для мгновенного поиска по паре (name + parent_id)
+    const catLookup = new Map();
+    existingCats.forEach(c => {
+      const key = `${c.name.trim().toLowerCase()}_${c.parent_id || 'root'}`;
+      catLookup.set(key, c);
+    });
+
+    // Вспомогательная функция для быстрого поиска ID категории в памяти (O(1))
+    const findInExisting = (levels) => {
+      let currentParentId = null;
+      let fullPath = [];
+
+      for (const name of levels) {
+        if (!name) continue;
+        const trimmedName = name.trim();
+        const key = `${trimmedName.toLowerCase()}_${currentParentId || 'root'}`;
+        const found = catLookup.get(key);
+
+        if (!found) return null;
+
+        currentParentId = found.id;
+        fullPath.push(trimmedName);
+      }
+
+      return { id: currentParentId, fullPath: fullPath.join(' / ') };
+    };
+
     const categoryCache = new Map();
 
     for (const m of uniqueList) {
@@ -1487,15 +1517,25 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
       if (categoryCache.has(cacheKey)) {
         resolved = categoryCache.get(cacheKey);
       } else {
-        resolved = await categoriesRepository.resolveHierarchy(levels, {
-          tenantId: tenant_id,
-          isGlobal: isGlobal === true,
-          type: 'material'
-        });
+        // Сначала пробуем найти в памяти через наш индекс
+        const inMemory = findInExisting(levels);
+        if (inMemory) {
+          resolved = inMemory;
+        } else {
+          // Если в памяти нет, идем в базу (один раз на уникальную цепочку)
+          resolved = await categoriesRepository.resolveHierarchy(levels, {
+            tenantId: tenant_id,
+            isGlobal: isGlobal === true,
+            type: 'material'
+          });
+          // ВАЖНО: Мы не обновляем catLookup здесь, так как resolveHierarchy может создать 
+          // несколько уровней. Но за счет categoryCache.set(cacheKey, resolved) ниже 
+          // повторные такие же цепочки не пойдут в базу.
+        }
         categoryCache.set(cacheKey, resolved);
       }
 
-      categories.push(levels[levels.length - 1]); // Старое поле = имя последнего уровня
+      categories.push(levels[levels.length - 1]);
       categoryIds.push(resolved.id);
       categoryFullPaths.push(resolved.fullPath);
     }
