@@ -335,8 +335,13 @@ const MaterialsDialog = ({
               <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 Категории
               </Typography>
-              <Tooltip title="Обновить категории">
-                <IconButton size="small" onClick={() => window.location.reload()} sx={{ opacity: 0.6 }}>
+              <Tooltip title="Синхронизировать материалы и категории">
+                <IconButton
+                  size="small"
+                  onClick={() => onSync ? onSync() : window.location.reload()}
+                  disabled={syncStatus === 'syncing'}
+                  sx={{ opacity: 0.6 }}
+                >
                   <IconRefresh size={14} />
                 </IconButton>
               </Tooltip>

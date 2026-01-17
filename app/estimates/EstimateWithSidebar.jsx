@@ -94,7 +94,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
     resetMaterials,
     syncStatus: materialsSyncStatus,
     lastSync: materialsLastSync,
-    syncMaterials
+    syncMaterials,
+    forceSync: forceSyncMaterials
   } = useIndexedMaterials();
 
   const [materialsPage, setMaterialsPage] = useState(1);
@@ -853,7 +854,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
           }
         }}
         syncStatus={materialsSyncStatus}
-        onSync={syncMaterials}
+        onSync={forceSyncMaterials}
         onSearch={(query) => loadMaterialsForDialog(1, true, query)}
       />
 

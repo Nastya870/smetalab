@@ -140,8 +140,8 @@ const useIndexedMaterials = () => {
                 setSyncStatus('success');
                 setSyncing(false);
 
-                // Clear search cache
-                searchCache.current.clear();
+                // Clear memory cache to force reload from IDB
+                allMaterialsCache.current = null;
             };
 
             transaction.onerror = (event) => {
@@ -292,6 +292,50 @@ const useIndexedMaterials = () => {
         }
     }, [db]);
 
+    /**
+     * Force sync - clears timestamp and re-syncs from server
+     */
+    const forceSync = useCallback(async () => {
+        console.log('🔄 Force sync initiated...');
+        localStorage.removeItem(SYNC_KEY);
+        allMaterialsCache.current = null;
+        await syncMaterials(db);
+    }, [db, syncMaterials]);
+
+    /**
+     * Clear all cache (IndexedDB + localStorage + memory)
+     */
+    const clearCache = useCallback(async () => {
+        console.log('🗑️ Clearing all materials cache...');
+
+        // Clear memory
+        allMaterialsCache.current = null;
+        setMaterials([]);
+        setTotalRecords(0);
+
+        // Clear localStorage
+        localStorage.removeItem(SYNC_KEY);
+        setLastSync(null);
+
+        // Clear IndexedDB
+        if (db) {
+            try {
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                await new Promise((resolve, reject) => {
+                    const request = store.clear();
+                    request.onsuccess = resolve;
+                    request.onerror = reject;
+                });
+                console.log('✅ IndexedDB cleared');
+            } catch (err) {
+                console.error('Failed to clear IndexedDB:', err);
+            }
+        }
+
+        setSyncStatus('idle');
+    }, [db]);
+
     return {
         materials,
         loading,
@@ -302,6 +346,8 @@ const useIndexedMaterials = () => {
         hasMore: materials.length < totalRecords,
         searchMaterials,
         syncMaterials,
+        forceSync,
+        clearCache,
         resetMaterials: () => setMaterials([])
     };
 };
