@@ -33,7 +33,8 @@ import {
   IconChevronRight,
   IconChevronDown,
   IconFolder,
-  IconFolderOpen
+  IconFolderOpen,
+  IconX
 } from '@tabler/icons-react';
 import { Virtuoso } from 'react-virtuoso';
 import { formatCurrency } from '../../projects/utils';
@@ -297,6 +298,23 @@ const MaterialsDialog = ({
                 <IconSearch size={18} color="#9CA3AF" />
               </InputAdornment>
             ),
+            endAdornment: (
+              <InputAdornment position="end">
+                {localSearchInput && (
+                  <IconButton size="small" onClick={() => { setLocalSearchInput(''); if (onSearch) onSearch(''); }}>
+                    <IconX size={16} />
+                  </IconButton>
+                )}
+                <IconButton
+                  size="small"
+                  onClick={() => onSearch && onSearch(localSearchInput)}
+                  disabled={loading}
+                  color="primary"
+                >
+                  {loading ? <CircularProgress size={16} /> : <IconSearch size={18} />}
+                </IconButton>
+              </InputAdornment>
+            ),
             sx: { borderRadius: 2, bgcolor: '#F9FAFB', fontSize: '0.875rem' }
           }}
         />
@@ -313,10 +331,15 @@ const MaterialsDialog = ({
             bgcolor: '#F8F9FA',
             overflowY: 'auto'
           }}>
-            <Box sx={{ p: 1.5, pb: 0 }}>
+            <Box sx={{ p: 1.5, pb: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 Категории
               </Typography>
+              <Tooltip title="Обновить категории">
+                <IconButton size="small" onClick={() => window.location.reload()} sx={{ opacity: 0.6 }}>
+                  <IconRefresh size={14} />
+                </IconButton>
+              </Tooltip>
             </Box>
 
             <List dense sx={{ px: 1 }}>

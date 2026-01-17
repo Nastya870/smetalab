@@ -157,6 +157,11 @@ const normalizeSearchQuery = (query) => {
  *         description: Ошибка сервера
  */
 export const getAllMaterials = catchAsync(async (req, res) => {
+  if (req.query.force_refresh === 'true') {
+    invalidateMaterialsCache();
+    return res.status(200).json({ success: true, message: 'Cache forcefully cleared' });
+  }
+
   const {
     category,
     search,
@@ -1559,6 +1564,9 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
       error: mode === 'add' ? 'Артикул уже существует' : 'Ошибка при сохранении'
     }));
 
+    // Инвалидация кеша после успешного импорта
+    invalidateMaterialsCache(isGlobal === true ? null : tenant_id);
+
     return res.status(201).json({
       success: true,
       successCount: importedSkus.size,
@@ -1571,21 +1579,6 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
     console.error('[BULK IMPORT ERROR]', err);
     throw err;
   }
-
-  // Инвалидация кеша
-  invalidateMaterialsCache(tenant_id);
-
-  console.log(`[BULK IMPORT]Успешно: ${successfulImports.length}, Ошибок: ${failedImports.length} `);
-
-  res.status(201).json({
-    success: true,
-    message: `Импорт завершён: ${successfulImports.length} материалов добавлено, ${failedImports.length} ошибок`,
-    successCount: successfulImports.length,
-    errorCount: failedImports.length,
-    successfulImports,
-    failedImports,
-    errors: failedImports
-  });
 });
 
 /**

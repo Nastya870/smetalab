@@ -115,3 +115,7 @@ KS2.XLS
 ../KS2.XLS
 
 Доступы
+
+# Local data files
+petrovich_*.csv
+scripts/clear-materials.js
