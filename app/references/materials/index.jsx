@@ -829,7 +829,7 @@ const MaterialsReferencePage = () => {
           bgcolor: '#FFFFFF',
           borderRadius: '12px',
           border: '1px solid #E5E7EB',
-          p: { xs: 2, sm: 2.5 },
+          p: { xs: 1.5, sm: 2 },
           display: 'flex',
           flexDirection: 'column',
           flex: 1,
@@ -837,8 +837,8 @@ const MaterialsReferencePage = () => {
         }}
       >
         {/* Шапка и Кнопки управления */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontWeight: 700, fontSize: '1.125rem', color: '#1F2937' }} data-testid="materials-title">
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, gap: 2, flexWrap: 'wrap' }}>
+          <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: '#1F2937' }} data-testid="materials-title">
             Строительные материалы
           </Typography>
 
@@ -924,7 +924,7 @@ const MaterialsReferencePage = () => {
         </Box>
 
         {/* Поиск и фильтр по типу */}
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 1.5 }}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 1 }}>
           <TextField
             fullWidth
             placeholder="Поиск по названию, коду, поставщику или единице измерения..."
@@ -1042,7 +1042,7 @@ const MaterialsReferencePage = () => {
         </Box>
 
         {/* Переключатели и Статистика на одной линии */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 2 }}>
           <Stack direction="row" spacing={2.5}>
             <FormControlLabel
               control={

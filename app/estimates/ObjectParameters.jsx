@@ -24,6 +24,27 @@ import { IconPlus, IconTrash, IconDeviceFloppy } from '@tabler/icons-react';
 // API
 import objectParametersAPI from 'api/objectParametersAPI';
 
+// Цветовая палитра
+const colors = {
+  primary: '#4F46E5',
+  primaryLight: '#EEF2FF',
+  primaryDark: '#3730A3',
+  green: '#10B981',
+  greenLight: '#D1FAE5',
+  greenDark: '#059669',
+  headerBg: '#F3F4F6',
+  cardBg: '#F9FAFB',
+  totalBg: '#EEF2FF',
+  summaryBg: '#F5F3FF',
+  border: '#E5E7EB',
+  textPrimary: '#111827',
+  textSecondary: '#6B7280',
+  warning: '#F59E0B',
+  warningLight: '#FEF3C7',
+  error: '#EF4444',
+  errorLight: '#FEE2E2',
+};
+
 // ==============================|| OBJECT PARAMETERS ||============================== //
 
 const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
@@ -32,7 +53,7 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
-  
+
   // Ref для отслеживания сохраненного состояния
   const savedRowsRef = useRef(null);
   // Колонки - простые поля
@@ -84,13 +105,13 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
   }));
 
   const [rows, setRows] = useState(initialRows);
-  
+
   // Убираем состояние editingCell - оно вызывает проблемы с перерендером
   // Вместо этого будем сохранять оригинальное значение в ref
   const originalValueRef = useRef(null);
 
   // ==================== HELPER ФУНКЦИИ ДЛЯ РАБОТЫ С ЗАПЯТОЙ ====================
-  
+
   /**
    * Преобразует строку с запятой в число
    * "2,5" → 2.5
@@ -141,7 +162,7 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
     // Сравниваем текущее состояние с сохраненным
     const currentData = JSON.stringify(rows);
     const hasChanges = currentData !== savedRowsRef.current;
-    
+
     // Уведомляем родительский компонент
     if (onUnsavedChanges) {
       onUnsavedChanges(hasChanges);
@@ -158,9 +179,9 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const data = await objectParametersAPI.getByEstimateId(estimateId);
-      
+
       if (data && data.length > 0) {
         // Преобразуем данные из API формата в формат компонента
         const loadedRows = data.map((param, index) => {
@@ -299,27 +320,27 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
         openings
       };
     });
-    
+
     return prepared;
   };
 
   // Функция безопасного вычисления математических выражений (поддержка запятой)
   const calculateExpression = (expression) => {
     if (!expression || typeof expression !== 'string') return expression;
-    
+
     // Проверяем, содержит ли строка математические операторы
     if (!/[+\-*/]/.test(expression)) return expression;
-    
+
     try {
       // Заменяем запятые на точки для вычисления
       const normalized = expression.replace(/,/g, '.');
-      
+
       // Очищаем выражение от недопустимых символов (только цифры, точка, операторы, скобки, пробелы)
       const sanitized = normalized.replace(/[^\d+\-*/.() ]/g, '');
-      
+
       // Вычисляем результат через Function (безопаснее eval)
       const result = new Function('return ' + sanitized)();
-      
+
       // Проверяем, что результат - число
       if (typeof result === 'number' && !isNaN(result)) {
         // Возвращаем с запятой
@@ -328,7 +349,7 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
     } catch (error) {
       // Если ошибка вычисления, возвращаем исходное значение
     }
-    
+
     return expression;
   };
 
@@ -347,7 +368,7 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
       columnId,
       value: currentValue
     };
-    
+
     // Выделяем весь текст в поле для удобства замены
     if (event && event.target) {
       // Используем requestAnimationFrame для гарантированного выполнения после рендера
@@ -360,16 +381,16 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
   // Обработчик нажатия клавиш
   const handleCellKeyDown = (rowId, columnId, event, isAutoCalculated = false) => {
     if (isAutoCalculated) return;
-    
+
     if (event.key === 'Enter') {
       event.preventDefault();
       event.target.blur(); // Применяем изменения через onBlur
     } else if (event.key === 'Escape') {
       event.preventDefault();
       // Возвращаем оригинальное значение
-      if (originalValueRef.current && 
-          originalValueRef.current.rowId === rowId && 
-          originalValueRef.current.columnId === columnId) {
+      if (originalValueRef.current &&
+        originalValueRef.current.rowId === rowId &&
+        originalValueRef.current.columnId === columnId) {
         setRows((prevRows) =>
           prevRows.map((row) =>
             row.id === rowId ? { ...row, [columnId]: originalValueRef.current.value } : row
@@ -384,20 +405,20 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
   // Обработка при потере фокуса - форматируем и сохраняем
   const handleCellBlur = (rowId, columnId, value) => {
     const column = simpleColumns.find(col => col.id === columnId);
-    
+
     // Для числовых полей вычисляем математическое выражение и форматируем
     if (column?.type === 'number') {
       const calculatedValue = calculateExpression(value);
       const formattedValue = calculatedValue !== '' && parseCommaFloat(calculatedValue) !== null
         ? formatCommaFloat(parseCommaFloat(calculatedValue), 2)
         : calculatedValue;
-      
+
       // Обновляем значение
       setRows((prevRows) =>
         prevRows.map((row) => (row.id === rowId ? { ...row, [columnId]: formattedValue } : row))
       );
     }
-    
+
     // Очищаем ref
     originalValueRef.current = null;
   };
@@ -408,12 +429,12 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
     const formattedValue = calculatedValue !== '' && parseCommaFloat(calculatedValue) !== null
       ? formatCommaFloat(parseCommaFloat(calculatedValue), 2)
       : calculatedValue;
-    
+
     // Обновляем значение
     setRows((prevRows) =>
       prevRows.map((row) => (row.id === rowId ? { ...row, [columnId]: formattedValue } : row))
     );
-    
+
     // Очищаем ref
     originalValueRef.current = null;
   };
@@ -431,17 +452,17 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
     const window3Area = getNumValue(row.window3H) * getNumValue(row.window3W);
     const portal1Area = getNumValue(row.portal1H) * getNumValue(row.portal1W);
     const portal2Area = getNumValue(row.portal2H) * getNumValue(row.portal2W);
-    
+
     const wallArea = perimeter * height - window1Area - window2Area - window3Area - portal1Area - portal2Area;
-    
+
     // 2. Откосы = Простенки + (Окно1_ш + Окно1_в*2) + (Окно2_ш + Окно2_в*2) + (Окно3_ш + Окно3_в*2)
     const baseboards = getNumValue(row.baseboards);
     const window1Slopes = getNumValue(row.window1W) + (getNumValue(row.window1H) * 2);
     const window2Slopes = getNumValue(row.window2W) + (getNumValue(row.window2H) * 2);
     const window3Slopes = getNumValue(row.window3W) + (getNumValue(row.window3H) * 2);
-    
+
     const windowsSlopes = baseboards + window1Slopes + window2Slopes + window3Slopes;
-    
+
     return {
       ...row,
       // ✅ ВСЕГДА сохраняем рассчитанные значения (даже если 0)
@@ -498,7 +519,7 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
       portal2: ''
     };
     setRows([...rows, newRow]);
-    
+
     // Визуальный feedback
     setSuccessMessage('Строка добавлена (не забудьте сохранить)');
   };
@@ -507,7 +528,7 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
     if (rows.length > 1) {
       // Optimistic UI: мгновенное удаление
       setRows(rows.filter((row) => row.id !== rowId));
-      
+
       // Показываем feedback
       setSuccessMessage('Строка удалена (не забудьте сохранить)');
     }
@@ -517,9 +538,9 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
     // Optimistic UI: мгновенная визуальная обратная связь
     setSaving(true);
     setError(null);
-    
+
     const parametersToSave = prepareDataForSave();
-    
+
     if (parametersToSave.length === 0) {
       setError('Нет данных для сохранения. Заполните хотя бы одно помещение.');
       setSaving(false);
@@ -532,28 +553,28 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
     try {
       // Фоновое сохранение на сервер
       const result = await objectParametersAPI.saveAll(estimateId, parametersToSave);
-      
+
       // Обновляем сообщение на "Успешно"
       setSuccessMessage(`✅ Сохранено ${result.parameters?.length || parametersToSave.length} помещений`);
-      
+
       // Перезагружаем данные для получения вычисленных значений откосов
       await loadParameters();
-      
+
       // ✅ Обновляем сохраненное состояние (данные уже загружены в loadParameters)
       // savedRowsRef.current обновится автоматически в loadParameters
-      
+
       // ✅ Уведомляем родителя что изменений больше нет
       if (onUnsavedChanges) {
         onUnsavedChanges(false);
       }
-      
+
     } catch (err) {
       console.error('❌ Error saving parameters:', err);
-      
+
       // Graceful error handling
       setError(err.response?.data?.error || 'Не удалось сохранить параметры объекта');
       setSuccessMessage(''); // Убираем "Сохраняется..."
-      
+
     } finally {
       setSaving(false);
     }
@@ -569,492 +590,494 @@ const ObjectParameters = forwardRef(({ estimateId, onUnsavedChanges }, ref) => {
   }
 
   return (
-    <Box sx={{ pb: 2 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       {/* Заголовок и кнопки */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5, flexShrink: 0 }}>
         <Box>
-          <Typography sx={{ fontSize: '20px', fontWeight: 600, color: '#111827', mb: 0.5 }}>
+          <Typography sx={{ fontSize: '18px', fontWeight: 700, color: '#111827', mb: 0.2 }}>
             Параметры объекта
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: colors?.textSecondary || 'text.secondary', display: 'block', lineHeight: 1 }}>
             Заполните размеры помещений для расчета объемов работ
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1.5, bgcolor: '#F9FAFB', borderRadius: '10px', p: 1, border: '1px solid #E5E7EB' }}>
-          <Button variant="outlined" startIcon={<IconPlus />} onClick={handleAddRow} disabled={saving} size="small"
-            sx={{ textTransform: 'none', borderColor: '#E5E7EB', color: '#374151', '&:hover': { borderColor: '#D1D5DB', bgcolor: '#FFFFFF' } }}>
+        <Box sx={{ display: 'flex', gap: 1, bgcolor: '#F9FAFB', borderRadius: '8px', p: 0.75, border: '1px solid #E5E7EB' }}>
+          <Button variant="outlined" startIcon={<IconPlus size={16} />} onClick={handleAddRow} disabled={saving} size="small"
+            sx={{ textTransform: 'none', borderColor: '#E5E7EB', color: '#374151', height: 32, fontSize: '0.8125rem', '&:hover': { borderColor: '#D1D5DB', bgcolor: '#FFFFFF' } }}>
             Добавить помещение
           </Button>
-          <Button 
-            variant="contained" 
-            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <IconDeviceFloppy size={16} />} 
+          <Button
+            variant="contained"
+            startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <IconDeviceFloppy size={16} />}
             onClick={handleSave}
             disabled={saving}
             size="small"
-            sx={{ textTransform: 'none', bgcolor: '#4F46E5', '&:hover': { bgcolor: '#4338CA' } }}
+            sx={{ textTransform: 'none', bgcolor: '#4F46E5', height: 32, fontSize: '0.8125rem', '&:hover': { bgcolor: '#4338CA' } }}
           >
             {saving ? 'Сохранение...' : 'Сохранить'}
           </Button>
         </Box>
       </Stack>
+      <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pr: 0.5 }}>
 
-      {/* Сообщения об ошибках и успехе */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
+        {/* Сообщения об ошибках и успехе */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
-      <Snackbar 
-        open={!!successMessage} 
-        autoHideDuration={saving ? null : 3000} 
-        onClose={() => setSuccessMessage('')}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert 
-          severity={saving ? 'info' : (successMessage.includes('✅') ? 'success' : 'info')} 
+        <Snackbar
+          open={!!successMessage}
+          autoHideDuration={saving ? null : 3000}
           onClose={() => setSuccessMessage('')}
-          sx={{
-            minWidth: 300,
-            animation: saving ? 'pulse 1.5s infinite' : 'none',
-            '@keyframes pulse': {
-              '0%, 100%': { opacity: 1 },
-              '50%': { opacity: 0.7 }
-            }
-          }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         >
-          {successMessage}
-        </Alert>
-      </Snackbar>
+          <Alert
+            severity={saving ? 'info' : (successMessage.includes('✅') ? 'success' : 'info')}
+            onClose={() => setSuccessMessage('')}
+            sx={{
+              minWidth: 300,
+              animation: saving ? 'pulse 1.5s infinite' : 'none',
+              '@keyframes pulse': {
+                '0%, 100%': { opacity: 1 },
+                '50%': { opacity: 0.7 }
+              }
+            }}
+          >
+            {successMessage}
+          </Alert>
+        </Snackbar>
 
-      {/* Таблица */}
-      <Paper sx={{ 
-        overflow: 'auto', 
-        bgcolor: '#FFFFFF',
-        border: '1px solid #E5E7EB',
-        borderRadius: '12px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-        p: 2,
-        '&::-webkit-scrollbar': { height: 6 },
-        '&::-webkit-scrollbar-track': { background: 'transparent' },
-        '&::-webkit-scrollbar-thumb': { background: '#CBD5E1', borderRadius: 3 },
-        scrollbarWidth: 'thin',
-        scrollbarColor: '#CBD5E1 transparent'
-      }}>
-        <Table size="small" sx={{ minWidth: 1200 }}>
-          <TableHead>
-            <TableRow sx={{ bgcolor: 'rgba(99,102,241,0.05)' }}>
-              <TableCell 
-                sx={{ 
-                  width: 40, 
-                  py: 1.5,
-                  borderBottom: '1px solid #E5E7EB'
-                }}
-              >
-                <Typography sx={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>
-                  №
-                </Typography>
-              </TableCell>
-              {simpleColumns.map((col) => (
-                <TableCell 
-                  key={col.id} 
-                  sx={{ 
-                    minWidth: col.id === 'room' ? 140 : 70,
+        {/* Таблица */}
+        <Paper sx={{
+          overflow: 'auto',
+          bgcolor: '#FFFFFF',
+          border: '1px solid #E5E7EB',
+          borderRadius: '12px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          p: 2,
+          '&::-webkit-scrollbar': { height: 6 },
+          '&::-webkit-scrollbar-track': { background: 'transparent' },
+          '&::-webkit-scrollbar-thumb': { background: '#CBD5E1', borderRadius: 3 },
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#CBD5E1 transparent'
+        }}>
+          <Table size="small" sx={{ minWidth: 1200 }}>
+            <TableHead>
+              <TableRow sx={{ bgcolor: 'rgba(99,102,241,0.05)' }}>
+                <TableCell
+                  sx={{
+                    width: 40,
                     py: 1.5,
-                    px: 1,
                     borderBottom: '1px solid #E5E7EB'
                   }}
                 >
-                  <Typography sx={{ fontSize: '14px', fontWeight: 500, color: '#374151' }} noWrap>
-                    {col.label}{col.unit ? ` (${col.unit})` : ''}
+                  <Typography sx={{ fontSize: '14px', fontWeight: 500, color: '#374151' }}>
+                    №
                   </Typography>
                 </TableCell>
-              ))}
-              {dimensionColumns.map((col) => (
-                <TableCell 
-                  key={col.id} 
-                  align="center" 
-                  colSpan={2} 
-                  sx={{ 
-                    minWidth: 100, 
-                    py: 1.5, 
-                    px: 1,
-                    borderBottom: '1px solid #E5E7EB'
-                  }}
-                >
-                  <Typography sx={{ fontSize: '14px', fontWeight: 500, color: '#374151' }} noWrap>
-                    {col.label} (В×Ш)
-                  </Typography>
-                </TableCell>
-              ))}
-              <TableCell sx={{ width: 60, py: 1.5, borderBottom: '1px solid #E5E7EB' }}>
-                <IconTrash size={16} color="#9CA3AF" />
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {calculatedRows.map((row, index) => (
-              <TableRow 
-                key={row.id} 
-                sx={{ 
-                  '&:hover': { bgcolor: 'action.hover' },
-                  borderBottom: '1px solid #E5E7EB'
-                }}
-              >
-                <TableCell 
-                  sx={{ 
-                    py: 0.25
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary" fontSize="0.8rem" fontWeight={500}>
-                    {index + 1}
-                  </Typography>
-                </TableCell>
-
-                {/* Простые поля */}
-                {simpleColumns.map((col) => {
-                  // Поля, которые вычисляются автоматически
-                  const isAutoCalculated = col.id === 'wallArea' || col.id === 'windows';
-                  
-                  // Всегда показываем текущее значение из row (без форматирования в value)
-                  // Форматирование применяется только при потере фокуса
-                  const cellValue = row[col.id];
-                  
-                  return (
-                    <TableCell 
-                      key={col.id} 
-                      sx={{ 
-                        py: 0.25, 
-                        px: 0.5
-                      }}
-                    >
-                      <TextField
-                        fullWidth
-                        size="small"
-                        type={col.type === 'number' ? 'text' : col.type}
-                        value={cellValue}
-                        onChange={!isAutoCalculated ? (e) => handleCellChange(row.id, col.id, e.target.value) : undefined}
-                        onFocus={!isAutoCalculated ? (e) => handleCellFocus(row.id, col.id, row[col.id], e) : undefined}
-                        onBlur={!isAutoCalculated ? (e) => handleCellBlur(row.id, col.id, e.target.value) : undefined}
-                        onKeyDown={!isAutoCalculated ? (e) => handleCellKeyDown(row.id, col.id, e, isAutoCalculated) : undefined}
-                        placeholder={col.id === 'room' ? 'Помещение' : '0'}
-                        variant="standard"
-                        disabled={isAutoCalculated}
-                        InputProps={{
-                          disableUnderline: true,
-                          readOnly: isAutoCalculated
-                        }}
-                      sx={{
-                        '& input': {
-                          textAlign: 'center',
-                          fontSize: '0.8rem',
-                          py: 0.5,
-                          px: 0.75,
-                          borderRadius: '6px',
-                          bgcolor: '#FFFFFF',
-                          border: '1px solid',
-                          borderColor: isAutoCalculated ? '#E5E7EB' : '#F1F5F9',
-                          transition: 'all 0.15s',
-                          cursor: isAutoCalculated ? 'not-allowed' : 'text',
-                          color: isAutoCalculated ? '#059669' : '#111827',
-                          fontWeight: isAutoCalculated ? 600 : 400,
-                          '&:hover': {
-                            borderColor: isAutoCalculated ? '#E5E7EB' : '#E2E8F0'
-                          },
-                          '&:focus': {
-                            bgcolor: '#FFFFFF',
-                            borderColor: '#6366F1',
-                            boxShadow: isAutoCalculated ? 'none' : '0 0 0 2px rgba(99,102,241,0.2)',
-                            outline: 'none'
-                          },
-                          // Убираем стрелки для number input
-                          '&[type=number]': {
-                            MozAppearance: 'textfield'
-                          },
-                          '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
-                            WebkitAppearance: 'none',
-                            margin: 0
-                          }
-                        }
-                      }}
-                    />
-                  </TableCell>
-                );
-                })}
-
-                {/* Поля с размерами (В x Ш) */}
-                {dimensionColumns.map((col, colIndex) => {
-                  // Используем текущие значения напрямую из row
-                  const heightValue = row[`${col.id}H`];
-                  const widthValue = row[`${col.id}W`];
-                  
-                  return (
-                  <React.Fragment key={col.id}>
-                    <TableCell 
-                      key={`${col.id}-h`} 
-                      sx={{ 
-                        py: 0.25, 
-                        px: 0.25
-                      }}
-                    >
-                      <TextField
-                        size="small"
-                        type="text"
-                        value={heightValue}
-                        onChange={(e) => handleCellChange(row.id, `${col.id}H`, e.target.value)}
-                        onFocus={(e) => handleCellFocus(row.id, `${col.id}H`, row[`${col.id}H`], e)}
-                        onBlur={(e) => handleDimensionBlur(row.id, `${col.id}H`, e.target.value)}
-                        onKeyDown={(e) => handleCellKeyDown(row.id, `${col.id}H`, e)}
-                        placeholder="0"
-                        variant="standard"
-                        InputProps={{
-                          disableUnderline: true
-                        }}
-                        sx={{
-                          width: 45,
-                          '& input': {
-                            textAlign: 'center',
-                            fontSize: '0.8rem',
-                            py: 0.5,
-                            px: 0.5,
-                            borderRadius: '6px',
-                            bgcolor: '#FFFFFF',
-                            border: '1px solid',
-                            borderColor: '#F1F5F9',
-                            transition: 'all 0.15s',
-                            '&:hover': {
-                              borderColor: '#E2E8F0'
-                            },
-                            '&:focus': {
-                              bgcolor: '#FFFFFF',
-                              borderColor: '#6366F1',
-                              boxShadow: '0 0 0 2px rgba(99,102,241,0.2)',
-                              outline: 'none'
-                            },
-                            // Убираем стрелки
-                            '&[type=number]': {
-                              MozAppearance: 'textfield'
-                            },
-                            '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
-                              WebkitAppearance: 'none',
-                              margin: 0
-                            }
-                          }
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell 
-                      key={`${col.id}-w`} 
-                      sx={{ 
-                        py: 0.25, 
-                        px: 0.25
-                      }}
-                    >
-                      <TextField
-                        size="small"
-                        type="text"
-                        value={widthValue}
-                        onChange={(e) => handleCellChange(row.id, `${col.id}W`, e.target.value)}
-                        onFocus={(e) => handleCellFocus(row.id, `${col.id}W`, row[`${col.id}W`], e)}
-                        onBlur={(e) => handleDimensionBlur(row.id, `${col.id}W`, e.target.value)}
-                        onKeyDown={(e) => handleCellKeyDown(row.id, `${col.id}W`, e)}
-                        placeholder="0"
-                        variant="standard"
-                        InputProps={{
-                          disableUnderline: true
-                        }}
-                        sx={{
-                          width: 45,
-                          '& input': {
-                            textAlign: 'center',
-                            fontSize: '0.8rem',
-                            py: 0.5,
-                            px: 0.5,
-                            borderRadius: '6px',
-                            bgcolor: '#FFFFFF',
-                            border: '1px solid',
-                            borderColor: '#F1F5F9',
-                            transition: 'all 0.15s',
-                            '&:hover': {
-                              borderColor: '#E2E8F0'
-                            },
-                            '&:focus': {
-                              bgcolor: '#FFFFFF',
-                              borderColor: '#6366F1',
-                              boxShadow: '0 0 0 2px rgba(99,102,241,0.2)',
-                              outline: 'none'
-                            },
-                            // Убираем стрелки
-                            '&[type=number]': {
-                              MozAppearance: 'textfield'
-                            },
-                            '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
-                              WebkitAppearance: 'none',
-                              margin: 0
-                            }
-                          }
-                        }}
-                      />
-                    </TableCell>
-                  </React.Fragment>
-                  );
-                })}
-
-                {/* Кнопка удаления */}
-                <TableCell 
-                  align="center" 
-                  sx={{ 
-                    py: 0.25
-                  }}
-                >
-                  <IconButton 
-                    size="small" 
-                    onClick={() => handleDeleteRow(row.id)} 
-                    disabled={rows.length === 1} 
-                    color="error"
-                    sx={{ 
-                      p: 0.5,
-                      '&:hover': { bgcolor: 'error.lighter' }
+                {simpleColumns.map((col) => (
+                  <TableCell
+                    key={col.id}
+                    sx={{
+                      minWidth: col.id === 'room' ? 140 : 70,
+                      py: 1.5,
+                      px: 1,
+                      borderBottom: '1px solid #E5E7EB'
                     }}
                   >
-                    <IconTrash size={16} />
-                  </IconButton>
+                    <Typography sx={{ fontSize: '14px', fontWeight: 500, color: '#374151' }} noWrap>
+                      {col.label}{col.unit ? ` (${col.unit})` : ''}
+                    </Typography>
+                  </TableCell>
+                ))}
+                {dimensionColumns.map((col) => (
+                  <TableCell
+                    key={col.id}
+                    align="center"
+                    colSpan={2}
+                    sx={{
+                      minWidth: 100,
+                      py: 1.5,
+                      px: 1,
+                      borderBottom: '1px solid #E5E7EB'
+                    }}
+                  >
+                    <Typography sx={{ fontSize: '14px', fontWeight: 500, color: '#374151' }} noWrap>
+                      {col.label} (В×Ш)
+                    </Typography>
+                  </TableCell>
+                ))}
+                <TableCell sx={{ width: 60, py: 1.5, borderBottom: '1px solid #E5E7EB' }}>
+                  <IconTrash size={16} color="#9CA3AF" />
                 </TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Paper>
+            </TableHead>
+            <TableBody>
+              {calculatedRows.map((row, index) => (
+                <TableRow
+                  key={row.id}
+                  sx={{
+                    '&:hover': { bgcolor: 'action.hover' },
+                    borderBottom: '1px solid #E5E7EB'
+                  }}
+                >
+                  <TableCell
+                    sx={{
+                      py: 0.25
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary" fontSize="0.8rem" fontWeight={500}>
+                      {index + 1}
+                    </Typography>
+                  </TableCell>
 
-      {/* Блок итогов */}
-      <Paper sx={{ 
-        mt: 4, 
-        p: 3, 
-        bgcolor: '#FFFFFF',
-        border: '1px solid #E5E7EB',
-        borderRadius: '12px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
-          <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#1F2937' }}>
-            Итоги по помещениям
-          </Typography>
-        </Box>
-        
-        {/* Итоги для каждого помещения */}
-        <Stack spacing={2} sx={{ mb: 4 }}>
-          {calculatedRows.filter(row => row.room.trim() !== '').map((row, index) => {
-            const roomTotals = calculateRoomTotals(row);
-            return (
-              <Paper 
-                key={row.id} 
-                elevation={0} 
-                sx={{ 
-                  p: 2, 
-                  bgcolor: '#F9FAFB',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '10px'
-                }}
-              >
-                <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#111827', mb: 1.5 }}>
-                  {index + 1}. {row.room || `Помещение ${index + 1}`}
-                </Typography>
-                <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
-                  <Box sx={{ width: 160, textAlign: 'center' }}>
-                    <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
-                      Площадь пола
-                    </Typography>
-                    <Typography sx={{ fontSize: '18px', fontWeight: 600, color: '#4754EB' }}>
-                      {formatCommaFloat(roomTotals.floorArea, 2)} м²
-                    </Typography>
-                  </Box>
-                  <Box sx={{ width: 160, textAlign: 'center' }}>
-                    <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
-                      Площадь стен
-                    </Typography>
-                    <Typography sx={{ fontSize: '18px', fontWeight: 600, color: '#00A86B' }}>
-                      {formatCommaFloat(roomTotals.wallArea, 2)} м²
-                    </Typography>
-                  </Box>
-                  <Box sx={{ width: 160, textAlign: 'center' }}>
-                    <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
-                      Откосы
-                    </Typography>
-                    <Typography sx={{ fontSize: '18px', fontWeight: 600, color: '#F59E0B' }}>
-                      {formatCommaFloat(roomTotals.windows, 2)} м
-                    </Typography>
-                  </Box>
-                  <Box sx={{ width: 160, textAlign: 'center' }}>
-                    <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
-                      Площадь потолка
-                    </Typography>
-                    <Typography sx={{ fontSize: '18px', fontWeight: 600, color: '#0EA5E9' }}>
-                      {formatCommaFloat(roomTotals.ceilingArea, 2)} м²
-                    </Typography>
-                  </Box>
-                  <Box sx={{ width: 160, textAlign: 'center' }}>
-                    <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
-                      Откосы потолок
-                    </Typography>
-                    <Typography sx={{ fontSize: '18px', fontWeight: 600, color: '#8B5CF6' }}>
-                      {formatCommaFloat(roomTotals.ceilingSlopes, 2)} м
-                    </Typography>
-                  </Box>
-                </Stack>
-              </Paper>
-            );
-          })}
-        </Stack>
+                  {/* Простые поля */}
+                  {simpleColumns.map((col) => {
+                    // Поля, которые вычисляются автоматически
+                    const isAutoCalculated = col.id === 'wallArea' || col.id === 'windows';
 
-        {/* Общие итоги */}
-        <Box sx={{ pt: 3, borderTop: '1px solid #E5E7EB' }}>
-          <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#1F2937', mb: 2.5 }}>
-            Общие итоги
-          </Typography>
-          <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-            <Box sx={{ width: 200, textAlign: 'center', p: 2, bgcolor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
-              <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
-                Площадь пола
-              </Typography>
-              <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#4754EB' }}>
-                {formatCommaFloat(totals.floorArea, 2)} м²
-              </Typography>
-            </Box>
-            <Box sx={{ width: 200, textAlign: 'center', p: 2, bgcolor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
-              <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
-                Площадь стен
-              </Typography>
-              <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#00A86B' }}>
-                {formatCommaFloat(totals.wallArea, 2)} м²
-              </Typography>
-            </Box>
-            <Box sx={{ width: 200, textAlign: 'center', p: 2, bgcolor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
-              <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
-                Откосы
-              </Typography>
-              <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#F59E0B' }}>
-                {formatCommaFloat(totals.windows, 2)} м
-              </Typography>
-            </Box>
-            <Box sx={{ width: 200, textAlign: 'center', p: 2, bgcolor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
-              <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
-                Площадь потолка
-              </Typography>
-              <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#0EA5E9' }}>
-                {formatCommaFloat(totals.ceilingArea, 2)} м²
-              </Typography>
-            </Box>
-            <Box sx={{ width: 200, textAlign: 'center', p: 2, bgcolor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
-              <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
-                Откосы потолок
-              </Typography>
-              <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#8B5CF6' }}>
-                {formatCommaFloat(totals.ceilingSlopes, 2)} м
-              </Typography>
-            </Box>
+                    // Всегда показываем текущее значение из row (без форматирования в value)
+                    // Форматирование применяется только при потере фокуса
+                    const cellValue = row[col.id];
+
+                    return (
+                      <TableCell
+                        key={col.id}
+                        sx={{
+                          py: 0.25,
+                          px: 0.5
+                        }}
+                      >
+                        <TextField
+                          fullWidth
+                          size="small"
+                          type={col.type === 'number' ? 'text' : col.type}
+                          value={cellValue}
+                          onChange={!isAutoCalculated ? (e) => handleCellChange(row.id, col.id, e.target.value) : undefined}
+                          onFocus={!isAutoCalculated ? (e) => handleCellFocus(row.id, col.id, row[col.id], e) : undefined}
+                          onBlur={!isAutoCalculated ? (e) => handleCellBlur(row.id, col.id, e.target.value) : undefined}
+                          onKeyDown={!isAutoCalculated ? (e) => handleCellKeyDown(row.id, col.id, e, isAutoCalculated) : undefined}
+                          placeholder={col.id === 'room' ? 'Помещение' : '0'}
+                          variant="standard"
+                          disabled={isAutoCalculated}
+                          InputProps={{
+                            disableUnderline: true,
+                            readOnly: isAutoCalculated
+                          }}
+                          sx={{
+                            '& input': {
+                              textAlign: 'center',
+                              fontSize: '0.8rem',
+                              py: 0.5,
+                              px: 0.75,
+                              borderRadius: '6px',
+                              bgcolor: '#FFFFFF',
+                              border: '1px solid',
+                              borderColor: isAutoCalculated ? '#E5E7EB' : '#F1F5F9',
+                              transition: 'all 0.15s',
+                              cursor: isAutoCalculated ? 'not-allowed' : 'text',
+                              color: isAutoCalculated ? '#059669' : '#111827',
+                              fontWeight: isAutoCalculated ? 600 : 400,
+                              '&:hover': {
+                                borderColor: isAutoCalculated ? '#E5E7EB' : '#E2E8F0'
+                              },
+                              '&:focus': {
+                                bgcolor: '#FFFFFF',
+                                borderColor: '#6366F1',
+                                boxShadow: isAutoCalculated ? 'none' : '0 0 0 2px rgba(99,102,241,0.2)',
+                                outline: 'none'
+                              },
+                              // Убираем стрелки для number input
+                              '&[type=number]': {
+                                MozAppearance: 'textfield'
+                              },
+                              '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+                                WebkitAppearance: 'none',
+                                margin: 0
+                              }
+                            }
+                          }}
+                        />
+                      </TableCell>
+                    );
+                  })}
+
+                  {/* Поля с размерами (В x Ш) */}
+                  {dimensionColumns.map((col, colIndex) => {
+                    // Используем текущие значения напрямую из row
+                    const heightValue = row[`${col.id}H`];
+                    const widthValue = row[`${col.id}W`];
+
+                    return (
+                      <React.Fragment key={col.id}>
+                        <TableCell
+                          key={`${col.id}-h`}
+                          sx={{
+                            py: 0.25,
+                            px: 0.25
+                          }}
+                        >
+                          <TextField
+                            size="small"
+                            type="text"
+                            value={heightValue}
+                            onChange={(e) => handleCellChange(row.id, `${col.id}H`, e.target.value)}
+                            onFocus={(e) => handleCellFocus(row.id, `${col.id}H`, row[`${col.id}H`], e)}
+                            onBlur={(e) => handleDimensionBlur(row.id, `${col.id}H`, e.target.value)}
+                            onKeyDown={(e) => handleCellKeyDown(row.id, `${col.id}H`, e)}
+                            placeholder="0"
+                            variant="standard"
+                            InputProps={{
+                              disableUnderline: true
+                            }}
+                            sx={{
+                              width: 45,
+                              '& input': {
+                                textAlign: 'center',
+                                fontSize: '0.8rem',
+                                py: 0.5,
+                                px: 0.5,
+                                borderRadius: '6px',
+                                bgcolor: '#FFFFFF',
+                                border: '1px solid',
+                                borderColor: '#F1F5F9',
+                                transition: 'all 0.15s',
+                                '&:hover': {
+                                  borderColor: '#E2E8F0'
+                                },
+                                '&:focus': {
+                                  bgcolor: '#FFFFFF',
+                                  borderColor: '#6366F1',
+                                  boxShadow: '0 0 0 2px rgba(99,102,241,0.2)',
+                                  outline: 'none'
+                                },
+                                // Убираем стрелки
+                                '&[type=number]': {
+                                  MozAppearance: 'textfield'
+                                },
+                                '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+                                  WebkitAppearance: 'none',
+                                  margin: 0
+                                }
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell
+                          key={`${col.id}-w`}
+                          sx={{
+                            py: 0.25,
+                            px: 0.25
+                          }}
+                        >
+                          <TextField
+                            size="small"
+                            type="text"
+                            value={widthValue}
+                            onChange={(e) => handleCellChange(row.id, `${col.id}W`, e.target.value)}
+                            onFocus={(e) => handleCellFocus(row.id, `${col.id}W`, row[`${col.id}W`], e)}
+                            onBlur={(e) => handleDimensionBlur(row.id, `${col.id}W`, e.target.value)}
+                            onKeyDown={(e) => handleCellKeyDown(row.id, `${col.id}W`, e)}
+                            placeholder="0"
+                            variant="standard"
+                            InputProps={{
+                              disableUnderline: true
+                            }}
+                            sx={{
+                              width: 45,
+                              '& input': {
+                                textAlign: 'center',
+                                fontSize: '0.8rem',
+                                py: 0.5,
+                                px: 0.5,
+                                borderRadius: '6px',
+                                bgcolor: '#FFFFFF',
+                                border: '1px solid',
+                                borderColor: '#F1F5F9',
+                                transition: 'all 0.15s',
+                                '&:hover': {
+                                  borderColor: '#E2E8F0'
+                                },
+                                '&:focus': {
+                                  bgcolor: '#FFFFFF',
+                                  borderColor: '#6366F1',
+                                  boxShadow: '0 0 0 2px rgba(99,102,241,0.2)',
+                                  outline: 'none'
+                                },
+                                // Убираем стрелки
+                                '&[type=number]': {
+                                  MozAppearance: 'textfield'
+                                },
+                                '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+                                  WebkitAppearance: 'none',
+                                  margin: 0
+                                }
+                              }
+                            }}
+                          />
+                        </TableCell>
+                      </React.Fragment>
+                    );
+                  })}
+
+                  {/* Кнопка удаления */}
+                  <TableCell
+                    align="center"
+                    sx={{
+                      py: 0.25
+                    }}
+                  >
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDeleteRow(row.id)}
+                      disabled={rows.length === 1}
+                      color="error"
+                      sx={{
+                        p: 0.5,
+                        '&:hover': { bgcolor: 'error.lighter' }
+                      }}
+                    >
+                      <IconTrash size={16} />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
+
+        {/* Блок итогов */}
+        <Paper sx={{
+          mt: 4,
+          p: 3,
+          bgcolor: '#FFFFFF',
+          border: '1px solid #E5E7EB',
+          borderRadius: '12px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
+            <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#1F2937' }}>
+              Итоги по помещениям
+            </Typography>
+          </Box>
+
+          {/* Итоги для каждого помещения */}
+          <Stack spacing={2} sx={{ mb: 4 }}>
+            {calculatedRows.filter(row => row.room.trim() !== '').map((row, index) => {
+              const roomTotals = calculateRoomTotals(row);
+              return (
+                <Paper
+                  key={row.id}
+                  elevation={0}
+                  sx={{
+                    p: 2,
+                    bgcolor: '#F9FAFB',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '10px'
+                  }}
+                >
+                  <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#111827', mb: 1.5 }}>
+                    {index + 1}. {row.room || `Помещение ${index + 1}`}
+                  </Typography>
+                  <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
+                    <Box sx={{ width: 160, textAlign: 'center' }}>
+                      <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
+                        Площадь пола
+                      </Typography>
+                      <Typography sx={{ fontSize: '18px', fontWeight: 600, color: '#4754EB' }}>
+                        {formatCommaFloat(roomTotals.floorArea, 2)} м²
+                      </Typography>
+                    </Box>
+                    <Box sx={{ width: 160, textAlign: 'center' }}>
+                      <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
+                        Площадь стен
+                      </Typography>
+                      <Typography sx={{ fontSize: '18px', fontWeight: 600, color: '#00A86B' }}>
+                        {formatCommaFloat(roomTotals.wallArea, 2)} м²
+                      </Typography>
+                    </Box>
+                    <Box sx={{ width: 160, textAlign: 'center' }}>
+                      <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
+                        Откосы
+                      </Typography>
+                      <Typography sx={{ fontSize: '18px', fontWeight: 600, color: '#F59E0B' }}>
+                        {formatCommaFloat(roomTotals.windows, 2)} м
+                      </Typography>
+                    </Box>
+                    <Box sx={{ width: 160, textAlign: 'center' }}>
+                      <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
+                        Площадь потолка
+                      </Typography>
+                      <Typography sx={{ fontSize: '18px', fontWeight: 600, color: '#0EA5E9' }}>
+                        {formatCommaFloat(roomTotals.ceilingArea, 2)} м²
+                      </Typography>
+                    </Box>
+                    <Box sx={{ width: 160, textAlign: 'center' }}>
+                      <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
+                        Откосы потолок
+                      </Typography>
+                      <Typography sx={{ fontSize: '18px', fontWeight: 600, color: '#8B5CF6' }}>
+                        {formatCommaFloat(roomTotals.ceilingSlopes, 2)} м
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </Paper>
+              );
+            })}
           </Stack>
-        </Box>
-      </Paper>
+
+          {/* Общие итоги */}
+          <Box sx={{ pt: 3, borderTop: '1px solid #E5E7EB' }}>
+            <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#1F2937', mb: 2.5 }}>
+              Общие итоги
+            </Typography>
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+              <Box sx={{ width: 200, textAlign: 'center', p: 2, bgcolor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
+                  Площадь пола
+                </Typography>
+                <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#4754EB' }}>
+                  {formatCommaFloat(totals.floorArea, 2)} м²
+                </Typography>
+              </Box>
+              <Box sx={{ width: 200, textAlign: 'center', p: 2, bgcolor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
+                  Площадь стен
+                </Typography>
+                <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#00A86B' }}>
+                  {formatCommaFloat(totals.wallArea, 2)} м²
+                </Typography>
+              </Box>
+              <Box sx={{ width: 200, textAlign: 'center', p: 2, bgcolor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
+                  Откосы
+                </Typography>
+                <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#F59E0B' }}>
+                  {formatCommaFloat(totals.windows, 2)} м
+                </Typography>
+              </Box>
+              <Box sx={{ width: 200, textAlign: 'center', p: 2, bgcolor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
+                  Площадь потолка
+                </Typography>
+                <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#0EA5E9' }}>
+                  {formatCommaFloat(totals.ceilingArea, 2)} м²
+                </Typography>
+              </Box>
+              <Box sx={{ width: 200, textAlign: 'center', p: 2, bgcolor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
+                <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 0.5 }}>
+                  Откосы потолок
+                </Typography>
+                <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#8B5CF6' }}>
+                  {formatCommaFloat(totals.ceilingSlopes, 2)} м
+                </Typography>
+              </Box>
+            </Stack>
+          </Box>
+        </Paper>
+      </Box>
     </Box>
   );
 });

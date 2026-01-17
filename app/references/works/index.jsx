@@ -681,7 +681,7 @@ const WorksReferencePage = () => {
           bgcolor: '#FFFFFF',
           borderRadius: '12px',
           border: '1px solid #E5E7EB',
-          p: { xs: 2, sm: 2.5 },
+          p: { xs: 1.5, sm: 2 },
           display: 'flex',
           flexDirection: 'column',
           flex: 1,
@@ -689,8 +689,8 @@ const WorksReferencePage = () => {
         }}
       >
         {/* Шапка и Кнопки управления */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontWeight: 700, fontSize: '1.125rem', color: '#1F2937' }} data-testid="works-title">
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, gap: 2, flexWrap: 'wrap' }}>
+          <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: '#1F2937' }} data-testid="works-title">
             Виды работ
           </Typography>
 
@@ -790,7 +790,7 @@ const WorksReferencePage = () => {
         {!initialLoading && (
           <>
             {/* Поиск и фильтр по типу */}
-            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 1.5 }}>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 1 }}>
               <TextField
                 fullWidth
                 placeholder="Поиск по названию, коду или единице измерения..."
@@ -908,7 +908,7 @@ const WorksReferencePage = () => {
             </Box>
 
             {/* Статистика */}
-            <Box sx={{ mb: 1.5 }}>
+            <Box sx={{ mb: 1 }}>
               <Typography sx={{ fontSize: '0.8125rem', color: '#9CA3AF', fontWeight: 500 }}>
                 {searchTerm ? (
                   <>Найдено: <Box component="span" sx={{ color: '#4B5563' }}>{filteredWorks.length}</Box></>

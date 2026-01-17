@@ -724,7 +724,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // ==============================|| JSX ||============================== //
 
   return (
-    <Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
       {/* ✅ Заголовок компонента и панель действий */}
       <EstimateHeader
         onEdit={handleEditMetadata}
@@ -752,7 +752,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
       />
 
       {/* Основной контейнер - смета на всю ширину (справочник теперь overlay drawer) */}
-      <Box sx={{ display: 'flex', gap: 2, height: 'calc(100vh - 280px)', minHeight: 500 }}>
+      <Box sx={{ display: 'flex', gap: 2, flex: 1, minHeight: 0, mb: 0.5 }}>
         {/* Справочник работ перенесен в Drawer (см. ниже) - этот блок будет удален */}
         <Box sx={{ display: 'none' }}>
         </Box >
@@ -761,6 +761,8 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         <Paper
           sx={{
             flex: 1,
+            minHeight: 0,
+            height: '100%',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',

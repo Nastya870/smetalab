@@ -45,12 +45,12 @@ export default function MainLayout() {
   return (
     <Box sx={{ display: 'flex' }}>
       {/* header - minimal SaaS style */}
-      <AppBar 
-        enableColorOnDark 
-        position="fixed" 
-        color="inherit" 
-        elevation={0} 
-        sx={{ 
+      <AppBar
+        enableColorOnDark
+        position="fixed"
+        color="inherit"
+        elevation={0}
+        sx={{
           bgcolor: 'background.default',
           borderBottom: '1px solid #E8EBF1'
         }}
@@ -65,12 +65,14 @@ export default function MainLayout() {
 
       {/* main content */}
       <MainContentStyled {...{ borderRadius, open: drawerOpen }}>
-        <Box sx={{ ...{ px: { xs: 0 } }, minHeight: 'calc(100vh - 128px)', display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ px: { xs: 0 }, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {/* breadcrumb */}
           <Breadcrumbs />
           {/* email verification banner */}
           <EmailVerificationBanner />
-          <Outlet />
+          <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <Outlet />
+          </Box>
           <Footer />
         </Box>
       </MainContentStyled>

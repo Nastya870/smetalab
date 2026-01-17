@@ -37,7 +37,7 @@ import MaterialRow from './MaterialRow';
  */
 // ✅ Stable components for Virtuoso (Must be defined outside render)
 const VirtuosoScroller = React.forwardRef((props, ref) => (
-  <TableContainer component={Paper} {...props} ref={ref} elevation={0} sx={{ height: 'calc(100vh - 340px)' }} />
+  <TableContainer component={Paper} {...props} ref={ref} elevation={0} sx={{ height: '100%' }} />
 ));
 
 const VirtuosoTable = (props) => (
@@ -157,6 +157,7 @@ const EstimateTable = React.memo(({
         </Box>
       )}
       <TableVirtuoso
+        style={{ height: '100%', width: '100%' }}
         data={flatData}
         computeItemKey={(index, item) => {
           // Bulletproof unique key generation using composite of Position + ID

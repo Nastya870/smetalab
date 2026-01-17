@@ -4,6 +4,7 @@ import { lazy } from 'react';
 import MainLayout from 'layout/MainLayout';
 import Loadable from 'ui-component/Loadable';
 import ProtectedRoute from './ProtectedRoute';
+import ErrorBoundary from './ErrorBoundary';
 
 // dashboard routing
 const DashboardDefault = Loadable(lazy(() => import('views/dashboard/Default')));
@@ -45,6 +46,7 @@ const MainRoutes = {
       <MainLayout />
     </ProtectedRoute>
   ),
+  errorElement: <ErrorBoundary />,
   children: [
     {
       path: '/app',
