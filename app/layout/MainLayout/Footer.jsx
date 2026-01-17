@@ -11,6 +11,7 @@ export default function Footer() {
         justifyContent: 'space-between',
         pt: 1.5,
         pb: 1,
+        borderTop: '1px solid #E8EBF1',
         mt: 'auto'
       }}
     >
