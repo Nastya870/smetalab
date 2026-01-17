@@ -260,9 +260,9 @@ const MaterialsDialog = ({
         }
       }}
     >
-      <DialogTitle sx={{ p: 2, pb: 1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#fff' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+      <DialogTitle sx={{ p: 1.5, pb: 1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#fff' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Typography variant="h6" sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>
             {mode === 'add' ? 'Добавить материал' : 'Заменить материал'}
           </Typography>
 

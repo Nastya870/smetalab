@@ -942,15 +942,15 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#FFFFFF' }}>
           {/* ✅ ХЕДЕР */}
           <Box sx={{
-            px: 2.5,
-            py: 2,
+            px: 2,
+            py: 1.5,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             borderBottom: '1px solid #E5E7EB'
           }}>
             <Typography sx={{
-              fontSize: '1.125rem',
+              fontSize: '1rem',
               fontWeight: 600,
               color: '#111827'
             }}>

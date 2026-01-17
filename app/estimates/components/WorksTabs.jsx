@@ -12,14 +12,14 @@ import { Box, Button } from '@mui/material';
  */
 const WorksTabs = ({ value, onChange }) => {
   return (
-    <Box sx={{ px: 2.5, pt: 2, pb: 1.5 }}>
+    <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
       <Box sx={{ display: 'flex', gap: 0.5 }}>
         <Button
           fullWidth
           size="small"
           onClick={() => onChange('global')}
           sx={{
-            py: 1,
+            py: 0.75,
             borderRadius: '8px',
             textTransform: 'none',
             fontSize: '0.8125rem',
@@ -27,8 +27,8 @@ const WorksTabs = ({ value, onChange }) => {
             position: 'relative',
             color: value === 'global' ? '#3B82F6' : '#6B7280',
             bgcolor: value === 'global' ? '#EEF6FF' : 'transparent',
-            '&:hover': { 
-              bgcolor: value === 'global' ? '#EEF6FF' : '#F3F4F6' 
+            '&:hover': {
+              bgcolor: value === 'global' ? '#EEF6FF' : '#F3F4F6'
             },
             '&::after': value === 'global' ? {
               content: '""',
@@ -49,7 +49,7 @@ const WorksTabs = ({ value, onChange }) => {
           size="small"
           onClick={() => onChange('tenant')}
           sx={{
-            py: 1,
+            py: 0.75,
             borderRadius: '8px',
             textTransform: 'none',
             fontSize: '0.8125rem',
@@ -57,8 +57,8 @@ const WorksTabs = ({ value, onChange }) => {
             position: 'relative',
             color: value === 'tenant' ? '#3B82F6' : '#6B7280',
             bgcolor: value === 'tenant' ? '#EEF6FF' : 'transparent',
-            '&:hover': { 
-              bgcolor: value === 'tenant' ? '#EEF6FF' : '#F3F4F6' 
+            '&:hover': {
+              bgcolor: value === 'tenant' ? '#EEF6FF' : '#F3F4F6'
             },
             '&::after': value === 'tenant' ? {
               content: '""',
