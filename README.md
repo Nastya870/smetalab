@@ -499,5 +499,5 @@ VITE_APP_NAME=Сметное приложение
 
 ---
 
-**Версия**: v6.2.0  
-**Последнее обновление**: 16 Января 2026 (Hierarchical Categories Update)
+**Версия**: v6.2.1  
+**Последнее обновление**: 17 Января 2026 (Hierarchical Categories & Admin Cleanup Tools)

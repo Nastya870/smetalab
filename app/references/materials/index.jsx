@@ -34,7 +34,7 @@ import {
   useMediaQuery,
   useTheme
 } from '@mui/material';
-import { IconPlus, IconEdit, IconTrash, IconSearch, IconExternalLink, IconWorld, IconBuilding, IconUpload, IconDownload } from '@tabler/icons-react';
+import { IconPlus, IconEdit, IconTrash, IconSearch, IconExternalLink, IconWorld, IconBuilding, IconUpload, IconDownload, IconDatabaseX } from '@tabler/icons-react';
 
 // project imports
 import EmptyState from './EmptyState';
@@ -608,8 +608,16 @@ const MaterialsReferencePage = () => {
               'Наименование': 'name',
               'Название': 'name',
               'Категория': 'category',
-              'Подкатегория': 'category',
-              'Группа': 'category',
+              'Категория LV1': 'categoryLv1',
+              'Категория LV2': 'categoryLv2',
+              'Категория LV3': 'categoryLv3',
+              'Категория LV4': 'categoryLv4',
+              'LV1': 'categoryLv1',
+              'LV2': 'categoryLv2',
+              'LV3': 'categoryLv3',
+              'LV4': 'categoryLv4',
+              'Подкатегория': 'categoryLv2',
+              'Группа': 'categoryLv3',
               'Единица измерения': 'unit',
               'Ед. изм.': 'unit',
               'Ед': 'unit',
@@ -660,7 +668,12 @@ const MaterialsReferencePage = () => {
                 name: String(normalized.name || '').trim(),
                 unit: normalized.unit?.trim() || 'шт',
                 price: parseFloat(String(normalized.price || '0').replace(/,/g, '.').replace(/\s/g, '')) || 0,
-                category: normalized.category?.trim() || 'Прочее',
+                // Новая структура категорий
+                category: normalized.category?.trim(),
+                categoryLv1: normalized.categoryLv1?.trim(),
+                categoryLv2: normalized.categoryLv2?.trim(),
+                categoryLv3: normalized.categoryLv3?.trim(),
+                categoryLv4: normalized.categoryLv4?.trim(),
                 supplier: normalized.supplier?.trim() || '',
                 weight: parseFloat(String(normalized.weight || '0').replace(/,/g, '.').replace(/\s/g, '')) || 0,
                 image: normalized.image?.trim() || '',
@@ -738,6 +751,31 @@ const MaterialsReferencePage = () => {
       showError('Ошибка при экспорте материалов', err.message);
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  // Очистить весь справочник (ТОЛЬКО для суперадмина)
+  const [isClearing, setIsClearing] = useState(false);
+  const handleClearAll = async () => {
+    if (!isSuperAdmin) {
+      showError('Только суперадмин может очистить справочник');
+      return;
+    }
+
+    if (!window.confirm('⚠️ ВНИМАНИЕ! Вы уверены, что хотите УДАЛИТЬ ВСЕ материалы и категории? Это действие необратимо!')) {
+      return;
+    }
+
+    try {
+      setIsClearing(true);
+      const response = await materialsAPI.clearAll();
+      success(response.message || 'Справочник материалов очищен');
+      fetchMaterials(1, true);
+    } catch (err) {
+      console.error('Clear all error:', err);
+      showError('Ошибка при очистке справочника', err.message);
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -977,6 +1015,28 @@ const MaterialsReferencePage = () => {
                   >
                     Импорт
                   </Button>
+                  {isSuperAdmin && (
+                    <Tooltip title="Удалить ВСЕ материалы и категории">
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        color="error"
+                        startIcon={isClearing ? <CircularProgress size={14} /> : <IconDatabaseX size={16} />}
+                        onClick={handleClearAll}
+                        disabled={isClearing}
+                        data-testid="materials-clear-all-btn"
+                        sx={{
+                          textTransform: 'none',
+                          height: 36,
+                          borderColor: '#FECACA',
+                          color: '#DC2626',
+                          '&:hover': { borderColor: '#F87171', bgcolor: '#FEF2F2' }
+                        }}
+                      >
+                        Очистить
+                      </Button>
+                    </Tooltip>
+                  )}
                   <Button
                     variant="contained"
                     size="small"

@@ -1465,12 +1465,12 @@ export const bulkImportMaterials = catchAsync(async (req, res) => {
       productUrls.push(m.productUrl || '');
       showImages.push(m.showImage !== false);
 
-      // Резолвинг иерархии категорий
+      // Резолвинг иерархии категорий (поддерживаем camelCase и snake_case)
       const levels = [
-        m.category_lv1,
-        m.category_lv2,
-        m.category_lv3,
-        m.category_lv4
+        m.categoryLv1 || m.category_lv1,
+        m.categoryLv2 || m.category_lv2,
+        m.categoryLv3 || m.category_lv3,
+        m.categoryLv4 || m.category_lv4
       ].filter(Boolean);
 
       // Если ни одного уровня нет, используем старое поле или "Прочее"
@@ -1652,6 +1652,48 @@ export const searchMaterialsSemantic = catchAsync(async (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/materials/clear-all:
+ *   delete:
+ *     summary: Очистить ВЕСЬ справочник материалов (ТОЛЬКО для суперадмина)
+ *     tags: [Materials]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Справочник очищен
+ *       403:
+ *         description: Требуются права суперадмина
+ */
+export const clearAllMaterials = catchAsync(async (req, res) => {
+  const { isSuperAdmin } = req.user;
+
+  if (!isSuperAdmin) {
+    throw new BadRequestError('Только суперадмин может очистить справочник материалов');
+  }
+
+  console.log('[CLEAR ALL MATERIALS] Superadmin initiated full clear');
+
+  // Удаляем все материалы
+  const deleteResult = await db.query('DELETE FROM materials');
+  const deletedCount = deleteResult.rowCount;
+
+  // Удаляем все категории материалов
+  const deleteCategoriesResult = await db.query(`DELETE FROM categories WHERE type = 'material'`);
+  const deletedCategories = deleteCategoriesResult.rowCount;
+
+  // Очищаем кэш
+  invalidateMaterialsCache();
+
+  console.log(`[CLEAR ALL MATERIALS] Deleted ${deletedCount} materials and ${deletedCategories} categories`);
+
+  res.status(200).json({
+    success: true,
+    message: `Справочник очищен: удалено ${deletedCount} материалов и ${deletedCategories} категорий`
+  });
+});
+
 export default {
   getAllMaterials,
   getMaterialById,
@@ -1661,6 +1703,7 @@ export default {
   getMaterialsStats,
   getMaterialCategories,
   getMaterialSuppliers,
-  bulkImportMaterials, // ✅ Добавили
-  searchMaterialsSemantic // 🧠 Semantic search
+  bulkImportMaterials,
+  searchMaterialsSemantic,
+  clearAllMaterials
 };

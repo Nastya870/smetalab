@@ -103,7 +103,10 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
   // Wrapper to match old signature and update page state
   const loadMaterialsForDialog = useCallback(async (page, reset, search) => {
     setMaterialsPage(page);
-    await searchMaterials(search, page, 50);
+    // ✅ Повышаем лимит до 5000, если есть поиск или выбрана категория, 
+    // чтобы пользователь видел "всё" сразу. В обычном режиме - 500.
+    const limit = (search && search.length > 0) ? 5000 : 500;
+    await searchMaterials(search, page, limit);
   }, [searchMaterials]);
 
   // ✅ Hook: Данные сметы
@@ -123,7 +126,7 @@ const EstimateWithSidebar = forwardRef(({ projectId, estimateId, onUnsavedChange
 
   // ==============================|| CONSTANTS ||============================== //
 
-  const MATERIALS_PAGE_SIZE = 50;
+  const MATERIALS_PAGE_SIZE = 500;
   const MATERIALS_CACHE_TTL = 5 * 60 * 1000; // 5 минут
   const WORKS_CACHE_TTL = 10 * 60 * 1000; // 10 минут
 

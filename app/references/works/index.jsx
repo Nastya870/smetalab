@@ -33,7 +33,7 @@ import {
   useMediaQuery,
   useTheme
 } from '@mui/material';
-import { IconPlus, IconEdit, IconTrash, IconSearch, IconWorld, IconBuilding, IconDownload, IconUpload } from '@tabler/icons-react';
+import { IconPlus, IconEdit, IconTrash, IconSearch, IconWorld, IconBuilding, IconDownload, IconUpload, IconDatabaseX } from '@tabler/icons-react';
 
 // project imports
 import MainCard from 'ui-component/cards/MainCard';
@@ -636,6 +636,31 @@ const WorksReferencePage = () => {
     }
   };
 
+  // Очистить весь справочник (ТОЛЬКО для суперадмина)
+  const [isClearing, setIsClearing] = useState(false);
+  const handleClearAll = async () => {
+    if (!isSuperAdmin) {
+      showError('Только суперадмин может очистить справочник');
+      return;
+    }
+
+    if (!window.confirm('⚠️ ВНИМАНИЕ! Вы уверены, что хотите УДАЛИТЬ ВСЕ работы и категории? Это действие необратимо!')) {
+      return;
+    }
+
+    try {
+      setIsClearing(true);
+      const response = await worksAPI.clearAll();
+      success(response.message || 'Справочник работ очищен');
+      fetchWorks(1, true);
+    } catch (err) {
+      console.error('Clear all error:', err);
+      showError('Ошибка при очистке справочника', err.message);
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   // Форматирование цены
   const formatPrice = (price) => {
     return new Intl.NumberFormat('ru-RU', {
@@ -860,6 +885,27 @@ const WorksReferencePage = () => {
                       >
                         Импорт
                       </Button>
+                      {isSuperAdmin && (
+                        <Tooltip title="Удалить ВСЕ работы и категории">
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            color="error"
+                            startIcon={isClearing ? <CircularProgress size={14} /> : <IconDatabaseX size={16} />}
+                            onClick={handleClearAll}
+                            disabled={isClearing}
+                            sx={{
+                              textTransform: 'none',
+                              height: 36,
+                              borderColor: '#FECACA',
+                              color: '#DC2626',
+                              '&:hover': { borderColor: '#F87171', bgcolor: '#FEF2F2' }
+                            }}
+                          >
+                            Очистить
+                          </Button>
+                        </Tooltip>
+                      )}
                       <Button
                         variant="contained"
                         size="small"

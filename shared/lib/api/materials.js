@@ -158,6 +158,20 @@ const materialsAPI = {
       console.error('Error bulk importing materials:', error);
       throw error;
     }
+  },
+
+  /**
+   * Очистить ВЕСЬ справочник материалов (ТОЛЬКО для суперадмина)
+   * @returns {Promise<Object>} - { success: true, message: "..." }
+   */
+  clearAll: async () => {
+    try {
+      const response = await axiosInstance.delete('/materials/clear-all');
+      return response.data;
+    } catch (error) {
+      console.error('Error clearing all materials:', error);
+      throw error;
+    }
   }
 };
 
