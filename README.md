@@ -2,7 +2,7 @@
 
 **Современная SaaS-платформа для управления строительными проектами, сметами и материалами**
 
-[![Version](https://img.shields.io/badge/version-v6.2.0-blue.svg)](./package.json)
+[![Version](https://img.shields.io/badge/version-v6.2.2-blue.svg)](./package.json)
 [![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](./LICENSE)
 
@@ -499,5 +499,5 @@ VITE_APP_NAME=Сметное приложение
 
 ---
 
-**Версия**: v6.2.1  
-**Последнее обновление**: 17 Января 2026 (Hierarchical Categories & Admin Cleanup Tools)
+**Версия**: v6.2.2  
+**Последнее обновление**: 17 Января 2026 (Estimate Save Fix & UI Compactness)
