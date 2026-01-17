@@ -35,6 +35,10 @@ yarn-error.log*
 
 .vercel
 .ag_logs/
+token_debug.json
+setup_index.js
+setup_works_index.js
+check_db.js
 # .agent/
 
 # Database backups

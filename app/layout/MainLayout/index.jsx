@@ -70,10 +70,10 @@ export default function MainLayout() {
           <Breadcrumbs />
           {/* email verification banner */}
           <EmailVerificationBanner />
-          <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             <Outlet />
+            <Footer />
           </Box>
-          <Footer />
         </Box>
       </MainContentStyled>
     </Box>
