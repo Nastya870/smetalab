@@ -330,7 +330,7 @@ const styles = {
         borderBottom: `1px solid ${colors.border}`,
         fontSize: '10px !important',
         lineHeight: '1.2 !important',
-        top: 30, // Adjusted for tiny height
+        top: 22, // Matches actual first header row height (py:0.5 + fontSize:10px + borders)
         zIndex: 10
     }
 };

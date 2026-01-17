@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 
 // material-ui
@@ -37,7 +37,6 @@ import {
 
 // API
 import estimatesAPI from 'api/estimates';
-import worksAPI from 'api/works';
 import { projectsAPI } from 'api/projects';
 
 // ==============================|| SPECIALIST ESTIMATE (ВЫПОЛНЕНИЕ) ||============================== //
@@ -63,6 +62,241 @@ const colors = {
   errorLight: '#FEE2E2',
 };
 
+// ✅ ОПТИМИЗАЦИЯ: Отдельный компонент с локальным стейтом для устранения лага при вводе
+const QuantityInput = React.memo(({ value, onChange }) => {
+  const [localValue, setLocalValue] = React.useState(value);
+
+  // Синхронизируем с внешним значением при его изменении извне
+  React.useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  const handleBlur = () => {
+    // Сравниваем числовые значения, чтобы избежать ложных срабатываний (строка vs число)
+    const numValue = localValue === '' ? 0 : parseFloat(localValue);
+    const prevValue = value === '' ? 0 : parseFloat(value);
+
+    if (numValue !== prevValue) {
+      onChange(localValue);
+    }
+  };
+
+  return (
+    <TextField
+      type="number"
+      value={localValue || ''}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onBlur={handleBlur}
+      size="small"
+      inputProps={{
+        min: 0,
+        step: 0.01,
+        style: {
+          textAlign: 'right',
+          fontSize: '0.875rem',
+          padding: '6px 8px',
+          color: colors.green,
+          MozAppearance: 'textfield' // Firefox
+        }
+      }}
+      sx={{
+        width: '90px',
+        // Убираем стрелки у number input
+        '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+          WebkitAppearance: 'none',
+          margin: 0
+        },
+        '& .MuiOutlinedInput-root': {
+          bgcolor: '#fff',
+          borderRadius: '8px',
+          '& fieldset': {
+            borderColor: colors.border
+          },
+          '&:hover fieldset': {
+            borderColor: colors.green
+          },
+          '&.Mui-focused fieldset': {
+            borderColor: colors.green
+          }
+        }
+      }}
+    />
+  );
+});
+
+// ✅ ОПТИМИЗАЦИЯ: Мемоизированный чекбокс для устранения лага при клике
+const CompletionCheckbox = React.memo(({ checked, onChange }) => {
+  return (
+    <Checkbox
+      checked={checked}
+      onChange={(e) => onChange(e.target.checked)}
+      sx={{
+        color: colors.green,
+        '&.Mui-checked': { color: colors.green },
+        p: 0.5
+      }}
+      size="small"
+    />
+  );
+});
+
+// ✅ ОПТИМИЗАЦИЯ: Мемоизированная строка таблицы
+const WorkRow = React.memo(({
+  work,
+  sectionIndex,
+  workIndex,
+  onCompletedChange,
+  onQuantityChange,
+  formatCurrency,
+  getVarianceType,
+  colors
+}) => {
+  const varianceType = getVarianceType(work.planTotal, work.actualTotal);
+  const isHighlighted = varianceType === 'over' || varianceType === 'under';
+
+  return (
+    <TableRow
+      sx={{
+        bgcolor: work.completed
+          ? colors.greenLight
+          : (workIndex % 2 === 0 ? '#fff' : '#FAFAFA'),
+        '&:hover': {
+          bgcolor: work.completed ? '#A7F3D0' : colors.cardBg
+        },
+        transition: 'background-color 0.15s',
+        '& td': {
+          py: 0.75,
+          borderBottom: `1px solid ${colors.border}`
+        },
+        ...(isHighlighted && work.actualTotal > 0 && {
+          borderLeft: `3px solid ${varianceType === 'over' ? colors.error : colors.warning}`
+        })
+      }}
+    >
+      <TableCell align="center">
+        <CompletionCheckbox
+          checked={work.completed}
+          onChange={(checked) => onCompletedChange(sectionIndex, workIndex, checked)}
+        />
+      </TableCell>
+
+      <TableCell align="center">
+        {work.actNumber ? (
+          <Chip
+            label={work.actNumber}
+            size="small"
+            sx={{
+              bgcolor: colors.primaryLight,
+              color: colors.primary,
+              fontWeight: 600,
+              fontSize: '0.7rem',
+              height: 22
+            }}
+          />
+        ) : (
+          <Typography variant="caption" sx={{ color: '#D1D5DB' }}>—</Typography>
+        )}
+      </TableCell>
+
+      <TableCell>
+        <Typography variant="caption" sx={{ fontWeight: 500, color: colors.primary, fontFamily: 'monospace', fontSize: '0.75rem' }}>
+          {work.code}
+        </Typography>
+      </TableCell>
+
+      <TableCell>
+        <Typography variant="caption" sx={{ color: '#374151', fontSize: '0.75rem' }}>
+          {work.name}
+        </Typography>
+      </TableCell>
+
+      <TableCell align="center">
+        <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.75rem' }}>
+          {work.unit}
+        </Typography>
+      </TableCell>
+
+      <TableCell align="right" sx={{ borderLeft: `2px solid ${colors.border}` }}>
+        <Typography variant="caption" sx={{ fontWeight: 500, color: '#374151', fontSize: '0.75rem' }}>
+          {work.planQuantity.toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 3 })}
+        </Typography>
+      </TableCell>
+
+      <TableCell align="right">
+        <Typography variant="caption" sx={{ color: '#374151', fontSize: '0.75rem' }}>
+          {formatCurrency(work.clientPrice)}
+        </Typography>
+      </TableCell>
+
+      <TableCell align="right">
+        <Typography variant="caption" sx={{ fontWeight: 600, color: '#1F2937', fontSize: '0.75rem' }}>
+          {formatCurrency(work.planTotal)}
+        </Typography>
+      </TableCell>
+
+      <TableCell align="right" sx={{ borderLeft: `2px solid ${colors.green}` }}>
+        <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 500, color: colors.green }}>
+          {formatCurrency(work.basePrice)}
+        </Typography>
+      </TableCell>
+
+      <TableCell align="right" sx={{ p: 0.5 }}>
+        <QuantityInput
+          value={work.actualQuantity}
+          onChange={(newValue) => onQuantityChange(sectionIndex, workIndex, newValue)}
+        />
+      </TableCell>
+
+      <TableCell align="right">
+        <Typography variant="caption" sx={{
+          fontSize: '0.75rem',
+          fontWeight: 700,
+          color: colors.green,
+          bgcolor: work.actualTotal > 0 ? colors.greenLight : 'transparent',
+          px: 1, py: 0.5, borderRadius: '6px', display: 'inline-block'
+        }}>
+          {formatCurrency(work.actualTotal)}
+        </Typography>
+      </TableCell>
+    </TableRow>
+  );
+});
+
+// Получить склонение слова "работа"
+const getWorksLabel = (count) => {
+  const lastDigit = count % 10;
+  const lastTwoDigits = count % 100;
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 19) return `${count} работ`;
+  if (lastDigit === 1) return `${count} работа`;
+  if (lastDigit >= 2 && lastDigit <= 4) return `${count} работы`;
+  return `${count} работ`;
+};
+
+// Определить, есть ли отклонение факта от плана
+const getVarianceType = (plan, fact) => {
+  if (fact === 0) return 'none';
+  if (plan === 0) return fact > 0 ? 'over' : 'none';
+
+  const ratio = fact / plan;
+  if (ratio > 1.1) return 'over'; // Перерасход более 10%
+  if (ratio < 0.9) return 'under'; // Выполнено менее 90%
+  return 'normal';
+};
+
+const formatCurrency = (value) => {
+  return new Intl.NumberFormat('ru-RU', {
+    style: 'currency',
+    currency: 'RUB',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(value);
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return '-';
+  return new Date(dateString).toLocaleDateString('ru-RU');
+};
+
 const SpecialistEstimate = ({ estimateId, projectId }) => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -70,28 +304,51 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
   const [specialistData, setSpecialistData] = useState([]);
   const [estimateGenerated, setEstimateGenerated] = useState(false);
   const [estimateMetadata, setEstimateMetadata] = useState(null);
-  const [saveTimeout, setSaveTimeout] = useState(null);
   const [expandedSections, setExpandedSections] = useState({});
 
-  // Итоги: План vs Факт
-  const totalPlanAmount = specialistData.reduce((sum, section) =>
-    sum + section.works.reduce((workSum, work) => workSum + work.planTotal, 0), 0
-  );
-  const totalActualAmount = specialistData.reduce((sum, section) =>
-    sum + section.works.reduce((workSum, work) => workSum + work.actualTotal, 0), 0
-  );
-  const difference = totalPlanAmount - totalActualAmount;
+  // ✅ Ручное сохранение: отслеживаем несохранённые изменения
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const changedItemsRef = useRef(new Set());
+
+  // ✅ ОПТИМИЗАЦИЯ: Расширенный useMemo для итогов разделов и общих итогов
+  const processedData = useMemo(() => {
+    let grandPlan = 0;
+    let grandActual = 0;
+
+    const sections = specialistData.map(section => {
+      const sectionPlan = section.works.reduce((sum, w) => sum + w.planTotal, 0);
+      const sectionActual = section.works.reduce((sum, w) => sum + w.actualTotal, 0);
+
+      grandPlan += sectionPlan;
+      grandActual += sectionActual;
+
+      return {
+        ...section,
+        sectionPlanTotal: sectionPlan,
+        sectionActualTotal: sectionActual
+      };
+    });
+
+    return {
+      sections,
+      totalPlanAmount: grandPlan,
+      totalActualAmount: grandActual,
+      difference: grandPlan - grandActual
+    };
+  }, [specialistData]);
+
+  const { sections, totalPlanAmount, totalActualAmount, difference } = processedData;
 
   // Инициализация развёрнутых секций при загрузке
   useEffect(() => {
-    if (specialistData.length > 0) {
+    if (sections.length > 0) {
       const initialExpanded = {};
-      specialistData.forEach((_, index) => {
+      sections.forEach((_, index) => {
         initialExpanded[index] = true;
       });
       setExpandedSections(initialExpanded);
     }
-  }, [specialistData.length]);
+  }, [sections.length]);
 
   // Переключение сворачивания секции
   const toggleSection = (sectionIndex) => {
@@ -101,58 +358,47 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
     }));
   };
 
-  // Получить склонение слова "работа"
-  const getWorksLabel = (count) => {
-    const lastDigit = count % 10;
-    const lastTwoDigits = count % 100;
-    if (lastTwoDigits >= 11 && lastTwoDigits <= 19) return `${count} работ`;
-    if (lastDigit === 1) return `${count} работа`;
-    if (lastDigit >= 2 && lastDigit <= 4) return `${count} работы`;
-    return `${count} работ`;
-  };
-
-  // Определить, есть ли отклонение факта от плана
-  const getVarianceType = (plan, fact) => {
-    if (fact === 0) return 'none';
-    const ratio = fact / plan;
-    if (ratio > 1.1) return 'over'; // Перерасход более 10%
-    if (ratio < 0.9) return 'under'; // Выполнено менее 90%
-    return 'normal';
-  };
-
-  // Функция для сохранения изменений в БД (с debounce)
-  const saveWorkCompletions = async (data) => {
+  // Функция для сохранения изменений в БД (ручное сохранение)
+  const handleManualSave = async () => {
     try {
+      // Если нет изменений — не делаем запрос
+      if (changedItemsRef.current.size === 0) {
+        return;
+      }
+
       setSaving(true);
 
-      // Собираем все записи о выполнении работ
+      // Собираем только ИЗМЕНЁННЫЕ записи
       const completions = [];
+      const changedIds = changedItemsRef.current;
 
-      data.forEach(section => {
+      specialistData.forEach(section => {
         section.works.forEach(work => {
-          // Сохраняем ВСЕ работы (в том числе с completed=false)
-          // чтобы правильно отслеживать как увеличение, так и уменьшение прогресса
-          completions.push({
-            estimateItemId: work.id,
-            completed: work.completed || false,
-            actualQuantity: work.actualQuantity || 0,
-            actualTotal: work.actualTotal || 0,
-            notes: null
-          });
+          if (changedIds.has(work.id)) {
+            completions.push({
+              estimateItemId: work.id,
+              completed: work.completed || false,
+              actualQuantity: work.actualQuantity || 0,
+              actualTotal: work.actualTotal || 0,
+              notes: null
+            });
+          }
         });
       });
 
       if (completions.length > 0) {
+        console.log(`✅ Сохранение ${completions.length} изменённых записей`);
         await estimatesAPI.batchSaveWorkCompletions(estimateId, completions);
-        // Автоматически рассчитываем прогресс проекта после сохранения
+
+        // Очищаем список изменённых после успешного сохранения
+        changedItemsRef.current = new Set();
+        setHasUnsavedChanges(false);
+
+        // Рассчитываем прогресс проекта
         if (projectId) {
-          try {
-            const progressData = await projectsAPI.calculateProgress(projectId);
-          } catch (progressError) {
-            console.error('⚠️ Error calculating progress:', progressError);
-            // Не показываем ошибку пользователю, это второстепенная операция
-          }
-        } else {
+          projectsAPI.calculateProgress(projectId).catch(err => {
+            console.error('⚠️ Error calculating progress:', err);
+          });
         }
       }
     } catch (err) {
@@ -163,45 +409,41 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
     }
   };
 
-  // Debounced save (сохраняем через 1 секунду после последнего изменения)
-  const debouncedSave = (data) => {
-    if (saveTimeout) {
-      clearTimeout(saveTimeout);
-    }
-
-    const timeout = setTimeout(() => {
-      saveWorkCompletions(data);
-    }, 1000);
-
-    setSaveTimeout(timeout);
-  };
-
   // Обработчик изменения чекбокса выполнения работы
-  const handleCompletedChange = (sectionIndex, workIndex, checked) => {
+  const handleCompletedChange = React.useCallback((sectionIndex, workIndex, checked) => {
     setSpecialistData(prevData => {
       const newData = [...prevData];
-      const work = newData[sectionIndex].works[workIndex];
+      const section = { ...newData[sectionIndex] };
+      const works = [...section.works];
+      const work = { ...works[workIndex] };
 
       work.completed = checked;
 
       // Если работа отмечена как выполненная, автоматически заполняем фактическое количество
       if (checked && work.actualQuantity === 0) {
-        work.actualQuantity = work.quantity;
+        work.actualQuantity = work.planQuantity;
         work.actualTotal = work.actualQuantity * work.basePrice;
       }
 
-      // Автосохранение
-      debouncedSave(newData);
+      works[workIndex] = work;
+      section.works = works;
+      newData[sectionIndex] = section;
+
+      // Отмечаем эту работу как изменённую
+      changedItemsRef.current.add(work.id);
+      setHasUnsavedChanges(true);
 
       return newData;
     });
-  };
+  }, []);
 
   // Обработчик изменения фактического количества
-  const handleActualQuantityChange = (sectionIndex, workIndex, value) => {
+  const handleActualQuantityChange = React.useCallback((sectionIndex, workIndex, value) => {
     setSpecialistData(prevData => {
       const newData = [...prevData];
-      const work = newData[sectionIndex].works[workIndex];
+      const section = { ...newData[sectionIndex] };
+      const works = [...section.works];
+      const work = { ...works[workIndex] };
 
       // Парсим значение
       const quantity = value === '' ? 0 : parseFloat(value);
@@ -210,12 +452,56 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
         work.actualQuantity = quantity;
         work.actualTotal = quantity * work.basePrice;
 
-        // Автосохранение
-        debouncedSave(newData);
+        works[workIndex] = work;
+        section.works = works;
+        newData[sectionIndex] = section;
+
+        // Отмечаем эту работу как изменённую
+        changedItemsRef.current.add(work.id);
+        setHasUnsavedChanges(true);
       }
 
       return newData;
     });
+  }, []);
+
+  // ✅ Централизованная функция обработки данных сметы
+  const processEstimateItems = (items, completionsMap) => {
+    const groupedData = {};
+
+    items.forEach((item) => {
+      const sectionKey = item.phase || item.section || 'Без раздела';
+
+      if (!groupedData[sectionKey]) {
+        groupedData[sectionKey] = {
+          section: sectionKey,
+          works: []
+        };
+      }
+
+      // Базовая цена теперь приходит с сервера через JOIN
+      const basePrice = item.work_base_price || item.unit_price;
+      const clientPrice = item.unit_price;
+      const completion = completionsMap.get(item.id);
+
+      groupedData[sectionKey].works.push({
+        id: item.id || `work-${Date.now()}-${Math.random()}`,
+        code: item.code,
+        name: item.name,
+        unit: item.unit,
+        planQuantity: item.quantity,
+        clientPrice: clientPrice,
+        planTotal: item.quantity * clientPrice,
+        basePrice: basePrice,
+        completed: completion?.completed || false,
+        actualQuantity: completion?.actual_quantity || 0,
+        actualTotal: (completion?.actual_quantity || 0) * basePrice,
+        actNumber: completion?.act_number || null,
+        actType: completion?.act_type || null
+      });
+    });
+
+    return Object.values(groupedData);
   };
 
   // Загрузка сметы специалиста при монтировании
@@ -227,23 +513,18 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
         setLoading(true);
         setError(null);
 
-        // Загружаем смету из БД
-        const estimate = await estimatesAPI.getById(estimateId);
+        // Параллельные запросы
+        const [estimate, completionsResponse] = await Promise.all([
+          estimatesAPI.getById(estimateId),
+          estimatesAPI.getWorkCompletions(estimateId).catch(() => ({ success: false, data: [] }))
+        ]);
 
-        // Загружаем сохраненные данные о выполнении работ
-        let completionsMap = new Map();
-        try {
-          const completionsResponse = await estimatesAPI.getWorkCompletions(estimateId);
-          if (completionsResponse.success && completionsResponse.data) {
-            completionsResponse.data.forEach(completion => {
-              completionsMap.set(completion.estimate_item_id, completion);
-            });
-          }
-        } catch (err) {
+        const completionsMap = new Map();
+        if (completionsResponse.success && completionsResponse.data) {
+          completionsResponse.data.forEach(c => completionsMap.set(c.estimate_item_id, c));
         }
 
         if (estimate && estimate.items && estimate.items.length > 0) {
-          // Сохраняем метаданные
           setEstimateMetadata({
             name: estimate.name,
             estimateNumber: estimate.estimate_number,
@@ -251,79 +532,7 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
             status: estimate.status
           });
 
-          // Получаем workIds всех работ в смете
-          const workIds = estimate.items
-            .filter(item => item.work_id)
-            .map(item => item.work_id);
-          // Загружаем базовые цены работ из справочника
-          const basePricesMap = new Map();
-
-          if (workIds.length > 0) {
-            try {
-              // Загружаем работы пакетом
-              const worksResponse = await worksAPI.getAll({ pageSize: 10000 });
-              const works = worksResponse.data || worksResponse;
-
-              // Создаем Map для быстрого поиска
-              works.forEach(work => {
-                basePricesMap.set(work.id.toString(), work.base_price || 0);
-              });
-            } catch (err) {
-            }
-          }
-
-          // Группируем по фазам/разделам (используем phase или section)
-          const groupedData = {};
-
-          estimate.items.forEach((item) => {
-            const sectionKey = item.phase || item.section || 'Без раздела';
-
-            if (!groupedData[sectionKey]) {
-              groupedData[sectionKey] = {
-                section: sectionKey,
-                works: []
-              };
-            }
-
-            // Получаем БАЗОВУЮ цену из справочника работ
-            const basePrice = item.work_id
-              ? (basePricesMap.get(item.work_id.toString()) || item.unit_price)
-              : item.unit_price;
-
-            // Цена клиента - из сметы (с учетом коэффициента)
-            const clientPrice = item.unit_price;
-            // Получаем сохраненные данные о выполнении для этой работы
-            const completion = completionsMap.get(item.id);
-
-            // Добавляем работу с полными данными (план + факт)
-            groupedData[sectionKey].works.push({
-              id: item.id || `work-${Date.now()}-${Math.random()}`,
-              code: item.code,
-              name: item.name,
-              unit: item.unit,
-              // План (для клиента)
-              planQuantity: item.quantity, // Плановое количество
-              clientPrice: clientPrice, // Цена клиента (с коэффициентом)
-              planTotal: item.quantity * clientPrice, // Сумма по цене клиента
-              // Базовые данные (для специалиста)
-              basePrice: basePrice, // Базовая цена ИЗ СПРАВОЧНИКА
-              // Факт (выполненные работы)
-              completed: completion?.completed || false,
-              actualQuantity: completion?.actual_quantity || 0,
-              actualTotal: (completion?.actual_quantity || 0) * basePrice, // Факт × базовая цена
-              // ⭐ Информация об акте
-              actNumber: completion?.act_number || null,
-              actType: completion?.act_type || null
-            });
-          });
-
-          // Преобразуем в массив и добавляем итоги
-          const sections = Object.values(groupedData).map(section => ({
-            ...section,
-            sectionPlanTotal: section.works.reduce((sum, work) => sum + work.planTotal, 0),
-            sectionActualTotal: section.works.reduce((sum, work) => sum + work.actualTotal, 0)
-          }));
-
+          const sections = processEstimateItems(estimate.items, completionsMap);
           setSpecialistData(sections);
           setEstimateGenerated(true);
         }
@@ -336,13 +545,6 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
     };
 
     loadSpecialistEstimate();
-
-    // Очистка таймаута при размонтировании
-    return () => {
-      if (saveTimeout) {
-        clearTimeout(saveTimeout);
-      }
-    };
   }, [estimateId]);
 
   const handleGenerateEstimate = async () => {
@@ -355,23 +557,17 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
       setLoading(true);
       setError(null);
 
-      // Загружаем смету из БД
-      const estimate = await estimatesAPI.getById(estimateId);
+      const [estimate, completionsResponse] = await Promise.all([
+        estimatesAPI.getById(estimateId),
+        estimatesAPI.getWorkCompletions(estimateId).catch(() => ({ success: false, data: [] }))
+      ]);
 
-      // Загружаем сохраненные данные о выполнении работ
-      let completionsMap = new Map();
-      try {
-        const completionsResponse = await estimatesAPI.getWorkCompletions(estimateId);
-        if (completionsResponse.success && completionsResponse.data) {
-          completionsResponse.data.forEach(completion => {
-            completionsMap.set(completion.estimate_item_id, completion);
-          });
-        }
-      } catch (err) {
+      const completionsMap = new Map();
+      if (completionsResponse.success && completionsResponse.data) {
+        completionsResponse.data.forEach(c => completionsMap.set(c.estimate_item_id, c));
       }
 
       if (estimate && estimate.items && estimate.items.length > 0) {
-        // Сохраняем метаданные
         setEstimateMetadata({
           name: estimate.name,
           estimateNumber: estimate.estimate_number,
@@ -379,79 +575,8 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
           status: estimate.status
         });
 
-        // Получаем workIds всех работ в смете
-        const workIds = estimate.items
-          .filter(item => item.work_id)
-          .map(item => item.work_id);
-        // Загружаем базовые цены работ из справочника
-        const basePricesMap = new Map();
-
-        if (workIds.length > 0) {
-          try {
-            // Загружаем работы пакетом
-            const worksResponse = await worksAPI.getAll({ pageSize: 10000 });
-            const works = worksResponse.data || worksResponse;
-
-            // Создаем Map для быстрого поиска
-            works.forEach(work => {
-              basePricesMap.set(work.id.toString(), work.base_price || 0);
-            });
-          } catch (err) {
-          }
-        }
-
-        // Группируем по фазам/разделам
-        const groupedData = {};
-
-        estimate.items.forEach((item) => {
-          const sectionKey = item.phase || item.section || 'Без раздела';
-
-          if (!groupedData[sectionKey]) {
-            groupedData[sectionKey] = {
-              section: sectionKey,
-              works: []
-            };
-          }
-
-          // Получаем БАЗОВУЮ цену из справочника работ
-          const basePrice = item.work_id
-            ? (basePricesMap.get(item.work_id.toString()) || item.unit_price)
-            : item.unit_price;
-
-          // Цена клиента - из сметы (с учетом коэффициента)
-          const clientPrice = item.unit_price;
-
-          // Получаем сохраненные данные о выполнении для этой работы
-          const completion = completionsMap.get(item.id);
-
-          groupedData[sectionKey].works.push({
-            id: item.id || `work-${Date.now()}-${Math.random()}`,
-            code: item.code,
-            name: item.name,
-            unit: item.unit,
-            // План (для клиента)
-            planQuantity: item.quantity,
-            clientPrice: clientPrice,
-            planTotal: item.quantity * clientPrice,
-            // Базовые данные (для специалиста)
-            basePrice: basePrice,
-            // Факт (выполненные работы)
-            completed: completion?.completed || false,
-            actualQuantity: completion?.actual_quantity || 0,
-            actualTotal: (completion?.actual_quantity || 0) * basePrice,
-            // ⭐ Информация об акте
-            actNumber: completion?.act_number || null,
-            actType: completion?.act_type || null
-          });
-        });
-
-        const sections = Object.values(groupedData).map(section => ({
-          ...section,
-          sectionPlanTotal: section.works.reduce((sum, work) => sum + work.planTotal, 0),
-          sectionActualTotal: section.works.reduce((sum, work) => sum + work.actualTotal, 0)
-        }));
-
-        setSpecialistData(sections);
+        const sectionsData = processEstimateItems(estimate.items, completionsMap);
+        setSpecialistData(sectionsData);
         setEstimateGenerated(true);
       }
     } catch (err) {
@@ -464,20 +589,6 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
 
   const handleRefreshEstimate = async () => {
     handleGenerateEstimate();
-  };
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('ru-RU', {
-      style: 'currency',
-      currency: 'RUB',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('ru-RU');
   };
 
   return (
@@ -527,30 +638,16 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
         </Stack>
 
         <Stack direction="row" spacing={2} alignItems="center">
-          {/* Индикатор автосохранения */}
-          {saving && (
-            <Chip
-              icon={<CircularProgress size={14} sx={{ color: colors.primary }} />}
-              label="Сохранение..."
-              size="small"
-              sx={{
-                bgcolor: colors.primaryLight,
-                color: colors.primary,
-                fontWeight: 500,
-                '& .MuiChip-icon': { color: colors.primary }
-              }}
-            />
-          )}
-
+          {/* Кнопка ручного сохранения */}
           {estimateGenerated && (
             <Button
               variant="contained"
               size="small"
-              startIcon={<IconRefresh size={16} />}
-              onClick={handleRefreshEstimate}
-              disabled={loading}
+              startIcon={saving ? <CircularProgress size={14} sx={{ color: '#fff' }} /> : <IconDeviceFloppy size={16} />}
+              onClick={handleManualSave}
+              disabled={saving || !hasUnsavedChanges}
               sx={{
-                bgcolor: colors.primary,
+                bgcolor: hasUnsavedChanges ? colors.green : '#9CA3AF',
                 color: '#fff',
                 fontWeight: 600,
                 px: 2,
@@ -559,14 +656,43 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
                 fontSize: '0.8125rem',
                 borderRadius: '8px',
                 textTransform: 'none',
-                boxShadow: 'none',
+                boxShadow: hasUnsavedChanges ? '0 2px 8px rgba(16, 185, 129, 0.3)' : 'none',
                 '&:hover': {
-                  bgcolor: colors.primaryDark,
+                  bgcolor: hasUnsavedChanges ? colors.greenDark : '#9CA3AF',
                 },
-                '&:disabled': { bgcolor: '#C7D2FE' }
+                '&:disabled': { bgcolor: '#D1D5DB', color: '#9CA3AF' }
               }}
             >
-              Обновить выполнение
+              {saving ? 'Сохранение...' : (hasUnsavedChanges ? 'Сохранить' : 'Сохранено')}
+            </Button>
+          )}
+
+          {estimateGenerated && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<IconRefresh size={16} />}
+              onClick={handleRefreshEstimate}
+              disabled={loading}
+              sx={{
+                borderColor: colors.border,
+                color: colors.textSecondary,
+                fontWeight: 600,
+                px: 2,
+                py: 0.5,
+                height: 32,
+                fontSize: '0.8125rem',
+                borderRadius: '8px',
+                textTransform: 'none',
+                '&:hover': {
+                  borderColor: colors.primary,
+                  color: colors.primary,
+                  bgcolor: colors.primaryLight
+                },
+                '&:disabled': { borderColor: '#E5E7EB', color: '#D1D5DB' }
+              }}
+            >
+              Обновить
             </Button>
           )}
 
@@ -758,7 +884,7 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
             {/* ─────────────────────────────────────────────────────────────────
               РАЗДЕЛЫ ВЫПОЛНЕНИЯ
           ───────────────────────────────────────────────────────────────── */}
-            {specialistData.map((sectionData, sectionIndex) => (
+            {sections.map((sectionData, sectionIndex) => (
               <Paper
                 key={sectionIndex}
                 sx={{
@@ -776,7 +902,7 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
                   onClick={() => toggleSection(sectionIndex)}
                   sx={{
                     px: 1.5,
-                    py: 1,
+                    py: 0.6,
                     bgcolor: '#fff',
                     borderBottom: expandedSections[sectionIndex] ? `1px solid ${colors.border}` : 'none',
                     cursor: 'pointer',
@@ -794,8 +920,8 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
                         )}
                       </IconButton>
                       <Typography
-                        variant="subtitle1"
-                        sx={{ fontWeight: 700, color: '#1F2937', fontSize: '1rem' }}
+                        variant="subtitle2"
+                        sx={{ fontWeight: 700, color: '#1F2937', fontSize: '0.875rem' }}
                       >
                         Раздел: {sectionData.section}
                       </Typography>
@@ -807,9 +933,9 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
                         bgcolor: colors.primaryLight,
                         color: colors.primary,
                         fontWeight: 600,
-                        fontSize: '0.75rem',
-                        height: 26,
-                        '& .MuiChip-label': { px: 1.5 }
+                        fontSize: '0.7rem',
+                        height: 22,
+                        '& .MuiChip-label': { px: 1 }
                       }}
                     />
                   </Stack>
@@ -1049,179 +1175,19 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {sectionData.works.map((work, workIndex) => {
-                              const varianceType = getVarianceType(work.planTotal, work.actualTotal);
-                              const isHighlighted = varianceType === 'over' || varianceType === 'under';
-
-                              return (
-                                <TableRow
-                                  key={work.id || workIndex}
-                                  sx={{
-                                    bgcolor: work.completed
-                                      ? colors.greenLight
-                                      : (workIndex % 2 === 0 ? '#fff' : '#FAFAFA'),
-                                    '&:hover': {
-                                      bgcolor: work.completed ? '#A7F3D0' : colors.cardBg
-                                    },
-                                    transition: 'background-color 0.15s',
-                                    '& td': {
-                                      py: 0.75,
-                                      borderBottom: `1px solid ${colors.border}`
-                                    },
-                                    ...(isHighlighted && work.actualTotal > 0 && {
-                                      borderLeft: `3px solid ${varianceType === 'over' ? colors.error : colors.warning}`
-                                    })
-                                  }}
-                                >
-                                  {/* Чекбокс выполнения */}
-                                  <TableCell align="center">
-                                    <Checkbox
-                                      checked={work.completed}
-                                      onChange={(e) => handleCompletedChange(sectionIndex, workIndex, e.target.checked)}
-                                      sx={{
-                                        color: colors.green,
-                                        '&.Mui-checked': { color: colors.green },
-                                        p: 0.5
-                                      }}
-                                      size="small"
-                                    />
-                                  </TableCell>
-
-                                  {/* В акте */}
-                                  <TableCell align="center">
-                                    {work.actNumber ? (
-                                      <Chip
-                                        label={work.actNumber}
-                                        size="small"
-                                        sx={{
-                                          bgcolor: colors.primaryLight,
-                                          color: colors.primary,
-                                          fontWeight: 600,
-                                          fontSize: '0.7rem',
-                                          height: 22
-                                        }}
-                                      />
-                                    ) : (
-                                      <Typography variant="caption" sx={{ color: '#D1D5DB' }}>
-                                        —
-                                      </Typography>
-                                    )}
-                                  </TableCell>
-
-                                  {/* Код */}
-                                  <TableCell>
-                                    <Typography
-                                      variant="caption"
-                                      sx={{
-                                        fontWeight: 500,
-                                        color: colors.primary,
-                                        fontFamily: 'monospace',
-                                        fontSize: '0.75rem'
-                                      }}
-                                    >
-                                      {work.code}
-                                    </Typography>
-                                  </TableCell>
-
-                                  {/* Наименование */}
-                                  <TableCell>
-                                    <Typography variant="caption" sx={{ color: '#374151', fontSize: '0.75rem' }}>
-                                      {work.name}
-                                    </Typography>
-                                  </TableCell>
-
-                                  {/* Ед. изм. */}
-                                  <TableCell align="center">
-                                    <Typography variant="caption" sx={{ color: colors.textSecondary, fontSize: '0.75rem' }}>
-                                      {work.unit}
-                                    </Typography>
-                                  </TableCell>
-
-                                  {/* ═══ ПЛАН (ЗАКАЗЧИК) ═══ */}
-                                  <TableCell
-                                    align="right"
-                                    sx={{ borderLeft: `2px solid ${colors.border}` }}
-                                  >
-                                    <Typography variant="caption" sx={{ fontWeight: 500, color: '#374151', fontSize: '0.75rem' }}>
-                                      {work.planQuantity.toLocaleString('ru-RU', {
-                                        minimumFractionDigits: 0,
-                                        maximumFractionDigits: 3
-                                      })}
-                                    </Typography>
-                                  </TableCell>
-                                  <TableCell align="right">
-                                    <Typography variant="caption" sx={{ color: '#374151', fontSize: '0.75rem' }}>
-                                      {formatCurrency(work.clientPrice)}
-                                    </Typography>
-                                  </TableCell>
-                                  <TableCell align="right">
-                                    <Typography variant="caption" sx={{ fontWeight: 600, color: '#1F2937', fontSize: '0.75rem' }}>
-                                      {formatCurrency(work.planTotal)}
-                                    </Typography>
-                                  </TableCell>
-
-                                  {/* ═══ ФАКТ (СПЕЦИАЛИСТ) ═══ */}
-                                  <TableCell
-                                    align="right"
-                                    sx={{ borderLeft: `2px solid ${colors.green}` }}
-                                  >
-                                    <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 500, color: colors.green }}
-                                    >
-                                      {formatCurrency(work.basePrice)}
-                                    </Typography>
-                                  </TableCell>
-                                  <TableCell align="right" sx={{ p: 0.5 }}>
-                                    <TextField
-                                      type="number"
-                                      value={work.actualQuantity || ''}
-                                      onChange={(e) => handleActualQuantityChange(sectionIndex, workIndex, e.target.value)}
-                                      size="small"
-                                      inputProps={{
-                                        min: 0,
-                                        step: 0.01,
-                                        style: {
-                                          textAlign: 'right',
-                                          fontSize: '0.875rem',
-                                          padding: '6px 8px',
-                                          color: colors.green
-                                        }
-                                      }}
-                                      sx={{
-                                        width: '90px',
-                                        '& .MuiOutlinedInput-root': {
-                                          bgcolor: '#fff',
-                                          borderRadius: '8px',
-                                          '& fieldset': {
-                                            borderColor: colors.border
-                                          },
-                                          '&:hover fieldset': {
-                                            borderColor: colors.green
-                                          },
-                                          '&.Mui-focused fieldset': {
-                                            borderColor: colors.green
-                                          }
-                                        }
-                                      }}
-                                    />
-                                  </TableCell>
-                                  <TableCell align="right">
-                                    <Typography variant="caption" sx={{
-                                      fontSize: '0.75rem',
-                                      fontWeight: 700,
-                                      color: colors.green,
-                                      bgcolor: work.actualTotal > 0 ? colors.greenLight : 'transparent',
-                                      px: 1,
-                                      py: 0.5,
-                                      borderRadius: '6px',
-                                      display: 'inline-block'
-                                    }}
-                                    >
-                                      {formatCurrency(work.actualTotal)}
-                                    </Typography>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
+                            {sectionData.works.map((work, workIndex) => (
+                              <WorkRow
+                                key={work.id || workIndex}
+                                work={work}
+                                sectionIndex={sectionIndex}
+                                workIndex={workIndex}
+                                onCompletedChange={handleCompletedChange}
+                                onQuantityChange={handleActualQuantityChange}
+                                formatCurrency={formatCurrency}
+                                getVarianceType={getVarianceType}
+                                colors={colors}
+                              />
+                            ))}
                           </TableBody>
                         </Table>
                       </Box>
@@ -1230,43 +1196,35 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
                       <Box
                         sx={{
                           px: 1.5,
-                          py: 1,
+                          py: 0.75,
                           bgcolor: colors.totalBg,
                           borderTop: `1px solid ${colors.border}`
                         }}
                       >
                         <Stack
-                          direction={{ xs: 'column', sm: 'row' }}
+                          direction="row"
                           justifyContent="space-between"
-                          alignItems={{ xs: 'flex-start', sm: 'center' }}
+                          alignItems="center"
                           spacing={2}
                         >
-                          <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', fontSize: '0.75rem' }}>
-                            Итого по разделу «{sectionData.section}»
+                          <Typography variant="caption" sx={{ fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.02em', fontSize: '0.65rem' }}>
+                            Итого по разделу
                           </Typography>
-                          <Stack direction="row" spacing={4} alignItems="center">
-                            <Box sx={{ textAlign: 'right' }}>
-                              <Typography variant="caption" sx={{ color: colors.textSecondary }}>
-                                План
-                              </Typography>
-                              <Typography
-                                variant="subtitle1"
-                                sx={{ fontWeight: 700, color: '#1F2937' }}
-                              >
+
+                          <Stack direction="row" spacing={3} alignItems="center">
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              <Typography variant="caption" sx={{ color: colors.textSecondary }}>План:</Typography>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1F2937', fontSize: '0.85rem' }}>
                                 {formatCurrency(sectionData.sectionPlanTotal)}
                               </Typography>
-                            </Box>
-                            <Box sx={{ textAlign: 'right' }}>
-                              <Typography variant="caption" sx={{ color: colors.textSecondary }}>
-                                Факт
-                              </Typography>
-                              <Typography
-                                variant="subtitle1"
-                                sx={{ fontWeight: 700, color: colors.green }}
-                              >
+                            </Stack>
+
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              <Typography variant="caption" sx={{ color: colors.textSecondary }}>Факт:</Typography>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: colors.green, fontSize: '0.85rem' }}>
                                 {formatCurrency(sectionData.sectionActualTotal)}
                               </Typography>
-                            </Box>
+                            </Stack>
                           </Stack>
                         </Stack>
                       </Box>

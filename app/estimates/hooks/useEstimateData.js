@@ -149,7 +149,7 @@ const useEstimateData = ({ projectId, estimateId, onUnsavedChanges }) => {
 
                 section.items.push({
                     id: item.id || `item-${Date.now()}-${Math.random()}`,
-                    workId: item.work_id || item.id,
+                    workId: item.work_id || null,
                     code: item.code,
                     name: item.name,
                     description: item.description,
