@@ -351,7 +351,7 @@ const Schedule = ({ estimateId, projectId }) => {
                 lineHeight: 1
               }}
             >
-              Работы сгруппированы по фазам выполнения
+              Работы сгруппированы по этапам выполнения
             </Typography>
           </Box>
         </Stack>
@@ -636,7 +636,7 @@ const Schedule = ({ estimateId, projectId }) => {
                           fontSize: '1rem'
                         }}
                       >
-                        Фаза {phaseIndex + 1}: {phaseData.phase}
+                        Этап №{phaseIndex + 1}
                       </Typography>
                     </Stack>
                     <Chip
@@ -664,7 +664,7 @@ const Schedule = ({ estimateId, projectId }) => {
                         variant="body2"
                         sx={{ color: colors.textSecondary, mt: 1 }}
                       >
-                        Нет работ в этой фазе
+                        Нет работ в этом этапе
                       </Typography>
                     </Box>
                   ) : (
@@ -847,7 +847,7 @@ const Schedule = ({ estimateId, projectId }) => {
                             variant="body2"
                             sx={{ fontWeight: 600, color: '#374151' }}
                           >
-                            Итого по фазе «{phaseData.phase}»
+                            Итого по этапу №{phaseIndex + 1}
                           </Typography>
                           <Typography
                             variant="subtitle1"
@@ -897,7 +897,7 @@ const Schedule = ({ estimateId, projectId }) => {
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <IconListDetails size={18} color={colors.primary} />
                     <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: colors.textSecondary }}>
-                      Итого по графику
+                      Итого по смете
                     </Typography>
                   </Stack>
 
@@ -906,7 +906,7 @@ const Schedule = ({ estimateId, projectId }) => {
                       Структура:
                     </Typography>
                     <Typography variant="subtitle2" component="span" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>
-                      {scheduleData.length} {scheduleData.length === 1 ? 'фаза' : scheduleData.length < 5 ? 'фазы' : 'фаз'} • {getWorksLabel(totalWorks)}
+                      {scheduleData.length} {scheduleData.length === 1 ? 'этап' : scheduleData.length < 5 ? 'этапа' : 'этапов'} • {getWorksLabel(totalWorks)}
                     </Typography>
                   </Box>
                 </Stack>

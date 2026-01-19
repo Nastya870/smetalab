@@ -923,7 +923,7 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
                         variant="subtitle2"
                         sx={{ fontWeight: 700, color: '#1F2937', fontSize: '0.875rem' }}
                       >
-                        Раздел: {sectionData.section}
+                        Этап №{sectionIndex + 1}
                       </Typography>
                     </Stack>
                     <Chip
@@ -947,7 +947,7 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
                     <Box sx={{ p: 4, textAlign: 'center', bgcolor: '#fff' }}>
                       <IconFileInvoice size={32} color={colors.textSecondary} style={{ opacity: 0.4 }} />
                       <Typography variant="body2" sx={{ color: colors.textSecondary, mt: 1 }}>
-                        Нет работ в этом разделе
+                        Нет работ в этом этапе
                       </Typography>
                     </Box>
                   ) : (
@@ -1208,7 +1208,7 @@ const SpecialistEstimate = ({ estimateId, projectId }) => {
                           spacing={2}
                         >
                           <Typography variant="caption" sx={{ fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.02em', fontSize: '0.65rem' }}>
-                            Итого по разделу
+                            Итого по этапу №{sectionIndex + 1}
                           </Typography>
 
                           <Stack direction="row" spacing={3} alignItems="center">
